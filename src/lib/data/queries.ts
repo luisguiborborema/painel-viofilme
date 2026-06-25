@@ -3,12 +3,17 @@ import {
   CAMPAIGNS,
   CLIENTS,
   CONTENT,
+  ENGAGEMENT_SERIES,
+  MEETINGS,
+  REFERENCE_DATE,
 } from "./mock";
 import type {
   AccountMetricPoint,
   Campaign,
   Client,
   ContentPost,
+  EngagementPoint,
+  Meeting,
   Platform,
   PostStatus,
 } from "./types";
@@ -169,5 +174,94 @@ export async function getAgencyOverview(): Promise<AgencyOverview> {
     totalConversions: CAMPAIGNS.reduce((s, c) => s + c.conversions, 0),
     postsScheduled: content.filter((c) => c.status === "scheduled").length,
     perClient: perClient.sort((a, b) => b.spend - a.spend),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Home do cliente (M1)
+// ---------------------------------------------------------------------------
+
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Dados curados por cliente para uma demo polida (espelham o mockup). */
+const HOME_TUNING = [
+  { total: 3000, pct: 0.72, cpl: 8.4, cplDelta: 1.2, leads: 257, conversions: 31, eng: 4.2, engDelta: 0.6, reach: 18400, reachDelta: 12 },
+  { total: 2500, pct: 0.58, cpl: 11.2, cplDelta: -0.4, leads: 130, conversions: 22, eng: 3.1, engDelta: -0.2, reach: 12100, reachDelta: 7 },
+  { total: 2000, pct: 0.41, cpl: 6.7, cplDelta: 0.8, leads: 122, conversions: 40, eng: 2.8, engDelta: 0.4, reach: 9800, reachDelta: 9 },
+  { total: 3500, pct: 0.85, cpl: 9.1, cplDelta: 2.1, leads: 327, conversions: 28, eng: 3.9, engDelta: 0.3, reach: 24600, reachDelta: -3 },
+];
+
+export type Metric = { value: number; delta: number };
+
+export type ClientHome = {
+  clientName: string;
+  periodLabel: string;
+  pendingApprovals: number;
+  oldestApprovalDays: number;
+  organicEngagement: Metric; // delta em pontos percentuais
+  reach: Metric; // delta em %
+  cpl: Metric; // delta em R$ (positivo = piora)
+  media: {
+    invested: number;
+    total: number;
+    pct: number;
+    leads: number;
+    conversions: number;
+    daysRemaining: number;
+    balance: number;
+  };
+  engagementSeries: EngagementPoint[];
+  upcomingPosts: ContentPost[];
+  meetings: Meeting[];
+};
+
+export async function getClientHome(clientId: string): Promise<ClientHome> {
+  const idx = Math.max(
+    0,
+    CLIENTS.findIndex((c) => c.id === clientId),
+  );
+  const tuning = HOME_TUNING[idx % HOME_TUNING.length];
+  const client = CLIENTS[idx];
+
+  const content = await getContent(clientId);
+  const scheduled = content
+    .filter((c) => c.status === "scheduled")
+    .sort((a, b) =>
+      (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? ""),
+    );
+  const pending = scheduled.filter((c) => c.approval === "pending");
+
+  const invested = Math.round(tuning.total * tuning.pct);
+  const ref = REFERENCE_DATE;
+  const daysInMonth = new Date(
+    Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const daysRemaining = daysInMonth - ref.getUTCDate();
+
+  return {
+    clientName: client?.name ?? "Cliente",
+    periodLabel: `${MESES[ref.getUTCMonth()]} ${ref.getUTCFullYear()}`,
+    pendingApprovals: pending.length,
+    oldestApprovalDays: pending.length > 0 ? 2 : 0,
+    organicEngagement: { value: tuning.eng, delta: tuning.engDelta },
+    reach: { value: tuning.reach, delta: tuning.reachDelta },
+    cpl: { value: tuning.cpl, delta: tuning.cplDelta },
+    media: {
+      invested,
+      total: tuning.total,
+      pct: Math.round(tuning.pct * 100),
+      leads: tuning.leads,
+      conversions: tuning.conversions,
+      daysRemaining,
+      balance: tuning.total - invested,
+    },
+    engagementSeries: ENGAGEMENT_SERIES[clientId] ?? [],
+    upcomingPosts: scheduled,
+    meetings: MEETINGS.filter((m) => m.clientId === clientId).sort((a, b) =>
+      a.startsAt.localeCompare(b.startsAt),
+    ),
   };
 }

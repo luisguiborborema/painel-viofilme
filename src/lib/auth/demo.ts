@@ -27,7 +27,7 @@ export const DEMO_USERS: Record<
       name: "Marina Souza",
       role: "cliente",
       clientId: "cli-001",
-      clientName: "Café Aurora",
+      clientName: "Restaurante Sabor do Mar",
     },
   },
 };

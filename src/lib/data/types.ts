@@ -32,6 +32,8 @@ export type Campaign = {
   endDate: string | null;
 };
 
+export type ApprovalStatus = "pending" | "approved";
+
 export type ContentPost = {
   id: string;
   clientId: string;
@@ -43,6 +45,8 @@ export type ContentPost = {
   permalink: string | null;
   publishedAt: string | null;
   scheduledAt: string | null;
+  /** Aprovação do cliente (apenas para posts agendados). */
+  approval: ApprovalStatus | null;
   likes: number;
   comments: number;
   shares: number;
@@ -51,10 +55,24 @@ export type ContentPost = {
   impressions: number;
 };
 
+export type Meeting = {
+  id: string;
+  clientId: string;
+  title: string;
+  /** ISO datetime do início. */
+  startsAt: string;
+  joinUrl: string;
+};
+
 export type AccountMetricPoint = {
   date: string;
   followers: number;
   reach: number;
   impressions: number;
   profileViews: number;
+};
+
+export type EngagementPoint = {
+  date: string;
+  value: number;
 };

@@ -54,6 +54,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ===========================================================================
+   Tema escuro — usado na área do cliente.
+   Sobrescreve os tokens semânticos; qualquer componente que use
+   bg-surface / text-ink / text-muted / border-line / bg-canvas adapta sozinho.
+   =========================================================================== */
+.theme-dark {
+  --color-canvas: #0b0e13;
+  --color-surface: #14181f;
+  --color-line: #232a33;
+  --color-ink: #f2f4f7;
+  --color-muted: #8b929c;
+  /* chips de ícone continuam legíveis no escuro */
+  --color-brand-50: #19202c;
+  --color-brand-600: #9ec0ff;
+  color-scheme: dark;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
 /* Scrollbar discreta */
 ::-webkit-scrollbar {
   width: 10px;

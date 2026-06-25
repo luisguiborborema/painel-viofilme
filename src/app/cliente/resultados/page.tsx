@@ -55,7 +55,12 @@ async function PlatformResults({
             <p className="text-xs text-muted">Impressões</p>
           </div>
         </div>
-        <TrendAreaChart data={series} dataKey="followers" color={color} />
+        <TrendAreaChart
+          data={series}
+          dataKey="followers"
+          color={color}
+          theme="dark"
+        />
       </CardContent>
     </Card>
   );

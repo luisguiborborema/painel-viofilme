@@ -3,7 +3,9 @@ import type {
   Campaign,
   Client,
   ContentPost,
+  EngagementPoint,
   MediaType,
+  Meeting,
   Platform,
 } from "./types";
 
@@ -12,6 +14,9 @@ import type {
  * Tudo ancorado a uma data fixa para evitar divergência de hidratação.
  */
 const TODAY = new Date("2026-06-22T12:00:00.000Z");
+
+/** Data de referência usada por todo o mock (evita uso de "now"). */
+export const REFERENCE_DATE = TODAY;
 
 /** PRNG determinístico (mulberry32). */
 function rng(seed: number) {
@@ -34,14 +39,21 @@ function isoDaysAhead(days: number): string {
   return isoDaysAgo(-days);
 }
 
+function isoAt(daysAhead: number, hour: number, minute: number): string {
+  const d = new Date(TODAY);
+  d.setUTCDate(d.getUTCDate() + daysAhead);
+  d.setUTCHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
 export const CLIENTS: Client[] = [
   {
     id: "cli-001",
-    name: "Café Aurora",
-    slug: "cafe-aurora",
+    name: "Restaurante Sabor do Mar",
+    slug: "sabor-do-mar",
     segment: "Gastronomia",
-    instagramUsername: "cafeaurora",
-    facebookPageName: "Café Aurora",
+    instagramUsername: "sabordomar",
+    facebookPageName: "Restaurante Sabor do Mar",
     status: "ativo",
     metaConnected: true,
   },
@@ -82,8 +94,8 @@ const CAMPAIGN_TEMPLATES: Record<
   { name: string; objective: string }[]
 > = {
   "cli-001": [
-    { name: "Brunch de Inverno", objective: "Tráfego" },
-    { name: "Combo Café + Doce", objective: "Conversões" },
+    { name: "Rodízio de Frutos do Mar", objective: "Tráfego" },
+    { name: "Combo Casal — Jantar", objective: "Conversões" },
     { name: "Reconhecimento Local", objective: "Alcance" },
   ],
   "cli-002": [
@@ -154,19 +166,28 @@ function makeCampaigns(client: Client, seed: number): Campaign[] {
 function makeContent(client: Client, seed: number): ContentPost[] {
   const rand = rng(seed + 99);
   const posts: ContentPost[] = [];
-  // 3 agendados (futuro) + 9 publicados (passado)
-  for (let i = 0; i < 3; i++) {
+  // 4 agendados (futuro) — os 3 primeiros aguardando aprovação
+  const SCHEDULED_CAPTIONS = [
+    "Fim de semana especial: menu degustação de frutos do mar 🦐",
+    "Reels: bastidores da nossa cozinha com o chef 👨‍🍳",
+    "Novidade no cardápio: peixe do dia com risoto de limão siciliano 🐟",
+    "Stories: enquete — você prefere mesa interna ou na varanda?",
+  ];
+  const SCHED_DAYS = [0, 1, 4, 2];
+  const SCHED_HOURS = [19, 12, 18, 11];
+  for (let i = 0; i < 4; i++) {
     posts.push({
       id: `post-${client.id}-s${i + 1}`,
       clientId: client.id,
-      platform: (rand() > 0.5 ? "instagram" : "facebook") as Platform,
+      platform: (i % 3 === 2 ? "facebook" : "instagram") as Platform,
       mediaType: MEDIA_TYPES[Math.floor(rand() * MEDIA_TYPES.length)],
       status: "scheduled",
-      caption: CAPTIONS[(i + 3) % CAPTIONS.length],
+      caption: SCHEDULED_CAPTIONS[i % SCHEDULED_CAPTIONS.length],
       thumbnailUrl: null,
       permalink: null,
       publishedAt: null,
-      scheduledAt: isoDaysAhead(i * 2 + 1),
+      scheduledAt: isoAt(SCHED_DAYS[i], SCHED_HOURS[i], 0),
+      approval: i < 3 ? "pending" : "approved",
       likes: 0,
       comments: 0,
       shares: 0,
@@ -190,6 +211,7 @@ function makeContent(client: Client, seed: number): ContentPost[] {
       permalink: "#",
       publishedAt: isoDaysAgo(i * 2 + 1),
       scheduledAt: null,
+      approval: null,
       likes,
       comments: Math.round(likes * (0.05 + rand() * 0.2)),
       shares: Math.round(likes * (0.02 + rand() * 0.1)),
@@ -239,3 +261,42 @@ export const ACCOUNT_SERIES: Record<string, AccountMetricPoint[]> =
       [`${c.id}:facebook`, makeAccountSeries(c, "facebook", (i + 1) * 3000)],
     ]),
   );
+
+// Série de engajamento orgânico (% por dia, ~30 dias)
+function makeEngagementSeries(seed: number): EngagementPoint[] {
+  const rand = rng(seed + 555);
+  const points: EngagementPoint[] = [];
+  let base = 2.2 + rand() * 1.2;
+  for (let d = 29; d >= 0; d--) {
+    base += (rand() - 0.42) * 0.28;
+    base = Math.max(1.5, Math.min(5.4, base));
+    points.push({
+      date: isoDaysAgo(d).slice(0, 10),
+      value: Math.round(base * 10) / 10,
+    });
+  }
+  return points;
+}
+
+export const ENGAGEMENT_SERIES: Record<string, EngagementPoint[]> =
+  Object.fromEntries(
+    CLIENTS.map((c, i) => [c.id, makeEngagementSeries((i + 1) * 4000)]),
+  );
+
+// Próximas reuniões por cliente
+export const MEETINGS: Meeting[] = CLIENTS.flatMap((c) => [
+  {
+    id: `mtg-${c.id}-1`,
+    clientId: c.id,
+    title: "Alinhamento mensal de resultados",
+    startsAt: isoAt(4, 10, 0),
+    joinUrl: "https://meet.google.com/abc-defg-hij",
+  },
+  {
+    id: `mtg-${c.id}-2`,
+    clientId: c.id,
+    title: "Briefing campanha 2º semestre",
+    startsAt: isoAt(16, 14, 30),
+    joinUrl: "https://meet.google.com/klm-nopq-rst",
+  },
+]);

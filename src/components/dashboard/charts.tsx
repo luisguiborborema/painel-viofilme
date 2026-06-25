@@ -14,6 +14,30 @@ import {
 } from "recharts";
 import { formatCompact } from "@/lib/utils";
 
+type ChartTheme = "light" | "dark";
+
+function palette(theme: ChartTheme) {
+  return theme === "dark"
+    ? {
+        grid: "#232a33",
+        tick: "#8b929c",
+        catTick: "#f2f4f7",
+        cursor: "#1b212a",
+        tooltipBg: "#14181f",
+        tooltipBorder: "#232a33",
+        tooltipText: "#f2f4f7",
+      }
+    : {
+        grid: "#eef0f4",
+        tick: "#667085",
+        catTick: "#14171f",
+        cursor: "#f5f6f8",
+        tooltipBg: "#ffffff",
+        tooltipBorder: "#e7e9ee",
+        tooltipText: "#14171f",
+      };
+}
+
 function shortDate(iso: string) {
   const [, m, d] = iso.split("-");
   return `${d}/${m}`;
@@ -23,13 +47,20 @@ export function TrendAreaChart({
   data,
   dataKey,
   color = "#2a63c9",
+  theme = "light",
+  valueFormatter = (v: number) => formatCompact(v),
+  height = 260,
 }: {
   data: { date: string; [k: string]: number | string }[];
   dataKey: string;
   color?: string;
+  theme?: ChartTheme;
+  valueFormatter?: (v: number) => string;
+  height?: number;
 }) {
+  const c = palette(theme);
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -37,28 +68,30 @@ export function TrendAreaChart({
             <stop offset="100%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef0f4" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={shortDate}
-          tick={{ fontSize: 11, fill: "#667085" }}
+          tick={{ fontSize: 11, fill: c.tick }}
           tickLine={false}
           axisLine={false}
           minTickGap={24}
         />
         <YAxis
-          tickFormatter={(v) => formatCompact(Number(v))}
-          tick={{ fontSize: 11, fill: "#667085" }}
+          tickFormatter={(v) => valueFormatter(Number(v))}
+          tick={{ fontSize: 11, fill: c.tick }}
           tickLine={false}
           axisLine={false}
           width={44}
         />
         <Tooltip
-          formatter={(v) => formatCompact(Number(v))}
+          formatter={(v) => valueFormatter(Number(v))}
           labelFormatter={(label) => shortDate(String(label))}
           contentStyle={{
             borderRadius: 12,
-            border: "1px solid #e7e9ee",
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
             fontSize: 12,
           }}
         />
@@ -79,12 +112,15 @@ export function SimpleBarChart({
   dataKey,
   labelKey,
   color = "#2a63c9",
+  theme = "light",
 }: {
   data: { [k: string]: number | string }[];
   dataKey: string;
   labelKey: string;
   color?: string;
+  theme?: ChartTheme;
 }) {
+  const c = palette(theme);
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 44)}>
       <BarChart
@@ -92,32 +128,30 @@ export function SimpleBarChart({
         layout="vertical"
         margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
       >
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="#eef0f4"
-          horizontal={false}
-        />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} horizontal={false} />
         <XAxis
           type="number"
           tickFormatter={(v) => formatCompact(Number(v))}
-          tick={{ fontSize: 11, fill: "#667085" }}
+          tick={{ fontSize: 11, fill: c.tick }}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
           type="category"
           dataKey={labelKey}
-          tick={{ fontSize: 12, fill: "#14171f" }}
+          tick={{ fontSize: 12, fill: c.catTick }}
           tickLine={false}
           axisLine={false}
           width={120}
         />
         <Tooltip
           formatter={(v) => formatCompact(Number(v))}
-          cursor={{ fill: "#f5f6f8" }}
+          cursor={{ fill: c.cursor }}
           contentStyle={{
             borderRadius: 12,
-            border: "1px solid #e7e9ee",
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
             fontSize: 12,
           }}
         />
