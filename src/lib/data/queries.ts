@@ -4,14 +4,17 @@ import {
   CLIENTS,
   CONTENT,
   ENGAGEMENT_SERIES,
+  MEDIA,
   MEETINGS,
   REFERENCE_DATE,
 } from "./mock";
 import type {
   AccountMetricPoint,
+  AdCampaign,
   Campaign,
   Client,
   ContentPost,
+  CplMonthPoint,
   EngagementPoint,
   Meeting,
   Platform,
@@ -263,5 +266,80 @@ export async function getClientHome(clientId: string): Promise<ClientHome> {
     meetings: MEETINGS.filter((m) => m.clientId === clientId).sort((a, b) =>
       a.startsAt.localeCompare(b.startsAt),
     ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Campanhas — performance de mídia paga (M3)
+// ---------------------------------------------------------------------------
+
+export type MediaPerformance = {
+  periodLabel: string;
+  invested: number;
+  budget: number;
+  pct: number;
+  daysRemaining: number;
+  balance: number;
+  dailyPace: number;
+  metaInvested: number;
+  googleInvested: number;
+  leads: number;
+  leadsDelta: number;
+  cpl: number;
+  cplDelta: number;
+  conversions: number;
+  convDelta: number;
+  cpa: number;
+  cplHistory: CplMonthPoint[];
+  campaigns: AdCampaign[];
+  insight: string;
+};
+
+export async function getMediaPerformance(
+  clientId: string,
+): Promise<MediaPerformance> {
+  const m = MEDIA[clientId] ?? MEDIA[CLIENTS[0].id];
+  const ref = REFERENCE_DATE;
+  const daysInMonth = new Date(
+    Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const daysRemaining = daysInMonth - ref.getUTCDate();
+  const invested = m.metaInvested + m.googleInvested;
+
+  const months = [3, 2, 1, 0].map((k) =>
+    MESES[(ref.getUTCMonth() - k + 12) % 12].slice(0, 3),
+  );
+  const cplHistory: CplMonthPoint[] = months.map((month, i) => ({
+    month,
+    meta: m.cplHistory.meta[i],
+    google: m.cplHistory.google[i],
+  }));
+
+  const campaigns: AdCampaign[] = m.campaigns.map((c, i) => ({
+    id: `ad-${clientId}-${i + 1}`,
+    clientId,
+    ...c,
+  }));
+
+  return {
+    periodLabel: `${MESES[ref.getUTCMonth()]} ${ref.getUTCFullYear()}`,
+    invested,
+    budget: m.budget,
+    pct: Math.round((invested / m.budget) * 100),
+    daysRemaining,
+    balance: m.budget - invested,
+    dailyPace: m.dailyPace,
+    metaInvested: m.metaInvested,
+    googleInvested: m.googleInvested,
+    leads: m.leads,
+    leadsDelta: m.leadsDelta,
+    cpl: m.cpl,
+    cplDelta: m.cplDelta,
+    conversions: m.conversions,
+    convDelta: m.convDelta,
+    cpa: m.cpa,
+    cplHistory,
+    campaigns,
+    insight: m.insight,
   };
 }

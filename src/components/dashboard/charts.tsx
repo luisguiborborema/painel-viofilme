@@ -107,6 +107,67 @@ export function TrendAreaChart({
   );
 }
 
+export function MultiBarChart({
+  data,
+  categoryKey,
+  series,
+  theme = "light",
+  currency = false,
+  height = 240,
+}: {
+  data: { [k: string]: number | string }[];
+  categoryKey: string;
+  series: { key: string; color: string; name: string }[];
+  theme?: ChartTheme;
+  currency?: boolean;
+  height?: number;
+}) {
+  const c = palette(theme);
+  const fmt = (v: number) =>
+    currency ? `R$ ${v.toLocaleString("pt-BR")}` : formatCompact(v);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+        <XAxis
+          dataKey={categoryKey}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          tickFormatter={(v) => fmt(Number(v))}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+          width={48}
+        />
+        <Tooltip
+          formatter={(v) => fmt(Number(v))}
+          cursor={{ fill: c.cursor }}
+          contentStyle={{
+            borderRadius: 12,
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
+            fontSize: 12,
+          }}
+        />
+        {series.map((s) => (
+          <Bar
+            key={s.key}
+            dataKey={s.key}
+            name={s.name}
+            fill={s.color}
+            radius={[4, 4, 0, 0]}
+            maxBarSize={26}
+          />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function SimpleBarChart({
   data,
   dataKey,

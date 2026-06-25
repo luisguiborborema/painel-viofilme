@@ -64,6 +64,26 @@ export type Meeting = {
   joinUrl: string;
 };
 
+// --- Mídia paga (Meta Ads + Google Ads) ------------------------------------
+export type AdNetwork = "meta" | "google";
+
+export type AdCampaign = {
+  id: string;
+  clientId: string;
+  name: string;
+  objective: string;
+  audience: string;
+  network: AdNetwork;
+  status: "active" | "paused";
+  invested: number;
+  clicks: number;
+  leads: number;
+  cpl: number;
+  conversions: number;
+};
+
+export type CplMonthPoint = { month: string; meta: number; google: number };
+
 export type AccountMetricPoint = {
   date: string;
   followers: number;

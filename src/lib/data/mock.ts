@@ -1,5 +1,6 @@
 import type {
   AccountMetricPoint,
+  AdCampaign,
   Campaign,
   Client,
   ContentPost,
@@ -282,6 +283,134 @@ export const ENGAGEMENT_SERIES: Record<string, EngagementPoint[]> =
   Object.fromEntries(
     CLIENTS.map((c, i) => [c.id, makeEngagementSeries((i + 1) * 4000)]),
   );
+
+// ---------------------------------------------------------------------------
+// Mídia paga (M3): orçamento, CPL mês a mês e campanhas ativas por cliente
+// ---------------------------------------------------------------------------
+type AdRow = Omit<AdCampaign, "id" | "clientId">;
+
+export type MediaRaw = {
+  budget: number;
+  metaInvested: number;
+  googleInvested: number;
+  leads: number;
+  leadsDelta: number; // %
+  cpl: number;
+  cplDelta: number; // R$
+  conversions: number;
+  convDelta: number; // abs
+  cpa: number;
+  dailyPace: number;
+  insight: string;
+  cplHistory: { meta: number[]; google: number[] }; // 4 meses (mais antigo -> atual)
+  campaigns: AdRow[];
+};
+
+const CLI001_MEDIA: MediaRaw = {
+  budget: 3000,
+  metaInvested: 1500,
+  googleInvested: 660,
+  leads: 257,
+  leadsDelta: 18,
+  cpl: 8.41,
+  cplDelta: 1.2,
+  conversions: 31,
+  convDelta: 5,
+  cpa: 49,
+  dailyPace: 270,
+  insight:
+    'A campanha "Display: branding local" está gerando muitos cliques com poucas conversões. Estamos revisando os criativos e o público-alvo para melhorar o CPA nas próximas semanas.',
+  cplHistory: {
+    meta: [9.2, 8.8, 7.2, 8.5],
+    google: [8.1, 7.6, 6.6, 7.4],
+  },
+  campaigns: [
+    { name: "Reservas fim de semana", objective: "Conversões", audience: "Público local", network: "meta", status: "active", invested: 620, clicks: 1840, leads: 74, cpl: 8.38, conversions: 12 },
+    { name: "Almoço executivo", objective: "Tráfego", audience: "Profissionais 25–45", network: "meta", status: "active", invested: 480, clicks: 2210, leads: 61, cpl: 7.87, conversions: 8 },
+    { name: "Promoção aniversário", objective: "Conversões", audience: "Remarketing", network: "meta", status: "paused", invested: 400, clicks: 980, leads: 38, cpl: 10.53, conversions: 4 },
+    { name: 'Busca "restaurante frutos do mar"', objective: "Search", audience: "Palavras-chave", network: "google", status: "active", invested: 390, clicks: 1120, leads: 52, cpl: 7.5, conversions: 7 },
+    { name: "Display: branding local", objective: "Display", audience: "Geolocalização", network: "google", status: "active", invested: 270, clicks: 3400, leads: 32, cpl: 8.44, conversions: 1 },
+  ],
+};
+
+const GENERIC_NAMES = [
+  "Campanha local",
+  "Tráfego de marca",
+  "Busca institucional",
+  "Remarketing display",
+];
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+function makeMediaRaw(seed: number): MediaRaw {
+  const rand = rng(seed + 7777);
+  const templates: { network: AdCampaign["network"]; objective: string; audience: string }[] = [
+    { network: "meta", objective: "Conversões", audience: "Público local" },
+    { network: "meta", objective: "Tráfego", audience: "Interesses" },
+    { network: "google", objective: "Search", audience: "Palavras-chave" },
+    { network: "google", objective: "Display", audience: "Remarketing" },
+  ];
+  const campaigns: AdRow[] = templates.map((t, i) => {
+    const invested = Math.round((200 + rand() * 480) / 10) * 10;
+    const clicks = Math.round(700 + rand() * 2800);
+    const leads = Math.round(22 + rand() * 55);
+    const conversions = Math.round(leads * (0.06 + rand() * 0.16));
+    return {
+      name: GENERIC_NAMES[i],
+      objective: t.objective,
+      audience: t.audience,
+      network: t.network,
+      status: rand() > 0.82 ? "paused" : "active",
+      invested,
+      clicks,
+      leads,
+      cpl: round2(invested / leads),
+      conversions,
+    };
+  });
+
+  const metaInvested = campaigns
+    .filter((c) => c.network === "meta")
+    .reduce((s, c) => s + c.invested, 0);
+  const googleInvested = campaigns
+    .filter((c) => c.network === "google")
+    .reduce((s, c) => s + c.invested, 0);
+  const invested = metaInvested + googleInvested;
+  const leads = campaigns.reduce((s, c) => s + c.leads, 0);
+  const conversions = campaigns.reduce((s, c) => s + c.conversions, 0);
+  const budget = Math.ceil(invested / (0.55 + rand() * 0.3) / 100) * 100;
+  const cpl = round2(invested / leads);
+
+  return {
+    budget,
+    metaInvested,
+    googleInvested,
+    leads,
+    leadsDelta: Math.round(rand() * 28 - 5),
+    cpl,
+    cplDelta: round2(rand() * 2.4 - 1),
+    conversions,
+    convDelta: Math.round(rand() * 8 - 2),
+    cpa: Math.round(invested / Math.max(1, conversions)),
+    dailyPace: Math.round(invested / 22 / 10) * 10,
+    insight:
+      "Estamos realocando verba para as campanhas com melhor CPL e testando novos criativos para reduzir o custo por lead no próximo ciclo.",
+    cplHistory: {
+      meta: [0, 1, 2, 3].map(() => round2(6 + rand() * 4)),
+      google: [0, 1, 2, 3].map(() => round2(5 + rand() * 4)),
+    },
+    campaigns,
+  };
+}
+
+export const MEDIA: Record<string, MediaRaw> = Object.fromEntries(
+  CLIENTS.map((c, i) => [
+    c.id,
+    c.id === "cli-001" ? CLI001_MEDIA : makeMediaRaw((i + 1) * 6000),
+  ]),
+);
 
 // Próximas reuniões por cliente
 export const MEETINGS: Meeting[] = CLIENTS.flatMap((c) => [
