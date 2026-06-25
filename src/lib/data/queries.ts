@@ -6,19 +6,25 @@ import {
   ENGAGEMENT_SERIES,
   MEDIA,
   MEETINGS,
+  ORGANIC,
   REFERENCE_DATE,
 } from "./mock";
 import type {
   AccountMetricPoint,
   AdCampaign,
+  AudienceProfile,
   Campaign,
   Client,
   ContentPost,
   CplMonthPoint,
   EngagementPoint,
+  FollowersMonthPoint,
+  FormatReach,
   Meeting,
+  OrganicScope,
   Platform,
   PostStatus,
+  TopPost,
 } from "./types";
 
 /**
@@ -341,5 +347,89 @@ export async function getMediaPerformance(
     cplHistory,
     campaigns,
     insight: m.insight,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Resultados orgânicos (M4)
+// ---------------------------------------------------------------------------
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+export type OrganicScopeView = OrganicScope & { frequency: number };
+
+export type OrganicResults = {
+  periodLabel: string;
+  totals: OrganicScopeView & { engagementAboveAvg: boolean };
+  instagram: OrganicScopeView;
+  facebook: OrganicScopeView;
+  followersHistory: FollowersMonthPoint[];
+  reachByFormat: FormatReach;
+  audience: AudienceProfile;
+  topPosts: TopPost[];
+  teamPattern: string;
+};
+
+function withFrequency(s: OrganicScope): OrganicScopeView {
+  return { ...s, frequency: s.reach > 0 ? r1(s.impressions / s.reach) : 0 };
+}
+
+export async function getOrganicResults(
+  clientId: string,
+): Promise<OrganicResults> {
+  const raw = ORGANIC[clientId] ?? ORGANIC[CLIENTS[0].id];
+  const ig = raw.instagram;
+  const fb = raw.facebook;
+  const ref = REFERENCE_DATE;
+
+  const reach = ig.reach + fb.reach;
+  const impressions = ig.impressions + fb.impressions;
+  const followers = ig.followers + fb.followers;
+  const followersDelta = ig.followersDelta + fb.followersDelta;
+  const wReach = reach || 1;
+  const wImpr = impressions || 1;
+
+  const totals: OrganicScopeView & { engagementAboveAvg: boolean } = {
+    followers,
+    followersDelta,
+    followersDeltaPct: r1((followersDelta / (followers - followersDelta)) * 100),
+    reach,
+    reachDelta: Math.round(
+      (ig.reachDelta * ig.reach + fb.reachDelta * fb.reach) / wReach,
+    ),
+    impressions,
+    impressionsDelta: Math.round(
+      (ig.impressionsDelta * ig.impressions +
+        fb.impressionsDelta * fb.impressions) /
+        wImpr,
+    ),
+    engagement: r1(
+      (ig.engagement * ig.reach + fb.engagement * fb.reach) / wReach,
+    ),
+    engagementDelta: r1(
+      (ig.engagementDelta * ig.reach + fb.engagementDelta * fb.reach) / wReach,
+    ),
+    frequency: r1(impressions / wReach),
+    engagementAboveAvg: raw.engagementAboveAvg,
+  };
+
+  const months = [5, 4, 3, 2, 1, 0].map((k) =>
+    MESES[(ref.getUTCMonth() - k + 12) % 12].slice(0, 3),
+  );
+  const followersHistory: FollowersMonthPoint[] = months.map((month, i) => ({
+    month,
+    instagram: raw.followersHistory6.instagram[i],
+    facebook: raw.followersHistory6.facebook[i],
+  }));
+
+  return {
+    periodLabel: `${MESES[ref.getUTCMonth()]} ${ref.getUTCFullYear()}`,
+    totals,
+    instagram: withFrequency(ig),
+    facebook: withFrequency(fb),
+    followersHistory,
+    reachByFormat: raw.reachByFormat,
+    audience: raw.audience,
+    topPosts: raw.topPosts.map((p, i) => ({ rank: i + 1, ...p })),
+    teamPattern: raw.teamPattern,
   };
 }

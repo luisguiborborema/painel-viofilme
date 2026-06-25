@@ -84,6 +84,49 @@ export type AdCampaign = {
 
 export type CplMonthPoint = { month: string; meta: number; google: number };
 
+// --- Resultados orgânicos (M4) ----------------------------------------------
+export type FollowersMonthPoint = {
+  month: string;
+  instagram: number;
+  facebook: number;
+};
+
+export type FormatReach = {
+  reels: number;
+  feed: number;
+  stories: number;
+  carousel: number;
+};
+
+export type AudienceProfile = {
+  ageRanges: { label: string; pct: number }[];
+  bestHours: { rows: string[]; grid: number[][] }; // intensidade 0..2
+  topLocations: { city: string; pct: number }[];
+};
+
+export type TopPost = {
+  rank: number;
+  title: string;
+  mediaType: MediaType;
+  platform: Platform;
+  publishedAt: string;
+  reach: number;
+  likes: number;
+  comments: number;
+};
+
+export type OrganicScope = {
+  followers: number;
+  followersDelta: number; // abs
+  followersDeltaPct: number; // %
+  reach: number;
+  reachDelta: number; // %
+  impressions: number;
+  impressionsDelta: number; // %
+  engagement: number; // %
+  engagementDelta: number; // pp
+};
+
 export type AccountMetricPoint = {
   date: string;
   followers: number;

@@ -7,6 +7,10 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -103,6 +107,131 @@ export function TrendAreaChart({
           fill={`url(#grad-${dataKey})`}
         />
       </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function MultiLineChart({
+  data,
+  categoryKey,
+  series,
+  theme = "light",
+  height = 240,
+}: {
+  data: { [k: string]: number | string }[];
+  categoryKey: string;
+  series: { key: string; color: string; name: string }[];
+  theme?: ChartTheme;
+  height?: number;
+}) {
+  const c = palette(theme);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+        <XAxis
+          dataKey={categoryKey}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          tickFormatter={(v) => formatCompact(Number(v))}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+          width={44}
+        />
+        <Tooltip
+          formatter={(v) => formatCompact(Number(v))}
+          contentStyle={{
+            borderRadius: 12,
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
+            fontSize: 12,
+          }}
+        />
+        {series.map((s) => (
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.name}
+            stroke={s.color}
+            strokeWidth={2.5}
+            dot={false}
+            activeDot={{ r: 4 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function DonutChart({
+  data,
+  theme = "light",
+  height = 220,
+}: {
+  data: { name: string; value: number; color: string }[];
+  theme?: ChartTheme;
+  height?: number;
+}) {
+  const c = palette(theme);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          innerRadius="58%"
+          outerRadius="85%"
+          paddingAngle={2}
+          stroke="none"
+        >
+          {data.map((d, i) => (
+            <Cell key={i} fill={d.color} />
+          ))}
+        </Pie>
+        <Tooltip
+          formatter={(v) => `${v}%`}
+          contentStyle={{
+            borderRadius: 12,
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
+            fontSize: 12,
+          }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function Sparkline({
+  data,
+  dataKey = "v",
+  color = "#34d399",
+  height = 44,
+}: {
+  data: { [k: string]: number }[];
+  dataKey?: string;
+  color?: string;
+  height?: number;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+        <Line
+          type="monotone"
+          dataKey={dataKey}
+          stroke={color}
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

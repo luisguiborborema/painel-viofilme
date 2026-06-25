@@ -49,6 +49,12 @@ export function relativePostLabel(iso: string, refIso: string): string {
   return `${dayPart} às ${timeLabel(iso)}`;
 }
 
+/** "15/06". */
+export function dayMonth(iso: string): string {
+  const { day, m } = parts(iso);
+  return `${String(day).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}`;
+}
+
 /** "Quinta, 26 jun · 10h00". */
 export function meetingLabel(iso: string): string {
   const { day, m, wd } = parts(iso);

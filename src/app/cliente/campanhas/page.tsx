@@ -116,7 +116,10 @@ export default async function ClienteCampanhas({
         />
       </Card>
 
-      <TeamInsight text={m.insight} periodLabel={m.periodLabel} />
+      <TeamInsight
+        title={`Insight da equipe — ${m.periodLabel}`}
+        text={m.insight}
+      />
     </div>
   );
 }

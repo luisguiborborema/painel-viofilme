@@ -1,125 +1,122 @@
-import { Eye, TrendingUp, UserPlus } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { TrendAreaChart } from "@/components/dashboard/charts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlatformIcon } from "@/components/dashboard/platform";
+import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
-import { getAccountSeries } from "@/lib/data/queries";
-import { formatCompact } from "@/lib/utils";
-import type { Platform } from "@/lib/data/types";
+import { getOrganicResults } from "@/lib/data/queries";
+import { formatCompact, formatNumber } from "@/lib/utils";
+import { OrganicHeader } from "@/components/cliente/organic-header";
+import { MediaMetricCard } from "@/components/cliente/media-metric-card";
+import { FollowersLineCard } from "@/components/cliente/followers-line-card";
+import { FormatDonutCard } from "@/components/cliente/format-donut-card";
+import { PlatformStatCard } from "@/components/cliente/platform-stat-card";
+import { AudienceCard } from "@/components/cliente/audience-card";
+import { TopPostsCard } from "@/components/cliente/top-posts-card";
+import { TeamInsight } from "@/components/cliente/team-insight";
 
-async function PlatformResults({
-  clientId,
-  platform,
-  color,
+const pct1 = (n: number) =>
+  n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+export default async function ClienteResultados({
+  searchParams,
 }: {
-  clientId: string;
-  platform: Platform;
-  color: string;
+  searchParams: Promise<{ rede?: string }>;
 }) {
-  const series = await getAccountSeries(clientId, platform);
-  const followers = series.at(-1)?.followers ?? 0;
-  const reach = series.reduce((s, p) => s + p.reach, 0);
-  const impressions = series.reduce((s, p) => s + p.impressions, 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 capitalize">
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-white"
-            style={{ background: color }}
-          >
-            <PlatformIcon platform={platform} />
-          </span>
-          {platform}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 grid grid-cols-3 gap-2 text-center">
-          <div>
-            <p className="text-lg font-bold text-ink">
-              {formatCompact(followers)}
-            </p>
-            <p className="text-xs text-muted">Seguidores</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-ink">{formatCompact(reach)}</p>
-            <p className="text-xs text-muted">Alcance 30d</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-ink">
-              {formatCompact(impressions)}
-            </p>
-            <p className="text-xs text-muted">Impressões</p>
-          </div>
-        </div>
-        <TrendAreaChart
-          data={series}
-          dataKey="followers"
-          color={color}
-          theme="dark"
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
-export default async function ClienteResultados() {
   const user = await getSession();
   if (!user?.clientId) {
-    return <Card className="p-10 text-center text-sm text-muted">Sem cliente vinculado.</Card>;
+    return (
+      <Card className="p-10 text-center text-sm text-muted">
+        Sem cliente vinculado.
+      </Card>
+    );
   }
-  const clientId = user.clientId;
 
-  const ig = await getAccountSeries(clientId, "instagram");
-  const fb = await getAccountSeries(clientId, "facebook");
-  const totalFollowers =
-    (ig.at(-1)?.followers ?? 0) + (fb.at(-1)?.followers ?? 0);
-  const totalReach =
-    ig.reduce((s, p) => s + p.reach, 0) + fb.reduce((s, p) => s + p.reach, 0);
-  const totalImpressions =
-    ig.reduce((s, p) => s + p.impressions, 0) +
-    fb.reduce((s, p) => s + p.impressions, 0);
+  const { rede } = await searchParams;
+  const o = await getOrganicResults(user.clientId);
+
+  const platform =
+    rede === "instagram" ? "instagram" : rede === "facebook" ? "facebook" : "todas";
+  const scope =
+    platform === "instagram"
+      ? o.instagram
+      : platform === "facebook"
+        ? o.facebook
+        : o.totals;
+  const aboveAvg = platform === "todas" && o.totals.engagementAboveAvg;
 
   return (
-    <div>
-      <PageHeader
-        title="Resultados"
-        subtitle="Crescimento e desempenho das suas redes nos últimos 30 dias."
-      />
+    <div className="space-y-4">
+      <OrganicHeader periodLabel={o.periodLabel} />
 
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Seguidores totais"
-          value={formatCompact(totalFollowers)}
-          icon={UserPlus}
+      {/* Métricas de crescimento */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MediaMetricCard
+          label={platform === "todas" ? "Seguidores totais" : "Seguidores"}
+          value={formatNumber(scope.followers)}
+          deltaText={`+${formatNumber(scope.followersDelta)} este mês · +${pct1(scope.followersDeltaPct)}%`}
+          tone="good"
+          deltaDirection="up"
+          info="Seguidores ganhos no período (sem impulsionamento)."
         />
-        <StatCard
-          label="Alcance total (30d)"
-          value={formatCompact(totalReach)}
-          icon={TrendingUp}
+        <MediaMetricCard
+          label="Alcance no mês"
+          value={formatCompact(scope.reach)}
+          deltaText={`+${scope.reachDelta}% vs. maio`}
+          tone="good"
+          deltaDirection="up"
+          info="Contas únicas alcançadas organicamente."
         />
-        <StatCard
-          label="Impressões (30d)"
-          value={formatCompact(totalImpressions)}
-          icon={Eye}
+        <MediaMetricCard
+          label="Impressões"
+          value={formatCompact(scope.impressions)}
+          deltaText={`+${scope.impressionsDelta}% vs. maio · ${pct1(scope.frequency)}x por pessoa`}
+          tone="good"
+          deltaDirection="up"
+          info="Total de exibições do conteúdo."
+        />
+        <MediaMetricCard
+          label="Taxa de engajamento"
+          value={`${pct1(scope.engagement)}%`}
+          deltaText={`+${pct1(scope.engagementDelta)}pp vs. maio${aboveAvg ? " · acima da média" : ""}`}
+          tone="good"
+          deltaDirection="up"
+          info="Interações divididas pelo alcance."
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PlatformResults
-          clientId={clientId}
+      {/* Crescimento de seguidores + Alcance por formato */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <FollowersLineCard data={o.followersHistory} />
+        </div>
+        <div className="lg:col-span-2">
+          <FormatDonutCard data={o.reachByFormat} />
+        </div>
+      </div>
+
+      {/* Plataformas + audiência */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <PlatformStatCard
           platform="instagram"
-          color="#2a63c9"
+          role="Principal"
+          stats={o.instagram}
+          spark={o.followersHistory.map((p) => p.instagram)}
         />
-        <PlatformResults
-          clientId={clientId}
+        <PlatformStatCard
           platform="facebook"
-          color="#4d7ddb"
+          role="Secundário"
+          stats={o.facebook}
+          spark={o.followersHistory.map((p) => p.facebook)}
         />
+        <AudienceCard audience={o.audience} />
       </div>
+
+      {/* Top 3 posts */}
+      <TopPostsCard posts={o.topPosts} />
+
+      {/* Padrão identificado */}
+      <TeamInsight
+        title="Padrão identificado pela equipe"
+        text={o.teamPattern}
+        tone="emerald"
+      />
     </div>
   );
 }

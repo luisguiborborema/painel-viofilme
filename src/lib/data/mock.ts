@@ -1,13 +1,17 @@
 import type {
   AccountMetricPoint,
   AdCampaign,
+  AudienceProfile,
   Campaign,
   Client,
   ContentPost,
   EngagementPoint,
+  FormatReach,
   MediaType,
   Meeting,
+  OrganicScope,
   Platform,
+  TopPost,
 } from "./types";
 
 /**
@@ -409,6 +413,161 @@ export const MEDIA: Record<string, MediaRaw> = Object.fromEntries(
   CLIENTS.map((c, i) => [
     c.id,
     c.id === "cli-001" ? CLI001_MEDIA : makeMediaRaw((i + 1) * 6000),
+  ]),
+);
+
+// ---------------------------------------------------------------------------
+// Resultados orgânicos (M4)
+// ---------------------------------------------------------------------------
+export type OrganicRaw = {
+  instagram: OrganicScope;
+  facebook: OrganicScope;
+  engagementAboveAvg: boolean;
+  followersHistory6: { instagram: number[]; facebook: number[] };
+  reachByFormat: FormatReach;
+  audience: AudienceProfile;
+  topPosts: Omit<TopPost, "rank">[];
+  teamPattern: string;
+};
+
+const CLI001_ORGANIC: OrganicRaw = {
+  instagram: {
+    followers: 14190,
+    followersDelta: 328,
+    followersDeltaPct: 2.4,
+    reach: 16800,
+    reachDelta: 11,
+    impressions: 48000,
+    impressionsDelta: 8,
+    engagement: 4.4,
+    engagementDelta: 0.5,
+  },
+  facebook: {
+    followers: 640,
+    followersDelta: 15,
+    followersDeltaPct: 3.4,
+    reach: 1600,
+    reachDelta: 5,
+    impressions: 4100,
+    impressionsDelta: 6,
+    engagement: 2.1,
+    engagementDelta: 0.2,
+  },
+  engagementAboveAvg: true,
+  followersHistory6: {
+    instagram: [12900, 13300, 13600, 13900, 14050, 14190],
+    facebook: [560, 580, 600, 615, 628, 640],
+  },
+  reachByFormat: { reels: 50, feed: 38, stories: 5, carousel: 7 },
+  audience: {
+    ageRanges: [
+      { label: "18–24", pct: 22 },
+      { label: "25–34", pct: 41 },
+      { label: "35–44", pct: 24 },
+      { label: "45+", pct: 13 },
+    ],
+    bestHours: {
+      rows: ["Manhã", "Tarde", "Noite"],
+      grid: [
+        [0, 0, 1, 0, 1, 0, 0],
+        [1, 1, 1, 2, 1, 2, 1],
+        [2, 2, 2, 2, 1, 2, 2],
+      ],
+    },
+    topLocations: [
+      { city: "Vitória, ES", pct: 58 },
+      { city: "Vila Velha, ES", pct: 19 },
+      { city: "Serra, ES", pct: 12 },
+    ],
+  },
+  topPosts: [
+    { title: "Reels: bastidores da cozinha com o chef Eduardo", mediaType: "reel", platform: "instagram", publishedAt: "2026-06-15", reach: 5240, likes: 1326, comments: 94 },
+    { title: "Menu degustação com harmonização de vinhos", mediaType: "carousel", platform: "instagram", publishedAt: "2026-06-23", reach: 3860, likes: 847, comments: 63 },
+    { title: "Novidade no cardápio: peixe do dia com redução de maracujá", mediaType: "image", platform: "instagram", publishedAt: "2026-06-25", reach: 2930, likes: 601, comments: 48 },
+  ],
+  teamPattern:
+    "Reels com bastidores são os que mais geram alcance — os 3 melhores posts do mês são bastidores e novidades do cardápio. Reels têm 2× mais alcance que posts no feed. Estamos priorizando esse formato no calendário de junho.",
+};
+
+function makeOrganicRaw(seed: number): OrganicRaw {
+  const rand = rng(seed + 8888);
+  const igFollowers = Math.round(4000 + rand() * 14000);
+  const fbFollowers = Math.round(400 + rand() * 1500);
+  const igHist: number[] = [];
+  let v = Math.round(igFollowers * 0.9);
+  for (let i = 0; i < 6; i++) {
+    v += Math.round((igFollowers - v) * (0.25 + rand() * 0.2));
+    igHist.push(i === 5 ? igFollowers : v);
+  }
+  const fbHist: number[] = [];
+  let w = Math.round(fbFollowers * 0.9);
+  for (let i = 0; i < 6; i++) {
+    w += Math.round((fbFollowers - w) * (0.25 + rand() * 0.2));
+    fbHist.push(i === 5 ? fbFollowers : w);
+  }
+  const igReach = Math.round(igFollowers * (0.9 + rand() * 0.5));
+  const fbReach = Math.round(fbFollowers * (1.5 + rand()));
+  return {
+    instagram: {
+      followers: igFollowers,
+      followersDelta: Math.round(igFollowers * 0.02),
+      followersDeltaPct: round2(1 + rand() * 2),
+      reach: igReach,
+      reachDelta: Math.round(rand() * 14),
+      impressions: Math.round(igReach * (2.5 + rand())),
+      impressionsDelta: Math.round(rand() * 12),
+      engagement: round2(2.5 + rand() * 2.5),
+      engagementDelta: round2(rand() * 0.8 - 0.2),
+    },
+    facebook: {
+      followers: fbFollowers,
+      followersDelta: Math.round(fbFollowers * 0.02),
+      followersDeltaPct: round2(1 + rand() * 2.5),
+      reach: fbReach,
+      reachDelta: Math.round(rand() * 10),
+      impressions: Math.round(fbReach * (2 + rand())),
+      impressionsDelta: Math.round(rand() * 9),
+      engagement: round2(1.5 + rand() * 1.5),
+      engagementDelta: round2(rand() * 0.5 - 0.1),
+    },
+    engagementAboveAvg: rand() > 0.4,
+    followersHistory6: { instagram: igHist, facebook: fbHist },
+    reachByFormat: { reels: 46, feed: 34, stories: 9, carousel: 11 },
+    audience: {
+      ageRanges: [
+        { label: "18–24", pct: 26 },
+        { label: "25–34", pct: 38 },
+        { label: "35–44", pct: 22 },
+        { label: "45+", pct: 14 },
+      ],
+      bestHours: {
+        rows: ["Manhã", "Tarde", "Noite"],
+        grid: [
+          [0, 1, 0, 1, 0, 1, 0],
+          [1, 1, 2, 1, 2, 1, 1],
+          [2, 1, 2, 2, 2, 1, 2],
+        ],
+      },
+      topLocations: [
+        { city: "São Paulo, SP", pct: 41 },
+        { city: "Campinas, SP", pct: 16 },
+        { city: "Santos, SP", pct: 10 },
+      ],
+    },
+    topPosts: [
+      { title: "Bastidores da equipe em ação", mediaType: "reel", platform: "instagram", publishedAt: "2026-06-12", reach: Math.round(igReach * 0.3), likes: 820, comments: 60 },
+      { title: "Novidade da semana", mediaType: "carousel", platform: "instagram", publishedAt: "2026-06-19", reach: Math.round(igReach * 0.22), likes: 540, comments: 41 },
+      { title: "Dica rápida que viralizou", mediaType: "image", platform: "facebook", publishedAt: "2026-06-24", reach: Math.round(igReach * 0.16), likes: 330, comments: 28 },
+    ],
+    teamPattern:
+      "Conteúdos de bastidores e dicas práticas seguem com o melhor alcance orgânico. Vamos ampliar a frequência de Reels e reforçar os horários de pico identificados na audiência.",
+  };
+}
+
+export const ORGANIC: Record<string, OrganicRaw> = Object.fromEntries(
+  CLIENTS.map((c, i) => [
+    c.id,
+    c.id === "cli-001" ? CLI001_ORGANIC : makeOrganicRaw((i + 1) * 9000),
   ]),
 );
 
