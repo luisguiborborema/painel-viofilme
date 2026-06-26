@@ -130,8 +130,6 @@ const CAPTIONS = [
   "Marca aquele amigo que precisa ver isso! 🔥",
 ];
 
-const MEDIA_TYPES: MediaType[] = ["reel", "image", "carousel", "video"];
-
 function makeCampaigns(client: Client, seed: number): Campaign[] {
   const rand = rng(seed);
   const templates = CAMPAIGN_TEMPLATES[client.id] ?? [];
@@ -168,31 +166,51 @@ function makeCampaigns(client: Client, seed: number): Campaign[] {
   });
 }
 
+type SchedSpec = {
+  caption: string;
+  day: number;
+  hour: number;
+  mediaType: MediaType;
+  platform: Platform;
+  approval: "pending" | "approved" | "changes_requested";
+  author: string;
+  waitingHours: number | null;
+};
+
+// Agendados/aguardando: 3 para aprovar + 1 em ajuste + 5 agendados (aprovados)
+const SCHED_SPECS: SchedSpec[] = [
+  { caption: "Fim de semana especial: menu degustação com harmonização de vinhos selecionados pelo nosso chef", day: 0, hour: 19, mediaType: "image", platform: "instagram", approval: "pending", author: "Ana (Social Media)", waitingHours: 48 },
+  { caption: "Bastidores da nossa cozinha — um dia com o chef Eduardo preparando o prato do dia", day: 1, hour: 12, mediaType: "reel", platform: "instagram", approval: "pending", author: "Ana (Social Media)", waitingHours: 18 },
+  { caption: "Novidade no cardápio desta semana: peixe do dia com redução de maracujá e risoto de aspargos", day: 4, hour: 18, mediaType: "image", platform: "facebook", approval: "pending", author: "Carlos (Design)", waitingHours: 6 },
+  { caption: "Promoção de aniversário do restaurante: rodízio especial com 20% off", day: 6, hour: 20, mediaType: "carousel", platform: "instagram", approval: "changes_requested", author: "Ana (Social Media)", waitingHours: null },
+  { caption: "Stories: enquete — você prefere mesa interna ou na varanda?", day: 2, hour: 11, mediaType: "story", platform: "instagram", approval: "approved", author: "Ana (Social Media)", waitingHours: null },
+  { caption: "Carrossel: conheça nossos pescados frescos do dia", day: 3, hour: 13, mediaType: "carousel", platform: "instagram", approval: "approved", author: "Carlos (Design)", waitingHours: null },
+  { caption: "Reels: harmonização de vinhos em 30 segundos", day: 5, hour: 19, mediaType: "reel", platform: "instagram", approval: "approved", author: "Ana (Social Media)", waitingHours: null },
+  { caption: "Sugestão do chef: moqueca capixaba completa", day: 7, hour: 12, mediaType: "image", platform: "facebook", approval: "approved", author: "Carlos (Design)", waitingHours: null },
+  { caption: "Stories: contagem regressiva para o fim de semana", day: 8, hour: 18, mediaType: "story", platform: "instagram", approval: "approved", author: "Ana (Social Media)", waitingHours: null },
+];
+
+const PUB_MEDIA: MediaType[] = ["reel", "image", "carousel", "image", "reel"];
+
 function makeContent(client: Client, seed: number): ContentPost[] {
   const rand = rng(seed + 99);
   const posts: ContentPost[] = [];
-  // 4 agendados (futuro) — os 3 primeiros aguardando aprovação
-  const SCHEDULED_CAPTIONS = [
-    "Fim de semana especial: menu degustação de frutos do mar 🦐",
-    "Reels: bastidores da nossa cozinha com o chef 👨‍🍳",
-    "Novidade no cardápio: peixe do dia com risoto de limão siciliano 🐟",
-    "Stories: enquete — você prefere mesa interna ou na varanda?",
-  ];
-  const SCHED_DAYS = [0, 1, 4, 2];
-  const SCHED_HOURS = [19, 12, 18, 11];
-  for (let i = 0; i < 4; i++) {
+
+  SCHED_SPECS.forEach((s, i) => {
     posts.push({
       id: `post-${client.id}-s${i + 1}`,
       clientId: client.id,
-      platform: (i % 3 === 2 ? "facebook" : "instagram") as Platform,
-      mediaType: MEDIA_TYPES[Math.floor(rand() * MEDIA_TYPES.length)],
+      platform: s.platform,
+      mediaType: s.mediaType,
       status: "scheduled",
-      caption: SCHEDULED_CAPTIONS[i % SCHEDULED_CAPTIONS.length],
+      caption: s.caption,
       thumbnailUrl: null,
       permalink: null,
       publishedAt: null,
-      scheduledAt: isoAt(SCHED_DAYS[i], SCHED_HOURS[i], 0),
-      approval: i < 3 ? "pending" : "approved",
+      scheduledAt: isoAt(s.day, s.hour, 0),
+      approval: s.approval,
+      author: s.author,
+      waitingHours: s.waitingHours,
       likes: 0,
       comments: 0,
       shares: 0,
@@ -200,8 +218,9 @@ function makeContent(client: Client, seed: number): ContentPost[] {
       reach: 0,
       impressions: 0,
     });
-  }
-  for (let i = 0; i < 9; i++) {
+  });
+
+  for (let i = 0; i < 5; i++) {
     const reach = Math.round(1200 + rand() * 14000);
     const impressions = Math.round(reach * (1.1 + rand() * 0.6));
     const likes = Math.round(reach * (0.03 + rand() * 0.08));
@@ -209,7 +228,7 @@ function makeContent(client: Client, seed: number): ContentPost[] {
       id: `post-${client.id}-p${i + 1}`,
       clientId: client.id,
       platform: (rand() > 0.45 ? "instagram" : "facebook") as Platform,
-      mediaType: MEDIA_TYPES[Math.floor(rand() * MEDIA_TYPES.length)],
+      mediaType: PUB_MEDIA[i],
       status: "published",
       caption: CAPTIONS[i % CAPTIONS.length],
       thumbnailUrl: null,
@@ -217,6 +236,8 @@ function makeContent(client: Client, seed: number): ContentPost[] {
       publishedAt: isoDaysAgo(i * 2 + 1),
       scheduledAt: null,
       approval: null,
+      author: i % 2 === 0 ? "Ana (Social Media)" : "Carlos (Design)",
+      waitingHours: null,
       likes,
       comments: Math.round(likes * (0.05 + rand() * 0.2)),
       shares: Math.round(likes * (0.02 + rand() * 0.1)),

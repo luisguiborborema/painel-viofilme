@@ -49,6 +49,20 @@ export function relativePostLabel(iso: string, refIso: string): string {
   return `${dayPart} às ${timeLabel(iso)}`;
 }
 
+/** "hoje às 19h00" · "amanhã às 12h00" · "26/06 às 18h00". */
+export function publicationLabel(iso: string, refIso: string): string {
+  const a = parts(iso);
+  const r = parts(refIso);
+  const dayDiff = Math.round(
+    (Date.UTC(a.y, a.m, a.day) - Date.UTC(r.y, r.m, r.day)) / 86400000,
+  );
+  let dayPart: string;
+  if (dayDiff === 0) dayPart = "hoje";
+  else if (dayDiff === 1) dayPart = "amanhã";
+  else dayPart = dayMonth(iso);
+  return `${dayPart} às ${clockLabel(iso)}`;
+}
+
 /** "15/06". */
 export function dayMonth(iso: string): string {
   const { day, m } = parts(iso);

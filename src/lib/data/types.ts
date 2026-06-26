@@ -32,7 +32,7 @@ export type Campaign = {
   endDate: string | null;
 };
 
-export type ApprovalStatus = "pending" | "approved";
+export type ApprovalStatus = "pending" | "approved" | "changes_requested";
 
 export type ContentPost = {
   id: string;
@@ -47,6 +47,10 @@ export type ContentPost = {
   scheduledAt: string | null;
   /** Aprovação do cliente (apenas para posts agendados). */
   approval: ApprovalStatus | null;
+  /** Quem criou a peça (ex.: "Ana (Social Media)"). */
+  author: string | null;
+  /** Horas aguardando aprovação (para o badge de tempo). */
+  waitingHours: number | null;
   likes: number;
   comments: number;
   shares: number;
