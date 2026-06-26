@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Line,
   LineChart,
   Pie,
@@ -165,6 +166,82 @@ export function MultiLineChart({
           />
         ))}
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ComboMrrChart({
+  data,
+  theme = "light",
+  barColor = "#38bdf8",
+  lineColor = "#34d399",
+  height = 260,
+}: {
+  data: { month: string; mrr: number; novos: number }[];
+  theme?: ChartTheme;
+  barColor?: string;
+  lineColor?: string;
+  height?: number;
+}) {
+  const c = palette(theme);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+        <XAxis
+          dataKey="month"
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          yAxisId="left"
+          tickFormatter={(v) => `R$ ${formatCompact(Number(v))}`}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+          width={56}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: c.tick }}
+          tickLine={false}
+          axisLine={false}
+          width={28}
+        />
+        <Tooltip
+          formatter={(v, name) =>
+            name === "MRR" ? `R$ ${formatCompact(Number(v))}` : `${v} novos`
+          }
+          cursor={{ fill: c.cursor }}
+          contentStyle={{
+            borderRadius: 12,
+            border: `1px solid ${c.tooltipBorder}`,
+            background: c.tooltipBg,
+            color: c.tooltipText,
+            fontSize: 12,
+          }}
+        />
+        <Bar
+          yAxisId="left"
+          dataKey="mrr"
+          name="MRR"
+          fill={barColor}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={34}
+        />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="novos"
+          name="Novos clientes"
+          stroke={lineColor}
+          strokeWidth={2.5}
+          dot={{ r: 3 }}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

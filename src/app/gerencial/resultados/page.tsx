@@ -53,7 +53,12 @@ export default async function GerencialResultados() {
             <CardTitle>Alcance por cliente</CardTitle>
           </CardHeader>
           <CardContent>
-            <SimpleBarChart data={reachByClient} dataKey="reach" labelKey="name" />
+            <SimpleBarChart
+              data={reachByClient}
+              dataKey="reach"
+              labelKey="name"
+              theme="dark"
+            />
           </CardContent>
         </Card>
         <Card>
@@ -65,6 +70,7 @@ export default async function GerencialResultados() {
               data={followersByClient}
               dataKey="followers"
               labelKey="name"
+              theme="dark"
             />
           </CardContent>
         </Card>

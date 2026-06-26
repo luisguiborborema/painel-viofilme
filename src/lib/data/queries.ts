@@ -606,3 +606,142 @@ export async function getBrandHub(clientId: string): Promise<BrandHub> {
     activity,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Hub de gestão — visão C-Level (gerencial)
+// ---------------------------------------------------------------------------
+export type CLevelKpi = {
+  iconKey: "mrr" | "clients" | "margin" | "cac";
+  label: string;
+  value: string;
+  delta: string;
+  deltaTone: "good" | "bad" | "neutral";
+  note: string;
+  noteTone: "muted" | "danger";
+};
+
+export type CLevelAlert = {
+  id: string;
+  kind: "churn" | "production" | "contracts" | "pipeline";
+  title: string;
+  detail: string;
+  actionLabel: string;
+};
+
+export type CLevel = {
+  periodLabel: string;
+  kpis: CLevelKpi[];
+  alerts: CLevelAlert[];
+  mrrHistory: { month: string; mrr: number; novos: number }[];
+  scaleGoal: {
+    active: number;
+    target: number;
+    metaDate: string;
+    pct: number;
+    currentPace: number;
+    neededPace: number;
+    projection: number;
+    gap: string;
+  };
+  accountsHealth: { name: string; score: number }[];
+  teamLoad: {
+    name: string;
+    area: string;
+    initials: string;
+    sub: string;
+    allocated: number;
+    capacity: number;
+  }[];
+  dre: {
+    grossMRR: number;
+    deductions: number;
+    netRevenue: number;
+    salaries: number;
+    tools: number;
+    commissions: number;
+    netProfit: number;
+    margin: number;
+    metaMargin: number;
+  };
+  pipeline: {
+    stages: { name: string; count: number; value: number }[];
+    total: number;
+    weighted: number;
+    conversionRate: number;
+  };
+};
+
+export async function getCLevel(): Promise<CLevel> {
+  return {
+    periodLabel: "junho 2026 · Iago & Flávio",
+    kpis: [
+      { iconKey: "mrr", label: "MRR atual", value: "R$ 31k", delta: "+R$ 6,4k vs. maio (+26%)", deltaTone: "good", note: "2 novos contratos em junho", noteTone: "muted" },
+      { iconKey: "clients", label: "Clientes ativos", value: "8 / 50", delta: "+2 este mês · meta: dez/26", deltaTone: "good", note: "2 em risco de churn", noteTone: "danger" },
+      { iconKey: "margin", label: "Margem operacional", value: "38%", delta: "+4pp vs. maio", deltaTone: "good", note: "Meta: 42% até dez/26", noteTone: "muted" },
+      { iconKey: "cac", label: "CAC médio", value: "R$ 480", delta: "+R$ 80 vs. maio", deltaTone: "neutral", note: "LTV médio: R$ 28.800", noteTone: "muted" },
+    ],
+    alerts: [
+      { id: "al-churn", kind: "churn", title: "2 clientes em risco crítico de churn — intervenção urgente", detail: "Academia FitBody (score 32, fatura vencida 12d) · Loja ModaVerde (score 28, NPS 5, 3 ajustes consecutivos)", actionLabel: "Ver contas" },
+      { id: "al-prod", kind: "production", title: "9 tarefas do time com prazo vencido hoje", detail: "Robert (Design) com 48h alocadas nesta semana — sobrecarga detectada. 3 posts aguardam aprovação há mais de 2 dias.", actionLabel: "Ver produção" },
+      { id: "al-contracts", kind: "contracts", title: "3 contratos vencem nos próximos 30 dias — R$ 10.200/mês em risco", detail: "Rede Farmácia BH (18d) · Advocacia Menezes & Assis (32d) · Studio Bela Forma (45d)", actionLabel: "Planejar renovação" },
+      { id: "al-pipeline", kind: "pipeline", title: "Pipeline comercial aquecido — R$ 94k em negociação", detail: "Imobiliária Costa Mar (R$ 5.200, 80%) · Rede de Farmácias BH (R$ 8.500, 70%) — 2 fechamentos prováveis em junho", actionLabel: "Ver funil" },
+    ],
+    mrrHistory: [
+      { month: "Jan", mrr: 18000, novos: 1 },
+      { month: "Fev", mrr: 21000, novos: 2 },
+      { month: "Mar", mrr: 23000, novos: 1 },
+      { month: "Abr", mrr: 25000, novos: 2 },
+      { month: "Mai", mrr: 24600, novos: 1 },
+      { month: "Jun", mrr: 31000, novos: 2 },
+    ],
+    scaleGoal: {
+      active: 8,
+      target: 50,
+      metaDate: "dez/26",
+      pct: 16,
+      currentPace: 1.8,
+      neededPace: 6,
+      projection: 21,
+      gap: "Gap crítico — meta exige triplicar ritmo comercial ou revisar prazo",
+    },
+    accountsHealth: [
+      { name: "Rede Farmácia BH", score: 88 },
+      { name: "Restaurante Sabor do Mar", score: 84 },
+      { name: "Advocacia Menezes & Assis", score: 78 },
+      { name: "Studio Bela Forma", score: 71 },
+      { name: "Clínica Vida", score: 66 },
+      { name: "Imobiliária Costa Mar", score: 62 },
+      { name: "Academia FitBody", score: 32 },
+      { name: "Loja ModaVerde", score: 28 },
+    ],
+    teamLoad: [
+      { name: "Robert", area: "Design", initials: "RO", sub: "9 tarefas · 3 atrasadas", allocated: 48, capacity: 40 },
+      { name: "Gustavo", area: "Social", initials: "GU", sub: "12 tarefas · em dia", allocated: 36, capacity: 40 },
+      { name: "Ana Lima", area: "Social", initials: "AN", sub: "8 tarefas · 1 atrasada", allocated: 38, capacity: 40 },
+      { name: "Mariana", area: "Tráfego", initials: "MA", sub: "15 contas monitoradas", allocated: 32, capacity: 40 },
+      { name: "Marcos", area: "Comercial", initials: "MC", sub: "6 leads em andamento", allocated: 28, capacity: 40 },
+    ],
+    dre: {
+      grossMRR: 31000,
+      deductions: 4030,
+      netRevenue: 26970,
+      salaries: 12800,
+      tools: 1420,
+      commissions: 960,
+      netProfit: 11790,
+      margin: 38.0,
+      metaMargin: 42,
+    },
+    pipeline: {
+      stages: [
+        { name: "Prospecção", count: 4, value: 25200 },
+        { name: "Reunião marcada", count: 2, value: 13900 },
+        { name: "Proposta enviada", count: 3, value: 44400 },
+        { name: "Em negociação", count: 1, value: 8500 },
+      ],
+      total: 94000,
+      weighted: 51200,
+      conversionRate: 34,
+    },
+  };
+}
