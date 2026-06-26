@@ -119,6 +119,27 @@ export type TopPost = {
   comments: number;
 };
 
+// --- Financeiro & contratos (M5) --------------------------------------------
+export type InvoiceStatus = "paid" | "open";
+
+export type Invoice = {
+  id: string;
+  competence: string; // "Jul / 2026"
+  description: string;
+  amount: number;
+  dueDate: string; // ISO date
+  status: InvoiceStatus;
+  method: string | null; // "PIX"
+  paidDate: string | null; // ISO date
+};
+
+export type FinanceDocument = {
+  id: string;
+  title: string;
+  meta: string; // "Assinado em 09/01/2026"
+  sizeLabel: string; // "340 KB"
+};
+
 export type OrganicScope = {
   followers: number;
   followersDelta: number; // abs

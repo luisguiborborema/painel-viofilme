@@ -69,6 +69,21 @@ export function dayMonth(iso: string): string {
   return `${String(day).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}`;
 }
 
+/** "03/07/2026". */
+export function fullDate(iso: string): string {
+  const { day, m, y } = parts(iso);
+  return `${String(day).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}/${y}`;
+}
+
+/** Dias inteiros de `fromIso` até `toIso` (pode ser negativo). */
+export function daysUntil(fromIso: string, toIso: string): number {
+  const a = parts(fromIso);
+  const b = parts(toIso);
+  return Math.round(
+    (Date.UTC(b.y, b.m, b.day) - Date.UTC(a.y, a.m, a.day)) / 86400000,
+  );
+}
+
 /** "Quinta, 26 jun · 10h00". */
 export function meetingLabel(iso: string): string {
   const { day, m, wd } = parts(iso);

@@ -592,6 +592,21 @@ export const ORGANIC: Record<string, OrganicRaw> = Object.fromEntries(
   ]),
 );
 
+// ---------------------------------------------------------------------------
+// Financeiro & contratos (M5) — parâmetros por cliente
+// ---------------------------------------------------------------------------
+export const FINANCE_TUNING: {
+  plan: string;
+  amount: number;
+  description: string;
+  activeSince: string;
+}[] = [
+  { plan: "Social Pro", amount: 2800, description: "Gestão de redes + tráfego pago", activeSince: "2026-01-09" },
+  { plan: "Performance", amount: 3500, description: "Gestão + mídia + relatórios mensais", activeSince: "2025-11-15" },
+  { plan: "Essencial", amount: 1900, description: "Gestão de redes sociais", activeSince: "2026-02-01" },
+  { plan: "Branding Plus", amount: 4200, description: "Branding + conteúdo + tráfego pago", activeSince: "2025-09-20" },
+];
+
 // Próximas reuniões por cliente
 export const MEETINGS: Meeting[] = CLIENTS.flatMap((c) => [
   {

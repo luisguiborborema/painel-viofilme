@@ -4,11 +4,13 @@ import {
   CLIENTS,
   CONTENT,
   ENGAGEMENT_SERIES,
+  FINANCE_TUNING,
   MEDIA,
   MEETINGS,
   ORGANIC,
   REFERENCE_DATE,
 } from "./mock";
+import { daysUntil, fullDate } from "@/lib/datetime";
 import type {
   AccountMetricPoint,
   AdCampaign,
@@ -18,8 +20,10 @@ import type {
   ContentPost,
   CplMonthPoint,
   EngagementPoint,
+  FinanceDocument,
   FollowersMonthPoint,
   FormatReach,
+  Invoice,
   Meeting,
   OrganicScope,
   Platform,
@@ -431,5 +435,112 @@ export async function getOrganicResults(
     audience: raw.audience,
     topPosts: raw.topPosts.map((p, i) => ({ rank: i + 1, ...p })),
     teamPattern: raw.teamPattern,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Financeiro & contratos (M5)
+// ---------------------------------------------------------------------------
+export type FinanceOverview = {
+  year: number;
+  nextDue: { amount: number; dueDate: string; daysUntil: number } | null;
+  lastPayment: { amount: number; paidDate: string; method: string } | null;
+  plan: { name: string; activeSince: string };
+  invoices: Invoice[];
+  totalPaidYear: number;
+  documents: FinanceDocument[];
+};
+
+export async function getFinance(clientId: string): Promise<FinanceOverview> {
+  const idx = Math.max(
+    0,
+    CLIENTS.findIndex((c) => c.id === clientId),
+  );
+  const t = FINANCE_TUNING[idx % FINANCE_TUNING.length];
+  const ref = REFERENCE_DATE;
+  const year = ref.getUTCFullYear();
+  const refMonth = ref.getUTCMonth();
+  const refIso = ref.toISOString().slice(0, 10);
+
+  const abbr = (m: number) => MESES[m].slice(0, 3);
+  const dateISO = (m: number, d: number) =>
+    new Date(Date.UTC(year, m, d)).toISOString().slice(0, 10);
+
+  const invoices: Invoice[] = [];
+
+  // Fatura em aberto (competência do próximo mês)
+  const openMonth = refMonth + 1;
+  invoices.push({
+    id: `inv-${clientId}-${openMonth}`,
+    competence: `${abbr(openMonth)} / ${year}`,
+    description: t.description,
+    amount: t.amount,
+    dueDate: dateISO(openMonth, 3),
+    status: "open",
+    method: null,
+    paidDate: null,
+  });
+
+  // Faturas pagas (mês atual para trás)
+  for (let m = refMonth; m >= 0; m--) {
+    invoices.push({
+      id: `inv-${clientId}-${m}`,
+      competence: `${abbr(m)} / ${year}`,
+      description: t.description,
+      amount: t.amount,
+      dueDate: dateISO(m, 3),
+      status: "paid",
+      method: "PIX",
+      paidDate: dateISO(m, 3),
+    });
+  }
+
+  const open = invoices.find((i) => i.status === "open") ?? null;
+  const lastPaid = invoices.find((i) => i.status === "paid") ?? null;
+  const totalPaidYear = invoices
+    .filter((i) => i.status === "paid")
+    .reduce((s, i) => s + i.amount, 0);
+
+  const documents: FinanceDocument[] = [
+    {
+      id: "doc-contrato",
+      title: "Contrato de prestação de serviços",
+      meta: `Versão atual · Assinado em ${fullDate(t.activeSince)}`,
+      sizeLabel: "340 KB",
+    },
+    {
+      id: "doc-aditivo",
+      title: "Aditivo — inclusão de tráfego pago",
+      meta: `Assinado em ${fullDate(dateISO(2, 5))}`,
+      sizeLabel: "98 KB",
+    },
+    {
+      id: "doc-proposta",
+      title: "Proposta comercial original",
+      meta: `Enviado em 20/12/${year - 1}`,
+      sizeLabel: "1,2 MB",
+    },
+  ];
+
+  return {
+    year,
+    nextDue: open
+      ? {
+          amount: open.amount,
+          dueDate: open.dueDate,
+          daysUntil: daysUntil(refIso, open.dueDate),
+        }
+      : null,
+    lastPayment: lastPaid
+      ? {
+          amount: lastPaid.amount,
+          paidDate: lastPaid.paidDate as string,
+          method: lastPaid.method as string,
+        }
+      : null,
+    plan: { name: t.plan, activeSince: t.activeSince },
+    invoices,
+    totalPaidYear,
+    documents,
   };
 }
