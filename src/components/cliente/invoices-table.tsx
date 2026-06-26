@@ -34,7 +34,7 @@ export function InvoicesTable({
               return (
                 <tr
                   key={inv.id}
-                  className="border-b border-line last:border-0 hover:bg-white/[0.03]"
+                  className="border-b border-line last:border-0 hover:bg-subtle"
                 >
                   <td className="px-4 py-3 font-medium text-ink">
                     {inv.competence}
@@ -68,7 +68,7 @@ export function InvoicesTable({
                         PIX
                       </button>
                     ) : (
-                      <button className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white/5 px-3 py-1.5 text-xs font-medium text-ink hover:bg-white/10">
+                      <button className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle-strong">
                         <Download className="h-3.5 w-3.5" /> PDF
                       </button>
                     )}

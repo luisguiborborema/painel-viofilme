@@ -8,6 +8,7 @@ import { signOut } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme/theme-provider";
 
 function initials(name: string) {
   return name
@@ -49,6 +50,8 @@ export function Topbar({
           {ROLE_LABEL[user.role]} · {user.email}
         </p>
       </div>
+
+      <ThemeToggle />
 
       <div className="relative">
         <button

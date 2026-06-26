@@ -18,6 +18,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatCompact } from "@/lib/utils";
+import { useTheme } from "@/components/theme/theme-provider";
 
 type ChartTheme = "light" | "dark";
 
@@ -52,7 +53,7 @@ export function TrendAreaChart({
   data,
   dataKey,
   color = "#2a63c9",
-  theme = "light",
+  theme,
   valueFormatter = (v: number) => formatCompact(v),
   height = 260,
 }: {
@@ -63,7 +64,8 @@ export function TrendAreaChart({
   valueFormatter?: (v: number) => string;
   height?: number;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -116,7 +118,7 @@ export function MultiLineChart({
   data,
   categoryKey,
   series,
-  theme = "light",
+  theme,
   height = 240,
 }: {
   data: { [k: string]: number | string }[];
@@ -125,7 +127,8 @@ export function MultiLineChart({
   theme?: ChartTheme;
   height?: number;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -172,7 +175,7 @@ export function MultiLineChart({
 
 export function ComboMrrChart({
   data,
-  theme = "light",
+  theme,
   barColor = "#38bdf8",
   lineColor = "#34d399",
   height = 260,
@@ -183,7 +186,8 @@ export function ComboMrrChart({
   lineColor?: string;
   height?: number;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -248,14 +252,15 @@ export function ComboMrrChart({
 
 export function DonutChart({
   data,
-  theme = "light",
+  theme,
   height = 220,
 }: {
   data: { name: string; value: number; color: string }[];
   theme?: ChartTheme;
   height?: number;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -317,7 +322,7 @@ export function MultiBarChart({
   data,
   categoryKey,
   series,
-  theme = "light",
+  theme,
   currency = false,
   height = 240,
 }: {
@@ -328,7 +333,8 @@ export function MultiBarChart({
   currency?: boolean;
   height?: number;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   const fmt = (v: number) =>
     currency ? `R$ ${v.toLocaleString("pt-BR")}` : formatCompact(v);
   return (
@@ -379,7 +385,7 @@ export function SimpleBarChart({
   dataKey,
   labelKey,
   color = "#2a63c9",
-  theme = "light",
+  theme,
 }: {
   data: { [k: string]: number | string }[];
   dataKey: string;
@@ -387,7 +393,8 @@ export function SimpleBarChart({
   color?: string;
   theme?: ChartTheme;
 }) {
-  const c = palette(theme);
+  const ctxTheme = useTheme().theme;
+  const c = palette(theme ?? ctxTheme);
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 44)}>
       <BarChart

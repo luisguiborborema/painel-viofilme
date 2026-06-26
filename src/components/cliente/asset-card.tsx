@@ -20,11 +20,11 @@ function Preview({ kind }: { kind: AssetPreview }) {
       );
     case "palette":
       return (
-        <div className={`${base} gap-2 bg-white/5`}>
+        <div className={`${base} gap-2 bg-subtle`}>
           {["#2a63c9", "#e9fc89", "#f9e5d8", "#f2a4ad", "#14171f"].map((c) => (
             <span
               key={c}
-              className="h-6 w-6 rounded-full ring-1 ring-white/10"
+              className="h-6 w-6 rounded-full ring-1 ring-line"
               style={{ background: c }}
             />
           ))}
@@ -32,23 +32,23 @@ function Preview({ kind }: { kind: AssetPreview }) {
       );
     case "type":
       return (
-        <div className={`${base} bg-white/5`}>
+        <div className={`${base} bg-subtle`}>
           <span className="font-serif text-4xl text-ink">Aa</span>
         </div>
       );
     case "pdf":
       return (
-        <div className={`${base} bg-white/5 text-brand-300`}>
+        <div className={`${base} bg-subtle text-brand-300`}>
           <FileText className="h-9 w-9" />
         </div>
       );
     case "photos":
       return (
-        <div className={`${base} grid grid-cols-3 gap-1 bg-white/5 p-3`}>
+        <div className={`${base} grid grid-cols-3 gap-1 bg-subtle p-3`}>
           {Array.from({ length: 6 }).map((_, i) => (
             <span
               key={i}
-              className="flex items-center justify-center rounded bg-white/10 text-muted"
+              className="flex items-center justify-center rounded bg-subtle-strong text-muted"
             >
               <ImageIcon className="h-3.5 w-3.5" />
             </span>
@@ -70,7 +70,7 @@ export function AssetCard({ asset }: { asset: BrandAsset }) {
         {asset.downloads.map((d) => (
           <button
             key={d}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-white/5 px-2 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-white/10"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-line bg-subtle px-2 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-subtle-strong"
           >
             <Download className="h-3.5 w-3.5" /> {d}
           </button>

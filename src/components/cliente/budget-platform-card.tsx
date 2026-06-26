@@ -29,7 +29,7 @@ function PlatformBar({
         </span>
         <span className="font-semibold text-ink">{brl0(value)}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-subtle-strong">
         <div
           className="h-full rounded-full"
           style={{ width: `${width}%`, background: color }}

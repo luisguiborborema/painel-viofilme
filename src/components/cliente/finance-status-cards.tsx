@@ -13,7 +13,7 @@ const BTN: Record<Accent, string> = {
   gold: "bg-amber-500 text-amber-950 hover:bg-amber-400",
   green:
     "border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25",
-  neutral: "border border-line bg-white/5 text-ink hover:bg-white/10",
+  neutral: "border border-line bg-subtle text-ink hover:bg-subtle-strong",
 };
 
 const LABEL_COLOR: Record<Accent, string> = {

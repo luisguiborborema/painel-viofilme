@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import type { AudienceProfile } from "@/lib/data/types";
 
-const CELL = ["bg-white/5", "bg-emerald-500/45", "bg-emerald-400"];
+const CELL = ["bg-subtle", "bg-emerald-500/45", "bg-emerald-400"];
 
 export function AudienceCard({ audience }: { audience: AudienceProfile }) {
   const maxAge = Math.max(...audience.ageRanges.map((a) => a.pct), 1);
@@ -18,7 +18,7 @@ export function AudienceCard({ audience }: { audience: AudienceProfile }) {
         {audience.ageRanges.map((a) => (
           <div key={a.label} className="flex items-center gap-2">
             <span className="w-12 text-xs text-muted">{a.label}</span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-subtle-strong">
               <div
                 className="h-full rounded-full bg-brand-400"
                 style={{ width: `${(a.pct / maxAge) * 100}%` }}

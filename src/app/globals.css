@@ -26,12 +26,16 @@
   --color-cream: #f9e5d8;
   --color-salmon: #f2a4ad;
 
-  /* Superfícies neutras */
+  /* Superfícies neutras (valores do MODO CLARO por padrão) */
   --color-ink: #14171f;
   --color-muted: #667085;
   --color-surface: #ffffff;
   --color-canvas: #f5f6f8;
   --color-line: #e7e9ee;
+
+  /* Preenchimentos sutis (substituem bg-white/x — invertem por tema) */
+  --color-subtle: rgba(17, 24, 39, 0.04);
+  --color-subtle-strong: rgba(17, 24, 39, 0.07);
 
   --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
 
@@ -55,9 +59,51 @@ body {
 }
 
 /* ===========================================================================
-   Tema escuro — usado na área do cliente.
-   Sobrescreve os tokens semânticos; qualquer componente que use
-   bg-surface / text-ink / text-muted / border-line / bg-canvas adapta sozinho.
+   MODO CLARO — tons de acento legíveis sobre fundo claro.
+   Aplicado quando o <html> NÃO tem a classe .theme-dark.
+   Os componentes foram construídos com tons pastel (ótimos no escuro);
+   aqui escurecemos esses tons para manter contraste no claro.
+   =========================================================================== */
+:root:not(.theme-dark) {
+  --color-brand-100: #142d5c;
+  --color-brand-200: #1b4188;
+  --color-brand-300: #2150a8;
+
+  --color-emerald-100: #064e3b;
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+
+  --color-amber-100: #78350f;
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+
+  --color-sky-100: #0c4a6e;
+  --color-sky-200: #075985;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0284c7;
+
+  --color-rose-100: #881337;
+  --color-rose-200: #9f1239;
+  --color-rose-300: #be123c;
+  --color-rose-400: #e11d48;
+
+  --color-violet-300: #6d28d9;
+  --color-violet-400: #7c3aed;
+  --color-teal-300: #0f766e;
+  --color-pink-300: #be185d;
+
+  --color-yellow-100: #713f12;
+  --color-yellow-200: #854d0e;
+  --color-yellow-300: #a16207;
+}
+
+/* ===========================================================================
+   MODO ESCURO — classe .theme-dark no <html> (controlada pelo ThemeProvider).
+   Sobrescreve os tokens semânticos; quem usa bg-surface / text-ink / text-muted
+   / border-line / bg-canvas / bg-subtle adapta sozinho. Os tons de acento
+   voltam aos pastéis padrão do Tailwind (ótimos no escuro).
    =========================================================================== */
 .theme-dark {
   --color-canvas: #0b0e13;
@@ -65,12 +111,16 @@ body {
   --color-line: #232a33;
   --color-ink: #f2f4f7;
   --color-muted: #8b929c;
-  /* chips de ícone continuam legíveis no escuro */
   --color-brand-50: #19202c;
   --color-brand-600: #9ec0ff;
+
+  --color-subtle: rgba(255, 255, 255, 0.05);
+  --color-subtle-strong: rgba(255, 255, 255, 0.1);
+
+  --background: #0b0e13;
+  --foreground: #f2f4f7;
+
   color-scheme: dark;
-  background: var(--color-canvas);
-  color: var(--color-ink);
 }
 
 /* Scrollbar discreta */
@@ -79,12 +129,12 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cdd2db;
+  background: var(--color-line);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #b6bcc8;
+  background: var(--color-muted);
   background-clip: content-box;
 }

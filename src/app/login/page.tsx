@@ -1,12 +1,16 @@
 import { LogoHorizontal } from "@/components/brand/logo";
 import { LoginForm } from "@/components/auth/login-form";
+import { ThemeToggle } from "@/components/theme/theme-provider";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function LoginPage() {
   const demoMode = !isSupabaseConfigured();
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Painel de marca */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-brand-700 p-12 text-white lg:flex">
         <div

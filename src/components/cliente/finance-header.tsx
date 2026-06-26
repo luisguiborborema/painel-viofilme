@@ -17,7 +17,7 @@ export function FinanceHeader() {
         </div>
       </div>
 
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs text-muted">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-3 py-1.5 text-xs text-muted">
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Área segura
       </span>
     </div>

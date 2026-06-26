@@ -37,7 +37,7 @@ export function TeamCard({
       </div>
 
       <div className="mt-3 flex gap-2">
-        <button className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white/5 px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-white/10">
+        <button className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle-strong">
           <MessageSquare className="h-4 w-4" /> Mensagem
         </button>
         <a

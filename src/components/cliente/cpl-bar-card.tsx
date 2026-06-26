@@ -35,7 +35,6 @@ export function CplBarCard({ data }: { data: CplMonthPoint[] }) {
         data={data}
         categoryKey="month"
         currency
-        theme="dark"
         height={240}
         series={[
           { key: "meta", color: META, name: "Meta Ads" },

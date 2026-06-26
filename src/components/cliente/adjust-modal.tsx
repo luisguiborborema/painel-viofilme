@@ -65,7 +65,7 @@ export function AdjustModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted hover:bg-white/5 hover:text-ink"
+            className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-ink"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -87,7 +87,7 @@ export function AdjustModal({
                   "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm transition-colors",
                   on
                     ? "border-brand-400 bg-brand-500/15 text-brand-100"
-                    : "border-line bg-white/5 text-muted hover:text-ink",
+                    : "border-line bg-subtle text-muted hover:text-ink",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -120,7 +120,7 @@ export function AdjustModal({
               "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
               urgency === "normal"
                 ? "border-brand-400 bg-brand-500 text-white"
-                : "border-line bg-white/5 text-muted hover:text-ink",
+                : "border-line bg-subtle text-muted hover:text-ink",
             )}
           >
             Normal
@@ -131,7 +131,7 @@ export function AdjustModal({
               "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
               urgency === "urgent"
                 ? "border-rose-400 bg-rose-500 text-white"
-                : "border-line bg-white/5 text-muted hover:text-ink",
+                : "border-line bg-subtle text-muted hover:text-ink",
             )}
           >
             Urgente
@@ -148,7 +148,7 @@ export function AdjustModal({
           </button>
           <button
             onClick={onClose}
-            className="rounded-xl border border-line bg-white/5 px-4 py-2.5 text-sm font-medium text-ink hover:bg-white/10"
+            className="rounded-xl border border-line bg-subtle px-4 py-2.5 text-sm font-medium text-ink hover:bg-subtle-strong"
           >
             Cancelar
           </button>

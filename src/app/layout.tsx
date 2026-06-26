@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 
 const barlow = Barlow({
   variable: "--font-barlow",
@@ -15,14 +16,22 @@ export const metadata: Metadata = {
     "Painel da Viofilme — acompanhe campanhas, conteúdo e resultados de Instagram e Facebook.",
 };
 
+// Aplica o tema antes do primeiro paint (evita flash). Padrão: escuro.
+const themeScript = `(function(){try{var t=localStorage.getItem('vio-theme');if(t!=='light'){document.documentElement.classList.add('theme-dark');}}catch(e){document.documentElement.classList.add('theme-dark');}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${barlow.variable} h-full`}>
-      <body className="min-h-full antialiased">{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className={`${barlow.variable} min-h-screen antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

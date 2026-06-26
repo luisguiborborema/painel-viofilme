@@ -24,7 +24,6 @@ export function EngagementCard({ series }: { series: EngagementPoint[] }) {
         data={series}
         dataKey="value"
         color="#34d399"
-        theme="dark"
         height={220}
         valueFormatter={(v) =>
           `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`

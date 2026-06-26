@@ -57,7 +57,6 @@ export default async function GerencialResultados() {
               data={reachByClient}
               dataKey="reach"
               labelKey="name"
-              theme="dark"
             />
           </CardContent>
         </Card>
@@ -70,7 +69,6 @@ export default async function GerencialResultados() {
               data={followersByClient}
               dataKey="followers"
               labelKey="name"
-              theme="dark"
             />
           </CardContent>
         </Card>

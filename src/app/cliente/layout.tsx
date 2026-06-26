@@ -10,9 +10,5 @@ export default async function ClienteLayout({
   const user = await getSession();
   if (!user) redirect("/login");
   if (user.role !== "cliente") redirect("/gerencial");
-  return (
-    <AppShell user={user} theme="dark">
-      {children}
-    </AppShell>
-  );
+  return <AppShell user={user}>{children}</AppShell>;
 }

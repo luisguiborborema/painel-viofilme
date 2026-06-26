@@ -28,7 +28,7 @@ export function MrrChartCard({
           </span>
         </div>
       </div>
-      <ComboMrrChart data={data} theme="dark" barColor={BAR} lineColor={LINE} />
+      <ComboMrrChart data={data} barColor={BAR} lineColor={LINE} />
     </Card>
   );
 }

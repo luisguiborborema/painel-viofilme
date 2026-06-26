@@ -57,7 +57,7 @@ export function PlatformStatCard({
           <PlatformIcon platform={platform} />
           {PLATFORM_LABEL[platform]}
         </span>
-        <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-muted">
+        <span className="rounded-full bg-subtle-strong px-2.5 py-0.5 text-xs font-medium text-muted">
           {role}
         </span>
       </div>

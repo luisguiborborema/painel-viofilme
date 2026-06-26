@@ -28,7 +28,6 @@ export function FollowersLineCard({ data }: { data: FollowersMonthPoint[] }) {
       <MultiLineChart
         data={data}
         categoryKey="month"
-        theme="dark"
         height={240}
         series={[
           { key: "instagram", color: IG, name: "Instagram" },

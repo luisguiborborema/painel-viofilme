@@ -23,7 +23,7 @@ export function ScaleGoalCard({ goal }: { goal: CLevel["scaleGoal"] }) {
       </p>
       <p className="text-xs text-muted">meta {goal.metaDate}</p>
 
-      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-subtle-strong">
         <div
           className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-500"
           style={{ width: `${goal.pct}%` }}

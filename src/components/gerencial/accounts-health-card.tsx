@@ -29,7 +29,7 @@ export function AccountsHealthCard({
             <li key={a.name} className="flex items-center gap-3">
               <span className={cn("h-2 w-2 shrink-0 rounded-full", t.dot)} />
               <span className="w-28 truncate text-sm text-ink">{a.name}</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle-strong">
                 <div
                   className={cn("h-full rounded-full", t.bar)}
                   style={{ width: `${a.score}%` }}

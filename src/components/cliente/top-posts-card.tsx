@@ -27,7 +27,7 @@ export function TopPostsCard({ posts }: { posts: TopPost[] }) {
         {posts.map((p) => (
           <li
             key={p.rank}
-            className="flex items-center gap-3 rounded-xl bg-white/5 p-2.5"
+            className="flex items-center gap-3 rounded-xl bg-subtle p-2.5"
           >
             <span
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${RANK_STYLE[p.rank - 1] ?? RANK_STYLE[2]}`}

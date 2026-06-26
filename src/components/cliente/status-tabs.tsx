@@ -35,7 +35,7 @@ export function StatusTabs({
               "inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-sm font-medium transition-colors",
               active
                 ? "bg-brand-500 text-white"
-                : "bg-white/5 text-muted hover:text-ink",
+                : "bg-subtle text-muted hover:text-ink",
             )}
           >
             {tab.label}
@@ -46,7 +46,7 @@ export function StatusTabs({
                   ? "bg-white/25 text-white"
                   : alert && tab.count > 0
                     ? "bg-amber-500/20 text-amber-300"
-                    : "bg-white/10 text-muted",
+                    : "bg-subtle-strong text-muted",
               )}
             >
               {tab.count}

@@ -28,7 +28,7 @@ export function FunnelCard({ pipeline }: { pipeline: CLevel["pipeline"] }) {
                 {formatBRL(s.value)}
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-subtle-strong">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-sky-400 to-brand-500"
                 style={{ width: `${(s.value / max) * 100}%` }}

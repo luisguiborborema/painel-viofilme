@@ -15,7 +15,7 @@ export function MeetingsCard({ items }: { items: MeetingItem[] }) {
 
       <ul className="space-y-2">
         {items.map((m) => (
-          <li key={m.id} className="rounded-xl bg-white/5 p-3">
+          <li key={m.id} className="rounded-xl bg-subtle p-3">
             <p className="text-xs font-medium text-emerald-300">{m.whenLabel}</p>
             <p className="mt-0.5 text-sm font-medium text-ink">{m.title}</p>
             <a
@@ -32,7 +32,7 @@ export function MeetingsCard({ items }: { items: MeetingItem[] }) {
 
       <div className="mt-4 border-t border-line pt-4">
         <p className="text-xs text-muted">Solicitar reunião</p>
-        <button className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-white/10">
+        <button className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-subtle px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-subtle-strong">
           <Plus className="h-4 w-4" /> Solicitar horário
         </button>
       </div>

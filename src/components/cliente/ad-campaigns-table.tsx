@@ -42,7 +42,7 @@ export function AdCampaignsTable({
             {campaigns.map((c) => (
               <tr
                 key={c.id}
-                className="border-b border-line last:border-0 hover:bg-white/[0.03]"
+                className="border-b border-line last:border-0 hover:bg-subtle"
               >
                 <td className="px-4 py-3">
                   <p className="font-medium text-ink">{c.name}</p>

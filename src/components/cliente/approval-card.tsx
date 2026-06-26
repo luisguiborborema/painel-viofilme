@@ -111,12 +111,12 @@ export function ApprovalCard({ post }: { post: ApprovalCardData }) {
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white/5 px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-white/10"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle-strong"
             >
               <MessageSquarePlus className="h-4 w-4" /> Pedir ajuste
             </button>
             <button
-              className="inline-flex items-center justify-center rounded-xl border border-line bg-white/5 p-2 text-muted transition-colors hover:text-ink"
+              className="inline-flex items-center justify-center rounded-xl border border-line bg-subtle p-2 text-muted transition-colors hover:text-ink"
               aria-label="Pré-visualizar"
             >
               <Eye className="h-4 w-4" />
@@ -125,7 +125,7 @@ export function ApprovalCard({ post }: { post: ApprovalCardData }) {
         ) : (
           <div className="mt-3 flex items-center gap-2">
             <button
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-white/5 px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-white/10"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle-strong"
             >
               <Eye className="h-4 w-4" /> Pré-visualizar
             </button>

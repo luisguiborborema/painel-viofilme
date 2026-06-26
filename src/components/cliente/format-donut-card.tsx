@@ -18,7 +18,7 @@ export function FormatDonutCard({ data }: { data: FormatReach }) {
         Alcance por tipo de conteúdo
       </h2>
       <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-2">
-        <DonutChart data={items} theme="dark" height={200} />
+        <DonutChart data={items} height={200} />
         <ul className="space-y-2">
           {items.map((it) => (
             <li

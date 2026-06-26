@@ -29,7 +29,7 @@ export function UpcomingPostsCard({ items }: { items: UpcomingPostItem[] }) {
         {items.map((item) => (
           <li
             key={item.id}
-            className="flex items-center gap-3 rounded-xl bg-white/5 p-2.5"
+            className="flex items-center gap-3 rounded-xl bg-subtle p-2.5"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
               <ImageIcon className="h-4 w-4" />

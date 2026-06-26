@@ -57,7 +57,7 @@ export function MediaBudgetCard({
           </span>
           <span className="absolute right-0">100%</span>
         </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-subtle-strong">
           <div
             className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500"
             style={{ width: `${clamped}%` }}
@@ -70,11 +70,11 @@ export function MediaBudgetCard({
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-white/5 p-3">
+        <div className="rounded-xl bg-subtle p-3">
           <p className="text-xl font-bold text-ink">{formatNumber(leads)}</p>
           <p className="text-xs text-muted">Leads gerados</p>
         </div>
-        <div className="rounded-xl bg-white/5 p-3">
+        <div className="rounded-xl bg-subtle p-3">
           <p className="text-xl font-bold text-ink">
             {formatNumber(conversions)}
           </p>

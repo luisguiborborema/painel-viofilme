@@ -51,7 +51,7 @@ export function TeamLoadCard({ team }: { team: CLevel["teamLoad"] }) {
                 >
                   {m.allocated}h / {m.capacity}h
                 </p>
-                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-subtle-strong">
                   <div
                     className={cn(
                       "h-full rounded-full",
