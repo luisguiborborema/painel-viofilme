@@ -16,8 +16,9 @@ export const metadata: Metadata = {
     "Painel da Viofilme — acompanhe campanhas, conteúdo e resultados de Instagram e Facebook.",
 };
 
-// Aplica o tema antes do primeiro paint (evita flash). Padrão: escuro.
-const themeScript = `(function(){try{var t=localStorage.getItem('vio-theme');if(t!=='light'){document.documentElement.classList.add('theme-dark');}}catch(e){document.documentElement.classList.add('theme-dark');}})();`;
+// Aplica o tema antes do primeiro paint (evita flash).
+// Preferência: 'light' | 'dark' | 'system'. Padrão: 'system' (segue o SO).
+const themeScript = `(function(){try{var t=localStorage.getItem('vio-theme');var sd=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||((t==='system'||!t)&&sd)){document.documentElement.classList.add('theme-dark');}}catch(e){document.documentElement.classList.add('theme-dark');}})();`;
 
 export default function RootLayout({
   children,
