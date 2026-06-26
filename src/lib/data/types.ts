@@ -174,6 +174,78 @@ export type ActivityItem = {
   kind: ActivityKind;
 };
 
+// --- Customer Success / Gestão de clientes (gerencial) ----------------------
+export type CSTone = "ok" | "warn" | "danger";
+export type CSStatus = { label: string; tone: CSTone };
+
+export type CSClient = {
+  id: string;
+  name: string;
+  segment: string;
+  city: string;
+  mrr: number;
+  healthScore: number;
+  nps: number;
+  financial: CSStatus;
+  contract: CSStatus;
+  cs: string;
+  lastContactDays: number;
+  atRisk: boolean;
+  healthy: boolean;
+  renewingSoon: boolean;
+};
+
+export type CSTimelineEvent = {
+  id: string;
+  date: string; // "09/06"
+  text: string;
+  kind: "nps" | "meeting" | "refund" | "payment" | "onboarding" | "note";
+};
+
+export type CSClientDetail = {
+  client: CSClient;
+  contactName: string;
+  contactRole: string;
+  phone: string;
+  email: string;
+  clientSince: string;
+  plan: string;
+  tenure: string;
+  ltv: number;
+  invoicesNote: string;
+  npsClassification: string;
+  npsLastSurvey: string;
+  npsQuote: string;
+  timeline: CSTimelineEvent[];
+  nextMeeting: { title: string; whenLabel: string } | null;
+  nextContact: string;
+  briefing: {
+    objetivo: string;
+    tomDeVoz: string;
+    publico: string;
+    concorrentes: string;
+    restricoes: string;
+  };
+  campaigns: { name: string; cpl: number; tone: CSTone }[];
+  campaignsInvested: number;
+};
+
+export type CSPortfolio = {
+  periodLabel: string;
+  npsAvg: number;
+  promoters: number;
+  neutrals: number;
+  detractors: number;
+  churnRisk: number;
+  renewals: number;
+  renewalsValue: number;
+  retentionRate: number;
+  churnNote: string;
+  mrrTotal: number;
+  alertText: string;
+  clients: CSClient[];
+};
+
 // --- Financeiro & contratos (M5) --------------------------------------------
 export type InvoiceStatus = "paid" | "open";
 
