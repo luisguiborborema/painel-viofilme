@@ -6,6 +6,7 @@ import {
   BarChart3,
   Plug,
   Receipt,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/auth/types";
@@ -31,6 +32,7 @@ const CLIENTE_NAV: NavItem[] = [
   { label: "Campanhas", href: "/cliente/campanhas", icon: Megaphone },
   { label: "Resultados", href: "/cliente/resultados", icon: BarChart3 },
   { label: "Financeiro", href: "/cliente/financeiro", icon: Receipt },
+  { label: "Marca & acessos", href: "/cliente/central", icon: KeyRound },
 ];
 
 export function navForRole(role: Role): NavItem[] {

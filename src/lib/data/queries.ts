@@ -12,9 +12,12 @@ import {
 } from "./mock";
 import { daysUntil, fullDate } from "@/lib/datetime";
 import type {
+  AccessItem,
   AccountMetricPoint,
+  ActivityItem,
   AdCampaign,
   AudienceProfile,
+  BrandAsset,
   Campaign,
   Client,
   ContentPost,
@@ -28,6 +31,7 @@ import type {
   OrganicScope,
   Platform,
   PostStatus,
+  TeamMember,
   TopPost,
 } from "./types";
 
@@ -542,5 +546,63 @@ export async function getFinance(clientId: string): Promise<FinanceOverview> {
     invoices,
     totalPaidYear,
     documents,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hub de acessos & ativos de marca (M6)
+// ---------------------------------------------------------------------------
+export type BrandHub = {
+  driveName: string;
+  accesses: AccessItem[];
+  assets: BrandAsset[];
+  team: TeamMember[];
+  activity: ActivityItem[];
+};
+
+export async function getBrandHub(clientId: string): Promise<BrandHub> {
+  const client = CLIENTS.find((c) => c.id === clientId);
+
+  const accesses: AccessItem[] = [
+    { id: "meta", name: "Meta Business", description: "Gerenciador de Anúncios · Facebook · Instagram", icon: "meta", status: "connected", note: "Acesso revisado 01/06", actionLabel: "Acessar" },
+    { id: "google", name: "Google Workspace", description: "Google Ads · Analytics 4 · Search Console", icon: "google", status: "connected", note: "Acesso revisado 01/06", actionLabel: "Acessar" },
+    { id: "rd", name: "RD Station", description: "CRM · Automação de marketing · Leads", icon: "rd", status: "connected", note: "Acesso revisado 16/05", actionLabel: "Acessar" },
+    { id: "wordpress", name: "WordPress", description: "Painel admin · Editor de conteúdo · Plugins", icon: "wordpress", status: "review", note: "Senha pode ter expirado", actionLabel: "Acessar" },
+    { id: "ecommerce", name: "E-commerce / loja", description: "Shopify · VTEX · Loja integrada", icon: "ecommerce", status: "setup", note: "Nenhuma loja conectada ainda", actionLabel: "Solicitar" },
+    { id: "other", name: "Outras integrações", description: "TikTok Ads · LinkedIn · WhatsApp Business", icon: "other", status: "soon", note: "Solicite à equipe", actionLabel: "Solicitar" },
+  ];
+
+  const assets: BrandAsset[] = [
+    { id: "logo-principal", name: "Logo principal", category: "logos", meta: "PNG · Fundo escuro · 2.400×2.400", preview: "logo-dark", downloads: ["PNG", "SVG"] },
+    { id: "logo-claro", name: "Logo fundo claro", category: "logos", meta: "PNG · Fundo branco · 2.400×2.400", preview: "logo-light", downloads: ["PNG", "SVG"] },
+    { id: "manual", name: "Manual de identidade visual", category: "manual", meta: "PDF · 28 páginas · atualizado jun/26", preview: "pdf", downloads: ["Baixar PDF"] },
+    { id: "paleta", name: "Paleta de cores", category: "manual", meta: "PDF · ASE · Cores Pantone e HEX", preview: "palette", downloads: ["PDF", "ASE"] },
+    { id: "fotos-inst", name: "Fotos institucionais — vol. 1", category: "fotos", meta: "ZIP · 18 fotos · 94 MB · jan/26", preview: "photos", downloads: ["Baixar ZIP"] },
+    { id: "fotos-pratos", name: "Fotos de pratos — cardápio", category: "fotos", meta: "ZIP · 32 fotos · 210 MB · mai/26", preview: "photos", downloads: ["Baixar ZIP"] },
+    { id: "tipografia", name: "Tipografia oficial", category: "manual", meta: "ZIP · 2 famílias · Cormorant + Lato", preview: "type", downloads: ["Baixar fontes"] },
+  ];
+
+  const team: TeamMember[] = [
+    { id: "ana", name: "Ana Lima", role: "Social Media", area: "Responsável pela conta", initials: "AN", whatsapp: "https://wa.me/5527999990001" },
+    { id: "carlos", name: "Carlos Andrade", role: "Design", area: "Criativos e identidade visual", initials: "CA", whatsapp: "https://wa.me/5527999990002" },
+    { id: "mariana", name: "Mariana Azevedo", role: "Tráfego Pago", area: "Campanhas Meta e Google", initials: "MA", whatsapp: "https://wa.me/5527999990003" },
+    { id: "atendimento", name: "Viofilme · Atendimento", role: "Atendimento", area: "Dúvidas gerais · Financeiro · Contratos", initials: "VF", whatsapp: "https://wa.me/5527999990000" },
+  ];
+
+  const activity: ActivityItem[] = [
+    { id: "a1", text: "Você aprovou o post “Menu degustação com harmonização de vinhos”", when: "Hoje, 14h22", kind: "approve" },
+    { id: "a2", text: "Ana (Social Media) enviou 3 posts para aprovação", when: "Hoje, 11h05", kind: "send" },
+    { id: "a3", text: "Você pediu ajuste em “Promoção aniversário” — categoria: arte", when: "Ontem, 09h31", kind: "adjust" },
+    { id: "a4", text: "Carlos (Design) atualizou o ativo “Fotos de pratos — cardápio”", when: "23/06, 09h31", kind: "update" },
+    { id: "a5", text: "Pagamento da fatura Jun/2026 confirmado via PIX", when: "05/06, 10h14", kind: "payment" },
+    { id: "a6", text: "Você acessou o painel pela primeira vez em junho", when: "01/06, 08h52", kind: "login" },
+  ];
+
+  return {
+    driveName: client?.name ?? "Drive de marca",
+    accesses,
+    assets,
+    team,
+    activity,
   };
 }

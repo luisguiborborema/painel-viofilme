@@ -119,6 +119,61 @@ export type TopPost = {
   comments: number;
 };
 
+// --- Hub de acessos & ativos de marca (M6) ----------------------------------
+export type AccessStatus = "connected" | "review" | "soon" | "setup";
+
+export type AccessItem = {
+  id: string;
+  name: string;
+  description: string;
+  icon: "meta" | "google" | "rd" | "wordpress" | "ecommerce" | "other";
+  status: AccessStatus;
+  note: string;
+  actionLabel: string;
+};
+
+export type AssetCategory = "logos" | "manual" | "fotos";
+export type AssetPreview =
+  | "logo-dark"
+  | "logo-light"
+  | "palette"
+  | "type"
+  | "pdf"
+  | "photos";
+
+export type BrandAsset = {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  meta: string;
+  preview: AssetPreview;
+  downloads: string[];
+};
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  role: string;
+  area: string;
+  initials: string;
+  whatsapp: string;
+};
+
+export type ActivityKind =
+  | "approve"
+  | "send"
+  | "adjust"
+  | "update"
+  | "payment"
+  | "login";
+
+export type ActivityItem = {
+  id: string;
+  text: string;
+  when: string;
+  kind: ActivityKind;
+};
+
 // --- Financeiro & contratos (M5) --------------------------------------------
 export type InvoiceStatus = "paid" | "open";
 
