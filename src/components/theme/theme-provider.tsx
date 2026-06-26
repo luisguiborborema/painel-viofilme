@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ThemePreference = "light" | "dark" | "system";
@@ -121,29 +121,68 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-const LABELS: Record<ThemePreference, string> = {
-  system: "Automático",
-  light: "Claro",
-  dark: "Escuro",
-};
+const OPTIONS: { value: ThemePreference; label: string; Icon: typeof Monitor }[] =
+  [
+    { value: "system", label: "Automático", Icon: Monitor },
+    { value: "light", label: "Claro", Icon: Sun },
+    { value: "dark", label: "Escuro", Icon: Moon },
+  ];
 
-const ICONS = { system: Monitor, light: Sun, dark: Moon };
-
-/** Botão de tema: alterna Automático → Claro → Escuro. */
+/** Menu de tema: Automático / Claro / Escuro. */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { preference, cycle } = useTheme();
-  const Icon = ICONS[preference];
+  const { preference, setPreference } = useTheme();
+  const [open, setOpen] = useState(false);
+  const current = OPTIONS.find((o) => o.value === preference) ?? OPTIONS[0];
+  const TriggerIcon = current.Icon;
+
   return (
-    <button
-      onClick={cycle}
-      className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors hover:text-ink",
-        className,
+    <div className={cn("relative", className)}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors hover:text-ink"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={`Tema: ${current.label}`}
+        aria-label={`Tema: ${current.label}. Abrir menu de tema.`}
+      >
+        <TriggerIcon className="h-[18px] w-[18px]" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            role="menu"
+            className="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-line bg-surface p-1.5 shadow-lg"
+          >
+            <p className="px-2.5 py-1 text-xs font-medium text-muted">Tema</p>
+            {OPTIONS.map((opt) => {
+              const active = opt.value === preference;
+              return (
+                <button
+                  key={opt.value}
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    setPreference(opt.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-brand-500/15 text-brand-300"
+                      : "text-ink hover:bg-subtle",
+                  )}
+                >
+                  <opt.Icon className="h-4 w-4" />
+                  <span className="flex-1 text-left">{opt.label}</span>
+                  {active && <Check className="h-4 w-4" />}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
-      title={`Tema: ${LABELS[preference]} (clique para alternar)`}
-      aria-label={`Tema: ${LABELS[preference]}. Clique para alternar.`}
-    >
-      <Icon className="h-[18px] w-[18px]" />
-    </button>
+    </div>
   );
 }
