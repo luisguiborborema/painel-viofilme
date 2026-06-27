@@ -70,16 +70,26 @@ export function MediaBudgetCard({
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-subtle p-3">
-          <p className="text-xl font-bold text-ink">{formatNumber(leads)}</p>
+        <Link
+          href="/cliente/campanhas?view=leads"
+          className="group rounded-xl bg-subtle p-3 transition-colors hover:bg-subtle-strong"
+        >
+          <p className="flex items-center gap-1 text-xl font-bold text-ink">
+            {formatNumber(leads)}
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+          </p>
           <p className="text-xs text-muted">Leads gerados</p>
-        </div>
-        <div className="rounded-xl bg-subtle p-3">
-          <p className="text-xl font-bold text-ink">
+        </Link>
+        <Link
+          href="/cliente/campanhas?view=conversions"
+          className="group rounded-xl bg-subtle p-3 transition-colors hover:bg-subtle-strong"
+        >
+          <p className="flex items-center gap-1 text-xl font-bold text-ink">
             {formatNumber(conversions)}
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
           </p>
           <p className="text-xs text-muted">Conversões</p>
-        </div>
+        </Link>
       </div>
     </Card>
   );

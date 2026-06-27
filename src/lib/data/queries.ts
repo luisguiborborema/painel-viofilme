@@ -11,6 +11,8 @@ import {
   REFERENCE_DATE,
 } from "./mock";
 import { daysUntil, fullDate } from "@/lib/datetime";
+import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
+import type { MetricDef } from "@/components/dashboard/metric-chart-panel";
 import type {
   AccessItem,
   AccountMetricPoint,
@@ -743,5 +745,195 @@ export async function getCLevel(): Promise<CLevel> {
       weighted: 51200,
       conversionRate: 34,
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Home v2 — pool de métricas para o seletor métrica→gráfico (R01/R02)
+// ---------------------------------------------------------------------------
+export type ClientHomeMetrics = {
+  hasPaidTraffic: boolean;
+  defaultKeys: string[];
+  pool: MetricDef[];
+};
+
+function seedFrom(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return (h % 1000) / 100;
+}
+
+function synthSeries(
+  dates: string[],
+  base: number,
+  ampPct: number,
+  slopePct: number,
+  seed: number,
+  decimals = 0,
+): { date: string; value: number }[] {
+  const n = Math.max(1, dates.length);
+  return dates.map((date, i) => {
+    const wobble = 1 + ampPct * Math.sin(i / 4 + seed);
+    const trend = (base * slopePct * i) / n;
+    const raw = Math.max(0, base * wobble + trend);
+    const value = decimals
+      ? Math.round(raw * 10 ** decimals) / 10 ** decimals
+      : Math.round(raw);
+    return { date, value };
+  });
+}
+
+const fmt1 = (n: number) =>
+  Math.abs(n).toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+const fmt2 = (n: number) =>
+  Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const sign = (n: number) => (n >= 0 ? "+" : "-");
+
+export async function getClientHomeMetrics(
+  clientId: string,
+): Promise<ClientHomeMetrics> {
+  const client = CLIENTS.find((c) => c.id === clientId);
+  const home = await getClientHome(clientId);
+  const ig = await getAccountSeries(clientId, "instagram");
+  const fb = await getAccountSeries(clientId, "facebook");
+  const eng = ENGAGEMENT_SERIES[clientId] ?? [];
+  const dates = eng.map((p) => p.date);
+  const seed = seedFrom(clientId);
+
+  const reachSeries = ig.map((p, i) => ({
+    date: p.date,
+    value: p.reach + (fb[i]?.reach ?? 0),
+  }));
+  const imprSeries = ig.map((p, i) => ({
+    date: p.date,
+    value: p.impressions + (fb[i]?.impressions ?? 0),
+  }));
+  const followersSeries = ig.map((p, i) => {
+    const today = p.followers + (fb[i]?.followers ?? 0);
+    const prevIg = ig[i - 1]?.followers ?? p.followers;
+    const prevFb = fb[i - 1]?.followers ?? fb[i]?.followers ?? 0;
+    return { date: p.date, value: Math.max(0, today - (prevIg + prevFb)) };
+  });
+
+  const m = home.media;
+  const cpaVal = Math.round((m.invested / Math.max(1, m.conversions)) * 100) / 100;
+
+  const pool: MetricDef[] = [
+    {
+      key: "engajamento", label: "Engajamento orgânico", group: "Orgânico",
+      color: "#34d399", chartType: "area", unit: "percent", iconKey: "heart",
+      glossaryKey: "engajamento",
+      displayValue: `${fmt1(home.organicEngagement.value)}%`,
+      deltaText: `${sign(home.organicEngagement.delta)}${fmt1(home.organicEngagement.delta)}pp vs. maio`,
+      delta: home.organicEngagement.delta,
+      data: eng, dataKey: "value", chartTitle: "Engajamento — últimos 30 dias",
+    },
+    {
+      key: "alcance", label: "Alcance no mês", group: "Orgânico",
+      color: "#38bdf8", chartType: "area", unit: "number", iconKey: "eye",
+      glossaryKey: "alcance",
+      displayValue: formatCompact(home.reach.value),
+      deltaText: `${sign(home.reach.delta)}${Math.abs(home.reach.delta)}% vs. maio`,
+      delta: home.reach.delta,
+      data: reachSeries, dataKey: "value", chartTitle: "Alcance — últimos 30 dias",
+    },
+    {
+      key: "cpl", label: "Custo por lead (CPL)", group: "Pago",
+      color: "#f59e0b", chartType: "area", unit: "currency", iconKey: "tag",
+      glossaryKey: "cpl", invertDelta: true,
+      displayValue: formatBRL(home.cpl.value),
+      deltaText: `${sign(home.cpl.delta)}R$ ${fmt2(home.cpl.delta)} vs. maio`,
+      delta: home.cpl.delta,
+      data: synthSeries(dates, home.cpl.value, 0.12, -0.05, seed, 2),
+      dataKey: "value", chartTitle: "CPL — últimos 30 dias",
+    },
+    {
+      key: "investimento", label: "Investimento ativo", group: "Pago",
+      color: "#8b5cf6", chartType: "area", unit: "currency", iconKey: "wallet",
+      glossaryKey: "investimento",
+      displayValue: `R$ ${formatNumber(m.invested)}`,
+      hint: `de R$ ${formatNumber(m.total)} / mês`,
+      data: synthSeries(dates, m.invested / 30, 0.2, 0.3, seed + 1),
+      dataKey: "value", chartTitle: "Investimento diário — últimos 30 dias",
+    },
+    {
+      key: "impressoes", label: "Impressões", group: "Orgânico",
+      color: "#0ea5e9", chartType: "area", unit: "number", iconKey: "eye",
+      glossaryKey: "impressoes",
+      displayValue: formatCompact(imprSeries.reduce((s, p) => s + p.value, 0)),
+      hint: "últimos 30 dias",
+      data: imprSeries, dataKey: "value", chartTitle: "Impressões — últimos 30 dias",
+    },
+    {
+      key: "seguidores", label: "Novos seguidores", group: "Orgânico",
+      color: "#14b8a6", chartType: "area", unit: "number", iconKey: "users",
+      glossaryKey: "seguidores",
+      displayValue: formatCompact(followersSeries.reduce((s, p) => s + p.value, 0)),
+      hint: "últimos 30 dias",
+      data: followersSeries, dataKey: "value", chartTitle: "Novos seguidores — 30 dias",
+    },
+    {
+      key: "salvamentos", label: "Taxa de salvamentos", group: "Orgânico",
+      color: "#ec4899", chartType: "area", unit: "percent", iconKey: "bookmark",
+      glossaryKey: "salvamentos",
+      displayValue: `${fmt1(2 + seed / 3)}%`, hint: "média dos posts",
+      data: synthSeries(dates, 2 + seed / 3, 0.25, 0.1, seed + 2, 1),
+      dataKey: "value", chartTitle: "Salvamentos — últimos 30 dias",
+    },
+    {
+      key: "cpa", label: "Custo por aquisição (CPA)", group: "Pago",
+      color: "#f97316", chartType: "area", unit: "currency", iconKey: "target",
+      glossaryKey: "cpa", invertDelta: true,
+      displayValue: formatBRL(cpaVal), hint: "no mês",
+      data: synthSeries(dates, cpaVal, 0.12, -0.04, seed + 3, 2),
+      dataKey: "value", chartTitle: "CPA — últimos 30 dias",
+    },
+    {
+      key: "leads", label: "Leads gerados", group: "Pago",
+      color: "#22c55e", chartType: "area", unit: "number", iconKey: "trending",
+      glossaryKey: "leads",
+      displayValue: formatNumber(m.leads), hint: "no mês",
+      data: synthSeries(dates, m.leads / 30, 0.3, 0.4, seed + 4),
+      dataKey: "value", chartTitle: "Leads — últimos 30 dias",
+    },
+    {
+      key: "conversoes", label: "Conversões", group: "Pago",
+      color: "#06b6d4", chartType: "area", unit: "number", iconKey: "target",
+      glossaryKey: "conversoes",
+      displayValue: formatNumber(m.conversions), hint: "no mês",
+      data: synthSeries(dates, m.conversions / 30, 0.35, 0.3, seed + 5, 1),
+      dataKey: "value", chartTitle: "Conversões — últimos 30 dias",
+    },
+    {
+      key: "roas", label: "ROAS", group: "Pago",
+      color: "#a855f7", chartType: "area", unit: "number", iconKey: "dollar",
+      glossaryKey: "roas",
+      displayValue: `${fmt1(3 + seed / 4)}x`, hint: "retorno sobre investimento",
+      data: synthSeries(dates, 3 + seed / 4, 0.18, 0.15, seed + 6, 1),
+      dataKey: "value", chartTitle: "ROAS — últimos 30 dias",
+    },
+    {
+      key: "proximo-vencimento", label: "Próximo vencimento", group: "Financeiro",
+      color: "#eab308", chartType: "area", unit: "currency", iconKey: "wallet",
+      displayValue: `R$ ${formatNumber(m.total)}`, hint: "todo dia 03",
+      data: synthSeries(dates, m.total / 30, 0.05, 0, seed + 7),
+      dataKey: "value", chartTitle: "Mensalidade",
+    },
+    {
+      key: "status-plano", label: "Status do plano", group: "Financeiro",
+      color: "#64748b", chartType: "area", unit: "number", iconKey: "wallet",
+      displayValue: "Ativo", hint: "Social Pro",
+      data: synthSeries(dates, 1, 0, 0, seed + 8),
+      dataKey: "value", chartTitle: "Plano ativo",
+    },
+  ];
+
+  return {
+    hasPaidTraffic: client?.hasPaidTraffic ?? true,
+    defaultKeys: ["engajamento", "alcance", "cpl", "investimento"],
+    pool,
   };
 }

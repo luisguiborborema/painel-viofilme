@@ -31,12 +31,15 @@ export type MetricChartType = "area" | "bar-grouped" | "line-multi" | "bar-simpl
 export type MetricUnit = "currency" | "percent" | "number";
 export type SeriesDef = { key: string; color: string; name: string };
 
+export type MetricGroup = "Orgânico" | "Pago" | "Financeiro";
+
 export type MetricDef = {
   key: string;
   label: string;
   color: string;
   chartType: MetricChartType;
   unit?: MetricUnit;
+  group?: MetricGroup;
   // exibição no card
   iconKey?: string;
   displayValue: string;

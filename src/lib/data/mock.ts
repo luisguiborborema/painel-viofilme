@@ -61,6 +61,7 @@ export const CLIENTS: Client[] = [
     facebookPageName: "Restaurante Sabor do Mar",
     status: "ativo",
     metaConnected: true,
+    hasPaidTraffic: true,
   },
   {
     id: "cli-002",
@@ -71,6 +72,7 @@ export const CLIENTS: Client[] = [
     facebookPageName: "Studio Vértice Arquitetura",
     status: "ativo",
     metaConnected: true,
+    hasPaidTraffic: true,
   },
   {
     id: "cli-003",
@@ -81,6 +83,7 @@ export const CLIENTS: Client[] = [
     facebookPageName: "Lumina Estética",
     status: "ativo",
     metaConnected: false,
+    hasPaidTraffic: false,
   },
   {
     id: "cli-004",
@@ -91,6 +94,7 @@ export const CLIENTS: Client[] = [
     facebookPageName: "Vértice Fit",
     status: "pausado",
     metaConnected: true,
+    hasPaidTraffic: true,
   },
 ];
 
@@ -615,6 +619,11 @@ export const MEETINGS: Meeting[] = CLIENTS.flatMap((c) => [
     title: "Alinhamento mensal de resultados",
     startsAt: isoAt(4, 10, 0),
     joinUrl: "https://meet.google.com/abc-defg-hij",
+    agenda:
+      "Revisão dos números do mês (alcance, engajamento e campanhas), o que funcionou melhor e prioridades para o próximo ciclo. Traga dúvidas e novidades do negócio.",
+    participants: ["Ana Lima (Social)", "Mariana Azevedo (Tráfego)", "Você"],
+    nextSteps:
+      "Da última reunião: aprovar o calendário de conteúdo e definir verba extra para o fim de semana.",
   },
   {
     id: `mtg-${c.id}-2`,
@@ -622,5 +631,9 @@ export const MEETINGS: Meeting[] = CLIENTS.flatMap((c) => [
     title: "Briefing campanha 2º semestre",
     startsAt: isoAt(16, 14, 30),
     joinUrl: "https://meet.google.com/klm-nopq-rst",
+    agenda:
+      "Planejamento da campanha do 2º semestre: objetivos, público, orçamento e formato dos criativos.",
+    participants: ["Mariana Azevedo (Tráfego)", "Carlos Andrade (Design)", "Você"],
+    nextSteps: "Confirmar verba mensal e datas-chave de divulgação.",
   },
 ]);

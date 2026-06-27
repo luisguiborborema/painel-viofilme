@@ -13,6 +13,8 @@ export type Client = {
   status: string;
   /** Conexão Meta ativa? */
   metaConnected: boolean;
+  /** Cliente tem tráfego pago? Controla a coluna direita da Home (R05). */
+  hasPaidTraffic: boolean;
 };
 
 export type Campaign = {
@@ -66,6 +68,10 @@ export type Meeting = {
   /** ISO datetime do início. */
   startsAt: string;
   joinUrl: string;
+  /** Pauta preparada pela equipe (R08). */
+  agenda: string;
+  participants: string[];
+  nextSteps: string;
 };
 
 // --- Mídia paga (Meta Ads + Google Ads) ------------------------------------
