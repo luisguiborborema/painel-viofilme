@@ -15,6 +15,8 @@ export type Client = {
   metaConnected: boolean;
   /** Cliente tem tráfego pago? Controla a coluna direita da Home (R05). */
   hasPaidTraffic: boolean;
+  /** Tipo de negócio — adapta blocos de campanhas (CAM04). */
+  clientType: "lead_gen" | "ecommerce" | "local_business";
 };
 
 export type Campaign = {
@@ -90,6 +92,8 @@ export type AdCampaign = {
   leads: number;
   cpl: number;
   conversions: number;
+  cpc: number;
+  cpa: number;
 };
 
 export type CplMonthPoint = { month: string; meta: number; google: number };

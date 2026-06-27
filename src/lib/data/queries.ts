@@ -290,6 +290,7 @@ export async function getClientHome(clientId: string): Promise<ClientHome> {
 // ---------------------------------------------------------------------------
 
 export type MediaPerformance = {
+  clientType: "lead_gen" | "ecommerce" | "local_business";
   periodLabel: string;
   invested: number;
   budget: number;
@@ -335,9 +336,15 @@ export async function getMediaPerformance(
     id: `ad-${clientId}-${i + 1}`,
     clientId,
     ...c,
+    cpc: Math.round((c.invested / Math.max(1, c.clicks)) * 100) / 100,
+    cpa: Math.round((c.invested / Math.max(1, c.conversions)) * 100) / 100,
   }));
 
+  const clientType =
+    CLIENTS.find((c) => c.id === clientId)?.clientType ?? "lead_gen";
+
   return {
+    clientType,
     periodLabel: `${MESES[ref.getUTCMonth()]} ${ref.getUTCFullYear()}`,
     invested,
     budget: m.budget,
@@ -936,4 +943,95 @@ export async function getClientHomeMetrics(
     defaultKeys: ["engajamento", "alcance", "cpl", "investimento"],
     pool,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Campanhas v2 — pool de métricas para o carrossel (CAM01/02/03)
+// ---------------------------------------------------------------------------
+function monthsPair(labels: string[], baseMeta: number, baseGoogle: number, seed: number) {
+  return labels.map((month, i) => ({
+    month,
+    meta: Math.round(baseMeta * (1 + 0.12 * Math.sin(i + seed)) + baseMeta * 0.05 * i),
+    google: Math.round(baseGoogle * (1 + 0.12 * Math.sin(i + seed + 1)) + baseGoogle * 0.04 * i),
+  }));
+}
+
+export async function getMediaMetrics(clientId: string): Promise<MetricDef[]> {
+  const p = await getMediaPerformance(clientId);
+  const seed = seedFrom(clientId);
+  const ref = REFERENCE_DATE;
+  const months = [3, 2, 1, 0].map((k) =>
+    MESES[(ref.getUTCMonth() - k + 12) % 12].slice(0, 3),
+  );
+  const days = (ENGAGEMENT_SERIES[clientId] ?? []).map((x) => x.date);
+  const clicks = p.campaigns.reduce((s, c) => s + c.clicks, 0);
+  const cpcAvg =
+    Math.round((p.invested / Math.max(1, clicks)) * 100) / 100;
+  const metaSeries = { key: "meta", color: "#2a63c9", name: "Meta Ads" };
+  const googleSeries = { key: "google", color: "#34d399", name: "Google Ads" };
+
+  return [
+    {
+      key: "investimento", label: "Investimento total", color: "#8b5cf6",
+      chartType: "bar-grouped", unit: "currency", glossaryKey: "investimento",
+      displayValue: `R$ ${formatNumber(p.invested)}`, hint: `de R$ ${formatNumber(p.budget)}`,
+      data: monthsPair(months, p.metaInvested / 4, p.googleInvested / 4, seed),
+      categoryKey: "month", series: [metaSeries, googleSeries],
+      chartTitle: "Investimento por plataforma — 4 meses",
+    },
+    {
+      key: "leads", label: "Leads gerados", color: "#22c55e",
+      chartType: "bar-grouped", unit: "number", glossaryKey: "leads",
+      displayValue: formatNumber(p.leads),
+      deltaText: `${sign(p.leadsDelta)}${Math.abs(p.leadsDelta)}% vs. maio`, delta: p.leadsDelta,
+      data: monthsPair(months, p.leads * 0.6, p.leads * 0.4, seed + 2),
+      categoryKey: "month", series: [metaSeries, googleSeries],
+      chartTitle: "Leads por plataforma — 4 meses",
+    },
+    {
+      key: "cpl", label: "Custo por lead (CPL)", color: "#f59e0b",
+      chartType: "bar-grouped", unit: "currency", glossaryKey: "cpl", invertDelta: true,
+      displayValue: formatBRL(p.cpl),
+      deltaText: `${sign(p.cplDelta)}R$ ${fmt2(p.cplDelta)} vs. maio`, delta: p.cplDelta,
+      data: p.cplHistory, categoryKey: "month", series: [metaSeries, googleSeries],
+      chartTitle: "CPL por plataforma — 4 meses",
+    },
+    {
+      key: "conversoes", label: "Conversões reais", color: "#06b6d4",
+      chartType: "area", unit: "number", glossaryKey: "conversoes",
+      displayValue: formatNumber(p.conversions),
+      deltaText: `${sign(p.convDelta)}${Math.abs(p.convDelta)} vs. maio`, delta: p.convDelta,
+      data: synthSeries(days, p.conversions / 30, 0.3, 0.3, seed + 3, 1), dataKey: "value",
+      chartTitle: "Conversões — últimos 30 dias",
+    },
+    {
+      key: "cliques", label: "Total de cliques", color: "#38bdf8",
+      chartType: "line-multi", unit: "number", glossaryKey: "cliques",
+      displayValue: formatCompact(clicks),
+      data: monthsPair(months, clicks * 0.6 / 4, clicks * 0.4 / 4, seed + 4),
+      categoryKey: "month", series: [metaSeries, googleSeries],
+      chartTitle: "Cliques por plataforma — 4 meses",
+    },
+    {
+      key: "cpc", label: "Custo por clique (CPC)", color: "#f97316",
+      chartType: "area", unit: "currency", glossaryKey: "cpc", invertDelta: true,
+      displayValue: formatBRL(cpcAvg),
+      data: synthSeries(days, cpcAvg, 0.15, -0.05, seed + 5, 2), dataKey: "value",
+      chartTitle: "CPC — últimos 30 dias",
+    },
+    {
+      key: "cpa", label: "Custo por aquisição (CPA)", color: "#fb7185",
+      chartType: "area", unit: "currency", glossaryKey: "cpa", invertDelta: true,
+      displayValue: formatBRL(p.cpa),
+      data: synthSeries(days, p.cpa, 0.12, -0.04, seed + 6, 2), dataKey: "value",
+      chartTitle: "CPA — últimos 30 dias",
+    },
+    {
+      key: "roas", label: "ROAS", color: "#a855f7",
+      chartType: "area", unit: "number", glossaryKey: "roas",
+      displayValue: `${fmt1(3 + seed / 4)}x`,
+      data: synthSeries(days, 3 + seed / 4, 0.18, 0.15, seed + 7, 1), dataKey: "value",
+      chartTitle: "ROAS — últimos 30 dias",
+    },
+  ];
 }

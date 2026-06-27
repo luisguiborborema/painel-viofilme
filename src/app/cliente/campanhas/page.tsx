@@ -1,32 +1,14 @@
 import { Card } from "@/components/ui/card";
-import { FilterTabs } from "@/components/dashboard/filter-tabs";
 import { getSession } from "@/lib/auth/session";
-import { getMediaPerformance } from "@/lib/data/queries";
-import { formatBRL, formatNumber } from "@/lib/utils";
+import { getMediaMetrics, getMediaPerformance } from "@/lib/data/queries";
 import { MediaHeader } from "@/components/cliente/media-header";
-import { MediaMetricCard } from "@/components/cliente/media-metric-card";
-import { CplBarCard } from "@/components/cliente/cpl-bar-card";
+import { MetricSection } from "@/components/dashboard/metric-chart-panel";
 import { BudgetPlatformCard } from "@/components/cliente/budget-platform-card";
 import { AdCampaignsTable } from "@/components/cliente/ad-campaigns-table";
+import { AiInsights } from "@/components/dashboard/ai-insights";
 import { TeamInsight } from "@/components/cliente/team-insight";
 
-const REDE_TABS = [
-  { label: "Todas", value: "todas" },
-  { label: "Meta", value: "meta" },
-  { label: "Google", value: "google" },
-];
-
-const fmt2 = (n: number) =>
-  Math.abs(n).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-export default async function ClienteCampanhas({
-  searchParams,
-}: {
-  searchParams: Promise<{ rede?: string }>;
-}) {
+export default async function ClienteCampanhas() {
   const user = await getSession();
   if (!user?.clientId) {
     return (
@@ -36,58 +18,18 @@ export default async function ClienteCampanhas({
     );
   }
 
-  const { rede } = await searchParams;
   const m = await getMediaPerformance(user.clientId);
-
-  const filtered =
-    rede === "meta" || rede === "google"
-      ? m.campaigns.filter((c) => c.network === rede)
-      : m.campaigns;
+  const metrics = await getMediaMetrics(user.clientId);
 
   return (
     <div className="space-y-4">
-      <MediaHeader periodLabel={m.periodLabel} />
+      <MediaHeader />
 
-      {/* Visão consolidada */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MediaMetricCard
-          label="Investimento total"
-          value={`R$ ${formatNumber(m.invested)}`}
-          hint={`de R$ ${formatNumber(m.budget)} orçados · ${m.pct}%`}
-          info="Soma do investido em Meta Ads e Google Ads no mês."
-        />
-        <MediaMetricCard
-          label="Leads gerados"
-          value={formatNumber(m.leads)}
-          deltaText={`${m.leadsDelta >= 0 ? "+" : "-"}${Math.abs(m.leadsDelta)}% vs. maio`}
-          tone={m.leadsDelta >= 0 ? "good" : "bad"}
-          deltaDirection={m.leadsDelta >= 0 ? "up" : "down"}
-          info="Contatos/leads atribuídos às campanhas."
-        />
-        <MediaMetricCard
-          label="Custo por lead"
-          value={formatBRL(m.cpl)}
-          deltaText={`${m.cplDelta >= 0 ? "+" : "-"}R$ ${fmt2(m.cplDelta)} vs. maio (${m.cplDelta > 0 ? "piorou" : "melhorou"})`}
-          tone={m.cplDelta > 0 ? "bad" : "good"}
-          deltaDirection={m.cplDelta > 0 ? "up" : "down"}
-          info="Investimento total dividido pelo número de leads."
-        />
-        <MediaMetricCard
-          label="Conversões reais"
-          value={formatNumber(m.conversions)}
-          deltaText={`${m.convDelta >= 0 ? "+" : "-"}${Math.abs(m.convDelta)} vs. maio · CPA R$ ${formatNumber(m.cpa)}`}
-          tone={m.convDelta >= 0 ? "good" : "bad"}
-          deltaDirection={m.convDelta >= 0 ? "up" : "down"}
-          info="Conversões confirmadas e custo por aquisição (CPA)."
-        />
-      </div>
-
-      {/* CPL mês a mês + Orçamento por plataforma */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <CplBarCard data={m.cplHistory} />
-        </div>
-        <div className="lg:col-span-2">
+      {/* Carrossel de métricas + gráfico por métrica + orçamento fixo (CAM01–04) */}
+      <MetricSection
+        metrics={metrics}
+        layout="carousel"
+        rightColumn={
           <BudgetPlatformCard
             invested={m.invested}
             budget={m.budget}
@@ -97,28 +39,45 @@ export default async function ClienteCampanhas({
             dailyPace={m.dailyPace}
             metaInvested={m.metaInvested}
             googleInvested={m.googleInvested}
+            clientType={m.clientType}
+            leadsDelta={m.leadsDelta}
+            cplDelta={m.cplDelta}
+            convDelta={m.convDelta}
           />
-        </div>
-      </div>
+        }
+      />
 
-      {/* Tabela de campanhas ativas */}
+      {/* Tabela de campanhas ativas (CAM06/07) */}
       <Card className="p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-ink">
-            Campanhas ativas — {m.periodLabel}
-          </h2>
-          <FilterTabs param="rede" options={REDE_TABS} />
-        </div>
-        <AdCampaignsTable
-          campaigns={filtered}
-          cplTarget={m.cpl}
-          total={filtered.length}
-        />
+        <AdCampaignsTable campaigns={m.campaigns} total={m.campaigns.length} />
       </Card>
 
-      <TeamInsight
-        title={`Insight da equipe — ${m.periodLabel}`}
-        text={m.insight}
+      {/* Insights por IA com fallback manual (CAM08) */}
+      <AiInsights
+        mode="campaigns"
+        businessType="gastronomia / restaurante"
+        data={{
+          invested: m.invested,
+          leads: m.leads,
+          leadsDelta: m.leadsDelta,
+          cpl: m.cpl,
+          cplDelta: m.cplDelta,
+          conversions: m.conversions,
+          cpa: m.cpa,
+          campaigns: m.campaigns.map((c) => ({
+            name: c.name,
+            network: c.network,
+            cpl: c.cpl,
+            conversions: c.conversions,
+            clicks: c.clicks,
+          })),
+        }}
+        fallback={
+          <TeamInsight
+            title={`Insight da equipe — ${m.periodLabel}`}
+            text={m.insight}
+          />
+        }
       />
     </div>
   );

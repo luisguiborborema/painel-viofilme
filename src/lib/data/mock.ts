@@ -62,6 +62,7 @@ export const CLIENTS: Client[] = [
     status: "ativo",
     metaConnected: true,
     hasPaidTraffic: true,
+    clientType: "lead_gen",
   },
   {
     id: "cli-002",
@@ -73,6 +74,7 @@ export const CLIENTS: Client[] = [
     status: "ativo",
     metaConnected: true,
     hasPaidTraffic: true,
+    clientType: "ecommerce",
   },
   {
     id: "cli-003",
@@ -84,6 +86,7 @@ export const CLIENTS: Client[] = [
     status: "ativo",
     metaConnected: false,
     hasPaidTraffic: false,
+    clientType: "local_business",
   },
   {
     id: "cli-004",
@@ -95,6 +98,7 @@ export const CLIENTS: Client[] = [
     status: "pausado",
     metaConnected: true,
     hasPaidTraffic: true,
+    clientType: "lead_gen",
   },
 ];
 
@@ -316,7 +320,7 @@ export const ENGAGEMENT_SERIES: Record<string, EngagementPoint[]> =
 // ---------------------------------------------------------------------------
 // Mídia paga (M3): orçamento, CPL mês a mês e campanhas ativas por cliente
 // ---------------------------------------------------------------------------
-type AdRow = Omit<AdCampaign, "id" | "clientId">;
+type AdRow = Omit<AdCampaign, "id" | "clientId" | "cpc" | "cpa">;
 
 export type MediaRaw = {
   budget: number;
