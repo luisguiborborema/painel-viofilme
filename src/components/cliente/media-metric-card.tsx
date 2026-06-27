@@ -18,6 +18,8 @@ export function MediaMetricCard({
   deltaDirection = "up",
   hint,
   info,
+  delta,
+  invertDelta = false,
 }: {
   label: string;
   value: string;
@@ -26,7 +28,16 @@ export function MediaMetricCard({
   deltaDirection?: "up" | "down";
   hint?: string;
   info?: string;
+  /** Variação numérica — quando informada, calcula tom/seta automaticamente. */
+  delta?: number;
+  /** Para métricas de custo (menor = melhor): maior fica vermelho/seta para cima. */
+  invertDelta?: boolean;
 }) {
+  if (delta !== undefined) {
+    const improving = invertDelta ? delta < 0 : delta >= 0;
+    tone = improving ? "good" : "bad";
+    deltaDirection = delta >= 0 ? "up" : "down";
+  }
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between text-muted">

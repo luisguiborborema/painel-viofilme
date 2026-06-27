@@ -20,6 +20,8 @@ export function MetricCard({
   deltaDirection = "up",
   /** Linha auxiliar simples (sem seta), usada quando não há variação. */
   hint,
+  delta,
+  invertDelta = false,
 }: {
   icon: LucideIcon;
   label: string;
@@ -28,7 +30,16 @@ export function MetricCard({
   tone?: Tone;
   deltaDirection?: "up" | "down";
   hint?: string;
+  /** Variação numérica — quando informada, calcula tom/seta automaticamente. */
+  delta?: number;
+  /** Para métricas de custo (menor = melhor): maior fica vermelho/seta para cima. */
+  invertDelta?: boolean;
 }) {
+  if (delta !== undefined) {
+    const improving = invertDelta ? delta < 0 : delta >= 0;
+    tone = improving ? "good" : "bad";
+    deltaDirection = delta >= 0 ? "up" : "down";
+  }
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 text-muted">
