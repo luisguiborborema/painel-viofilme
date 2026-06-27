@@ -1161,3 +1161,133 @@ export async function getOrganicMetrics(clientId: string): Promise<MetricDef[]> 
     },
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Contexto consolidado para o assistente de IA (chat)
+// Reúne, de forma compacta, tudo que o cliente vê no portal: visão geral,
+// campanhas, orgânico, financeiro e conteúdo. Ponto único de troca mock→Supabase.
+// ---------------------------------------------------------------------------
+export async function getClientAiContext(clientId: string) {
+  const [client, home, media, organic, finance, content] = await Promise.all([
+    getClientById(clientId),
+    getClientHome(clientId),
+    getMediaPerformance(clientId),
+    getOrganicResults(clientId),
+    getFinance(clientId),
+    getContent(clientId),
+  ]);
+
+  const pending = content.filter(
+    (c) => c.status === "scheduled" && c.approval === "pending",
+  );
+  const published = content
+    .filter((c) => c.status === "published")
+    .slice(0, 6);
+
+  return {
+    cliente: {
+      nome: client?.name ?? home.clientName,
+      segmento: client?.segment ?? "—",
+      tipoNegocio: client?.clientType ?? "local_business",
+      redesAtivas: client?.activeNetworks ?? ["instagram"],
+      temTrafegoPago: client?.hasPaidTraffic ?? media.invested > 0,
+      instagram: client?.instagramUsername ?? null,
+      facebook: client?.facebookPageName ?? null,
+    },
+    periodo: home.periodLabel,
+    visaoGeral: {
+      engajamentoOrganicoPct: home.organicEngagement.value,
+      engajamentoDeltaPp: home.organicEngagement.delta,
+      alcanceMes: home.reach.value,
+      alcanceDeltaPct: home.reach.delta,
+      cpl: home.cpl.value,
+      cplDeltaReais: home.cpl.delta,
+      aprovacoesPendentes: home.pendingApprovals,
+      orcamentoMidia: home.media,
+      proximasReunioes: home.meetings.map((m) => ({
+        titulo: m.title,
+        quando: m.startsAt,
+        pauta: m.agenda,
+      })),
+    },
+    campanhas: {
+      investido: media.invested,
+      orcamento: media.budget,
+      percentUsado: media.pct,
+      saldo: media.balance,
+      diasRestantes: media.daysRemaining,
+      ritmoDiario: media.dailyPace,
+      leads: media.leads,
+      cpl: media.cpl,
+      conversoes: media.conversions,
+      cpa: media.cpa,
+      investidoMeta: media.metaInvested,
+      investidoGoogle: media.googleInvested,
+      insightEquipe: media.insight,
+      lista: media.campaigns.map((c) => ({
+        nome: c.name,
+        rede: c.network,
+        status: c.status,
+        investido: c.invested,
+        leads: c.leads,
+        cpl: c.cpl,
+        cpc: c.cpc,
+        cpa: c.cpa,
+        conversoes: c.conversions,
+      })),
+    },
+    organico: {
+      seguidores: organic.totals.followers,
+      ganhoSeguidoresMes: organic.totals.followersDelta,
+      alcance: organic.totals.reach,
+      engajamentoPct: organic.totals.engagement,
+      alcancePorFormato: organic.reachByFormat,
+      engajamentoPorFormato: organic.engagementByFormat,
+      topPosts: organic.topPosts.map((p) => ({
+        titulo: p.title,
+        formato: p.mediaType,
+        rede: p.platform,
+        alcance: p.reach,
+        curtidas: p.likes,
+        comentarios: p.comments,
+      })),
+      audiencia: {
+        faixasEtarias: organic.audience.ageRanges,
+        principaisLocais: organic.audience.topLocations,
+      },
+      padraoEquipe: organic.teamPattern,
+    },
+    financeiro: {
+      plano: finance.plan,
+      proximaFatura: finance.nextDue,
+      ultimoPagamento: finance.lastPayment,
+      totalPagoNoAno: finance.totalPaidYear,
+      faturasEmAberto: finance.invoices
+        .filter((i) => i.status === "open")
+        .map((i) => ({
+          competencia: i.competence,
+          valor: i.amount,
+          vencimento: i.dueDate,
+        })),
+    },
+    conteudo: {
+      aguardandoAprovacao: pending.map((c) => ({
+        formato: c.mediaType,
+        rede: c.platform,
+        legenda: c.caption?.slice(0, 140),
+        agendadoPara: c.scheduledAt,
+        autor: c.author,
+      })),
+      publicadosRecentes: published.map((c) => ({
+        formato: c.mediaType,
+        rede: c.platform,
+        legenda: c.caption?.slice(0, 100),
+        alcance: c.reach,
+        curtidas: c.likes,
+        publicadoEm: c.publishedAt,
+      })),
+    },
+  };
+}
+
+export type ClientAiContext = Awaited<ReturnType<typeof getClientAiContext>>;
