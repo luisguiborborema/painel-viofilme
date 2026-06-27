@@ -41,7 +41,15 @@ export function MeetingRequestModal({
 
   function submit() {
     if (!valid) return;
-    // TODO: POST → Supabase `meeting_requests` + notificar CS responsável.
+    // Rota stub (modo híbrido): registra + notifica; persistência real depois.
+    void fetch("/api/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "meeting",
+        payload: { area, subject, detail, urgency, slot },
+      }),
+    }).catch(() => {});
     setSent(true);
   }
 

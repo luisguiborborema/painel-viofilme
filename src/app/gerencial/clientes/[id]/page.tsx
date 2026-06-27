@@ -19,8 +19,10 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getCSClientDetail } from "@/lib/data/cs";
+import { getClientById } from "@/lib/data/queries";
+import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { cn, formatBRL, formatNumber } from "@/lib/utils";
-import type { CSTimelineEvent } from "@/lib/data/types";
+import type { CSTimelineEvent, Platform } from "@/lib/data/types";
 
 function initials(name: string) {
   return name
@@ -74,6 +76,13 @@ export default async function RaioXCliente({
   if (!d) notFound();
 
   const c = d.client;
+  const portal = await getClientById(id);
+  const config = {
+    hasPaidTraffic: portal?.hasPaidTraffic ?? d.campaignsInvested > 0,
+    clientType: portal?.clientType ?? ("local_business" as const),
+    activeNetworks:
+      portal?.activeNetworks ?? (["instagram", "facebook"] as Platform[]),
+  };
 
   return (
     <div className="space-y-4">
@@ -273,6 +282,9 @@ export default async function RaioXCliente({
           </p>
         </Card>
       </div>
+
+      {/* Configuração do portal do cliente (R05 / CAM04 / ORG06) */}
+      <ClientConfigCard clientId={id} initial={config} />
     </div>
   );
 }

@@ -50,7 +50,25 @@ export function ContentRequestForm({
 
   function submit() {
     if (!valid) return;
-    // TODO: POST → Supabase `content_requests` + notificar Social responsável.
+    // Rota stub (modo híbrido): registra + notifica; persistência real depois.
+    void fetch("/api/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "content",
+        payload: {
+          format,
+          networks,
+          date,
+          time,
+          subject,
+          description: desc,
+          guideline,
+          references: refs,
+          urgency,
+        },
+      }),
+    }).catch(() => {});
     setSent(true);
   }
 
