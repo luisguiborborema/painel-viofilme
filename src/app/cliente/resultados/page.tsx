@@ -1,24 +1,56 @@
+import { Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
-import { getOrganicResults } from "@/lib/data/queries";
-import { formatCompact, formatNumber } from "@/lib/utils";
+import {
+  getClientById,
+  getOrganicMetrics,
+  getOrganicResults,
+} from "@/lib/data/queries";
 import { OrganicHeader } from "@/components/cliente/organic-header";
-import { MediaMetricCard } from "@/components/cliente/media-metric-card";
-import { FollowersLineCard } from "@/components/cliente/followers-line-card";
-import { FormatDonutCard } from "@/components/cliente/format-donut-card";
-import { PlatformStatCard } from "@/components/cliente/platform-stat-card";
+import { MetricSection } from "@/components/dashboard/metric-chart-panel";
+import {
+  FormatCarousel,
+  type FormatSlide,
+} from "@/components/cliente/format-carousel";
+import { NetworkCard } from "@/components/cliente/network-card";
 import { AudienceCard } from "@/components/cliente/audience-card";
 import { TopPostsCard } from "@/components/cliente/top-posts-card";
+import { AiInsights } from "@/components/dashboard/ai-insights";
 import { TeamInsight } from "@/components/cliente/team-insight";
+import type { FormatReach, Platform } from "@/lib/data/types";
 
-const pct1 = (n: number) =>
-  n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+const FORMAT_COLORS: Record<keyof FormatReach, string> = {
+  reels: "#ec4899",
+  feed: "#38bdf8",
+  stories: "#8b5cf6",
+  carousel: "#34d399",
+};
+const FORMAT_NAME: Record<keyof FormatReach, string> = {
+  reels: "Reels",
+  feed: "Feed",
+  stories: "Stories",
+  carousel: "Carrossel",
+};
+const FORMAT_KEYS = ["reels", "feed", "stories", "carousel"] as const;
 
-export default async function ClienteResultados({
-  searchParams,
-}: {
-  searchParams: Promise<{ rede?: string }>;
-}) {
+function slideItems(f: FormatReach) {
+  return FORMAT_KEYS.map((k) => ({
+    name: FORMAT_NAME[k],
+    value: f[k],
+    color: FORMAT_COLORS[k],
+  }));
+}
+
+function leaderName(f: FormatReach) {
+  return FORMAT_KEYS.reduce((a, b) => (f[b] > f[a] ? b : a));
+}
+
+const NETWORK_ROLE: Record<Platform, string> = {
+  instagram: "Principal",
+  facebook: "Secundário",
+};
+
+export default async function ClienteResultados() {
   const user = await getSession();
   if (!user?.clientId) {
     return (
@@ -28,94 +60,130 @@ export default async function ClienteResultados({
     );
   }
 
-  const { rede } = await searchParams;
-  const o = await getOrganicResults(user.clientId);
+  const [o, metrics, client] = await Promise.all([
+    getOrganicResults(user.clientId),
+    getOrganicMetrics(user.clientId),
+    getClientById(user.clientId),
+  ]);
 
-  const platform =
-    rede === "instagram" ? "instagram" : rede === "facebook" ? "facebook" : "todas";
-  const scope =
-    platform === "instagram"
-      ? o.instagram
-      : platform === "facebook"
-        ? o.facebook
-        : o.totals;
-  const aboveAvg = platform === "todas" && o.totals.engagementAboveAvg;
+  const businessType = client?.segment ?? "negócio local";
+  const activeNetworks = client?.activeNetworks ?? ["instagram", "facebook"];
+
+  const slides: FormatSlide[] = [
+    {
+      title: "Alcance por formato",
+      items: slideItems(o.reachByFormat),
+      insight: `${FORMAT_NAME[leaderName(o.reachByFormat)]} lideram o alcance — concentre a distribuição nesse formato.`,
+    },
+    {
+      title: "Engajamento por formato",
+      items: slideItems(o.engagementByFormat),
+      insight: `${FORMAT_NAME[leaderName(o.engagementByFormat)]} têm o maior engajamento relativo — bom para conversa com a audiência.`,
+    },
+    {
+      title: "Volume publicado por formato",
+      items: slideItems(o.volumeByFormat),
+      insight: `Publicamos mais ${FORMAT_NAME[leaderName(o.volumeByFormat)]} no período — avalie o equilíbrio com o que mais alcança.`,
+    },
+  ];
+
+  const handles: Record<Platform, string> = {
+    instagram: client?.instagramUsername ?? "instagram",
+    facebook: client?.facebookPageName ?? "Facebook",
+  };
 
   return (
     <div className="space-y-4">
-      <OrganicHeader periodLabel={o.periodLabel} />
+      <OrganicHeader />
 
-      {/* Métricas de crescimento */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MediaMetricCard
-          label={platform === "todas" ? "Seguidores totais" : "Seguidores"}
-          value={formatNumber(scope.followers)}
-          deltaText={`+${formatNumber(scope.followersDelta)} este mês · +${pct1(scope.followersDeltaPct)}%`}
-          tone="good"
-          deltaDirection="up"
-          info="Seguidores ganhos no período (sem impulsionamento)."
-        />
-        <MediaMetricCard
-          label="Alcance no mês"
-          value={formatCompact(scope.reach)}
-          deltaText={`+${scope.reachDelta}% vs. maio`}
-          tone="good"
-          deltaDirection="up"
-          info="Contas únicas alcançadas organicamente."
-        />
-        <MediaMetricCard
-          label="Impressões"
-          value={formatCompact(scope.impressions)}
-          deltaText={`+${scope.impressionsDelta}% vs. maio · ${pct1(scope.frequency)}x por pessoa`}
-          tone="good"
-          deltaDirection="up"
-          info="Total de exibições do conteúdo."
-        />
-        <MediaMetricCard
-          label="Taxa de engajamento"
-          value={`${pct1(scope.engagement)}%`}
-          deltaText={`+${pct1(scope.engagementDelta)}pp vs. maio${aboveAvg ? " · acima da média" : ""}`}
-          tone="good"
-          deltaDirection="up"
-          info="Interações divididas pelo alcance."
-        />
-      </div>
+      {/* ORG01–03 + ORG05: carrossel de métricas → gráfico + carrossel de formatos */}
+      <MetricSection
+        metrics={metrics}
+        layout="carousel"
+        defaultKey="seguidores"
+        rightColumn={<FormatCarousel slides={slides} />}
+      />
 
-      {/* Crescimento de seguidores + Alcance por formato */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <FollowersLineCard data={o.followersHistory} />
-        </div>
-        <div className="lg:col-span-2">
-          <FormatDonutCard data={o.reachByFormat} />
-        </div>
-      </div>
-
-      {/* Plataformas + audiência */}
+      {/* ORG06 + audiência: cards de rede modulares por rede ativa */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PlatformStatCard
-          platform="instagram"
-          role="Principal"
-          stats={o.instagram}
-          spark={o.followersHistory.map((p) => p.instagram)}
-        />
-        <PlatformStatCard
-          platform="facebook"
-          role="Secundário"
-          stats={o.facebook}
-          spark={o.followersHistory.map((p) => p.facebook)}
-        />
+        {activeNetworks.map((n) => {
+          const scope = n === "instagram" ? o.instagram : o.facebook;
+          return (
+            <NetworkCard
+              key={n}
+              network={n}
+              handle={handles[n]}
+              role={NETWORK_ROLE[n]}
+              scope={{
+                followers: scope.followers,
+                followersDelta: scope.followersDelta,
+                reach: scope.reach,
+                impressions: scope.impressions,
+                engagement: scope.engagement,
+              }}
+              reachByFormat={o.reachByFormat}
+            />
+          );
+        })}
         <AudienceCard audience={o.audience} />
       </div>
 
-      {/* Top 3 posts */}
-      <TopPostsCard posts={o.topPosts} />
+      {/* Aviso de redes futuras (sem CTA) */}
+      <Card className="flex items-start gap-3 p-4">
+        <span className="mt-0.5 text-brand-300">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <div>
+          <p className="text-sm font-medium text-ink">Em breve</p>
+          <p className="text-xs text-muted">
+            TikTok, YouTube e LinkedIn poderão ser conectados para ampliar a
+            leitura de resultados orgânicos. Avisaremos quando estiver
+            disponível.
+          </p>
+        </div>
+      </Card>
 
-      {/* Padrão identificado */}
-      <TeamInsight
-        title="Padrão identificado pela equipe"
-        text={o.teamPattern}
-        tone="emerald"
+      {/* ORG07 + ORG08: top 3 posts expansíveis + análise por IA */}
+      <TopPostsCard
+        posts={o.topPosts}
+        businessType={businessType}
+        aiFallback={
+          <TeamInsight
+            title="Padrão identificado pela equipe"
+            text={o.teamPattern}
+            tone="emerald"
+          />
+        }
+      />
+
+      {/* ORG10: insights por IA (audiência + formatos), com fallback manual */}
+      <AiInsights
+        mode="organic"
+        title="Insights da IA — orgânico"
+        businessType={businessType}
+        data={{
+          segment: businessType,
+          followers: o.totals.followers,
+          followersDelta: o.totals.followersDelta,
+          reach: o.totals.reach,
+          engagement: o.totals.engagement,
+          reachByFormat: o.reachByFormat,
+          engagementByFormat: o.engagementByFormat,
+          topAge: o.audience.ageRanges[0],
+          topLocation: o.audience.topLocations[0],
+          topPosts: o.topPosts.map((p) => ({
+            title: p.title,
+            format: p.mediaType,
+            reach: p.reach,
+          })),
+        }}
+        fallback={
+          <TeamInsight
+            title="Padrão identificado pela equipe"
+            text={o.teamPattern}
+            tone="emerald"
+          />
+        }
       />
     </div>
   );

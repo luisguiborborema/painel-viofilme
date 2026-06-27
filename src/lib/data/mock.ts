@@ -63,6 +63,7 @@ export const CLIENTS: Client[] = [
     metaConnected: true,
     hasPaidTraffic: true,
     clientType: "lead_gen",
+    activeNetworks: ["instagram", "facebook"] as Platform[],
   },
   {
     id: "cli-002",
@@ -75,6 +76,7 @@ export const CLIENTS: Client[] = [
     metaConnected: true,
     hasPaidTraffic: true,
     clientType: "ecommerce",
+    activeNetworks: ["instagram", "facebook"] as Platform[],
   },
   {
     id: "cli-003",
@@ -87,6 +89,7 @@ export const CLIENTS: Client[] = [
     metaConnected: false,
     hasPaidTraffic: false,
     clientType: "local_business",
+    activeNetworks: ["instagram"] as Platform[],
   },
   {
     id: "cli-004",
@@ -99,6 +102,7 @@ export const CLIENTS: Client[] = [
     metaConnected: true,
     hasPaidTraffic: true,
     clientType: "lead_gen",
+    activeNetworks: ["instagram", "facebook"] as Platform[],
   },
 ];
 

@@ -381,10 +381,23 @@ export type OrganicResults = {
   facebook: OrganicScopeView;
   followersHistory: FollowersMonthPoint[];
   reachByFormat: FormatReach;
+  engagementByFormat: FormatReach;
+  volumeByFormat: FormatReach;
   audience: AudienceProfile;
   topPosts: TopPost[];
   teamPattern: string;
 };
+
+function normalizeFormat(f: FormatReach): FormatReach {
+  const total = f.reels + f.feed + f.stories + f.carousel || 1;
+  const r = (v: number) => Math.round((v / total) * 100);
+  return {
+    reels: r(f.reels),
+    feed: r(f.feed),
+    stories: r(f.stories),
+    carousel: r(f.carousel),
+  };
+}
 
 function withFrequency(s: OrganicScope): OrganicScopeView {
   return { ...s, frequency: s.reach > 0 ? r1(s.impressions / s.reach) : 0 };
@@ -445,6 +458,18 @@ export async function getOrganicResults(
     facebook: withFrequency(fb),
     followersHistory,
     reachByFormat: raw.reachByFormat,
+    engagementByFormat: normalizeFormat({
+      reels: raw.reachByFormat.reels * 1.6,
+      feed: raw.reachByFormat.feed * 0.8,
+      stories: raw.reachByFormat.stories * 0.7,
+      carousel: raw.reachByFormat.carousel * 1.15,
+    }),
+    volumeByFormat: normalizeFormat({
+      reels: raw.reachByFormat.reels * 0.5,
+      feed: raw.reachByFormat.feed * 1.5,
+      stories: raw.reachByFormat.stories * 1.3,
+      carousel: raw.reachByFormat.carousel * 0.9,
+    }),
     audience: raw.audience,
     topPosts: raw.topPosts.map((p, i) => ({ rank: i + 1, ...p })),
     teamPattern: raw.teamPattern,
@@ -1032,6 +1057,107 @@ export async function getMediaMetrics(clientId: string): Promise<MetricDef[]> {
       displayValue: `${fmt1(3 + seed / 4)}x`,
       data: synthSeries(days, 3 + seed / 4, 0.18, 0.15, seed + 7, 1), dataKey: "value",
       chartTitle: "ROAS — últimos 30 dias",
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Resultados v3 — pool de métricas orgânicas para o carrossel (ORG01/02/03)
+// ---------------------------------------------------------------------------
+function monthlyPair(
+  labels: string[],
+  baseIg: number,
+  baseFb: number,
+  seed: number,
+) {
+  return labels.map((month, i) => ({
+    month,
+    instagram: Math.round(baseIg * (1 + 0.1 * Math.sin(i + seed)) + baseIg * 0.04 * i),
+    facebook: Math.round(baseFb * (1 + 0.1 * Math.sin(i + seed + 1)) + baseFb * 0.03 * i),
+  }));
+}
+
+export async function getOrganicMetrics(clientId: string): Promise<MetricDef[]> {
+  const o = await getOrganicResults(clientId);
+  const seed = seedFrom(clientId);
+  const days = (ENGAGEMENT_SERIES[clientId] ?? []).map((x) => x.date);
+  const months = o.followersHistory.map((p) => p.month);
+  const t = o.totals;
+  const ig = { key: "instagram", color: "#D4537E", name: "Instagram" };
+  const fb = { key: "facebook", color: "#38bdf8", name: "Facebook" };
+  const pct1 = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+  const saves = Math.round(t.reach * 0.02);
+  const comments = Math.round(t.reach * 0.008);
+  const shares = Math.round(t.reach * 0.006);
+  const views = Math.round(t.reach * 1.4);
+
+  return [
+    {
+      key: "seguidores", label: "Seguidores totais", color: "#14b8a6",
+      chartType: "line-multi", unit: "number", glossaryKey: "seguidores",
+      displayValue: formatNumber(t.followers),
+      deltaText: `+${formatNumber(t.followersDelta)} este mês`, delta: t.followersDelta,
+      data: o.followersHistory, categoryKey: "month", series: [ig, fb],
+      chartTitle: "Seguidores — Instagram + Facebook",
+    },
+    {
+      key: "alcance", label: "Alcance no mês", color: "#38bdf8",
+      chartType: "line-multi", unit: "number", glossaryKey: "alcance",
+      displayValue: formatCompact(t.reach),
+      deltaText: `+${t.reachDelta}% vs. maio`, delta: t.reachDelta,
+      data: monthlyPair(months, o.instagram.reach / 4, o.facebook.reach / 4, seed + 1),
+      categoryKey: "month", series: [ig, fb],
+      chartTitle: "Alcance — Instagram + Facebook",
+    },
+    {
+      key: "impressoes", label: "Impressões", color: "#0ea5e9",
+      chartType: "bar-grouped", unit: "number", glossaryKey: "impressoes",
+      displayValue: formatCompact(t.impressions),
+      deltaText: `+${t.impressionsDelta}% vs. maio`, delta: t.impressionsDelta,
+      data: monthlyPair(months, o.instagram.impressions / 4, o.facebook.impressions / 4, seed + 2),
+      categoryKey: "month", series: [ig, fb],
+      chartTitle: "Impressões por plataforma",
+    },
+    {
+      key: "engajamento", label: "Taxa de engajamento", color: "#34d399",
+      chartType: "area", unit: "percent", glossaryKey: "engajamento",
+      displayValue: `${pct1(t.engagement)}%`,
+      deltaText: `+${pct1(t.engagementDelta)}pp vs. maio`, delta: t.engagementDelta,
+      data: synthSeries(days, t.engagement, 0.18, 0.1, seed + 3, 1), dataKey: "value",
+      chartTitle: "Engajamento — últimos 30 dias",
+    },
+    {
+      key: "salvamentos", label: "Salvamentos", color: "#ec4899",
+      chartType: "area", unit: "number", glossaryKey: "salvamentos",
+      displayValue: formatCompact(saves),
+      data: synthSeries(days, saves / 30, 0.3, 0.2, seed + 4), dataKey: "value",
+      chartTitle: "Salvamentos — últimos 30 dias",
+    },
+    {
+      key: "comentarios", label: "Comentários", color: "#a855f7",
+      chartType: "bar-simple", unit: "number", glossaryKey: "comentarios",
+      displayValue: formatCompact(comments),
+      data: monthlyPair(months, comments / 4, 0, seed + 5).map((d) => ({
+        month: d.month, value: d.instagram,
+      })),
+      categoryKey: "month",
+      series: [{ key: "value", color: "#a855f7", name: "Comentários" }],
+      chartTitle: "Comentários por mês",
+    },
+    {
+      key: "compartilhamentos", label: "Compartilhamentos", color: "#f59e0b",
+      chartType: "area", unit: "number", glossaryKey: "compartilhamentos",
+      displayValue: formatCompact(shares),
+      data: synthSeries(days, shares / 30, 0.32, 0.25, seed + 6), dataKey: "value",
+      chartTitle: "Compartilhamentos — últimos 30 dias",
+    },
+    {
+      key: "views", label: "Views de vídeo", color: "#22d3ee",
+      chartType: "area", unit: "number", glossaryKey: "views",
+      displayValue: formatCompact(views),
+      data: synthSeries(days, views / 30, 0.25, 0.2, seed + 7), dataKey: "value",
+      chartTitle: "Views de vídeo — últimos 30 dias",
     },
   ];
 }

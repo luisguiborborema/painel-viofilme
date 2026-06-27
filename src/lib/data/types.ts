@@ -17,6 +17,8 @@ export type Client = {
   hasPaidTraffic: boolean;
   /** Tipo de negócio — adapta blocos de campanhas (CAM04). */
   clientType: "lead_gen" | "ecommerce" | "local_business";
+  /** Redes ativas — controla os cards de rede em Resultados (ORG06). */
+  activeNetworks: Platform[];
 };
 
 export type Campaign = {

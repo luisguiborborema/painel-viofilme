@@ -1,13 +1,8 @@
-import { ChevronDown, Sprout } from "lucide-react";
-import { FilterTabs } from "@/components/dashboard/filter-tabs";
+import { Sprout } from "lucide-react";
+import { PeriodSelector } from "@/components/dashboard/period-selector";
+import { ExportPdfButton } from "./export-pdf-button";
 
-const REDE_TABS = [
-  { label: "Todas", value: "todas" },
-  { label: "Instagram", value: "instagram" },
-  { label: "Facebook", value: "facebook" },
-];
-
-export function OrganicHeader({ periodLabel }: { periodLabel: string }) {
+export function OrganicHeader() {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-start gap-2">
@@ -25,11 +20,8 @@ export function OrganicHeader({ periodLabel }: { periodLabel: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <FilterTabs param="rede" options={REDE_TABS} />
-        <div className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink">
-          {periodLabel}
-          <ChevronDown className="h-4 w-4 text-muted" />
-        </div>
+        <PeriodSelector />
+        <ExportPdfButton />
       </div>
     </div>
   );
