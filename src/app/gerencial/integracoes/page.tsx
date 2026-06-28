@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getClients } from "@/lib/data/queries";
+import { SyncButton } from "@/components/gerencial/sync-button";
 import {
   isMetaConfigured,
   META_REDIRECT_URI,
@@ -136,6 +137,7 @@ export default async function GerencialIntegracoes({
               ) : (
                 <Badge variant="muted">Não conectada</Badge>
               )}
+              {client.metaConnected && <SyncButton clientId={client.id} />}
               <Link href={`/api/meta/connect?client=${client.id}`}>
                 <Button variant={client.metaConnected ? "outline" : "primary"} size="sm">
                   {client.metaConnected ? "Reconectar" : "Conectar"}

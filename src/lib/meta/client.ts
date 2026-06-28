@@ -93,6 +93,7 @@ export type InstagramMedia = {
   id: string;
   caption?: string;
   media_type: string;
+  media_product_type?: string; // FEED | REELS | STORY | AD
   media_url?: string;
   thumbnail_url?: string;
   permalink: string;
@@ -109,11 +110,28 @@ export async function getInstagramMedia(
 ) {
   const data = await graphGet<{ data: InstagramMedia[] }>(`${igUserId}/media`, {
     fields:
-      "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+      "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
     limit: String(limit),
     access_token: pageAccessToken,
   });
   return data.data;
+}
+
+/** Métricas de uma mídia específica (alcance, salvamentos, etc.). */
+export async function getMediaInsights(
+  mediaId: string,
+  pageAccessToken: string,
+  metrics = ["reach", "saved", "shares"],
+) {
+  const data = await graphGet<{
+    data: { name: string; values: { value: number }[] }[];
+  }>(`${mediaId}/insights`, {
+    metric: metrics.join(","),
+    access_token: pageAccessToken,
+  });
+  const out: Record<string, number> = {};
+  for (const m of data.data) out[m.name] = m.values?.[0]?.value ?? 0;
+  return out;
 }
 
 /** Insights da conta (alcance, impressões, novos seguidores) por período. */
@@ -130,5 +148,77 @@ export async function getInstagramInsights(
     period,
     access_token: pageAccessToken,
   });
+  return data.data;
+}
+
+// --- Meta Ads (Marketing API) ----------------------------------------------
+export type AdAccount = { id: string; name: string; account_id: string };
+
+/** Contas de anúncio que o usuário administra. */
+export async function listAdAccounts(userAccessToken: string) {
+  const data = await graphGet<{ data: AdAccount[] }>("me/adaccounts", {
+    fields: "id,name,account_id",
+    access_token: userAccessToken,
+  });
+  return data.data;
+}
+
+export type AdCampaign = {
+  id: string;
+  name: string;
+  objective?: string;
+  status: string;
+  effective_status?: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  start_time?: string;
+  stop_time?: string;
+};
+
+/** Campanhas de uma conta de anúncio (act_<id>). */
+export async function getAdCampaigns(adAccountId: string, token: string) {
+  const data = await graphGet<{ data: AdCampaign[] }>(
+    `${adAccountId}/campaigns`,
+    {
+      fields:
+        "id,name,objective,status,effective_status,daily_budget,lifetime_budget,start_time,stop_time",
+      limit: "100",
+      access_token: token,
+    },
+  );
+  return data.data;
+}
+
+export type CampaignInsight = {
+  campaign_id: string;
+  date_start: string;
+  spend?: string;
+  impressions?: string;
+  reach?: string;
+  clicks?: string;
+  actions?: { action_type: string; value: string }[];
+};
+
+/**
+ * Insights diários por campanha no intervalo informado (YYYY-MM-DD).
+ * `time_increment=1` traz uma linha por dia.
+ */
+export async function getCampaignInsights(
+  adAccountId: string,
+  token: string,
+  since: string,
+  until: string,
+) {
+  const data = await graphGet<{ data: CampaignInsight[] }>(
+    `${adAccountId}/insights`,
+    {
+      level: "campaign",
+      fields: "campaign_id,spend,impressions,reach,clicks,actions",
+      time_range: JSON.stringify({ since, until }),
+      time_increment: "1",
+      limit: "500",
+      access_token: token,
+    },
+  );
   return data.data;
 }

@@ -12,6 +12,8 @@ import {
 } from "./mock";
 import { daysUntil, fullDate } from "@/lib/datetime";
 import { formatBRL, formatCompact, formatNumber } from "@/lib/utils";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import * as sb from "./supabase";
 import type { MetricDef } from "@/components/dashboard/metric-chart-panel";
 import type {
   AccessItem,
@@ -47,17 +49,20 @@ import type {
  */
 
 export async function getClients(): Promise<Client[]> {
+  if (isSupabaseConfigured()) return sb.sbGetClients();
   return CLIENTS;
 }
 
 export async function getClientById(
   id: string | null,
 ): Promise<Client | undefined> {
+  if (isSupabaseConfigured()) return sb.sbGetClientById(id);
   if (!id) return undefined;
   return CLIENTS.find((c) => c.id === id);
 }
 
 export async function getCampaigns(clientId?: string): Promise<Campaign[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCampaigns(clientId);
   const list = clientId
     ? CAMPAIGNS.filter((c) => c.clientId === clientId)
     : CAMPAIGNS;
@@ -68,6 +73,7 @@ export async function getContent(
   clientId?: string,
   status?: PostStatus,
 ): Promise<ContentPost[]> {
+  if (isSupabaseConfigured()) return sb.sbGetContent(clientId, status);
   let list = clientId
     ? CONTENT.filter((c) => c.clientId === clientId)
     : CONTENT;
@@ -83,6 +89,7 @@ export async function getAccountSeries(
   clientId: string,
   platform: Platform,
 ): Promise<AccountMetricPoint[]> {
+  if (isSupabaseConfigured()) return sb.sbGetAccountSeries(clientId, platform);
   return ACCOUNT_SERIES[`${clientId}:${platform}`] ?? [];
 }
 
@@ -101,6 +108,7 @@ export type ClientOverview = {
 export async function getClientOverview(
   clientId: string,
 ): Promise<ClientOverview> {
+  if (isSupabaseConfigured()) return sb.sbGetClientOverview(clientId);
   const ig = await getAccountSeries(clientId, "instagram");
   const fb = await getAccountSeries(clientId, "facebook");
   const content = await getContent(clientId);
@@ -238,6 +246,7 @@ export type ClientHome = {
 };
 
 export async function getClientHome(clientId: string): Promise<ClientHome> {
+  if (isSupabaseConfigured()) return sb.sbGetClientHome(clientId);
   const idx = Math.max(
     0,
     CLIENTS.findIndex((c) => c.id === clientId),
@@ -315,6 +324,7 @@ export type MediaPerformance = {
 export async function getMediaPerformance(
   clientId: string,
 ): Promise<MediaPerformance> {
+  if (isSupabaseConfigured()) return sb.sbGetMediaPerformance(clientId);
   const m = MEDIA[clientId] ?? MEDIA[CLIENTS[0].id];
   const ref = REFERENCE_DATE;
   const daysInMonth = new Date(
@@ -406,6 +416,7 @@ function withFrequency(s: OrganicScope): OrganicScopeView {
 export async function getOrganicResults(
   clientId: string,
 ): Promise<OrganicResults> {
+  if (isSupabaseConfigured()) return sb.sbGetOrganicResults(clientId);
   const raw = ORGANIC[clientId] ?? ORGANIC[CLIENTS[0].id];
   const ig = raw.instagram;
   const fb = raw.facebook;
@@ -827,7 +838,7 @@ const sign = (n: number) => (n >= 0 ? "+" : "-");
 export async function getClientHomeMetrics(
   clientId: string,
 ): Promise<ClientHomeMetrics> {
-  const client = CLIENTS.find((c) => c.id === clientId);
+  const client = await getClientById(clientId);
   const home = await getClientHome(clientId);
   const ig = await getAccountSeries(clientId, "instagram");
   const fb = await getAccountSeries(clientId, "facebook");
