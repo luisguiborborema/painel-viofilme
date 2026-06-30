@@ -30,6 +30,15 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
+  const clientsRel = profile?.clients as
+    | { name: string }
+    | { name: string }[]
+    | null
+    | undefined;
+  const clientName = Array.isArray(clientsRel)
+    ? (clientsRel[0]?.name ?? null)
+    : (clientsRel?.name ?? null);
+
   return NextResponse.json({
     authUserId: user.id,
     email: user.email,
@@ -37,9 +46,6 @@ export async function GET() {
     profileError: error?.message ?? null,
     role: profile?.role ?? null,
     clientId: profile?.client_id ?? null,
-    clientName:
-      (Array.isArray(profile?.clients)
-        ? profile?.clients[0]?.name
-        : (profile?.clients as { name: string } | null)?.name) ?? null,
+    clientName,
   });
 }
