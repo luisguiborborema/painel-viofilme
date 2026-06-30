@@ -11,6 +11,7 @@
  * sincronizada ainda (perfil de audiência, aprovação de peças) usam padrões
  * neutros até ganharem origem própria.
  */
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AccountMetricPoint,
@@ -99,11 +100,11 @@ function mapClient(row: ClientRow, connectedIds: Set<string>): Client {
 const CLIENT_COLS =
   "id, name, slug, segment, instagram_username, facebook_page_name, status, has_paid_traffic, client_type, active_networks";
 
-async function connectedClientIds(): Promise<Set<string>> {
+const connectedClientIds = cache(async (): Promise<Set<string>> => {
   const supabase = await createClient();
   const { data } = await supabase.from("meta_connections").select("client_id");
   return new Set((data ?? []).map((r) => r.client_id as string));
-}
+});
 
 export async function sbGetClients(): Promise<Client[]> {
   const supabase = await createClient();
@@ -249,6 +250,52 @@ type CampaignMetricAgg = {
   spend: number;
 };
 
+type CampaignMetricRow = {
+  campaign_id: string;
+  date: string;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  conversions: number;
+  spend: number;
+};
+
+const emptyAgg = (): CampaignMetricAgg => ({
+  impressions: 0, reach: 0, clicks: 0, conversions: 0, spend: 0,
+});
+
+/** Busca TODAS as métricas diárias das campanhas em uma única consulta. */
+async function campaignMetricRows(
+  campaignIds: string[],
+): Promise<CampaignMetricRow[]> {
+  if (!campaignIds.length) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("campaign_metrics")
+    .select("campaign_id, date, impressions, reach, clicks, conversions, spend")
+    .in("campaign_id", campaignIds);
+  return (data ?? []) as CampaignMetricRow[];
+}
+
+/** Agrega as linhas por campanha (opcionalmente filtrando por mês). */
+function aggByCampaign(
+  rows: CampaignMetricRow[],
+  monthKey?: number,
+): Map<string, CampaignMetricAgg> {
+  const map = new Map<string, CampaignMetricAgg>();
+  for (const r of rows) {
+    if (monthKey !== undefined && monthKeyOf(r.date) !== monthKey) continue;
+    const cur = map.get(r.campaign_id) ?? emptyAgg();
+    cur.impressions += Number(r.impressions || 0);
+    cur.reach += Number(r.reach || 0);
+    cur.clicks += Number(r.clicks || 0);
+    cur.conversions += Number(r.conversions || 0);
+    cur.spend += Number(r.spend || 0);
+    map.set(r.campaign_id, cur);
+  }
+  return map;
+}
+
 async function campaignMetricsByCampaign(
   campaignIds: string[],
   sinceMonthKey?: number,
@@ -323,8 +370,10 @@ export async function sbGetMediaPerformance(
   const campaigns = (campRows ?? []) as CampaignRow[];
   const ids = campaigns.map((c) => c.id);
 
-  const curAgg = await campaignMetricsByCampaign(ids, curKey);
-  const prevAgg = await campaignMetricsByCampaign(ids, curKey - 1);
+  // Uma única consulta às métricas; agregações feitas em memória.
+  const metricRows = await campaignMetricRows(ids);
+  const curAgg = aggByCampaign(metricRows, curKey);
+  const prevAgg = aggByCampaign(metricRows, curKey - 1);
 
   const sum = (m: Map<string, CampaignMetricAgg>, k: keyof CampaignMetricAgg) =>
     [...m.values()].reduce((s, v) => s + v[k], 0);
@@ -337,17 +386,24 @@ export async function sbGetMediaPerformance(
   const cpl = leads ? round1(invested / leads) : 0;
   const cpa = conversions ? round1(invested / conversions) : 0;
 
-  // Mês anterior (delta) — prevAgg inclui mês atual; subtraímos
-  const prevInvested = sum(prevAgg, "spend") - invested;
-  const prevConversions = sum(prevAgg, "conversions") - conversions;
+  // Mês anterior (delta)
+  const prevInvested = sum(prevAgg, "spend");
+  const prevConversions = sum(prevAgg, "conversions");
   const prevLeads = prevConversions;
   const prevCpl = prevLeads ? prevInvested / prevLeads : 0;
 
   const budget = campaigns.reduce((s, c) => s + Number(c.budget ?? 0), 0);
   const daysElapsed = now.getUTCDate();
 
-  // Histórico de CPL (meta) dos últimos 4 meses
-  const allAgg = await monthlyCampaignAgg(ids);
+  // Histórico de CPL (meta) dos últimos 4 meses (mesmas linhas, por mês)
+  const allAgg = new Map<number, CampaignMetricAgg>();
+  for (const r of metricRows) {
+    const key = monthKeyOf(r.date);
+    const cur = allAgg.get(key) ?? emptyAgg();
+    cur.spend += Number(r.spend || 0);
+    cur.conversions += Number(r.conversions || 0);
+    allAgg.set(key, cur);
+  }
   const cplHistory = [3, 2, 1, 0].map((k) => {
     const key = curKey - k;
     const a = allAgg.get(key);
@@ -403,29 +459,6 @@ export async function sbGetMediaPerformance(
         ? `Você teve ${leads} resultados no mês a um custo médio de R$ ${cpl.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} por resultado.`
         : "Ainda sem resultados registrados neste período.",
   };
-}
-
-async function monthlyCampaignAgg(
-  campaignIds: string[],
-): Promise<Map<number, CampaignMetricAgg>> {
-  const map = new Map<number, CampaignMetricAgg>();
-  if (!campaignIds.length) return map;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("campaign_metrics")
-    .select("date, conversions, spend, clicks, impressions, reach")
-    .in("campaign_id", campaignIds);
-  for (const r of data ?? []) {
-    const key = monthKeyOf(r.date);
-    const cur = map.get(key) ?? {
-      impressions: 0, reach: 0, clicks: 0, conversions: 0, spend: 0,
-    };
-    cur.spend += Number(r.spend || 0);
-    cur.conversions += Number(r.conversions || 0);
-    cur.clicks += Number(r.clicks || 0);
-    map.set(key, cur);
-  }
-  return map;
 }
 
 // --- resultados orgânicos ---------------------------------------------------

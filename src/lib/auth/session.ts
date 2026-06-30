@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -9,8 +10,11 @@ import type { Role, SessionUser } from "./types";
  *
  * Em produção (Supabase configurado): lê a sessão do Supabase e o perfil
  * correspondente na tabela `profiles`. Em modo demo: lê o cookie de demo.
+ *
+ * Envolto em React `cache()`: numa mesma requisição (layout + página +
+ * componentes) roda uma única vez, evitando repetir o getUser()/perfil.
  */
-export async function getSession(): Promise<SessionUser | null> {
+export const getSession = cache(async (): Promise<SessionUser | null> => {
   if (!isSupabaseConfigured()) {
     return getDemoSession();
   }
@@ -48,7 +52,7 @@ export async function getSession(): Promise<SessionUser | null> {
     clientName,
     avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
   };
-}
+});
 
 /** Lê o cookie de sessão demo (usado quando o Supabase não está configurado). */
 export async function getDemoSession(): Promise<SessionUser | null> {
