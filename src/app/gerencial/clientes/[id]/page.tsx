@@ -4,10 +4,12 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Calendar,
-  CalendarPlus,
+  CheckCircle2,
+  Circle,
   CreditCard,
+  Download,
   ExternalLink,
-  FileBarChart,
+  FileText,
   Flag,
   Mail,
   MessageSquare,
@@ -20,8 +22,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { getCSClientDetail } from "@/lib/data/cs";
 import { getClientById } from "@/lib/data/queries";
+import {
+  getClientCreatives,
+  getClientDocuments,
+  getVioLaunch,
+} from "@/lib/data/operacao";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
-import { cn, formatBRL, formatNumber } from "@/lib/utils";
+import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
+import { cn, formatBRL, formatCompact, formatNumber } from "@/lib/utils";
 import type { CSTimelineEvent, Platform } from "@/lib/data/types";
 
 function initials(name: string) {
@@ -58,13 +66,14 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const ACTIONS = [
-  { label: "Registrar reunião", icon: CalendarPlus },
-  { label: "Ver projeto (M3)", icon: FileBarChart },
-  { label: "Ver faturas (M4)", icon: CreditCard },
-  { label: "Gerar relatório", icon: FileBarChart },
-  { label: "Adicionar NPS", icon: Star },
-];
+function Placeholder({ title, text }: { title: string; text: string }) {
+  return (
+    <Card className="p-8 text-center">
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-muted">{text}</p>
+    </Card>
+  );
+}
 
 export default async function RaioXCliente({
   params,
@@ -84,74 +93,13 @@ export default async function RaioXCliente({
       portal?.activeNetworks ?? (["instagram", "facebook"] as Platform[]),
   };
 
-  return (
+  const vl = getVioLaunch(id);
+  const docs = getClientDocuments(id);
+  const creatives = getClientCreatives(id);
+
+  // --- Aba Resumo -----------------------------------------------------------
+  const resumo = (
     <div className="space-y-4">
-      <Link
-        href="/gerencial/clientes"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Todas as contas
-      </Link>
-
-      {/* Cabeçalho do cliente */}
-      <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white">
-              {initials(c.name)}
-            </span>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-ink">
-                {c.name}
-              </h1>
-              <p className="text-sm text-muted">
-                {c.segment} · {c.city} · {d.contactName} · {d.contactRole}
-              </p>
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="h-3.5 w-3.5" /> {d.phone}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3.5 w-3.5" /> {d.email}
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className={cn("text-3xl font-bold", scoreTone(c.healthScore))}>
-              {c.healthScore}
-            </p>
-            <p className="text-xs text-muted">Score · cliente desde {d.clientSince}</p>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-5">
-          <Stat label="Plano" value={`${d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
-          <Stat label="Tempo de casa" value={d.tenure} />
-          <Stat label="LTV projetado" value={formatBRL(d.ltv)} />
-          <Stat label="NPS atual" value={`${c.nps} · ${d.npsClassification}`} />
-          <Stat label="Faturas" value={d.invoicesNote} />
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {ACTIONS.map((a) => (
-            <button
-              key={a.label}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-subtle-strong"
-            >
-              <a.icon className="h-3.5 w-3.5" /> {a.label}
-            </button>
-          ))}
-          <Link
-            href="/cliente"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-600"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Abrir portal do cliente
-          </Link>
-        </div>
-      </Card>
-
-      {/* NPS + Timeline + Reuniões */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-ink">NPS &amp; satisfação</h2>
@@ -165,7 +113,7 @@ export default async function RaioXCliente({
           </p>
         </Card>
 
-        <Card className="p-5 lg:col-span-1">
+        <Card className="p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">Timeline da conta</h2>
             <button className="inline-flex items-center gap-1 text-xs font-medium text-brand-300 hover:text-brand-200">
@@ -214,7 +162,6 @@ export default async function RaioXCliente({
         </Card>
       </div>
 
-      {/* Briefing + Campanhas */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-ink">
@@ -283,8 +230,226 @@ export default async function RaioXCliente({
         </Card>
       </div>
 
-      {/* Configuração do portal do cliente (R05 / CAM04 / ORG06) */}
       <ClientConfigCard clientId={id} initial={config} />
+    </div>
+  );
+
+  // --- Aba VioLaunch --------------------------------------------------------
+  const violaunch = (
+    <Card className="p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-ink">
+          VioLaunch — onboarding & implementação
+        </h2>
+        <span className="text-sm font-medium text-muted">
+          {vl.step}/{vl.total} etapas · início {vl.startDate}
+        </span>
+      </div>
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-subtle-strong">
+        <div
+          className="h-full rounded-full bg-brand-500"
+          style={{ width: `${(vl.step / vl.total) * 100}%` }}
+        />
+      </div>
+      <ol className="space-y-2.5">
+        {vl.steps.map((s) => (
+          <li key={s.label} className="flex items-center gap-2.5 text-sm">
+            {s.done ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <Circle className="h-4 w-4 text-muted" />
+            )}
+            <span className={s.done ? "text-ink" : "text-muted"}>{s.label}</span>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+
+  // --- Aba Criativos --------------------------------------------------------
+  const criativos = (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {creatives.map((cr) => (
+        <Card key={cr.id} className="p-4">
+          <span className="inline-flex rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">
+            {cr.format}
+          </span>
+          <p className="mt-2 text-sm font-medium text-ink">{cr.title}</p>
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-2.5 text-center">
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                {formatCompact(cr.reach)}
+              </p>
+              <p className="text-[10px] text-muted">Alcance</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-ink">{cr.ctr}%</p>
+              <p className="text-[10px] text-muted">CTR</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                R$ {formatNumber(cr.spend)}
+              </p>
+              <p className="text-[10px] text-muted">Investido</p>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+
+  // --- Aba Agenda -----------------------------------------------------------
+  const agenda = (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card className="p-5">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Próximas reuniões</h2>
+        {d.nextMeeting ? (
+          <div className="rounded-xl bg-subtle p-3">
+            <p className="text-xs font-medium text-emerald-300">
+              {d.nextMeeting.whenLabel}
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-ink">
+              {d.nextMeeting.title}
+            </p>
+            <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-sky-400">
+              <Video className="h-3.5 w-3.5" /> Google Meet
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Nenhuma reunião agendada.</p>
+        )}
+        <p className="mt-3 text-xs text-muted">{d.nextContact}</p>
+      </Card>
+      <Card className="p-5">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Histórico</h2>
+        <ol className="relative ml-1 space-y-3 border-l border-line pl-5">
+          {d.timeline
+            .filter((ev) => ev.kind === "meeting" || ev.kind === "onboarding")
+            .map((ev) => (
+              <li key={ev.id} className="relative">
+                <span className="absolute -left-[26px] top-0.5 h-3 w-3 rounded-full bg-brand-500/30" />
+                <p className="text-sm text-ink/90">{ev.text}</p>
+                <p className="text-xs text-muted">{ev.date}</p>
+              </li>
+            ))}
+        </ol>
+      </Card>
+    </div>
+  );
+
+  // --- Aba Documentos -------------------------------------------------------
+  const documentos = (
+    <Card className="p-5">
+      <h2 className="mb-3 text-sm font-semibold text-ink">Documentos</h2>
+      <ul className="divide-y divide-line">
+        {docs.map((doc) => (
+          <li key={doc.id} className="flex items-center gap-3 py-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-subtle text-muted">
+              <FileText className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-ink">{doc.title}</p>
+              <p className="text-xs text-muted">{doc.meta}</p>
+            </div>
+            <button className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle">
+              <Download className="h-3.5 w-3.5" /> Baixar
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+
+  const tabs: ClientTab[] = [
+    { key: "resumo", label: "Resumo", content: resumo },
+    {
+      key: "tarefas",
+      label: "Tarefas",
+      content: (
+        <Placeholder
+          title="Tarefas deste cliente"
+          text="A execução das tarefas é gerida no Painel de Entregas (em construção na Vertical 2). Aqui você verá as tarefas filtradas por este cliente."
+        />
+      ),
+    },
+    {
+      key: "editorial",
+      label: "Linha editorial",
+      content: (
+        <Placeholder
+          title="Linha Editorial"
+          text="O planejamento de conteúdo com estágios, pilares e exportação do Doc A chega na próxima fase (Vertical 1c)."
+        />
+      ),
+    },
+    { key: "criativos", label: "Criativos de performance", content: criativos },
+    { key: "violaunch", label: "VioLaunch", content: violaunch },
+    { key: "agenda", label: "Agenda", content: agenda },
+    { key: "documentos", label: "Documentos", content: documentos },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Link
+        href="/gerencial/clientes"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink"
+      >
+        <ArrowLeft className="h-4 w-4" /> Hub de clientes
+      </Link>
+
+      {/* Cabeçalho do cliente */}
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white">
+              {initials(c.name)}
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-ink">
+                {c.name}
+              </h1>
+              <p className="text-sm text-muted">
+                {c.segment} · {c.city} · {d.contactName} · {d.contactRole}
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5" /> {d.phone}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Mail className="h-3.5 w-3.5" /> {d.email}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className={cn("text-3xl font-bold", scoreTone(c.healthScore))}>
+              {c.healthScore}
+            </p>
+            <p className="text-xs text-muted">
+              Score · cliente desde {d.clientSince}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-5">
+          <Stat label="Plano" value={`${d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
+          <Stat label="Tempo de casa" value={d.tenure} />
+          <Stat label="LTV projetado" value={formatBRL(d.ltv)} />
+          <Stat label="NPS atual" value={`${c.nps} · ${d.npsClassification}`} />
+          <Stat label="Faturas" value={d.invoicesNote} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/cliente"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-600"
+          >
+            <ExternalLink className="h-3.5 w-3.5" /> Abrir portal do cliente
+          </Link>
+        </div>
+      </Card>
+
+      <ClientTabs tabs={tabs} />
     </div>
   );
 }

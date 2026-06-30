@@ -70,3 +70,58 @@ export const HUB_PLANS: HubPlan[] = [
   "Social Pro",
   "Full Service",
 ];
+
+// --- VioLaunch (onboarding) --------------------------------------------------
+const VIOLAUNCH_STEPS = [
+  "Contrato assinado",
+  "Acessos & integrações",
+  "Briefing estratégico",
+  "Planejamento inicial",
+  "Setup de tráfego",
+  "Primeira linha editorial",
+  "Kickoff com o cliente",
+  "Primeira entrega",
+];
+
+export function getVioLaunch(clientId: string) {
+  const c = getHubClients().find((x) => x.id === clientId);
+  const total = VIOLAUNCH_STEPS.length;
+  const done = c?.onboarding?.step ?? total; // ativos = onboarding concluído
+  return {
+    step: done,
+    total,
+    startDate: c?.onboarding?.startDate ?? "—",
+    steps: VIOLAUNCH_STEPS.map((label, i) => ({ label, done: i < done })),
+  };
+}
+
+// --- Documentos do cliente ---------------------------------------------------
+export type ClientDoc = { id: string; title: string; meta: string; kind: string };
+
+export function getClientDocuments(_clientId: string): ClientDoc[] {
+  return [
+    { id: "d1", title: "Contrato de prestação de serviços", meta: "PDF · 340 KB", kind: "contrato" },
+    { id: "d2", title: "Briefing estratégico", meta: "PDF · 120 KB", kind: "briefing" },
+    { id: "d3", title: "Manual de marca", meta: "PDF · 2,1 MB", kind: "marca" },
+    { id: "d4", title: "Apresentação de resultados — mês anterior", meta: "PDF · 880 KB", kind: "relatorio" },
+  ];
+}
+
+// --- Criativos de performance ------------------------------------------------
+export type ClientCreative = {
+  id: string;
+  title: string;
+  format: "Reels" | "Feed" | "Stories" | "Carrossel";
+  reach: number;
+  ctr: number;
+  spend: number;
+};
+
+export function getClientCreatives(_clientId: string): ClientCreative[] {
+  return [
+    { id: "c1", title: "Reels — bastidores da cozinha", format: "Reels", reach: 31200, ctr: 2.4, spend: 480 },
+    { id: "c2", title: "Carrossel — novo menu", format: "Carrossel", reach: 15800, ctr: 1.9, spend: 360 },
+    { id: "c3", title: "Feed — moqueca da casa", format: "Feed", reach: 9800, ctr: 1.5, spend: 220 },
+    { id: "c4", title: "Stories — enquete do dia", format: "Stories", reach: 4200, ctr: 3.1, spend: 90 },
+  ];
+}
