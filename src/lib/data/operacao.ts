@@ -172,6 +172,101 @@ export type EditorialLine = {
   posts: EditorialPost[];
 };
 
+// --- Central de Relatórios (V3) ---------------------------------------------
+export type ReportSummary = {
+  organic: {
+    seguidores: number;
+    alcance: number;
+    engajamento: number;
+    impressoes: number;
+    comentarios: number;
+    salvamentos: number;
+  };
+  paid: {
+    investimento: number;
+    leads: number;
+    cpl: number;
+    conversoes: number;
+    cliques: number;
+    cpa: number;
+  };
+};
+
+/** Resumo determinístico por cliente (mock-first; futuro: dados reais das APIs). */
+export function getReportSummary(clientId: string): ReportSummary {
+  const c = getHubClients().find((x) => x.id === clientId);
+  const h = c?.healthScore ?? 60;
+  const m = c?.mrr ?? 2500;
+  const invest = Math.round(m * 0.85);
+  const leads = Math.round(h * 1.6);
+  const conv = Math.round(leads * 0.22);
+  const clicks = Math.round(leads * 7.5);
+  return {
+    organic: {
+      seguidores: Math.round(h * 4),
+      alcance: Math.round(m * 6.5),
+      engajamento: Math.round((h / 18) * 10) / 10,
+      impressoes: Math.round(m * 18),
+      comentarios: Math.round(h * 1.2),
+      salvamentos: Math.round(h * 2.1),
+    },
+    paid: {
+      investimento: invest,
+      leads,
+      cpl: Math.round((invest / Math.max(1, leads)) * 100) / 100,
+      conversoes: conv,
+      cliques: clicks,
+      cpa: Math.round((invest / Math.max(1, conv)) * 100) / 100,
+    },
+  };
+}
+
+export const REPORT_ORGANIC_METRICS = [
+  { key: "seguidores", label: "Crescimento de seguidores" },
+  { key: "alcance", label: "Alcance total" },
+  { key: "engajamento", label: "Taxa de engajamento" },
+  { key: "comentarios", label: "Comentários" },
+  { key: "salvamentos", label: "Salvamentos" },
+  { key: "impressoes", label: "Impressões" },
+] as const;
+
+export const REPORT_PAID_METRICS = [
+  { key: "investimento", label: "Investimento total" },
+  { key: "leads", label: "Leads gerados" },
+  { key: "cpl", label: "CPL (custo por lead)" },
+  { key: "conversoes", label: "Conversões reais" },
+  { key: "cliques", label: "Cliques totais" },
+  { key: "cpa", label: "CPA" },
+] as const;
+
+export type IntegrationStatus = {
+  name: string;
+  status: "ok" | "warn";
+  note?: string;
+};
+
+export const REPORT_INTEGRATIONS: IntegrationStatus[] = [
+  { name: "Meta Ads", status: "ok", note: "Conectado" },
+  { name: "Google Ads", status: "ok", note: "Conectado" },
+  { name: "Instagram Business", status: "ok", note: "Conectado" },
+  { name: "Google Analytics 4", status: "warn", note: "Token expirado" },
+];
+
+export type ReportHistoryItem = {
+  id: string;
+  client: string;
+  period: string;
+  kind: string;
+};
+
+export function getReportHistory(): ReportHistoryItem[] {
+  return [
+    { id: "r1", client: "Restaurante Sabor do Mar", period: "Mai/25", kind: "PDF" },
+    { id: "r2", client: "Rede Farmácia BH", period: "Mai/25", kind: "PDF" },
+    { id: "r3", client: "Advocacia Menezes & Assis", period: "Abr/25", kind: "PDF" },
+  ];
+}
+
 // --- Painel de Entregas (V2) -------------------------------------------------
 export const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex"];
 
