@@ -14,7 +14,7 @@ export default async function ClienteLayout({
   return (
     <AppShell user={user}>
       {children}
-      <AiChat clientName={user.name} />
+      <AiChat clientName={user.clientName ?? user.name} />
     </AppShell>
   );
 }

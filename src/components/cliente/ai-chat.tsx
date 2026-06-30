@@ -14,12 +14,11 @@ const SUGGESTIONS = [
 ];
 
 function greeting(name: string): Msg {
-  const first = name.split(" ")[0] ?? name;
   return {
     id: 0,
     role: "assistant",
     seed: true,
-    content: `Oi, ${first}! 👋 Eu sou a Bruna, assistente de IA da Viofilme. Tenho acesso aos seus resultados de campanhas, conteúdo, orgânico e financeiro. Pode me perguntar qualquer coisa — ou começar por uma sugestão abaixo.`,
+    content: `Oi, ${name}! 👋 Eu sou a Bruna, assistente de IA da Viofilme. Tenho acesso aos seus resultados de campanhas, conteúdo, orgânico e financeiro. Pode me perguntar qualquer coisa — ou começar por uma sugestão abaixo.`,
   };
 }
 
