@@ -21,10 +21,15 @@ const SUGGESTIONS_GERENCIAL = [
   "Onde estamos investindo mais em mídia?",
 ];
 
+const ASSISTANT: Record<Scope, { name: string; button: string }> = {
+  cliente: { name: "Bruna", button: "Falar com a Bruna" },
+  gerencial: { name: "Cadu", button: "Falar com o Cadu" },
+};
+
 function greeting(name: string, scope: Scope): Msg {
   const content =
     scope === "gerencial"
-      ? `Oi, ${name}! 👋 Eu sou a Bruna. No painel gerencial eu tenho a visão de todos os clientes — desempenho, investimento em mídia, conexões com a Meta e conteúdo. Pergunte o que quiser — ou comece por uma sugestão abaixo.`
+      ? `Oi, ${name}! 👋 Eu sou o Cadu, assistente de IA da Viofilme. No painel gerencial eu tenho a visão de todos os clientes — desempenho, investimento em mídia, conexões com a Meta e conteúdo. Pergunte o que quiser — ou comece por uma sugestão abaixo.`
       : `Oi, ${name}! 👋 Eu sou a Bruna, assistente de IA da Viofilme. Tenho acesso aos seus resultados de campanhas, conteúdo, orgânico e financeiro. Pode me perguntar qualquer coisa — ou começar por uma sugestão abaixo.`;
   return { id: 0, role: "assistant", seed: true, content };
 }
@@ -54,6 +59,7 @@ export function AiChat({
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greeting(clientName, scope)]);
   const suggestions = scope === "gerencial" ? SUGGESTIONS_GERENCIAL : SUGGESTIONS_CLIENTE;
+  const assistant = ASSISTANT[scope];
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const nextId = useRef(1);
@@ -128,10 +134,10 @@ export function AiChat({
         <button
           onClick={() => setOpen(true)}
           className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition-transform hover:scale-105"
-          aria-label="Falar com a Bruna, assistente de IA"
+          aria-label={`${assistant.button}, assistente de IA`}
         >
           <Sparkles className="h-5 w-5" />
-          <span className="hidden sm:inline">Falar com a Bruna</span>
+          <span className="hidden sm:inline">{assistant.button}</span>
         </button>
       )}
 
@@ -145,7 +151,7 @@ export function AiChat({
                 <Sparkles className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-sm font-semibold leading-tight">Bruna</p>
+                <p className="text-sm font-semibold leading-tight">{assistant.name}</p>
                 <p className="text-[11px] text-white/80 leading-tight">
                   Assistente IA · Viofilme
                 </p>

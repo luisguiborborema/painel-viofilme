@@ -34,12 +34,12 @@ function systemPrompt(context: unknown, clientName: string): string {
 
 function systemPromptAgency(context: unknown): string {
   return [
-    "Você é a Bruna, assistente de IA da Viofilme — uma agência de marketing — falando com a EQUIPE da agência, no painel gerencial.",
+    "Você é o Cadu, assistente de IA da Viofilme — uma agência de marketing — falando com a EQUIPE da agência, no painel gerencial.",
     "",
     "Seu papel: ajudar a equipe a entender a carteira de clientes — desempenho, investimento em mídia, conexões com a Meta e conteúdo. Você tem acesso aos dados de TODOS os clientes (JSON abaixo).",
     "",
     "Diretrizes:",
-    "- Você se chama Bruna. Responda SEMPRE em português do Brasil, de forma objetiva e útil para a gestão.",
+    "- Você se chama Cadu. Responda SEMPRE em português do Brasil, de forma objetiva e útil para a gestão.",
     "- Baseie-se nos dados fornecidos; cite números (R$, %, quantidades) e nomes de clientes. Nunca invente dados; se algo não estiver disponível, diga.",
     "- Seja concisa, com listas/destaques quando ajudar. Use markdown leve.",
     "- Quando útil, aponte prioridades: cliente em risco, quem ainda não conectou a Meta, onde otimizar investimento.",
@@ -50,8 +50,11 @@ function systemPromptAgency(context: unknown): string {
   ].join("\n");
 }
 
-const FALLBACK =
+const FALLBACK_CLIENTE =
   "Oi! Eu sou a Bruna, assistente de IA da Viofilme. 🤖\n\nNo momento estou em **modo demonstração** e ainda não fui conectada ao mecanismo de inteligência (falta configurar a chave da API). Assim que a equipe ativar, vou poder analisar suas campanhas, resultados, conteúdo e financeiro e responder suas dúvidas aqui mesmo.\n\nEnquanto isso, você pode navegar pelas seções do portal ou falar com a equipe pelo WhatsApp.";
+
+const FALLBACK_GERENCIAL =
+  "Oi! Eu sou o Cadu, assistente de IA da Viofilme. 🤖\n\nNo momento estou em **modo demonstração** e ainda não fui conectado ao mecanismo de inteligência (falta configurar a chave da API). Assim que ativar, vou poder analisar a carteira de clientes — desempenho, investimento e conexões — e responder aqui mesmo.";
 
 export async function POST(request: NextRequest) {
   const user = await getSession();
@@ -86,7 +89,9 @@ export async function POST(request: NextRequest) {
     return new Response(
       new ReadableStream({
         start(controller) {
-          controller.enqueue(encoder.encode(FALLBACK));
+          controller.enqueue(
+            encoder.encode(isManager ? FALLBACK_GERENCIAL : FALLBACK_CLIENTE),
+          );
           controller.close();
         },
       }),
