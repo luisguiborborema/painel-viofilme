@@ -66,9 +66,10 @@ Na ordem, no **SQL Editor** do Supabase (ou via CLI `supabase db push`):
 
 ## 3. IA (Bruna + insights)
 
-Defina `ANTHROPIC_API_KEY`. Com ela, `/api/chat` (Bruna) e `/api/insights`
-respondem de verdade, usando o contexto real do cliente (que vem das tabelas
-acima via `getClientAiContext`). Sem ela, caem no fallback de demonstração.
+Defina `OPENAI_API_KEY` (e, opcionalmente, `OPENAI_MODEL` — padrão `gpt-4o-mini`).
+Com ela, `/api/chat` (Bruna) e `/api/insights` respondem de verdade, usando o
+contexto real do cliente (que vem das tabelas acima via `getClientAiContext`).
+Sem ela, caem no fallback de demonstração.
 
 ---
 
@@ -85,7 +86,8 @@ Settings → Environment Variables (Production + Preview):
 | `META_APP_SECRET` | Meta app (secreta) |
 | `NEXT_PUBLIC_APP_URL` | domínio de produção |
 | `META_GRAPH_VERSION` | ex.: `v21.0` |
-| `ANTHROPIC_API_KEY` | Anthropic (secreta) |
+| `OPENAI_API_KEY` | OpenAI (secreta) |
+| `OPENAI_MODEL` | opcional, ex.: `gpt-4o-mini` ou `gpt-4o` |
 | `CRON_SECRET` | `openssl rand -hex 32` (secreta) |
 
 ---

@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 type Mode = "campaigns" | "organic" | "common-posts";
 
@@ -24,9 +26,9 @@ function buildPrompt(mode: Mode, businessType: string, data: unknown): string {
 }
 
 export async function POST(request: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY não configurada" },
+      { error: "OPENAI_API_KEY não configurada" },
       { status: 503 },
     );
   }
@@ -43,38 +45,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "mode inválido" }, { status: 400 });
   }
 
-  const schema = {
-    type: "object",
-    properties: {
-      insights: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: ENUMS[mode] },
-            title: { type: "string" },
-            text: { type: "string" },
-            action: { type: "string" },
-          },
-          required: ["type", "title", "text"],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ["insights"],
-    additionalProperties: false,
-  };
+  const system =
+    "Você responde SEMPRE com um único objeto JSON válido, sem nenhum texto fora do JSON, no formato " +
+    '{"insights":[{"type":"...","title":"...","text":"...","action":"..."}]}. ' +
+    `O campo "type" deve ser exatamente um de: ${ENUMS[mode].join(", ")}. ` +
+    'O campo "action" é opcional (texto curto de botão).';
 
   try {
-    const client = new Anthropic();
-    const message = await client.messages.create({
-      model: "claude-opus-4-8",
+    const client = new OpenAI();
+    const completion = await client.chat.completions.create({
+      model: MODEL,
       max_tokens: 1500,
-      output_config: {
-        effort: "low",
-        format: { type: "json_schema", schema },
-      },
+      temperature: 0.4,
+      response_format: { type: "json_object" },
       messages: [
+        { role: "system", content: system },
         {
           role: "user",
           content: buildPrompt(
@@ -84,12 +69,9 @@ export async function POST(request: NextRequest) {
           ),
         },
       ],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    });
 
-    const text =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (message as any).content?.find((b: any) => b.type === "text")?.text ?? "{}";
+    const text = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(text);
     return NextResponse.json({ insights: parsed.insights ?? [] });
   } catch (e) {

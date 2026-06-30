@@ -1,10 +1,12 @@
 import { type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getSession } from "@/lib/auth/session";
 import { getClientAiContext } from "@/lib/data/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
   // Sem chave configurada → resposta de fallback (mesmo canal de streaming).
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return new Response(
       new ReadableStream({
         start(controller) {
@@ -71,28 +73,25 @@ export async function POST(request: NextRequest) {
   }
 
   const context = await getClientAiContext(user.clientId);
-  const client = new Anthropic();
+  const client = new OpenAI();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const ms = client.messages.stream({
-          model: "claude-opus-4-8",
+        const completion = await client.chat.completions.create({
+          model: MODEL,
           max_tokens: 1024,
-          system: systemPrompt(context, context.cliente.nome),
-          messages: history,
-          output_config: { effort: "low" },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any);
+          temperature: 0.5,
+          stream: true,
+          messages: [
+            { role: "system", content: systemPrompt(context, context.cliente.nome) },
+            ...history,
+          ],
+        });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for await (const event of ms as any) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta?.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
+        for await (const chunk of completion) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) controller.enqueue(encoder.encode(delta));
         }
       } catch {
         controller.enqueue(
