@@ -25,10 +25,12 @@ import { getClientById } from "@/lib/data/queries";
 import {
   getClientCreatives,
   getClientDocuments,
+  getEditorialLine,
   getVioLaunch,
 } from "@/lib/data/operacao";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
+import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
 import { cn, formatBRL, formatCompact, formatNumber } from "@/lib/utils";
 import type { CSTimelineEvent, Platform } from "@/lib/data/types";
 
@@ -96,6 +98,7 @@ export default async function RaioXCliente({
   const vl = getVioLaunch(id);
   const docs = getClientDocuments(id);
   const creatives = getClientCreatives(id);
+  const editorial = getEditorialLine(id);
 
   // --- Aba Resumo -----------------------------------------------------------
   const resumo = (
@@ -375,12 +378,7 @@ export default async function RaioXCliente({
     {
       key: "editorial",
       label: "Linha editorial",
-      content: (
-        <Placeholder
-          title="Linha Editorial"
-          text="O planejamento de conteúdo com estágios, pilares e exportação do Doc A chega na próxima fase (Vertical 1c)."
-        />
-      ),
+      content: <LinhaEditorial data={editorial} />,
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },
