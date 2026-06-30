@@ -8,6 +8,7 @@ import {
   Receipt,
   KeyRound,
   Wallet,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/auth/types";
@@ -21,6 +22,7 @@ export type NavItem = {
 const GERENCIAL_NAV: NavItem[] = [
   { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard },
   { label: "Clientes", href: "/gerencial/clientes", icon: Users },
+  { label: "Entregas", href: "/gerencial/entregas", icon: ListChecks },
   { label: "Campanhas", href: "/gerencial/campanhas", icon: Megaphone },
   { label: "Conteúdo", href: "/gerencial/conteudo", icon: Images },
   { label: "Resultados", href: "/gerencial/resultados", icon: BarChart3 },

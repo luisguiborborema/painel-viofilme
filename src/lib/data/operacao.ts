@@ -172,6 +172,73 @@ export type EditorialLine = {
   posts: EditorialPost[];
 };
 
+// --- Painel de Entregas (V2) -------------------------------------------------
+export const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex"];
+
+export type OpsMember = {
+  id: string;
+  name: string;
+  initials: string;
+  role: string;
+  capacityH: number; // por dia
+};
+
+export const OPS_TEAM: OpsMember[] = [
+  { id: "robert", name: "Robert", initials: "RB", role: "Design", capacityH: 8 },
+  { id: "ana", name: "Ana Lima", initials: "AL", role: "Social Media", capacityH: 8 },
+  { id: "gustavo", name: "Gustavo", initials: "GU", role: "Copy", capacityH: 8 },
+  { id: "mariana", name: "Mariana", initials: "MA", role: "Tráfego", capacityH: 8 },
+  { id: "lucas", name: "Lucas", initials: "LU", role: "Design", capacityH: 8 },
+];
+
+export type TaskStage = "todo" | "doing" | "review" | "approval" | "done";
+export type TaskType = "Arte" | "Vídeo" | "Copy" | "Tráfego";
+export type TaskOrigin = "Linha editorial" | "Projeto" | "Tarefa avulsa";
+
+export const TASK_STAGES: { key: TaskStage; label: string }[] = [
+  { key: "todo", label: "Para fazer" },
+  { key: "doing", label: "Em andamento" },
+  { key: "review", label: "Revisão interna" },
+  { key: "approval", label: "Aprovação cliente" },
+  { key: "done", label: "Concluído" },
+];
+
+export type DeliveryTask = {
+  id: string;
+  title: string;
+  client: string;
+  type: TaskType;
+  origin: TaskOrigin;
+  assignee: string; // OpsMember id
+  stage: TaskStage;
+  dueLabel: string;
+  late: boolean;
+  estimateH: number;
+  loggedH: number;
+  day: number; // dia de entrega (0=Seg..4=Sex)
+  startDay: number; // início (Gantt)
+  span: number; // duração em dias (Gantt)
+};
+
+export function getDeliveryTasks(): DeliveryTask[] {
+  return [
+    { id: "tk1", title: "Arte carrossel 5 slides — saúde bucal", client: "Clínica Odonto Plus", type: "Arte", origin: "Linha editorial", assignee: "robert", stage: "todo", dueLabel: "Atrasada 2 dias", late: true, estimateH: 4, loggedH: 0, day: 1, startDay: 1, span: 1 },
+    { id: "tk2", title: "Arte post feed — menu degustação", client: "Rest. Sabor do Mar", type: "Arte", origin: "Linha editorial", assignee: "robert", stage: "doing", dueLabel: "Hoje · 19h", late: false, estimateH: 3, loggedH: 1.5, day: 2, startDay: 1, span: 2 },
+    { id: "tk3", title: "Thumb Reels — bastidores cozinha", client: "Rest. Sabor do Mar", type: "Arte", origin: "Linha editorial", assignee: "lucas", stage: "doing", dueLabel: "Hoje · 12h", late: false, estimateH: 1.5, loggedH: 1, day: 2, startDay: 2, span: 1 },
+    { id: "tk4", title: "Reels aniversário 1 ano", client: "Rest. Sabor do Mar", type: "Vídeo", origin: "Projeto", assignee: "lucas", stage: "review", dueLabel: "Revisão: Ana Lima", late: false, estimateH: 6, loggedH: 5, day: 3, startDay: 1, span: 3 },
+    { id: "tk5", title: "Copy 5 stories institucionais", client: "Advocacia Menezes", type: "Copy", origin: "Linha editorial", assignee: "gustavo", stage: "doing", dueLabel: "Prazo: 26/06", late: false, estimateH: 1.5, loggedH: 0.5, day: 4, startDay: 3, span: 1 },
+    { id: "tk6", title: "Identidade visual — versão final", client: "Advocacia Menezes", type: "Arte", origin: "Projeto", assignee: "robert", stage: "todo", dueLabel: "Prazo: 27/06", late: false, estimateH: 6, loggedH: 0, day: 4, startDay: 3, span: 2 },
+    { id: "tk7", title: "Post feed menu — pub. hoje", client: "Rest. Sabor do Mar", type: "Arte", origin: "Linha editorial", assignee: "lucas", stage: "approval", dueLabel: "Aguarda 2d", late: false, estimateH: 2, loggedH: 2, day: 2, startDay: 0, span: 1 },
+    { id: "tk8", title: "Post promoção aniversário", client: "Rede Farmácia BH", type: "Arte", origin: "Linha editorial", assignee: "robert", stage: "approval", dueLabel: "Aguarda 3d · urgente", late: false, estimateH: 2, loggedH: 2, day: 3, startDay: 1, span: 1 },
+    { id: "tk9", title: "Campanha tráfego — reservas", client: "Rest. Sabor do Mar", type: "Tráfego", origin: "Projeto", assignee: "mariana", stage: "doing", dueLabel: "Esta semana", late: false, estimateH: 3, loggedH: 1, day: 2, startDay: 0, span: 4 },
+    { id: "tk10", title: "Roteiro Reels — peixe do dia", client: "Rest. Sabor do Mar", type: "Copy", origin: "Linha editorial", assignee: "gustavo", stage: "todo", dueLabel: "Prazo: 25/06", late: false, estimateH: 1.5, loggedH: 0, day: 0, startDay: 0, span: 1 },
+    { id: "tk11", title: "Legendas pacote julho", client: "Rede Farmácia BH", type: "Copy", origin: "Linha editorial", assignee: "gustavo", stage: "review", dueLabel: "Revisão: Ana Lima", late: false, estimateH: 2, loggedH: 1.5, day: 3, startDay: 2, span: 2 },
+    { id: "tk12", title: "Arte stories — enquete semanal", client: "Clínica Odonto Plus", type: "Arte", origin: "Linha editorial", assignee: "lucas", stage: "todo", dueLabel: "Prazo: 28/06", late: false, estimateH: 1, loggedH: 0, day: 4, startDay: 4, span: 1 },
+    { id: "tk13", title: "Relatório mensal — apresentação", client: "Rede Farmácia BH", type: "Tráfego", origin: "Tarefa avulsa", assignee: "mariana", stage: "todo", dueLabel: "Prazo: 30/06", late: false, estimateH: 2, loggedH: 0, day: 4, startDay: 3, span: 2 },
+    { id: "tk14", title: "Aprovação calendário julho", client: "Advocacia Menezes", type: "Copy", origin: "Linha editorial", assignee: "ana", stage: "approval", dueLabel: "Aguarda cliente", late: false, estimateH: 1, loggedH: 1, day: 1, startDay: 1, span: 1 },
+  ];
+}
+
 export function getEditorialLine(clientId: string): EditorialLine {
   const client = getHubClients().find((c) => c.id === clientId);
   return {
