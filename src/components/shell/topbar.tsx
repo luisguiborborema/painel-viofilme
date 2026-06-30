@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
-import { signOut } from "@/lib/auth/actions";
+import { clearSession } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -78,15 +78,17 @@ export function Topbar({
                 <p className="truncate text-xs text-muted">{user.email}</p>
               </div>
               <div className="my-1 h-px bg-line" />
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sair
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={async () => {
+                  await clearSession();
+                  window.location.assign("/login");
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </button>
             </div>
           </>
         )}

@@ -1,15 +1,20 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { authenticateDemo, DEMO_COOKIE, DEMO_USERS } from "./demo";
 import { homeForRole } from "./routes";
 
-export type SignInState = { error: string | null };
+export type SignInState = { error: string | null; redirectTo?: string };
 
-/** Login por e-mail/senha (Supabase) ou credenciais demo. */
+/**
+ * Login por e-mail/senha (Supabase) ou credenciais demo.
+ *
+ * Em vez de `redirect()` (navegação suave, que pode deixar a árvore da área
+ * anterior montada), devolvemos o destino e o cliente faz um recarregamento
+ * real — documento limpo para o novo papel.
+ */
 export async function signIn(
   _prev: SignInState,
   formData: FormData,
@@ -56,11 +61,13 @@ export async function signIn(
     role = user.role;
   }
 
-  redirect(homeForRole(role));
+  return { error: null, redirectTo: homeForRole(role) };
 }
 
-/** Atalho do modo demo: entra direto como gerencial ou cliente. */
-export async function signInDemo(role: "gerencial" | "cliente") {
+/** Atalho do modo demo: grava o cookie e devolve o destino. */
+export async function signInDemoAction(
+  role: "gerencial" | "cliente",
+): Promise<string> {
   const email =
     role === "gerencial"
       ? "gerencial@viofilme.com.br"
@@ -73,16 +80,15 @@ export async function signInDemo(role: "gerencial" | "cliente") {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
-  redirect(homeForRole(role));
+  return homeForRole(role);
 }
 
-/** Encerra a sessão (Supabase + cookie demo). */
-export async function signOut() {
+/** Encerra a sessão (Supabase + cookie demo). O cliente recarrega para /login. */
+export async function clearSession(): Promise<void> {
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     await supabase.auth.signOut();
   }
   const store = await cookies();
   store.delete(DEMO_COOKIE);
-  redirect("/login");
 }

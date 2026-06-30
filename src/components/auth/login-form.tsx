@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { Building2, UserRound } from "lucide-react";
-import { signIn, signInDemo, type SignInState } from "@/lib/auth/actions";
+import { signIn, signInDemoAction, type SignInState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 
 const initial: SignInState = { error: null };
@@ -10,8 +10,15 @@ const initial: SignInState = { error: null };
 export function LoginForm({ demoMode }: { demoMode: boolean }) {
   const [state, formAction, pending] = useActionState(signIn, initial);
 
-  const loginGerencial = signInDemo.bind(null, "gerencial");
-  const loginCliente = signInDemo.bind(null, "cliente");
+  // Recarregamento real para o destino (documento limpo para o novo papel).
+  useEffect(() => {
+    if (state.redirectTo) window.location.assign(state.redirectTo);
+  }, [state.redirectTo]);
+
+  const enterDemo = async (role: "gerencial" | "cliente") => {
+    const dest = await signInDemoAction(role);
+    window.location.assign(dest);
+  };
 
   return (
     <div className="w-full max-w-sm">
@@ -86,22 +93,24 @@ export function LoginForm({ demoMode }: { demoMode: boolean }) {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <form action={loginGerencial}>
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full"
-              >
-                <Building2 className="h-4 w-4" />
-                Gerencial
-              </Button>
-            </form>
-            <form action={loginCliente}>
-              <Button type="submit" variant="outline" className="w-full">
-                <UserRound className="h-4 w-4" />
-                Cliente
-              </Button>
-            </form>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => enterDemo("gerencial")}
+            >
+              <Building2 className="h-4 w-4" />
+              Gerencial
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => enterDemo("cliente")}
+            >
+              <UserRound className="h-4 w-4" />
+              Cliente
+            </Button>
           </div>
           <p className="mt-3 text-center text-xs text-muted">
             Modo demonstração ativo (sem Supabase configurado).
