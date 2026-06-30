@@ -1302,3 +1302,44 @@ export async function getClientAiContext(clientId: string) {
 }
 
 export type ClientAiContext = Awaited<ReturnType<typeof getClientAiContext>>;
+
+// ---------------------------------------------------------------------------
+// Contexto consolidado da AGÊNCIA para a Bruna no painel gerencial.
+// Visão de todos os clientes (dados reais: clientes + overview de cada um).
+// ---------------------------------------------------------------------------
+export async function getAgencyAiContext() {
+  const clients = await getClients();
+
+  const perClient = await Promise.all(
+    clients.map(async (c) => {
+      const ov = await getClientOverview(c.id);
+      return {
+        nome: c.name,
+        segmento: c.segment,
+        status: c.status,
+        tipoNegocio: c.clientType,
+        metaConectada: c.metaConnected,
+        temTrafegoPago: c.hasPaidTraffic,
+        seguidores: ov.followers,
+        alcance30d: ov.reach30d,
+        engajamentoPct: ov.engagementRate,
+        investimentoMidia: ov.totalSpend,
+        conversoes: ov.totalConversions,
+        postsPublicados: ov.postsPublished,
+        postsAgendados: ov.postsScheduled,
+      };
+    }),
+  );
+
+  return {
+    totais: {
+      clientes: clients.length,
+      clientesComMetaConectada: clients.filter((c) => c.metaConnected).length,
+      investimentoMidiaTotal: perClient.reduce((s, c) => s + c.investimentoMidia, 0),
+      conversoesTotais: perClient.reduce((s, c) => s + c.conversoes, 0),
+    },
+    clientes: perClient,
+  };
+}
+
+export type AgencyAiContext = Awaited<ReturnType<typeof getAgencyAiContext>>;

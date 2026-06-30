@@ -5,21 +5,28 @@ import { Loader2, SendHorizontal, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Msg = { id: number; role: "user" | "assistant"; content: string; seed?: boolean };
+type Scope = "cliente" | "gerencial";
 
-const SUGGESTIONS = [
+const SUGGESTIONS_CLIENTE = [
   "Como estão minhas campanhas?",
   "Qual post teve melhor resultado?",
   "Tenho fatura em aberto?",
   "O que posso melhorar este mês?",
 ];
 
-function greeting(name: string): Msg {
-  return {
-    id: 0,
-    role: "assistant",
-    seed: true,
-    content: `Oi, ${name}! 👋 Eu sou a Bruna, assistente de IA da Viofilme. Tenho acesso aos seus resultados de campanhas, conteúdo, orgânico e financeiro. Pode me perguntar qualquer coisa — ou começar por uma sugestão abaixo.`,
-  };
+const SUGGESTIONS_GERENCIAL = [
+  "Qual cliente teve melhor desempenho?",
+  "Quais clientes ainda não conectaram a Meta?",
+  "Resumo geral da carteira este mês",
+  "Onde estamos investindo mais em mídia?",
+];
+
+function greeting(name: string, scope: Scope): Msg {
+  const content =
+    scope === "gerencial"
+      ? `Oi, ${name}! 👋 Eu sou a Bruna. No painel gerencial eu tenho a visão de todos os clientes — desempenho, investimento em mídia, conexões com a Meta e conteúdo. Pergunte o que quiser — ou comece por uma sugestão abaixo.`
+      : `Oi, ${name}! 👋 Eu sou a Bruna, assistente de IA da Viofilme. Tenho acesso aos seus resultados de campanhas, conteúdo, orgânico e financeiro. Pode me perguntar qualquer coisa — ou começar por uma sugestão abaixo.`;
+  return { id: 0, role: "assistant", seed: true, content };
 }
 
 function Rich({ text }: { text: string }) {
@@ -37,9 +44,16 @@ function Rich({ text }: { text: string }) {
   );
 }
 
-export function AiChat({ clientName }: { clientName: string }) {
+export function AiChat({
+  clientName,
+  scope = "cliente",
+}: {
+  clientName: string;
+  scope?: Scope;
+}) {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([greeting(clientName)]);
+  const [messages, setMessages] = useState<Msg[]>([greeting(clientName, scope)]);
+  const suggestions = scope === "gerencial" ? SUGGESTIONS_GERENCIAL : SUGGESTIONS_CLIENTE;
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const nextId = useRef(1);
@@ -175,7 +189,7 @@ export function AiChat({ clientName }: { clientName: string }) {
 
             {showSuggestions && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {SUGGESTIONS.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}

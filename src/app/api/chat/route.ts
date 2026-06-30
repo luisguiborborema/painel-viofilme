@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import OpenAI from "openai";
 import { getSession } from "@/lib/auth/session";
-import { getClientAiContext } from "@/lib/data/queries";
+import { getAgencyAiContext, getClientAiContext } from "@/lib/data/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,12 +32,34 @@ function systemPrompt(context: unknown, clientName: string): string {
   ].join("\n");
 }
 
+function systemPromptAgency(context: unknown): string {
+  return [
+    "Você é a Bruna, assistente de IA da Viofilme — uma agência de marketing — falando com a EQUIPE da agência, no painel gerencial.",
+    "",
+    "Seu papel: ajudar a equipe a entender a carteira de clientes — desempenho, investimento em mídia, conexões com a Meta e conteúdo. Você tem acesso aos dados de TODOS os clientes (JSON abaixo).",
+    "",
+    "Diretrizes:",
+    "- Você se chama Bruna. Responda SEMPRE em português do Brasil, de forma objetiva e útil para a gestão.",
+    "- Baseie-se nos dados fornecidos; cite números (R$, %, quantidades) e nomes de clientes. Nunca invente dados; se algo não estiver disponível, diga.",
+    "- Seja concisa, com listas/destaques quando ajudar. Use markdown leve.",
+    "- Quando útil, aponte prioridades: cliente em risco, quem ainda não conectou a Meta, onde otimizar investimento.",
+    "- Responda diretamente, sem expor seu raciocínio.",
+    "",
+    "Dados da agência (JSON):",
+    JSON.stringify(context),
+  ].join("\n");
+}
+
 const FALLBACK =
   "Oi! Eu sou a Bruna, assistente de IA da Viofilme. 🤖\n\nNo momento estou em **modo demonstração** e ainda não fui conectada ao mecanismo de inteligência (falta configurar a chave da API). Assim que a equipe ativar, vou poder analisar suas campanhas, resultados, conteúdo e financeiro e responder suas dúvidas aqui mesmo.\n\nEnquanto isso, você pode navegar pelas seções do portal ou falar com a equipe pelo WhatsApp.";
 
 export async function POST(request: NextRequest) {
   const user = await getSession();
-  if (!user?.clientId) {
+  if (!user) {
+    return new Response("Não autenticado.", { status: 401 });
+  }
+  const isManager = user.role === "gerencial";
+  if (!isManager && !user.clientId) {
     return new Response("Sem cliente vinculado.", { status: 401 });
   }
 
@@ -72,7 +94,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const context = await getClientAiContext(user.clientId);
+  const systemContent = isManager
+    ? systemPromptAgency(await getAgencyAiContext())
+    : await (async () => {
+        const context = await getClientAiContext(user.clientId!);
+        return systemPrompt(context, context.cliente.nome);
+      })();
+
   const client = new OpenAI();
 
   const stream = new ReadableStream({
@@ -84,7 +112,7 @@ export async function POST(request: NextRequest) {
           temperature: 0.5,
           stream: true,
           messages: [
-            { role: "system", content: systemPrompt(context, context.cliente.nome) },
+            { role: "system", content: systemContent },
             ...history,
           ],
         });
