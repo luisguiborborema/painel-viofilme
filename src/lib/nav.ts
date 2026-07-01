@@ -10,6 +10,7 @@ import {
   Wallet,
   ListChecks,
   FileBarChart,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/auth/types";
@@ -28,6 +29,7 @@ const GERENCIAL_NAV: NavItem[] = [
   { label: "Conteúdo", href: "/gerencial/conteudo", icon: Images },
   { label: "Resultados", href: "/gerencial/resultados", icon: BarChart3 },
   { label: "Relatórios", href: "/gerencial/relatorios", icon: FileBarChart },
+  { label: "RH & cultura", href: "/gerencial/rh", icon: HeartHandshake },
   { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet },
   { label: "Integrações", href: "/gerencial/integracoes", icon: Plug },
 ];
