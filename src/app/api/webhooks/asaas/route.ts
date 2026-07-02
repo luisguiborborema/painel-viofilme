@@ -6,6 +6,7 @@ import {
   isAsaasWebhookConfigured,
   safeEqual,
 } from "@/lib/asaas/config";
+import { trigger } from "@/lib/push/triggers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +113,22 @@ export async function POST(req: Request) {
     if (error) {
       // Falha real de gravação → 500 para o Asaas reenviar.
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Notifica o cliente (não deve derrubar o webhook em caso de falha).
+    if (clientId) {
+      const amount = payment.value
+        ? `R$ ${payment.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+        : "sua fatura";
+      try {
+        if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED_IN_CASH"].includes(event)) {
+          await trigger.paymentReceived(clientId, amount);
+        } else if (event === "PAYMENT_OVERDUE") {
+          await trigger.paymentOverdue(clientId, amount);
+        }
+      } catch {
+        // silencioso
+      }
     }
   }
 

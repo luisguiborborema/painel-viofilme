@@ -501,6 +501,7 @@ export type FinanceOverview = {
 };
 
 export async function getFinance(clientId: string): Promise<FinanceOverview> {
+  if (isSupabaseConfigured()) return sb.sbGetFinance(clientId);
   const idx = Math.max(
     0,
     CLIENTS.findIndex((c) => c.id === clientId),

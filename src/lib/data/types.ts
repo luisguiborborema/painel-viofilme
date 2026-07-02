@@ -19,6 +19,8 @@ export type Client = {
   clientType: "lead_gen" | "ecommerce" | "local_business";
   /** Redes ativas — controla os cards de rede em Resultados (ORG06). */
   activeNetworks: Platform[];
+  /** ID do cliente no Asaas — vincula os pagamentos do webhook. */
+  asaasCustomerId?: string | null;
 };
 
 export type Campaign = {

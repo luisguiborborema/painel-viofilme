@@ -21,13 +21,19 @@ import type {
   Client,
   ContentPost,
   FormatReach,
+  Invoice,
   Meeting,
   MediaType,
   Platform,
   PostStatus,
   TopPost,
 } from "./types";
-import type { ClientHome, ClientOverview, MediaPerformance } from "./queries";
+import type {
+  ClientHome,
+  ClientOverview,
+  FinanceOverview,
+  MediaPerformance,
+} from "./queries";
 import type { OrganicResults, OrganicScopeView } from "./queries";
 
 const MESES = [
@@ -79,6 +85,7 @@ type ClientRow = {
   has_paid_traffic: boolean;
   client_type: "lead_gen" | "ecommerce" | "local_business";
   active_networks: Platform[];
+  asaas_customer_id: string | null;
 };
 
 function mapClient(row: ClientRow, connectedIds: Set<string>): Client {
@@ -94,11 +101,12 @@ function mapClient(row: ClientRow, connectedIds: Set<string>): Client {
     hasPaidTraffic: row.has_paid_traffic,
     clientType: row.client_type,
     activeNetworks: row.active_networks ?? ["instagram", "facebook"],
+    asaasCustomerId: row.asaas_customer_id,
   };
 }
 
 const CLIENT_COLS =
-  "id, name, slug, segment, instagram_username, facebook_page_name, status, has_paid_traffic, client_type, active_networks";
+  "id, name, slug, segment, instagram_username, facebook_page_name, status, has_paid_traffic, client_type, active_networks, asaas_customer_id";
 
 const connectedClientIds = cache(async (): Promise<Set<string>> => {
   const supabase = await createClient();
@@ -736,5 +744,109 @@ export async function sbGetClientOverview(
     totalSpend: campaigns.reduce((s, c) => s + c.spend, 0),
     totalConversions: campaigns.reduce((s, c) => s + c.conversions, 0),
     series,
+  };
+}
+
+// --- financeiro (Asaas → payments) ------------------------------------------
+type PaymentRow = {
+  asaas_payment_id: string;
+  status: string | null;
+  billing_type: string | null;
+  value: number | null;
+  net_value: number | null;
+  due_date: string | null;
+  payment_date: string | null;
+  description: string | null;
+  invoice_url: string | null;
+};
+
+const PAID_STATUS = new Set([
+  "RECEIVED",
+  "CONFIRMED",
+  "RECEIVED_IN_CASH",
+  "DUNNING_RECEIVED",
+]);
+
+const BILLING_LABEL: Record<string, string> = {
+  BOLETO: "Boleto",
+  PIX: "PIX",
+  CREDIT_CARD: "Cartão",
+  DEBIT_CARD: "Débito",
+  TRANSFER: "Transferência",
+  UNDEFINED: "—",
+};
+
+function daysUntilISO(iso: string): number {
+  const now = new Date();
+  const target = new Date(iso);
+  return Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
+}
+
+export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payments")
+    .select(
+      "asaas_payment_id, status, billing_type, value, net_value, due_date, payment_date, description, invoice_url",
+    )
+    .eq("client_id", clientId)
+    .order("due_date", { ascending: false });
+
+  const rows = (data ?? []) as PaymentRow[];
+
+  const invoices: Invoice[] = rows.map((r) => {
+    const paid = PAID_STATUS.has(r.status ?? "");
+    const due = r.due_date ?? "";
+    const [y, m] = due ? due.split("-") : ["", ""];
+    const method = r.billing_type
+      ? (BILLING_LABEL[r.billing_type] ?? r.billing_type)
+      : null;
+    return {
+      id: r.asaas_payment_id,
+      competence:
+        y && m ? `${MESES[Number(m) - 1]?.slice(0, 3) ?? m} / ${y}` : "—",
+      description: r.description ?? method ?? "Cobrança",
+      amount: Number(r.value ?? 0),
+      dueDate: due,
+      status: paid ? "paid" : "open",
+      method,
+      paidDate: r.payment_date ?? null,
+    } satisfies Invoice;
+  });
+
+  const open = invoices
+    .filter((i) => i.status === "open" && i.dueDate)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const nextInv = open[0];
+  const nextDue = nextInv
+    ? {
+        amount: nextInv.amount,
+        dueDate: nextInv.dueDate,
+        daysUntil: daysUntilISO(nextInv.dueDate),
+      }
+    : null;
+
+  const paidList = invoices
+    .filter((i) => i.status === "paid" && i.paidDate)
+    .sort((a, b) => (b.paidDate ?? "").localeCompare(a.paidDate ?? ""));
+  const last = paidList[0];
+  const lastPayment = last
+    ? { amount: last.amount, paidDate: last.paidDate!, method: last.method ?? "—" }
+    : null;
+
+  const totalPaidYear = invoices
+    .filter((i) => i.status === "paid" && (i.paidDate ?? "").startsWith(String(year)))
+    .reduce((s, i) => s + i.amount, 0);
+
+  return {
+    year,
+    nextDue,
+    lastPayment,
+    plan: { name: "Plano mensal", activeSince: "—" },
+    invoices,
+    totalPaidYear,
+    documents: [],
   };
 }

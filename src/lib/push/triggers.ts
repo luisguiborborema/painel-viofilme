@@ -34,6 +34,20 @@ export const trigger = {
       url: "/cliente/financeiro",
     }),
 
+  paymentReceived: (clientId: string, amountLabel: string) =>
+    notifyClient(clientId, {
+      title: "Pagamento confirmado",
+      body: `Recebemos seu pagamento de ${amountLabel}. Obrigado!`,
+      url: "/cliente/financeiro",
+    }),
+
+  paymentOverdue: (clientId: string, amountLabel: string) =>
+    notifyClient(clientId, {
+      title: "Fatura vencida",
+      body: `Há uma fatura de ${amountLabel} em aberto. Regularize para evitar bloqueios.`,
+      url: "/cliente/financeiro",
+    }),
+
   // --- para a EQUIPE (gerencial) -------------------------------------------
   contentDecision: (
     clientId: string,

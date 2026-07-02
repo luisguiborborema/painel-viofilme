@@ -13,6 +13,7 @@ type Config = {
   hasPaidTraffic: boolean;
   clientType: ClientType;
   activeNetworks: Platform[];
+  asaasCustomerId: string;
 };
 
 const CLIENT_TYPES: { value: ClientType; label: string; hint: string }[] = [
@@ -59,10 +60,17 @@ export function ClientConfigCard({
     });
   }
 
-  function save() {
-    // Modo híbrido: já persiste em localStorage. Quando o Supabase estiver
-    // ligado, troque por update em `clients` (has_paid_traffic / client_type /
-    // active_networks) — ver supabase/migrations/0002_portal_v2.sql.
+  async function save() {
+    // Persiste no Supabase (produção). No modo demo, mantém em localStorage.
+    try {
+      await fetch("/api/gerencial/client-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, ...cfg }),
+      });
+    } catch {
+      // silencioso — o localStorage já guardou o estado
+    }
     setSaved(true);
   }
 
@@ -149,6 +157,21 @@ export function ClientConfigCard({
               );
             })}
           </div>
+        </div>
+
+        {/* Vínculo Asaas (financeiro) */}
+        <div>
+          <p className="mb-1 text-sm font-medium text-ink">ID do cliente no Asaas</p>
+          <p className="mb-2 text-xs text-muted">
+            Vincula os pagamentos recebidos via webhook a este cliente (ex.:
+            <code className="mx-1">cus_000012345</code>).
+          </p>
+          <input
+            value={cfg.asaasCustomerId ?? ""}
+            onChange={(e) => patch({ asaasCustomerId: e.target.value })}
+            placeholder="cus_..."
+            className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
+          />
         </div>
       </div>
 
