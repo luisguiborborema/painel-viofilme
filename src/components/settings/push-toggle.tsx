@@ -117,12 +117,12 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
   const on = state === "on";
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-start gap-3">
           <span
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
               on ? "bg-brand-500/15 text-brand-300" : "bg-subtle text-muted",
             )}
           >
