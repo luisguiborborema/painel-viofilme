@@ -123,12 +123,20 @@ function useEditorState(initialTeamRole: string, initialAllowed: string[] | null
   return { teamRole, sections, onTemplate, onToggle, payload };
 }
 
-export function TeamAccess({ team }: { team: TeamMemberRow[] }) {
+export function TeamAccess({
+  team,
+  selfId,
+}: {
+  team: TeamMemberRow[];
+  selfId: string;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [pwFor, setPwFor] = useState<string | null>(null);
+  const [pwValue, setPwValue] = useState("");
 
   async function post(body: unknown) {
     setBusy(true);
@@ -194,6 +202,16 @@ export function TeamAccess({ team }: { team: TeamMemberRow[] }) {
                 <p className="truncate text-xs text-muted">{m.email}</p>
               </div>
               <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    m.active
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : "bg-rose-500/15 text-rose-300",
+                  )}
+                >
+                  {m.active ? "Ativo" : "Inativo"}
+                </span>
                 <span className="rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-ink">
                   {templateLabel(m.teamRole)}
                 </span>
@@ -215,6 +233,67 @@ export function TeamAccess({ team }: { team: TeamMemberRow[] }) {
             {editing === m.id && (
               <EditRow member={m} busy={busy} onSubmit={post} />
             )}
+
+            {/* Ações: redefinir senha · ativar/desativar */}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {pwFor === m.id ? (
+                <span className="flex items-center gap-1.5">
+                  <input
+                    value={pwValue}
+                    onChange={(e) => setPwValue(e.target.value)}
+                    type="text"
+                    placeholder="nova senha (mín. 6)"
+                    className="h-8 w-44 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                  <button
+                    disabled={busy || pwValue.length < 6}
+                    onClick={() => {
+                      post({ action: "reset_password", userId: m.id, password: pwValue });
+                      setPwValue("");
+                      setPwFor(null);
+                    }}
+                    className="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60"
+                  >
+                    Definir
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPwFor(null);
+                      setPwValue("");
+                    }}
+                    className="text-xs text-muted hover:text-ink"
+                  >
+                    Cancelar
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => {
+                    setPwFor(m.id);
+                    setPwValue("");
+                  }}
+                  className="text-xs font-medium text-muted hover:text-ink"
+                >
+                  Redefinir senha
+                </button>
+              )}
+
+              {m.id !== selfId && (
+                <button
+                  onClick={() =>
+                    post({ action: "set_active", userId: m.id, active: !m.active })
+                  }
+                  className={cn(
+                    "text-xs font-medium",
+                    m.active
+                      ? "text-rose-400 hover:text-rose-300"
+                      : "text-emerald-400 hover:text-emerald-300",
+                  )}
+                >
+                  {m.active ? "Desativar" : "Ativar"}
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>

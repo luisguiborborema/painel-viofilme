@@ -70,9 +70,9 @@ export default async function Configuracoes() {
       </Card>
 
       {/* Equipe & acessos (só Gestor) */}
-      {isGestor && (
+      {isGestor && user && (
         <Card className="p-5">
-          <TeamAccess team={team} />
+          <TeamAccess team={team} selfId={user.id} />
         </Card>
       )}
 

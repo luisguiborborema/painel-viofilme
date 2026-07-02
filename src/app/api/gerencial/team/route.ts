@@ -28,13 +28,14 @@ export async function POST(req: Request) {
   }
 
   let body: {
-    action?: "create" | "update";
+    action?: "create" | "update" | "reset_password" | "set_active";
     userId?: string;
     email?: string;
     name?: string;
     password?: string;
     teamRole?: string;
     allowedSections?: string[] | null;
+    active?: boolean;
   };
   try {
     body = await req.json();
@@ -92,6 +93,41 @@ export async function POST(req: Request) {
           allowed_sections: allowed,
         })
         .eq("id", body.userId);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "reset_password") {
+      if (!body.userId || !body.password || body.password.length < 6) {
+        return NextResponse.json(
+          { error: "senha mínima de 6 caracteres" },
+          { status: 400 },
+        );
+      }
+      const { error } = await admin.auth.admin.updateUserById(body.userId, {
+        password: body.password,
+      });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "set_active") {
+      if (!body.userId) {
+        return NextResponse.json({ error: "userId ausente" }, { status: 400 });
+      }
+      if (body.userId === user.id && body.active === false) {
+        return NextResponse.json(
+          { error: "você não pode desativar a si mesmo" },
+          { status: 400 },
+        );
+      }
+      const { error } = await admin.auth.admin.updateUserById(body.userId, {
+        ban_duration: body.active ? "none" : "876000h",
+      });
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }

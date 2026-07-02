@@ -7,9 +7,10 @@ export type TeamMemberRow = {
   name: string;
   teamRole: string | null;
   allowedSections: string[] | null;
+  active: boolean;
 };
 
-/** Lista os usuários gerenciais (perfil + e-mail via Auth). Só com service-role. */
+/** Lista os usuários gerenciais (perfil + e-mail/status via Auth). Só com service-role. */
 export async function listTeam(): Promise<TeamMemberRow[]> {
   if (!isSupabaseConfigured() || !hasServiceRole()) return [];
   const admin = createAdminClient();
@@ -20,15 +21,24 @@ export async function listTeam(): Promise<TeamMemberRow[]> {
     .eq("role", "gerencial");
 
   const { data: usersData } = await admin.auth.admin.listUsers();
-  const emailById = new Map(
-    (usersData?.users ?? []).map((u) => [u.id, u.email ?? ""]),
+  const now = Date.now();
+  const authById = new Map(
+    (usersData?.users ?? []).map((u) => {
+      const banned = (u as { banned_until?: string | null }).banned_until;
+      const active = !banned || new Date(banned).getTime() <= now;
+      return [u.id, { email: u.email ?? "", active }];
+    }),
   );
 
-  return (profiles ?? []).map((p) => ({
-    id: p.id as string,
-    email: emailById.get(p.id as string) ?? "",
-    name: (p.full_name as string | null) ?? "",
-    teamRole: (p.team_role as string | null) ?? null,
-    allowedSections: (p.allowed_sections as string[] | null) ?? null,
-  }));
+  return (profiles ?? []).map((p) => {
+    const auth = authById.get(p.id as string);
+    return {
+      id: p.id as string,
+      email: auth?.email ?? "",
+      name: (p.full_name as string | null) ?? "",
+      teamRole: (p.team_role as string | null) ?? null,
+      allowedSections: (p.allowed_sections as string[] | null) ?? null,
+      active: auth?.active ?? true,
+    };
+  });
 }
