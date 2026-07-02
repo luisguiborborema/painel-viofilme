@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import { clearSession } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
-import type { NavItem } from "@/lib/nav";
+import type { NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 
@@ -21,10 +21,10 @@ function initials(name: string) {
 
 export function Topbar({
   user,
-  items,
+  groups,
 }: {
   user: SessionUser;
-  items: NavItem[];
+  groups: NavGroup[];
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -97,30 +97,39 @@ export function Topbar({
       {/* Navegação mobile */}
       {mobileNav && (
         <div className="absolute inset-x-0 top-16 z-20 border-b border-line bg-surface p-3 shadow-lg lg:hidden">
-          <nav className="space-y-1">
-            {items.map((item) => {
-              const active =
-                item.href === pathname ||
-                (item.href.split("/").length > 2 &&
-                  pathname.startsWith(item.href));
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileNav(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
-                    active
-                      ? "bg-brand-50 text-brand-700"
-                      : "text-ink hover:bg-canvas",
-                  )}
-                >
-                  <Icon className="h-[18px] w-[18px]" />
-                  {item.label}
-                </Link>
-              );
-            })}
+          <nav className="space-y-3">
+            {groups.map((group, gi) => (
+              <div key={group.title ?? `group-${gi}`} className="space-y-1">
+                {group.title && (
+                  <p className="px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    {group.title}
+                  </p>
+                )}
+                {group.items.map((item) => {
+                  const active =
+                    item.href === pathname ||
+                    (item.href.split("/").length > 2 &&
+                      pathname.startsWith(item.href));
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileNav(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+                        active
+                          ? "bg-brand-50 text-brand-700"
+                          : "text-ink hover:bg-canvas",
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
       )}

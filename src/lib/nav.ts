@@ -4,9 +4,11 @@ import {
   Megaphone,
   Images,
   BarChart3,
+  Gauge,
   Plug,
   Receipt,
   KeyRound,
+  FolderOpen,
   Wallet,
   ListChecks,
   FileBarChart,
@@ -23,40 +25,85 @@ export type NavItem = {
   icon: LucideIcon;
   /** Seção de acesso (gerencial). Ausente = sempre visível. */
   section?: SectionKey;
+  /** Visível se o usuário tiver QUALQUER uma destas seções (rotas combinadas). */
+  anySection?: SectionKey[];
 };
 
-const GERENCIAL_NAV: NavItem[] = [
-  { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
-  { label: "Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
-  { label: "Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
-  { label: "Campanhas", href: "/gerencial/campanhas", icon: Megaphone, section: "campanhas" },
-  { label: "Conteúdo", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },
-  { label: "Resultados", href: "/gerencial/resultados", icon: BarChart3, section: "resultados" },
-  { label: "Relatórios", href: "/gerencial/relatorios", icon: FileBarChart, section: "relatorios" },
-  { label: "RH & cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
-  { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
-  { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
-  { label: "Configurações", href: "/configuracoes", icon: Settings },
+/** Grupo (Aba) do menu: um cabeçalho + seus itens (sub-abas). */
+export type NavGroup = {
+  /** Título do grupo. Ausente = sem cabeçalho (cliente). */
+  title?: string;
+  items: NavItem[];
+};
+
+const GERENCIAL_GROUPS: NavGroup[] = [
+  {
+    title: "Operacional",
+    items: [
+      { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
+      { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
+      { label: "VioFlux", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },
+      {
+        label: "Gestão à Vista",
+        href: "/gerencial/gestao-a-vista",
+        icon: Gauge,
+        anySection: ["campanhas", "resultados"],
+      },
+      { label: "Central de Relatórios", href: "/gerencial/relatorios", icon: FileBarChart, section: "relatorios" },
+      {
+        label: "Documentos",
+        href: "/gerencial/documentos",
+        icon: FolderOpen,
+        anySection: ["clientes", "entregas", "conteudo", "campanhas", "resultados", "relatorios"],
+      },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
+      { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
+      { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
+      { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
+    ],
+  },
+  {
+    title: "Conta",
+    items: [{ label: "Configurações", href: "/configuracoes", icon: Settings }],
+  },
 ];
 
-const CLIENTE_NAV: NavItem[] = [
-  { label: "Visão geral", href: "/cliente", icon: LayoutDashboard },
-  { label: "Conteúdo", href: "/cliente/conteudo", icon: Images },
-  { label: "Campanhas", href: "/cliente/campanhas", icon: Megaphone },
-  { label: "Resultados", href: "/cliente/resultados", icon: BarChart3 },
-  { label: "Financeiro", href: "/cliente/financeiro", icon: Receipt },
-  { label: "Marca & acessos", href: "/cliente/central", icon: KeyRound },
-  { label: "Configurações", href: "/configuracoes", icon: Settings },
+const CLIENTE_GROUPS: NavGroup[] = [
+  {
+    items: [
+      { label: "Visão geral", href: "/cliente", icon: LayoutDashboard },
+      { label: "Conteúdo", href: "/cliente/conteudo", icon: Images },
+      { label: "Campanhas", href: "/cliente/campanhas", icon: Megaphone },
+      { label: "Resultados", href: "/cliente/resultados", icon: BarChart3 },
+      { label: "Financeiro", href: "/cliente/financeiro", icon: Receipt },
+      { label: "Marca & acessos", href: "/cliente/central", icon: KeyRound },
+      { label: "Configurações", href: "/configuracoes", icon: Settings },
+    ],
+  },
 ];
 
-export function navForRole(role: Role): NavItem[] {
-  return role === "gerencial" ? GERENCIAL_NAV : CLIENTE_NAV;
+function itemVisible(user: SessionUser, item: NavItem): boolean {
+  if (item.section) return canAccessSection(user.allowedSections, item.section);
+  if (item.anySection) {
+    return item.anySection.some((s) => canAccessSection(user.allowedSections, s));
+  }
+  return true;
 }
 
-/** Menu filtrado pelas permissões do usuário (gerencial). */
-export function visibleNav(user: SessionUser): NavItem[] {
-  if (user.role !== "gerencial") return CLIENTE_NAV;
-  return GERENCIAL_NAV.filter(
-    (item) => !item.section || canAccessSection(user.allowedSections, item.section),
-  );
+/** Menu (em grupos) filtrado pelas permissões do usuário. */
+export function visibleNav(user: SessionUser): NavGroup[] {
+  if (user.role !== "gerencial") return CLIENTE_GROUPS;
+  return GERENCIAL_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => itemVisible(user, item)),
+  })).filter((group) => group.items.length > 0);
+}
+
+export function navForRole(role: Role): NavGroup[] {
+  return role === "gerencial" ? GERENCIAL_GROUPS : CLIENTE_GROUPS;
 }

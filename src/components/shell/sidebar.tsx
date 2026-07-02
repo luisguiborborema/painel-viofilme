@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LogoHorizontal, LogoMark } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
-import type { NavItem } from "@/lib/nav";
+import type { NavGroup } from "@/lib/nav";
 import type { Role } from "@/lib/auth/types";
 
 export function Sidebar({
-  items,
+  groups,
   role,
   collapsed = false,
   onToggle,
 }: {
-  items: NavItem[];
+  groups: NavGroup[];
   role: Role;
   collapsed?: boolean;
   onToggle?: () => void;
@@ -62,35 +62,47 @@ export function Sidebar({
         </div>
       )}
 
-      <nav className={cn("flex-1 space-y-1 py-3", collapsed ? "px-2" : "px-3")}>
-        {items.map((item) => {
-          const active =
-            item.href === pathname ||
-            (item.href !== home && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "group relative flex items-center rounded-xl text-sm font-medium transition-colors",
-                collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
-                active
-                  ? "bg-white text-brand-700 shadow-sm"
-                  : "text-white/80 hover:bg-white/10 hover:text-white",
-              )}
-            >
-              <Icon className="h-[18px] w-[18px] shrink-0" />
-              {!collapsed && item.label}
-              {collapsed && (
-                <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-xs font-medium text-surface shadow-lg group-hover:block">
-                  {item.label}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      <nav className={cn("flex-1 space-y-4 py-3", collapsed ? "px-2" : "px-3")}>
+        {groups.map((group, gi) => (
+          <div key={group.title ?? `group-${gi}`} className="space-y-1">
+            {group.title &&
+              (collapsed ? (
+                gi > 0 && <div className="mx-2 mb-1 h-px bg-white/10" />
+              ) : (
+                <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                  {group.title}
+                </p>
+              ))}
+            {group.items.map((item) => {
+              const active =
+                item.href === pathname ||
+                (item.href !== home && pathname.startsWith(item.href));
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "group relative flex items-center rounded-xl text-sm font-medium transition-colors",
+                    collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
+                    active
+                      ? "bg-white text-brand-700 shadow-sm"
+                      : "text-white/80 hover:bg-white/10 hover:text-white",
+                  )}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  {!collapsed && item.label}
+                  {collapsed && (
+                    <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-xs font-medium text-surface shadow-lg group-hover:block">
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {!collapsed && (

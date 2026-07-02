@@ -84,6 +84,27 @@ export function pathToSection(pathname: string): SectionKey | null {
   return match?.key ?? null;
 }
 
+/**
+ * Rotas combinadas (uma página com sub-guias de várias seções): visíveis se o
+ * usuário tiver QUALQUER uma das seções listadas.
+ */
+const COMBINED_ROUTES: { href: string; anyOf: SectionKey[] }[] = [
+  { href: "/gerencial/gestao-a-vista", anyOf: ["campanhas", "resultados"] },
+];
+
+/** O usuário pode acessar esta rota do painel gerencial? */
+export function canAccessPath(
+  allowed: string[] | null | undefined,
+  pathname: string,
+): boolean {
+  const combined = COMBINED_ROUTES.find(
+    (r) => pathname === r.href || pathname.startsWith(r.href + "/"),
+  );
+  if (combined) return combined.anyOf.some((s) => canAccessSection(allowed, s));
+  const section = pathToSection(pathname);
+  return !section || canAccessSection(allowed, section);
+}
+
 /** Primeira rota que o usuário pode acessar (para redirecionar). */
 export function firstAllowedHref(allowed: string[] | null | undefined): string {
   if (allowed == null) return "/gerencial";

@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Images,
   ListChecks,
+  Megaphone,
   Rocket,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,8 @@ const ICONS: Record<string, LucideIcon> = {
   violaunch: Rocket,
   agenda: CalendarDays,
   documentos: FolderOpen,
+  campanhas: Megaphone,
+  resultados: BarChart3,
 };
 
 export type ClientTab = {
@@ -29,8 +32,18 @@ export type ClientTab = {
   content: React.ReactNode;
 };
 
-export function ClientTabs({ tabs }: { tabs: ClientTab[] }) {
-  const [active, setActive] = useState(tabs[0]?.key);
+export function ClientTabs({
+  tabs,
+  defaultKey,
+}: {
+  tabs: ClientTab[];
+  defaultKey?: string;
+}) {
+  const initial =
+    defaultKey && tabs.some((t) => t.key === defaultKey)
+      ? defaultKey
+      : tabs[0]?.key;
+  const [active, setActive] = useState(initial);
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
