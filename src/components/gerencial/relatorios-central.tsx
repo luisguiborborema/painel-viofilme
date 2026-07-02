@@ -268,7 +268,19 @@ export function RelatoriosCentral() {
         </div>
 
         <button
-          onClick={() => setGenerated(true)}
+          onClick={() => {
+            setGenerated(true);
+            // Notifica o cliente que o relatório do período está disponível.
+            fetch("/api/notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                event: "report_ready",
+                clientId,
+                period: PERIOD,
+              }),
+            }).catch(() => {});
+          }}
           className="w-full rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
         >
           Gerar {docType === "apresentacao" ? "Doc B — Apresentação de resultados" : DOC_TYPES.find((d) => d.key === docType)?.label}

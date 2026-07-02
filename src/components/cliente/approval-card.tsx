@@ -48,6 +48,14 @@ export function ApprovalCard({
   );
   const [modalOpen, setModalOpen] = useState(false);
 
+  function notifyDecision(decision: "approved" | "changes") {
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "content_decision", decision, title: post.caption }),
+    }).catch(() => {});
+  }
+
   const isVideo = post.mediaType === "reel" || post.mediaType === "video";
   const canAct = post.bucket === "para-aprovar" && state === "idle";
 
@@ -110,7 +118,10 @@ export function ApprovalCard({
         {canAct ? (
           <div className="mt-3 flex items-center gap-2">
             <button
-              onClick={() => setState("approved")}
+              onClick={() => {
+                setState("approved");
+                notifyDecision("approved");
+              }}
               className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-950 transition-colors hover:bg-emerald-400"
             >
               <Check className="h-4 w-4" /> Aprovar
@@ -148,6 +159,7 @@ export function ApprovalCard({
           onSubmit={() => {
             setState("adjustment");
             setModalOpen(false);
+            notifyDecision("changes");
           }}
         />
       )}
