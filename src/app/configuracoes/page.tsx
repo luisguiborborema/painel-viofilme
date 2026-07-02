@@ -2,9 +2,12 @@ import { Bell, Palette, Settings, UserRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { ROLE_LABEL } from "@/lib/auth/types";
+import { hasFullAccess } from "@/lib/access";
+import { listTeam } from "@/lib/auth/team";
 import { isPushConfigured, VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 import { PushToggle } from "@/components/settings/push-toggle";
+import { TeamAccess } from "@/components/settings/team-access";
 
 function SectionHeader({
   icon: Icon,
@@ -30,6 +33,8 @@ function SectionHeader({
 
 export default async function Configuracoes() {
   const user = await getSession();
+  const isGestor = user?.role === "gerencial" && hasFullAccess(user.allowedSections);
+  const team = isGestor ? await listTeam() : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -63,6 +68,13 @@ export default async function Configuracoes() {
           </p>
         )}
       </Card>
+
+      {/* Equipe & acessos (só Gestor) */}
+      {isGestor && (
+        <Card className="p-5">
+          <TeamAccess team={team} />
+        </Card>
+      )}
 
       {/* Aparência */}
       <Card className="p-5">

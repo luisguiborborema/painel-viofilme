@@ -28,7 +28,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   // Perfil + cliente vinculado
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, client_id, clients(name)")
+    .select("id, full_name, role, client_id, team_role, allowed_sections, clients(name)")
     .eq("id", user.id)
     .single();
 
@@ -51,6 +51,9 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     clientId: profile?.client_id ?? null,
     clientName,
     avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+    allowedSections:
+      (profile?.allowed_sections as string[] | null | undefined) ?? null,
+    teamRole: (profile?.team_role as string | null | undefined) ?? null,
   };
 });
 

@@ -12,6 +12,10 @@ export type SessionUser = {
   /** Nome do cliente/empresa exibido no painel. */
   clientName: string | null;
   avatarUrl?: string | null;
+  /** Seções gerenciais permitidas. null = acesso total (Gestor). */
+  allowedSections?: string[] | null;
+  /** Rótulo do tipo de usuário gerencial (gestor/financeiro/rh/...). */
+  teamRole?: string | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {

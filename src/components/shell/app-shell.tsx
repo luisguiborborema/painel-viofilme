@@ -2,7 +2,7 @@
 
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { navForRole } from "@/lib/nav";
+import { visibleNav } from "@/lib/nav";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import type { SessionUser } from "@/lib/auth/types";
 
@@ -13,7 +13,7 @@ export function AppShell({
   user: SessionUser;
   children: React.ReactNode;
 }) {
-  const items = navForRole(user.role);
+  const items = visibleNav(user);
   const [collapsed, setCollapsed] = usePersistentState("vio-sidebar-collapsed", false);
 
   return (

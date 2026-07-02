@@ -8,7 +8,9 @@ const PROTECTED_PREFIXES = ["/gerencial", "/cliente"];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  let response = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   let hasSession = false;
 
   if (isSupabaseConfigured()) {
