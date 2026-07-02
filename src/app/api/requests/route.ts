@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { notifyManagement } from "@/lib/push/send";
+import { trigger } from "@/lib/push/triggers";
 
 /**
  * Solicitações do portal do cliente (R09 reunião · C02 conteúdo).
@@ -31,20 +31,12 @@ export async function POST(req: Request) {
   const clientId = user?.clientId ?? null;
   const clientName = user?.clientName ?? user?.name ?? "Um cliente";
 
-  // Gatilho: notifica a equipe gerencial (push).
-  await notifyManagement(
-    type === "meeting"
-      ? {
-          title: "Nova solicitação de reunião",
-          body: `${clientName} pediu um horário.`,
-          url: clientId ? `/gerencial/clientes/${clientId}` : "/gerencial/clientes",
-        }
-      : {
-          title: "Nova solicitação de conteúdo",
-          body: `${clientName} enviou um pedido de conteúdo.`,
-          url: clientId ? `/gerencial/clientes/${clientId}` : "/gerencial/clientes",
-        },
-  );
+  // Gatilho: notifica a equipe gerencial (push + WhatsApp).
+  if (type === "meeting") {
+    await trigger.requestMeeting(clientId, clientName);
+  } else {
+    await trigger.requestContent(clientId, clientName);
+  }
 
   const id = `req-${type}-${clientId ?? "anon"}-${Math.round(performance.now())}`;
   return NextResponse.json({ ok: true, id, persisted: false });

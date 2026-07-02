@@ -21,6 +21,8 @@ export type Client = {
   activeNetworks: Platform[];
   /** ID do cliente no Asaas — vincula os pagamentos do webhook. */
   asaasCustomerId?: string | null;
+  /** WhatsApp do cliente (destino das notificações via Uazapi). */
+  whatsapp?: string | null;
 };
 
 export type Campaign = {

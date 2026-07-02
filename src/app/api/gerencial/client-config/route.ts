@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     clientType?: "lead_gen" | "ecommerce" | "local_business";
     activeNetworks?: ("instagram" | "facebook")[];
     asaasCustomerId?: string;
+    whatsapp?: string;
   };
   try {
     body = await req.json();
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
       client_type: body.clientType,
       active_networks: body.activeNetworks,
       asaas_customer_id: body.asaasCustomerId?.trim() || null,
+      whatsapp: body.whatsapp?.replace(/\D/g, "") || null,
     })
     .eq("id", body.clientId);
 

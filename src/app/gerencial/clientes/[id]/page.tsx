@@ -94,6 +94,7 @@ export default async function RaioXCliente({
     activeNetworks:
       portal?.activeNetworks ?? (["instagram", "facebook"] as Platform[]),
     asaasCustomerId: portal?.asaasCustomerId ?? "",
+    whatsapp: portal?.whatsapp ?? "",
   };
 
   const vl = getVioLaunch(id);

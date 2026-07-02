@@ -14,6 +14,7 @@ type Config = {
   clientType: ClientType;
   activeNetworks: Platform[];
   asaasCustomerId: string;
+  whatsapp: string;
 };
 
 const CLIENT_TYPES: { value: ClientType; label: string; hint: string }[] = [
@@ -170,6 +171,21 @@ export function ClientConfigCard({
             value={cfg.asaasCustomerId ?? ""}
             onChange={(e) => patch({ asaasCustomerId: e.target.value })}
             placeholder="cus_..."
+            className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        </div>
+
+        {/* WhatsApp do cliente (notificações Uazapi) */}
+        <div>
+          <p className="mb-1 text-sm font-medium text-ink">WhatsApp do cliente</p>
+          <p className="mb-2 text-xs text-muted">
+            Destino das notificações por WhatsApp (com DDI/DDD, ex.:
+            <code className="mx-1">5527999998888</code>).
+          </p>
+          <input
+            value={cfg.whatsapp ?? ""}
+            onChange={(e) => patch({ whatsapp: e.target.value })}
+            placeholder="5527999998888"
             className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
           />
         </div>

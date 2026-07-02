@@ -86,6 +86,7 @@ type ClientRow = {
   client_type: "lead_gen" | "ecommerce" | "local_business";
   active_networks: Platform[];
   asaas_customer_id: string | null;
+  whatsapp: string | null;
 };
 
 function mapClient(row: ClientRow, connectedIds: Set<string>): Client {
@@ -102,11 +103,12 @@ function mapClient(row: ClientRow, connectedIds: Set<string>): Client {
     clientType: row.client_type,
     activeNetworks: row.active_networks ?? ["instagram", "facebook"],
     asaasCustomerId: row.asaas_customer_id,
+    whatsapp: row.whatsapp,
   };
 }
 
 const CLIENT_COLS =
-  "id, name, slug, segment, instagram_username, facebook_page_name, status, has_paid_traffic, client_type, active_networks, asaas_customer_id";
+  "id, name, slug, segment, instagram_username, facebook_page_name, status, has_paid_traffic, client_type, active_networks, asaas_customer_id, whatsapp";
 
 const connectedClientIds = cache(async (): Promise<Set<string>> => {
   const supabase = await createClient();
