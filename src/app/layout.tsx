@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { PwaProvider } from "@/components/pwa/pwa-provider";
 
 const barlow = Barlow({
   variable: "--font-barlow",
@@ -14,6 +15,19 @@ export const metadata: Metadata = {
   title: "Painel Viofilme",
   description:
     "Painel da Viofilme — acompanhe campanhas, conteúdo e resultados de Instagram e Facebook.",
+  applicationName: "Painel Viofilme",
+  appleWebApp: {
+    capable: true,
+    title: "Viofilme",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2a63c9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+  ],
 };
 
 // Aplica o tema antes do primeiro paint (evita flash).
@@ -31,7 +45,10 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${barlow.variable} min-h-screen antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <PwaProvider />
+        </ThemeProvider>
       </body>
     </html>
   );
