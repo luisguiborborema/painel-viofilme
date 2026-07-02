@@ -28,7 +28,13 @@ export async function POST(req: Request) {
   }
 
   let body: {
-    action?: "create" | "update" | "reset_password" | "set_active";
+    action?:
+      | "create"
+      | "update"
+      | "reset_password"
+      | "set_active"
+      | "send_reset_email";
+    mode?: "password" | "invite";
     userId?: string;
     email?: string;
     name?: string;
@@ -44,24 +50,41 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const redirectTo = appUrl ? `${appUrl}/definir-senha` : undefined;
   // Gestor = acesso total → allowed_sections null.
   const allowed =
     body.teamRole === "gestor" ? null : (body.allowedSections ?? []);
 
   try {
     if (body.action === "create") {
-      if (!body.email || !body.password || !body.name) {
+      if (!body.email || !body.name) {
         return NextResponse.json(
-          { error: "informe nome, e-mail e senha" },
+          { error: "informe nome e e-mail" },
           { status: 400 },
         );
       }
-      const { data, error } = await admin.auth.admin.createUser({
-        email: body.email.trim(),
-        password: body.password,
-        email_confirm: true,
-        user_metadata: { role: "gerencial", full_name: body.name.trim() },
-      });
+      const invite = body.mode === "invite";
+      if (!invite && (!body.password || body.password.length < 6)) {
+        return NextResponse.json(
+          { error: "senha mínima de 6 caracteres" },
+          { status: 400 },
+        );
+      }
+      const meta = { role: "gerencial", full_name: body.name.trim() };
+
+      const { data, error } = invite
+        ? await admin.auth.admin.inviteUserByEmail(body.email.trim(), {
+            data: meta,
+            redirectTo,
+          })
+        : await admin.auth.admin.createUser({
+            email: body.email.trim(),
+            password: body.password,
+            email_confirm: true,
+            user_metadata: meta,
+          });
+
       if (error || !data.user) {
         return NextResponse.json(
           { error: error?.message ?? "falha ao criar usuário" },
@@ -79,7 +102,7 @@ export async function POST(req: Request) {
         },
         { onConflict: "id" },
       );
-      return NextResponse.json({ ok: true, id: data.user.id });
+      return NextResponse.json({ ok: true, id: data.user.id, invited: invite });
     }
 
     if (body.action === "update") {
@@ -127,6 +150,19 @@ export async function POST(req: Request) {
       }
       const { error } = await admin.auth.admin.updateUserById(body.userId, {
         ban_duration: body.active ? "none" : "876000h",
+      });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "send_reset_email") {
+      if (!body.email) {
+        return NextResponse.json({ error: "e-mail ausente" }, { status: 400 });
+      }
+      const { error } = await admin.auth.resetPasswordForEmail(body.email, {
+        redirectTo,
       });
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });

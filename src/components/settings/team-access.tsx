@@ -135,12 +135,14 @@ export function TeamAccess({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pwFor, setPwFor] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState("");
 
   async function post(body: unknown) {
     setBusy(true);
     setMsg(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/gerencial/team", {
         method: "POST",
@@ -152,6 +154,26 @@ export function TeamAccess({
       setEditing(null);
       setCreating(false);
       router.refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "erro");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendReset(email: string) {
+    setBusy(true);
+    setMsg(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/gerencial/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_reset_email", email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "falha");
+      setNotice(`Link de redefinição enviado para ${email}.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "erro");
     } finally {
@@ -278,6 +300,16 @@ export function TeamAccess({
                 </button>
               )}
 
+              {m.email && (
+                <button
+                  disabled={busy}
+                  onClick={() => sendReset(m.email)}
+                  className="text-xs font-medium text-muted hover:text-ink disabled:opacity-60"
+                >
+                  Enviar link por e-mail
+                </button>
+              )}
+
               {m.id !== selfId && (
                 <button
                   onClick={() =>
@@ -299,6 +331,7 @@ export function TeamAccess({
       </ul>
 
       {msg && <p className="mt-2 text-xs text-rose-400">{msg}</p>}
+      {notice && <p className="mt-2 text-xs text-emerald-400">{notice}</p>}
     </div>
   );
 }
@@ -346,16 +379,40 @@ function CreateForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"password" | "invite">("password");
   const ed = useEditorState("financeiro", ["financeiro"]);
 
-  const valid = name.trim() && email.trim() && password.length >= 6;
+  const valid =
+    name.trim() && email.trim() && (mode === "invite" || password.length >= 6);
 
   return (
     <div className="mb-3 rounded-xl border border-line bg-canvas p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
         <UserPlus className="h-4 w-4 text-brand-300" /> Novo usuário
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+
+      {/* Modo: senha temporária ou convite por e-mail */}
+      <div className="mb-3 inline-flex rounded-xl border border-line bg-surface p-0.5 text-xs font-medium">
+        {(["password", "invite"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={cn(
+              "rounded-lg px-3 py-1.5",
+              mode === m ? "bg-subtle text-ink" : "text-muted",
+            )}
+          >
+            {m === "password" ? "Senha temporária" : "Convidar por e-mail"}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-2",
+          mode === "password" ? "sm:grid-cols-3" : "sm:grid-cols-2",
+        )}
+      >
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -369,14 +426,23 @@ function CreateForm({
           placeholder="e-mail"
           className="h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
         />
-        <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="text"
-          placeholder="senha temporária (mín. 6)"
-          className="h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
-        />
+        {mode === "password" && (
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="text"
+            placeholder="senha temporária (mín. 6)"
+            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        )}
       </div>
+      {mode === "invite" && (
+        <p className="mt-1.5 text-xs text-muted">
+          O usuário recebe um e-mail e define a própria senha. Requer SMTP
+          configurado no Supabase.
+        </p>
+      )}
+
       <div className="mt-3">
         <SectionPicker
           teamRole={ed.teamRole}
@@ -387,13 +453,20 @@ function CreateForm({
       </div>
       <button
         onClick={() =>
-          onSubmit({ action: "create", name, email, password, ...ed.payload() })
+          onSubmit({
+            action: "create",
+            mode,
+            name,
+            email,
+            password,
+            ...ed.payload(),
+          })
         }
         disabled={busy || !valid}
         className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-        Criar usuário
+        {mode === "invite" ? "Enviar convite" : "Criar usuário"}
       </button>
     </div>
   );
