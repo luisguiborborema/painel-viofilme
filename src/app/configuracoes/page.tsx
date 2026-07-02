@@ -5,8 +5,10 @@ import { ROLE_LABEL } from "@/lib/auth/types";
 import { hasFullAccess } from "@/lib/access";
 import { listTeam } from "@/lib/auth/team";
 import { isPushConfigured, VAPID_PUBLIC_KEY } from "@/lib/push/config";
+import { isWhatsappConfigured } from "@/lib/whatsapp/config";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 import { PushToggle } from "@/components/settings/push-toggle";
+import { WhatsappTest } from "@/components/settings/whatsapp-test";
 import { TeamAccess } from "@/components/settings/team-access";
 
 function SectionHeader({
@@ -66,6 +68,9 @@ export default async function Configuracoes() {
             As notificações push ainda não foram habilitadas pela equipe
             (configuração pendente no servidor).
           </p>
+        )}
+        {user?.role === "gerencial" && (
+          <WhatsappTest configured={isWhatsappConfigured()} />
         )}
       </Card>
 
