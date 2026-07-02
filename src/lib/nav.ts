@@ -11,6 +11,7 @@ import {
   ListChecks,
   FileBarChart,
   HeartHandshake,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/auth/types";
@@ -32,6 +33,7 @@ const GERENCIAL_NAV: NavItem[] = [
   { label: "RH & cultura", href: "/gerencial/rh", icon: HeartHandshake },
   { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet },
   { label: "Integrações", href: "/gerencial/integracoes", icon: Plug },
+  { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
 const CLIENTE_NAV: NavItem[] = [
@@ -41,6 +43,7 @@ const CLIENTE_NAV: NavItem[] = [
   { label: "Resultados", href: "/cliente/resultados", icon: BarChart3 },
   { label: "Financeiro", href: "/cliente/financeiro", icon: Receipt },
   { label: "Marca & acessos", href: "/cliente/central", icon: KeyRound },
+  { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
 export function navForRole(role: Role): NavItem[] {
