@@ -7,6 +7,7 @@ import {
   Ticket,
   TrendingUp,
   Trophy,
+  Video,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card } from "@/components/ui/card";
@@ -47,7 +48,15 @@ function FocusRow({ item }: { item: FocusItem }) {
   );
 }
 
-export function CrmDashboard({ d }: { d: BdrDashboard }) {
+type AgendaEntry = { time: string; title: string; meetLink?: string };
+
+export function CrmDashboard({
+  d,
+  agenda = [],
+}: {
+  d: BdrDashboard;
+  agenda?: AgendaEntry[];
+}) {
   const grouped = {
     overdue: d.focus.filter((f) => f.kind === "overdue"),
     today: d.focus.filter((f) => f.kind === "today"),
@@ -116,8 +125,40 @@ export function CrmDashboard({ d }: { d: BdrDashboard }) {
           )}
         </Card>
 
-        {/* Coluna direita: pipeline por etapa + agenda + placar */}
+        {/* Coluna direita: agenda + pipeline por etapa + placar */}
         <div className="space-y-4">
+          <Card className="p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarClock className="h-[18px] w-[18px] text-brand-600" />
+              <h2 className="text-sm font-semibold text-ink">Agenda de hoje</h2>
+            </div>
+            {agenda.length === 0 ? (
+              <p className="rounded-lg bg-subtle px-3 py-4 text-center text-xs text-muted">
+                Sem compromissos. Conecte o Google Agenda em Integrações.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {agenda.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <span className="w-12 shrink-0 text-xs font-semibold text-muted">{a.time}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{a.title}</span>
+                    {a.meetLink && (
+                      <a
+                        href={a.meetLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 text-emerald-600 hover:text-emerald-700"
+                        title="Entrar no Meet"
+                      >
+                        <Video className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold text-ink">Pipeline por etapa</h2>
             <div className="space-y-2.5">

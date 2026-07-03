@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Phone,
   Pin,
+  CalendarClock,
   Send,
   Sparkles,
   StickyNote,
@@ -30,6 +31,7 @@ import {
   type CrmTask,
 } from "@/lib/data/crm";
 import { WinModal } from "./win-modal";
+import { ScheduleModal } from "./schedule-modal";
 
 type Composer = "note" | "whatsapp" | "email" | "call";
 
@@ -65,6 +67,7 @@ export function LeadDetail({
   const [items, setItems] = useState<CrmInteraction[]>(initialInteractions);
   const [tasks, setTasks] = useState<CrmTask[]>(initialTasks);
   const [showWin, setShowWin] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [won, setWon] = useState(lead.stage === "ganho");
 
   const pendingTask = useMemo(
@@ -125,6 +128,12 @@ export function LeadDetail({
         </div>
         {!won && lead.stage !== "perdido" && (
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSchedule(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle"
+            >
+              <CalendarClock className="h-4 w-4" /> Agendar
+            </button>
             <LoseButton onConfirm={markLost} />
             <button
               onClick={() => setShowWin(true)}
@@ -216,6 +225,22 @@ export function LeadDetail({
           </Card>
         </div>
       </div>
+
+      {showSchedule && (
+        <ScheduleModal
+          lead={lead}
+          onClose={() => setShowSchedule(false)}
+          onScheduled={(meetLink) => {
+            setShowSchedule(false);
+            setLead((l) => ({ ...l, stage: "reuniao" }));
+            pushLocal({
+              channel: "system",
+              body: `📅 Reunião agendada no Google Agenda.${meetLink ? `\nMeet: ${meetLink}` : ""}`,
+            });
+            router.refresh();
+          }}
+        />
+      )}
 
       {showWin && (
         <WinModal

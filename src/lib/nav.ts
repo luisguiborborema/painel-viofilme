@@ -5,6 +5,7 @@ import {
   Images,
   BarChart3,
   MessagesSquare,
+  CalendarDays,
   Target,
   Gauge,
   Plug,
@@ -44,6 +45,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     items: [
       { label: "CRM & Vendas", href: "/gerencial/crm", icon: Target, section: "crm" },
       { label: "Atendimento", href: "/gerencial/inbox", icon: MessagesSquare, section: "crm" },
+      { label: "Agenda", href: "/gerencial/agenda", icon: CalendarDays, section: "crm" },
     ],
   },
   {
