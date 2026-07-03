@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     start.setUTCDate(start.getUTCDate() + 1);
     start.setUTCHours(13, 0, 0, 0);
     const end = new Date(start.getTime() + 30 * 60_000);
-    event = await createEvent({
+    const r = await createEvent({
       summary: `[A confirmar] ${p.subject ?? "Reunião"} — ${clientName}`,
       description: [
         `Solicitação de reunião pelo portal do cliente.`,
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       endIso: end.toISOString(),
       addMeet: true,
     });
+    event = r.event ?? null;
   }
 
   const id = `req-${type}-${clientId ?? "anon"}-${Math.round(performance.now())}`;

@@ -109,7 +109,13 @@ export async function listUpcomingEvents(
     .slice(0, maxResults);
 }
 
-/** Cria um evento (opcionalmente com Google Meet). Retorna o evento ou null. */
+export type CreateEventResult = { event?: GoogleEvent; error?: string };
+
+/**
+ * Cria um evento no calendário de escrita. O Google Meet é best-effort: se a
+ * criação com conferência falhar, tenta novamente sem Meet. Devolve o evento
+ * ou uma mensagem de erro (para exibir no painel).
+ */
 export async function createEvent(input: {
   summary: string;
   description?: string;
@@ -117,44 +123,64 @@ export async function createEvent(input: {
   endIso: string;
   attendees?: string[];
   addMeet?: boolean;
-}): Promise<GoogleEvent | null> {
+}): Promise<CreateEventResult> {
   const access = await getValidAccess();
-  if (!access) return null;
+  if (!access) return { error: "Google não conectado." };
 
-  const url = new URL(`${API}/calendars/${encodeURIComponent(access.calendarId)}/events`);
-  if (input.addMeet) url.searchParams.set("conferenceDataVersion", "1");
-
-  const body: Record<string, unknown> = {
+  const baseBody: Record<string, unknown> = {
     summary: input.summary,
     description: input.description,
     start: { dateTime: input.startIso, timeZone: "America/Sao_Paulo" },
     end: { dateTime: input.endIso, timeZone: "America/Sao_Paulo" },
   };
   if (input.attendees?.length) {
-    body.attendees = input.attendees.map((email) => ({ email }));
-  }
-  if (input.addMeet) {
-    body.conferenceData = {
-      createRequest: {
-        requestId: `vio-${input.startIso}`,
-        conferenceSolutionKey: { type: "hangoutsMeet" },
-      },
-    };
+    baseBody.attendees = input.attendees.map((email) => ({ email }));
   }
 
-  try {
+  async function attempt(withMeet: boolean): Promise<{ ok: boolean; status: number; json: unknown; text: string }> {
+    const url = new URL(`${API}/calendars/${encodeURIComponent(access!.calendarId)}/events`);
+    if (withMeet) url.searchParams.set("conferenceDataVersion", "1");
+    const body = { ...baseBody };
+    if (withMeet) {
+      body.conferenceData = {
+        createRequest: {
+          requestId: `vio-${Date.parse(input.startIso)}`,
+          conferenceSolutionKey: { type: "hangoutsMeet" },
+        },
+      };
+    }
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${access.token}`,
+        Authorization: `Bearer ${access!.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
       cache: "no-store",
     });
-    if (!res.ok) return null;
-    return mapEvent(await res.json());
-  } catch {
-    return null;
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* mantém text */
+    }
+    return { ok: res.ok, status: res.status, json, text };
+  }
+
+  try {
+    let r = await attempt(!!input.addMeet);
+    // Se falhou COM Meet, tenta sem (contas que não permitem conferência via API).
+    if (!r.ok && input.addMeet) {
+      r = await attempt(false);
+    }
+    if (!r.ok) {
+      const msg =
+        (r.json as { error?: { message?: string } })?.error?.message ?? r.text.slice(0, 200);
+      return { error: `Google ${r.status}: ${msg}` };
+    }
+    return { event: mapEvent(r.json as RawEvent) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "erro de rede" };
   }
 }

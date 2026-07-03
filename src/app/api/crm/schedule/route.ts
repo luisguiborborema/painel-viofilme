@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   }
   const end = new Date(start.getTime() + (b.durationMin ?? 30) * 60_000);
 
-  const event = await createEvent({
+  const result = await createEvent({
     summary: b.summary?.trim() || "Reunião",
     description: b.description,
     startIso: start.toISOString(),
@@ -52,12 +52,13 @@ export async function POST(req: Request) {
     attendees: b.attendees,
     addMeet: true,
   });
-  if (!event) {
+  if (!result.event) {
     return NextResponse.json(
-      { error: "não foi possível criar o evento (reconecte o Google em Integrações)" },
+      { error: result.error ?? "não foi possível criar o evento (reconecte o Google em Integrações)" },
       { status: 502 },
     );
   }
+  const event = result.event;
 
   // Persiste no CRM (quando há banco): move estágio, tarefa e timeline.
   if (isSupabaseConfigured()) {
