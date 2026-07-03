@@ -22,6 +22,7 @@ import {
   isGoogleConfigured,
 } from "@/lib/google/config";
 import { getGoogleStatus } from "@/lib/google/client";
+import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
 
 const GERROS: Record<string, string> = {
   config: "Google ainda não configurado (defina GOOGLE_CLIENT_ID/SECRET).",
@@ -83,38 +84,41 @@ export default async function GerencialIntegracoes({
       )}
 
       {/* Google Calendar (conta única da agência) */}
-      <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600">
-            <CalendarDays className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-medium text-ink">Google Agenda</p>
-            <p className="text-xs text-muted">
-              {google.connected
-                ? `Conectada${google.email ? ` — ${google.email}` : ""}`
-                : "Agenda compartilhada da agência (reuniões + Meet)."}
-            </p>
+      <Card className="mb-6 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-medium text-ink">Google Agenda</p>
+              <p className="text-xs text-muted">
+                {google.connected
+                  ? `Conectada${google.email ? ` — ${google.email}` : ""}`
+                  : "Agenda compartilhada da agência (reuniões + Meet)."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {google.connected ? (
+              <Badge variant="success">
+                <CheckCircle2 className="h-3 w-3" /> Conectada
+              </Badge>
+            ) : (
+              <Badge variant="muted">Não conectada</Badge>
+            )}
+            {googleConfigured ? (
+              <Link href="/api/google/connect">
+                <Button variant={google.connected ? "outline" : "primary"} size="sm">
+                  {google.connected ? "Reconectar" : "Conectar Google"}
+                </Button>
+              </Link>
+            ) : (
+              <span className="text-xs text-muted">Configuração pendente</span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {google.connected ? (
-            <Badge variant="success">
-              <CheckCircle2 className="h-3 w-3" /> Conectada
-            </Badge>
-          ) : (
-            <Badge variant="muted">Não conectada</Badge>
-          )}
-          {googleConfigured ? (
-            <Link href="/api/google/connect">
-              <Button variant={google.connected ? "outline" : "primary"} size="sm">
-                {google.connected ? "Reconectar" : "Conectar Google"}
-              </Button>
-            </Link>
-          ) : (
-            <span className="text-xs text-muted">Configuração pendente</span>
-          )}
-        </div>
+        {google.connected && <GoogleCalendarPicker />}
       </Card>
 
       {!googleConfigured && (

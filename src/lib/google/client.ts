@@ -61,6 +61,7 @@ type ConnectionRow = {
   token_expiry: string | null;
   calendar_id: string | null;
   google_email: string | null;
+  read_calendar_ids: string[] | null;
 };
 
 async function readConnection(): Promise<ConnectionRow | null> {
@@ -68,7 +69,7 @@ async function readConnection(): Promise<ConnectionRow | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("google_connections")
-    .select("access_token,refresh_token,token_expiry,calendar_id,google_email")
+    .select("access_token,refresh_token,token_expiry,calendar_id,google_email,read_calendar_ids")
     .eq("scope", "agency")
     .maybeSingle();
   return (data as ConnectionRow) ?? null;
@@ -132,23 +133,31 @@ async function refreshAccessToken(refreshToken: string): Promise<string | null> 
   }
 }
 
-/** Access token válido (renova se necessário) + o calendarId a usar. */
-export async function getValidAccess(): Promise<{ token: string; calendarId: string } | null> {
+export type GoogleAccess = {
+  token: string;
+  calendarId: string;
+  readCalendarIds: string[];
+};
+
+/** Access token válido (renova se necessário) + calendários (write/read). */
+export async function getValidAccess(): Promise<GoogleAccess | null> {
   if (!isGoogleConfigured()) return null;
   const conn = await readConnection();
   if (!conn?.access_token) return null;
   const calendarId = conn.calendar_id || GOOGLE_CALENDAR_ID;
+  const reads = conn.read_calendar_ids;
+  const readCalendarIds = Array.isArray(reads) && reads.length > 0 ? reads : [calendarId];
 
   const expiry = conn.token_expiry ? Date.parse(conn.token_expiry) : 0;
   const soon = Date.now() + 60_000;
-  if (expiry > soon) return { token: conn.access_token, calendarId };
+  if (expiry > soon) return { token: conn.access_token, calendarId, readCalendarIds };
 
   if (conn.refresh_token) {
     const fresh = await refreshAccessToken(conn.refresh_token);
-    if (fresh) return { token: fresh, calendarId };
+    if (fresh) return { token: fresh, calendarId, readCalendarIds };
   }
   // Sem refresh válido: devolve o que tem (pode falhar → reconctar).
-  return { token: conn.access_token, calendarId };
+  return { token: conn.access_token, calendarId, readCalendarIds };
 }
 
 /** Status da conexão para as telas de Integrações/Agenda. */
@@ -160,4 +169,21 @@ export async function getGoogleStatus(): Promise<GoogleStatus> {
     email: conn?.google_email ?? undefined,
     calendarId: conn?.calendar_id ?? undefined,
   };
+}
+
+/** Atualiza os calendários escolhidos (write + read). Via service_role. */
+export async function saveCalendarSettings(input: {
+  writeCalendarId?: string;
+  readCalendarIds?: string[];
+}): Promise<boolean> {
+  if (!isSupabaseConfigured() || !hasServiceRole()) return false;
+  const admin = createAdminClient();
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.writeCalendarId) patch.calendar_id = input.writeCalendarId;
+  if (input.readCalendarIds) patch.read_calendar_ids = input.readCalendarIds;
+  const { error } = await admin
+    .from("google_connections")
+    .update(patch)
+    .eq("scope", "agency");
+  return !error;
 }
