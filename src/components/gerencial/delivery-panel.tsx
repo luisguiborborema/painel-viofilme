@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { TaskUniversal } from "./task-universal";
 import { cn } from "@/lib/utils";
 import {
   DELIVERY_CAPACITY_PER_DAY as CAP,
@@ -189,7 +190,7 @@ export function DeliveryPanel({ tasks: initial, meName }: { tasks: DeliveryTask[
       {view === "cliente" && <PorCliente tasks={filtered} {...shared} />}
 
       {selected && (
-        <TaskModal task={selected} onClose={() => setSelected(null)} onStage={setStage} clientColor={clientColor} />
+        <TaskUniversal task={selected} onClose={() => setSelected(null)} onStage={setStage} />
       )}
       {drill && (
         <DrillModal
@@ -617,59 +618,6 @@ function PorCliente({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } 
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-// --- Task universal (HUB14) --------------------------------------------------
-function TaskModal({ task, onClose, onStage, clientColor }: {
-  task: DeliveryTask;
-  onClose: () => void;
-  onStage: (id: string, s: TaskStage) => void;
-  clientColor: (c: string) => string;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-l-4 border-line p-5" style={{ borderLeftColor: clientColor(task.client) }}>
-          <div>
-            <p className="text-xs text-muted">{task.client}</p>
-            <h2 className="text-base font-bold text-ink">{task.title}</h2>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
-        </div>
-        <div className="space-y-3 p-5">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <Field label="Responsável" value={memberName(task.assignee)} />
-            <Field label="Tipo" value={`${task.type} · ${TASK_TYPE_DURATIONS[task.type]}min`} />
-            <Field label="Origem" value={task.origin} />
-            <Field label="Prazo" value={task.dueLabel} />
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted">Estágio</p>
-            <select
-              value={task.stage}
-              onChange={(e) => onStage(task.id, e.target.value as TaskStage)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-            >
-              {TASK_STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
-          </div>
-          <p className="rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
-            Task universal — a mesma tela abre de qualquer visualização. Mudar o estágio move a task no Kanban e no fluxo.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-muted">{label}</p>
-      <p className="font-medium text-ink">{value}</p>
     </div>
   );
 }

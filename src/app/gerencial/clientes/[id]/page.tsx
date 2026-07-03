@@ -15,23 +15,22 @@ import { Card } from "@/components/ui/card";
 import { getCSClientDetail } from "@/lib/data/cs";
 import { getClientById } from "@/lib/data/queries";
 import {
-  getClientCreatives,
   getClientDocuments,
   getClientTasks,
   getEditorialLine,
   getHubClientsOps,
   getVioLaunch,
-  OPS_TEAM,
   RESPONSIBLE_ROLES,
   TASK_STAGES,
-  type DeliveryTask,
 } from "@/lib/data/operacao";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
 import { VioDay } from "@/components/gerencial/vioday";
-import { cn, formatCompact, formatNumber } from "@/lib/utils";
+import { ClientTasksTab } from "@/components/gerencial/client-tasks-tab";
+import { CriativosTab } from "@/components/gerencial/criativos-tab";
+import { cn, formatNumber } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
 
 function initials(name: string) {
@@ -71,51 +70,6 @@ function Row2({ label, value }: { label: string; value: string }) {
   );
 }
 
-const opsMemberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
-const STAGE_STATUS: Record<string, { label: string; chip: string }> = {
-  done: { label: "Concluída", chip: "bg-emerald-500/15 text-emerald-600" },
-  doing: { label: "Em produção", chip: "bg-sky-500/15 text-sky-500" },
-  todo: { label: "Para produzir", chip: "bg-subtle text-muted" },
-  review: { label: "Revisão interna", chip: "bg-violet-500/15 text-violet-500" },
-  approval: { label: "Para aprovar", chip: "bg-amber-500/15 text-amber-600" },
-};
-
-function TarefasList({ tasks }: { tasks: DeliveryTask[] }) {
-  if (tasks.length === 0) {
-    return <Placeholder title="Sem tarefas" text="Nenhuma tarefa registrada para este cliente. Elas aparecem aqui quando entram na Linha Editorial ou como pedido/projeto." />;
-  }
-  return (
-    <Card className="overflow-x-auto p-0">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-line text-left text-xs text-muted">
-            <th className="px-4 py-2.5">Tarefa</th>
-            <th className="px-4 py-2.5">Prazo</th>
-            <th className="px-4 py-2.5">Responsável</th>
-            <th className="px-4 py-2.5">Origem</th>
-            <th className="px-4 py-2.5">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((t) => {
-            const st = STAGE_STATUS[t.stage] ?? STAGE_STATUS.todo;
-            return (
-              <tr key={t.id} className="border-b border-line/60 hover:bg-subtle">
-                <td className="px-4 py-3 font-medium text-ink">{t.title}</td>
-                <td className={cn("px-4 py-3 text-xs", t.late ? "font-medium text-rose-500" : "text-muted")}>{t.dueLabel}</td>
-                <td className="px-4 py-3 text-muted">{opsMemberName(t.assignee)}</td>
-                <td className="px-4 py-3 text-muted">{t.origin}</td>
-                <td className="px-4 py-3">
-                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", st.chip)}>{st.label}</span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
 
 export default async function RaioXCliente({
   params,
@@ -141,7 +95,6 @@ export default async function RaioXCliente({
 
   const vl = getVioLaunch(id);
   const docs = getClientDocuments(id);
-  const creatives = getClientCreatives(id);
   const editorial = getEditorialLine(id);
 
   // --- Aba Resumo (HUB07 — 3 camadas) ---------------------------------------
@@ -239,71 +192,51 @@ export default async function RaioXCliente({
   );
 
   // --- Aba Tarefas (HUB08) --------------------------------------------------
-  const tarefas = <TarefasList tasks={clientTasks} />;
+  const tarefas = <ClientTasksTab tasks={clientTasks} />;
 
-  // --- Aba VioLaunch --------------------------------------------------------
+  // --- Aba VioLaunch (HUB11 — estudo do negócio) ----------------------------
   const violaunch = (
     <Card className="p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">
-          VioLaunch — onboarding & implementação
-        </h2>
+        <div>
+          <h2 className="text-sm font-semibold text-ink">VioLaunch — estudo & implementação</h2>
+          <p className="text-xs text-muted">Não é só onboarding: é o estudo do negócio do cliente.</p>
+        </div>
         <span className="text-sm font-medium text-muted">
           {vl.step}/{vl.total} etapas · início {vl.startDate}
         </span>
       </div>
       <div className="mb-4 h-2 overflow-hidden rounded-full bg-subtle-strong">
-        <div
-          className="h-full rounded-full bg-brand-500"
-          style={{ width: `${(vl.step / vl.total) * 100}%` }}
-        />
+        <div className="h-full rounded-full bg-brand-500" style={{ width: `${(vl.step / vl.total) * 100}%` }} />
       </div>
-      <ol className="space-y-2.5">
+      <div className="space-y-2">
         {vl.steps.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5 text-sm">
-            {s.done ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            ) : (
-              <Circle className="h-4 w-4 text-muted" />
-            )}
-            <span className={s.done ? "text-ink" : "text-muted"}>{s.label}</span>
-          </li>
+          <details key={s.label} className="group rounded-xl border border-line" open={!s.done}>
+            <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3 py-2.5 text-sm">
+              {s.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted" />}
+              <span className={cn("flex-1 font-medium", s.done ? "text-ink" : "text-muted")}>{s.label}</span>
+              <span className="text-xs text-muted">{s.date}</span>
+            </summary>
+            <div className="space-y-2 border-t border-line px-3 py-2.5 text-sm">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Entregas</p>
+                <p className="text-ink/90">{s.entregas}</p>
+              </div>
+              {s.notes && (
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Anotações & ajustes</p>
+                  <p className="text-ink/90">{s.notes}</p>
+                </div>
+              )}
+            </div>
+          </details>
         ))}
-      </ol>
+      </div>
     </Card>
   );
 
-  // --- Aba Criativos --------------------------------------------------------
-  const criativos = (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {creatives.map((cr) => (
-        <Card key={cr.id} className="p-4">
-          <span className="inline-flex rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">
-            {cr.format}
-          </span>
-          <p className="mt-2 text-sm font-medium text-ink">{cr.title}</p>
-          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-2.5 text-center">
-            <div>
-              <p className="text-sm font-semibold text-ink">
-                {formatCompact(cr.reach)}
-              </p>
-              <p className="text-[10px] text-muted">Alcance</p>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink">{cr.ctr}%</p>
-              <p className="text-[10px] text-muted">CTR</p>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink">
-                R$ {formatNumber(cr.spend)}
-              </p>
-              <p className="text-[10px] text-muted">Investido</p>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
+  // --- Aba Criativos (HUB10 — gera task) ------------------------------------
+  const criativos = <CriativosTab clientName={c.name} />;
 
   // --- Aba Agenda -----------------------------------------------------------
   const agenda = (

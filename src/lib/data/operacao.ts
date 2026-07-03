@@ -195,16 +195,39 @@ const VIOLAUNCH_STEPS = [
   "Primeira entrega",
 ];
 
+/** Estudo do negócio por etapa (HUB11) — mock. */
+const VIOLAUNCH_DETAIL: Record<string, { entregas: string; notes: string }> = {
+  "Contrato assinado": { entregas: "Contrato + escopo + fee acordado", notes: "Plano contratado e ciclo de faturamento definidos." },
+  "Acessos & integrações": { entregas: "Meta, Google, IG Business, GA4", notes: "Conferir permissões de administrador e pixel." },
+  "Briefing estratégico": { entregas: "Objetivo, tom de voz, público, concorrentes, restrições", notes: "Estudo do negócio: proposta de valor e diferenciais." },
+  "Planejamento inicial": { entregas: "Pilares, narrativa e metas do 1º mês", notes: "Base para a primeira Linha Editorial." },
+  "Setup de tráfego": { entregas: "Contas de anúncio, públicos, conversões", notes: "Configurar eventos e orçamento inicial." },
+  "Primeira linha editorial": { entregas: "LE do 1º mês aprovada", notes: "Validada em reunião com o cliente." },
+  "Kickoff com o cliente": { entregas: "Reunião de alinhamento + cronograma", notes: "Expectativas e cadência de reuniões definidas." },
+  "Primeira entrega": { entregas: "Primeiros ativos publicados", notes: "Marco de início da operação recorrente." },
+};
+
+export type VioLaunchStep = {
+  label: string;
+  done: boolean;
+  date: string;
+  entregas: string;
+  notes: string;
+};
+
 export function getVioLaunch(clientId: string) {
   const c = getHubClients().find((x) => x.id === clientId);
   const total = VIOLAUNCH_STEPS.length;
   const done = c?.onboarding?.step ?? total; // ativos = onboarding concluído
-  return {
-    step: done,
-    total,
-    startDate: c?.onboarding?.startDate ?? "—",
-    steps: VIOLAUNCH_STEPS.map((label, i) => ({ label, done: i < done })),
-  };
+  const start = c?.onboarding?.startDate ?? "—";
+  const steps: VioLaunchStep[] = VIOLAUNCH_STEPS.map((label, i) => ({
+    label,
+    done: i < done,
+    date: i < done ? `${String((i % 28) + 1).padStart(2, "0")}/07` : "a definir",
+    entregas: VIOLAUNCH_DETAIL[label]?.entregas ?? "—",
+    notes: VIOLAUNCH_DETAIL[label]?.notes ?? "",
+  }));
+  return { step: done, total, startDate: start, steps };
 }
 
 // --- Documentos do cliente ---------------------------------------------------
