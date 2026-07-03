@@ -87,7 +87,13 @@ function ManualSend({ clients, onSent }: { clients: ClientOpt[]; onSent: () => v
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "falha");
       setOk(true);
-      setMsg(json.sent ? "Aviso enviado por WhatsApp." : "Registrado (WhatsApp não configurado).");
+      setMsg(
+        json.sent
+          ? json.mode === "pdf"
+            ? "Relatório (PDF) enviado por WhatsApp."
+            : "Aviso enviado (PDF indisponível — enviado como texto)."
+          : "Registrado (WhatsApp não configurado).",
+      );
       onSent();
     } catch (e) {
       setOk(false);
@@ -104,7 +110,7 @@ function ManualSend({ clients, onSent }: { clients: ClientOpt[]; onSent: () => v
         <h2 className="text-sm font-semibold text-ink">Enviar relatório por WhatsApp</h2>
       </div>
       <p className="mb-3 text-xs text-muted">
-        Envio manual — você decide quando mandar o aviso ao cliente.
+        Envio manual — gera o PDF do período e manda ao WhatsApp do cliente.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <select
@@ -129,7 +135,7 @@ function ManualSend({ clients, onSent }: { clients: ClientOpt[]; onSent: () => v
         className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        Enviar aviso
+        Enviar relatório (PDF)
       </button>
       {msg && <p className={cn("mt-2 text-xs", ok ? "text-emerald-600" : "text-rose-500")}>{msg}</p>}
     </Card>
