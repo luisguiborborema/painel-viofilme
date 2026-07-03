@@ -12,6 +12,39 @@ import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 
 type SB = Awaited<ReturnType<typeof createClient>>;
 
+/**
+ * Resolve o dono do negócio. Se `requested` vier vazio ou "__auto__", faz
+ * rodízio (round-robin): escolhe o membro gerencial com menos negócios abertos.
+ */
+async function resolveOwner(
+  supabase: SB,
+  requested: string | undefined,
+  fallback: string,
+): Promise<string> {
+  if (requested && requested !== "__auto__") return requested;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("role", "gerencial");
+  const names = (profiles ?? [])
+    .map((p) => (p.full_name ? String(p.full_name) : ""))
+    .filter(Boolean);
+  if (!names.length) return fallback;
+
+  const { data: openDeals } = await supabase
+    .from("crm_leads")
+    .select("owner")
+    .not("stage", "in", '("ganho","perdido")');
+  const count = new Map<string, number>(names.map((n) => [n, 0]));
+  for (const d of openDeals ?? []) {
+    const o = d.owner ? String(d.owner) : "";
+    if (count.has(o)) count.set(o, (count.get(o) ?? 0) + 1);
+  }
+  // menor carga primeiro (ordem estável pela lista de nomes)
+  return names.reduce((best, n) => ((count.get(n) ?? 0) < (count.get(best) ?? 0) ? n : best), names[0]);
+}
+
 /** Executa as automações do estágio destino após a mudança (best-effort). */
 async function runStageAutomations(
   supabase: SB,
@@ -223,6 +256,7 @@ export async function POST(req: Request) {
     }
     payload.stage = body.stage ?? "prospeccao";
     payload.stage_changed_at = now;
+    payload.owner = await resolveOwner(supabase, body.owner, user.name);
 
     // 1) Empresa: usa a existente, cria a nova, ou deriva do nome do negócio.
     let companyId = body.companyId ?? null;

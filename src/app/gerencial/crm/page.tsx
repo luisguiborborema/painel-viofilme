@@ -13,10 +13,12 @@ import {
   getCrmTags,
   getCrmProperties,
   getDefaultPipeline,
+  getAttendants,
   crmNowIso,
 } from "@/lib/data/queries";
 import { toCard, CRM_AGENDA } from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
+import { getSession } from "@/lib/auth/session";
 
 const TZ = "America/Sao_Paulo";
 
@@ -26,7 +28,7 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, companies, contacts, tags, properties, pipeline, events] =
+  const [dashboard, leads, companies, contacts, tags, properties, pipeline, team, user, events] =
     await Promise.all([
       getCrmDashboard(),
       getCrmLeads(),
@@ -35,8 +37,12 @@ export default async function CrmPage({
       getCrmTags(),
       getCrmProperties(),
       getDefaultPipeline(),
+      getAttendants(),
+      getSession(),
       listUpcomingEvents(6),
     ]);
+  const teamNames = team.map((t) => t.name);
+  const currentUser = user?.name ?? "";
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
 
@@ -61,6 +67,8 @@ export default async function CrmPage({
           tags={tags}
           companies={companies}
           contacts={contacts}
+          team={teamNames}
+          currentUser={currentUser}
         />
       ),
     },

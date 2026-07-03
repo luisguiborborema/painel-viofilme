@@ -112,14 +112,16 @@ export function CrmPipeline({
   tags = [],
   companies = [],
   contacts = [],
-  defaultOwner = "",
+  team = [],
+  currentUser = "",
 }: {
   cards: CrmLeadCard[];
   stages?: Stage[];
   tags?: Tag[];
   companies?: Company[];
   contacts?: Contact[];
-  defaultOwner?: string;
+  team?: string[];
+  currentUser?: string;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(initial);
@@ -127,6 +129,7 @@ export function CrmPipeline({
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [mine, setMine] = useState(false);
   const [blocked, setBlocked] = useState<{
     dealId: string;
     stageLabel: string;
@@ -134,9 +137,11 @@ export function CrmPipeline({
   } | null>(null);
 
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
-  const visibleCards = tagFilter
-    ? cards.filter((c) => c.tags?.includes(tagFilter))
-    : cards;
+  const visibleCards = cards.filter(
+    (c) =>
+      (!tagFilter || c.tags?.includes(tagFilter)) &&
+      (!mine || (c.owner ?? "") === currentUser),
+  );
 
   function addLead(lead: CrmLead) {
     setShowNew(false);
@@ -214,6 +219,17 @@ export function CrmPipeline({
           em aberto
         </p>
         <div className="flex items-center gap-3">
+          {currentUser && (
+            <button
+              onClick={() => setMine((m) => !m)}
+              className={
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors " +
+                (mine ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong")
+              }
+            >
+              Meus negócios
+            </button>
+          )}
           {tags.length > 0 && (
             <div className="flex items-center gap-1.5">
               <button
@@ -257,7 +273,8 @@ export function CrmPipeline({
           companies={companies}
           contacts={contacts}
           stages={stages}
-          defaultOwner={defaultOwner}
+          team={team}
+          defaultOwner={currentUser}
         />
       )}
 

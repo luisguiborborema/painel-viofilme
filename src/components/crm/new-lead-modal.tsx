@@ -36,6 +36,7 @@ export function NewLeadModal({
   companies = [],
   contacts = [],
   stages = DEFAULT_PIPELINE.stages,
+  team = [],
   defaultOwner = "",
 }: {
   onClose: () => void;
@@ -43,6 +44,7 @@ export function NewLeadModal({
   companies?: Company[];
   contacts?: Contact[];
   stages?: Stage[];
+  team?: string[];
   defaultOwner?: string;
 }) {
   const openStages = stages.filter((s) => s.kind === "open");
@@ -373,7 +375,22 @@ export function NewLeadModal({
                 <input value={d.source} onChange={(e) => setDeal("source", e.target.value)} className={inputCls} />
               </Field>
               <Field label="Responsável">
-                <input value={d.owner} onChange={(e) => setDeal("owner", e.target.value)} className={inputCls} />
+                <select
+                  value={d.owner}
+                  onChange={(e) => setDeal("owner", e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="__auto__">Automático (rodízio)</option>
+                  {defaultOwner && !team.includes(defaultOwner) && (
+                    <option value={defaultOwner}>{defaultOwner} (você)</option>
+                  )}
+                  {team.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                      {name === defaultOwner ? " (você)" : ""}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Estágio inicial">
                 <select

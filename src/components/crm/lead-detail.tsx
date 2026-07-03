@@ -70,6 +70,7 @@ export function LeadDetail({
   dealContacts = [],
   tags = [],
   properties = [],
+  team = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -79,6 +80,7 @@ export function LeadDetail({
   dealContacts?: Contact[];
   tags?: Tag[];
   properties?: PropertyDef[];
+  team?: string[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -215,7 +217,7 @@ export function LeadDetail({
         <div className="space-y-4">
           <Card title="Principal">
             <Row label="Valor mensal" value={formatBRL(lead.monthlyValue)} strong />
-            <Row label="Responsável" value={lead.owner ?? "—"} />
+            <OwnerRow dealId={lead.id} owner={lead.owner} team={team} />
             <Row label="Origem" value={lead.source ?? "—"} />
             <Row label="Plano" value={lead.plan ?? "—"} />
             <Row label="Probabilidade" value={`${lead.probability}%`} />
@@ -585,6 +587,49 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
     <div className="flex items-center justify-between py-1.5 text-sm">
       <span className="text-muted">{label}</span>
       <span className={cn("text-ink", strong && "text-base font-bold")}>{value}</span>
+    </div>
+  );
+}
+
+function OwnerRow({
+  dealId,
+  owner,
+  team,
+}: {
+  dealId: string;
+  owner?: string;
+  team: string[];
+}) {
+  const [value, setValue] = useState(owner ?? "");
+  const options = team.includes(value) || !value ? team : [value, ...team];
+
+  async function change(next: string) {
+    setValue(next);
+    await fetch("/api/crm/object", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ objectType: "deal", id: dealId, fields: { owner: next } }),
+    }).catch(() => {});
+  }
+
+  if (team.length === 0) {
+    return <Row label="Responsável" value={owner ?? "—"} />;
+  }
+  return (
+    <div className="flex items-center justify-between py-1.5 text-sm">
+      <span className="text-muted">Responsável</span>
+      <select
+        value={value}
+        onChange={(e) => change(e.target.value)}
+        className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400"
+      >
+        {!value && <option value="">—</option>}
+        {options.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

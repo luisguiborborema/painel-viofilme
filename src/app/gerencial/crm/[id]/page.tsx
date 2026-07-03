@@ -7,6 +7,7 @@ import {
   getCrmDealContacts,
   getCrmTags,
   getCrmProperties,
+  getAttendants,
 } from "@/lib/data/queries";
 
 export default async function LeadPage({
@@ -19,12 +20,13 @@ export default async function LeadPage({
   if (!data) notFound();
   const lead = data.lead;
 
-  const [detail, allContacts, dealContactRels, tags, properties] = await Promise.all([
+  const [detail, allContacts, dealContactRels, tags, properties, team] = await Promise.all([
     lead.companyId ? getCrmCompany(lead.companyId) : Promise.resolve(null),
     getCrmContacts(),
     getCrmDealContacts(),
     getCrmTags(),
     getCrmProperties(),
+    getAttendants(),
   ]);
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
@@ -43,6 +45,7 @@ export default async function LeadPage({
       dealContacts={dealContacts}
       tags={tags}
       properties={properties}
+      team={team.map((t) => t.name)}
     />
   );
 }
