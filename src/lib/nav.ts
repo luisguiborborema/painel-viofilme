@@ -4,6 +4,7 @@ import {
   Megaphone,
   Images,
   BarChart3,
+  MessagesSquare,
   Target,
   Gauge,
   Plug,
@@ -42,6 +43,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     title: "Comercial",
     items: [
       { label: "CRM & Vendas", href: "/gerencial/crm", icon: Target, section: "crm" },
+      { label: "Atendimento", href: "/gerencial/inbox", icon: MessagesSquare, section: "crm" },
     ],
   },
   {

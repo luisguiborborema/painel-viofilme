@@ -973,3 +973,116 @@ export async function sbGetCrmLead(
     tasks: (tks ?? []).map(mapCrmTask),
   };
 }
+
+// ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────
+
+import type {
+  Attendant,
+  WaConversation,
+  WaMessage,
+  WaStatus,
+} from "./inbox";
+
+function mapConversation(
+  r: Record<string, unknown>,
+  names: Map<string, string>,
+): WaConversation {
+  const assignedTo = r.assigned_to == null ? undefined : String(r.assigned_to);
+  return {
+    id: String(r.id),
+    phone: String(r.phone),
+    name: r.name == null ? undefined : String(r.name),
+    leadId: r.lead_id == null ? undefined : String(r.lead_id),
+    assignedTo,
+    assignedName: assignedTo ? names.get(assignedTo) : undefined,
+    status: (r.status as WaStatus) ?? "open",
+    lastMessageAt: r.last_message_at == null ? undefined : String(r.last_message_at),
+    lastMessagePreview:
+      r.last_message_preview == null ? undefined : String(r.last_message_preview),
+    lastDirection: (r.last_direction as "in" | "out" | null) ?? undefined,
+    unreadCount: Number(r.unread_count ?? 0),
+    updatedAt: String(r.updated_at ?? r.created_at),
+  };
+}
+
+async function attendantNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id,full_name")
+    .eq("role", "gerencial");
+  const map = new Map<string, string>();
+  for (const p of data ?? []) map.set(String(p.id), String(p.full_name ?? "—"));
+  return map;
+}
+
+export async function sbGetAttendants(): Promise<Attendant[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id,full_name")
+    .eq("role", "gerencial")
+    .order("full_name", { ascending: true });
+  return (data ?? []).map((p) => ({
+    id: String(p.id),
+    name: String(p.full_name ?? "—"),
+  }));
+}
+
+export async function sbGetConversations(filter?: {
+  assignedTo?: string;
+  status?: WaStatus;
+}): Promise<WaConversation[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("wa_conversations")
+    .select(
+      "id,phone,name,lead_id,assigned_to,status,last_message_at,last_message_preview,last_direction,unread_count,updated_at,created_at",
+    )
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(200);
+  if (filter?.assignedTo) q = q.eq("assigned_to", filter.assignedTo);
+  if (filter?.status) q = q.eq("status", filter.status);
+  const [{ data }, names] = await Promise.all([q, attendantNames(supabase)]);
+  return (data ?? []).map((r) => mapConversation(r, names));
+}
+
+export async function sbGetConversation(id: string): Promise<{
+  conversation: WaConversation;
+  messages: WaMessage[];
+} | null> {
+  const supabase = await createClient();
+  const { data: convRow } = await supabase
+    .from("wa_conversations")
+    .select(
+      "id,phone,name,lead_id,assigned_to,status,last_message_at,last_message_preview,last_direction,unread_count,updated_at,created_at",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (!convRow) return null;
+
+  const [{ data: msgs }, names] = await Promise.all([
+    supabase
+      .from("wa_messages")
+      .select("id,conversation_id,direction,type,body,media_url,author,status,created_at")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true }),
+    attendantNames(supabase),
+  ]);
+
+  return {
+    conversation: mapConversation(convRow, names),
+    messages: (msgs ?? []).map((m) => ({
+      id: String(m.id),
+      conversationId: String(m.conversation_id),
+      direction: (m.direction as "in" | "out") ?? "in",
+      type: (m.type as WaMessage["type"]) ?? "text",
+      body: m.body == null ? undefined : String(m.body),
+      mediaUrl: m.media_url == null ? undefined : String(m.media_url),
+      author: m.author == null ? undefined : String(m.author),
+      status: m.status == null ? undefined : String(m.status),
+      createdAt: String(m.created_at),
+    })),
+  };
+}

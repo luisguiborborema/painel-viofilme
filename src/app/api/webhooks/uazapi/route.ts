@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     firstString(msg, ["sender", "chatid", "chatId", "from", "phone", "number"]),
   );
   const externalId = firstString(msg, ["id", "messageid", "messageId", "key"]);
+  const senderName = firstString(msg, ["senderName", "pushName", "notifyName", "name"]);
 
   if (!text || !phone) {
     return NextResponse.json({ ok: true, ignored: "incomplete" });
@@ -74,9 +75,10 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-
-  // Casa o lead pelo telefone (últimos 8 dígitos, tolerante a DDI/9º dígito).
+  const now = new Date().toISOString();
   const tail = phone.slice(-8);
+
+  // 1) Casa (opcionalmente) um lead do CRM pelo telefone.
   const { data: leads } = await admin
     .from("crm_leads")
     .select("id,contact_phone")
@@ -85,27 +87,82 @@ export async function POST(req: NextRequest) {
   const lead = (leads ?? []).find((l) =>
     String(l.contact_phone ?? "").endsWith(tail),
   );
-  if (!lead) {
-    return NextResponse.json({ ok: true, ignored: "no-lead", phone });
+
+  // 2) Inbox: upsert da conversa (todo contato vira conversa) + mensagem.
+  const { data: existing } = await admin
+    .from("wa_conversations")
+    .select("id,unread_count")
+    .eq("phone", phone)
+    .maybeSingle();
+
+  let conversationId = existing?.id as string | undefined;
+  if (conversationId) {
+    await admin
+      .from("wa_conversations")
+      .update({
+        name: senderName ?? undefined,
+        lead_id: lead?.id ?? undefined,
+        last_message_at: now,
+        last_message_preview: text.slice(0, 120),
+        last_direction: "in",
+        unread_count: Number(existing?.unread_count ?? 0) + 1,
+        updated_at: now,
+      })
+      .eq("id", conversationId);
+  } else {
+    const { data: created } = await admin
+      .from("wa_conversations")
+      .insert({
+        phone,
+        name: senderName ?? null,
+        lead_id: lead?.id ?? null,
+        status: "open",
+        last_message_at: now,
+        last_message_preview: text.slice(0, 120),
+        last_direction: "in",
+        unread_count: 1,
+      })
+      .select("id")
+      .single();
+    conversationId = created?.id;
   }
 
-  const { error } = await admin.from("crm_interactions").insert({
-    lead_id: lead.id,
-    channel: "whatsapp",
-    direction: "in",
-    body: text,
-    external_id: externalId ?? null,
-    meta: { phone },
+  if (conversationId) {
+    const { error: msgErr } = await admin.from("wa_messages").insert({
+      conversation_id: conversationId,
+      direction: "in",
+      type: "text",
+      body: text,
+      external_id: externalId ?? null,
+    });
+    if (msgErr && !String(msgErr.message).includes("duplicate")) {
+      return NextResponse.json({ error: msgErr.message }, { status: 500 });
+    }
+  }
+
+  // 3) Se houver lead, também registra na timeline dele (idempotente).
+  if (lead) {
+    const { error } = await admin.from("crm_interactions").insert({
+      lead_id: lead.id,
+      channel: "whatsapp",
+      direction: "in",
+      body: text,
+      external_id: externalId ?? null,
+      meta: { phone },
+    });
+    if (error && !String(error.message).includes("duplicate")) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    await admin
+      .from("crm_leads")
+      .update({ last_interaction_at: now })
+      .eq("id", lead.id);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    persisted: true,
+    conversationId,
+    leadId: lead?.id ?? null,
   });
-  // Índice único (channel, external_id): duplicatas são ignoradas silenciosamente.
-  if (error && !String(error.message).includes("duplicate")) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  await admin
-    .from("crm_leads")
-    .update({ last_interaction_at: new Date().toISOString() })
-    .eq("id", lead.id);
-
-  return NextResponse.json({ ok: true, persisted: true, leadId: lead.id });
 }

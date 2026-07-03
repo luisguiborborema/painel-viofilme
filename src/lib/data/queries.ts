@@ -1393,3 +1393,40 @@ export async function getCrmLead(id: string): Promise<{
     tasks: MOCK_TASKS.filter((t) => t.leadId === id),
   };
 }
+
+// ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────
+
+import {
+  MOCK_ATTENDANTS,
+  MOCK_CONVERSATIONS,
+  MOCK_MESSAGES,
+  type Attendant,
+  type WaConversation,
+  type WaMessage,
+  type WaStatus,
+} from "./inbox";
+
+export async function getAttendants(): Promise<Attendant[]> {
+  if (isSupabaseConfigured()) return sb.sbGetAttendants();
+  return MOCK_ATTENDANTS;
+}
+
+export async function getConversations(filter?: {
+  assignedTo?: string;
+  status?: WaStatus;
+}): Promise<WaConversation[]> {
+  if (isSupabaseConfigured()) return sb.sbGetConversations(filter);
+  let list = MOCK_CONVERSATIONS;
+  if (filter?.status) list = list.filter((c) => c.status === filter.status);
+  return list;
+}
+
+export async function getConversation(id: string): Promise<{
+  conversation: WaConversation;
+  messages: WaMessage[];
+} | null> {
+  if (isSupabaseConfigured()) return sb.sbGetConversation(id);
+  const conversation = MOCK_CONVERSATIONS.find((c) => c.id === id);
+  if (!conversation) return null;
+  return { conversation, messages: MOCK_MESSAGES[id] ?? [] };
+}
