@@ -30,6 +30,7 @@ import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
+import { VioDay } from "@/components/gerencial/vioday";
 import { cn, formatCompact, formatNumber } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
 
@@ -377,6 +378,7 @@ export default async function RaioXCliente({
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },
+    { key: "vioday", label: "VioDay", content: <VioDay editorial={editorial} /> },
     { key: "agenda", label: "Agenda", content: agenda },
     { key: "documentos", label: "Documentos", content: documentos },
   ];
