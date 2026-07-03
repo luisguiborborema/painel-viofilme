@@ -7,10 +7,12 @@ import { CrmContacts } from "@/components/crm/crm-contacts";
 import { CrmSettings } from "@/components/crm/crm-settings";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmTasks } from "@/components/crm/crm-tasks";
+import { CrmGoals } from "@/components/crm/crm-goals";
 import {
   getCrmDashboard,
   getCrmLeads,
   getCrmTasks,
+  getCrmGoals,
   getCrmCompanies,
   getCrmContacts,
   getCrmTags,
@@ -20,9 +22,17 @@ import {
   getCrmTaskFlows,
   crmNowIso,
 } from "@/lib/data/queries";
-import { toCard, buildFunnelAnalytics, buildTaskItems, CRM_AGENDA } from "@/lib/data/crm";
+import {
+  toCard,
+  buildFunnelAnalytics,
+  buildTaskItems,
+  buildForecast,
+  monthKey,
+  CRM_AGENDA,
+} from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { getSession } from "@/lib/auth/session";
+import { hasFullAccess } from "@/lib/access";
 
 const TZ = "America/Sao_Paulo";
 
@@ -50,8 +60,20 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
-  const [crmTasks, flows] = await Promise.all([getCrmTasks(), getCrmTaskFlows()]);
+  const curMonth = monthKey(nowIso);
+  const [crmTasks, flows, goals] = await Promise.all([
+    getCrmTasks(),
+    getCrmTaskFlows(),
+    getCrmGoals(curMonth),
+  ]);
   const taskItems = buildTaskItems(crmTasks, leads);
+  const forecast = buildForecast(leads, goals, teamNames, curMonth);
+  const canEditGoals = hasFullAccess(user?.allowedSections ?? null);
+  const monthLabel = new Date(nowIso).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const dealPickList = leads.map((l) => ({ id: l.id, name: l.name, owner: l.owner }));
   // Badge da aba Tarefas: minhas pendentes vencendo hoje ou atrasadas.
   const nowD = new Date(nowIso);
@@ -115,6 +137,13 @@ export default async function CrmPage({
       key: "contatos",
       label: "Contatos",
       content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
+    },
+    {
+      key: "metas",
+      label: "Metas",
+      content: (
+        <CrmGoals forecast={forecast} monthLabel={monthLabel} canEdit={canEditGoals} />
+      ),
     },
     {
       key: "analise",

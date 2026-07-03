@@ -874,6 +874,7 @@ import type {
   PropertyFieldType,
   LostReason,
   TaskFlow,
+  CrmGoal,
 } from "./crm";
 
 const CRM_LEAD_COLS =
@@ -1140,6 +1141,19 @@ export async function sbGetCrmTaskFlows(): Promise<TaskFlow[]> {
         title: String(s.title),
         dueDays: Number(s.due_days ?? 1),
       })),
+  }));
+}
+
+export async function sbGetCrmGoals(month: string): Promise<CrmGoal[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_goals")
+    .select("owner,month,target")
+    .eq("month", month);
+  return (data ?? []).map((r) => ({
+    owner: String(r.owner),
+    month: String(r.month),
+    target: Number(r.target ?? 0),
   }));
 }
 

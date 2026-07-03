@@ -665,6 +665,11 @@ export const MOCK_DEAL_CONTACTS: DealContact[] = MOCK_LEADS.filter(
   isPrimary: true,
 }));
 
+export const MOCK_GOALS: CrmGoal[] = [
+  { owner: "Ana Lima", month: monthKey(REF), target: 12000 },
+  { owner: "Marcos Silva", month: monthKey(REF), target: 9000 },
+];
+
 export const MOCK_TASK_FLOWS: TaskFlow[] = [
   {
     id: "flow-prospeccao",
@@ -815,6 +820,79 @@ export function buildFunnelAnalytics(
     openValue: openDeals.reduce((s, l) => s + l.monthlyValue, 0),
     lostReasons,
   };
+}
+
+// ── Metas & forecast ────────────────────────────────────────────────────────
+
+export type CrmGoal = { owner: string; month: string; target: number };
+
+export type ForecastRow = {
+  owner: string;
+  target: number;
+  won: number; // MRR novo ganho no mês
+  weighted: number; // pipeline aberto ponderado pela probabilidade
+  forecast: number; // won + weighted
+  attainment: number; // % da meta já ganho
+  gap: number; // quanto falta para a meta
+};
+
+export type Forecast = { month: string; rows: ForecastRow[]; totals: ForecastRow };
+
+/** "YYYY-MM" de um ISO. */
+export function monthKey(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+/** Consolida meta × ganho × pipeline ponderado por responsável no mês. */
+export function buildForecast(
+  leads: CrmLead[],
+  goals: CrmGoal[],
+  teamNames: string[],
+  month: string,
+): Forecast {
+  const owners = new Set<string>(teamNames.filter(Boolean));
+  for (const l of leads) if (l.owner) owners.add(l.owner);
+  for (const g of goals) if (g.month === month && g.owner) owners.add(g.owner);
+
+  const goalOf = (owner: string) =>
+    goals.find((g) => g.owner === owner && g.month === month)?.target ?? 0;
+
+  const rows: ForecastRow[] = [...owners].map((owner) => {
+    const mine = leads.filter((l) => (l.owner ?? "") === owner);
+    const won = mine
+      .filter((l) => l.wonAt && monthKey(l.wonAt) === month)
+      .reduce((s, l) => s + l.monthlyValue, 0);
+    const weighted = Math.round(
+      mine
+        .filter((l) => !l.wonAt && !l.lostAt)
+        .reduce((s, l) => s + (l.monthlyValue * l.probability) / 100, 0),
+    );
+    const target = goalOf(owner);
+    return {
+      owner,
+      target,
+      won,
+      weighted,
+      forecast: won + weighted,
+      attainment: target ? Math.round((won / target) * 100) : 0,
+      gap: Math.max(0, target - won),
+    };
+  });
+  rows.sort((a, b) => b.target - a.target || b.forecast - a.forecast);
+
+  const sum = (k: keyof ForecastRow) => rows.reduce((s, r) => s + (r[k] as number), 0);
+  const tTarget = sum("target");
+  const tWon = sum("won");
+  const totals: ForecastRow = {
+    owner: "Time",
+    target: tTarget,
+    won: tWon,
+    weighted: sum("weighted"),
+    forecast: sum("forecast"),
+    attainment: tTarget ? Math.round((tWon / tTarget) * 100) : 0,
+    gap: Math.max(0, tTarget - tWon),
+  };
+  return { month, rows, totals };
 }
 
 export type ContactDetail = {
