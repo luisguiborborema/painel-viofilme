@@ -8,6 +8,8 @@ import { formatBRL } from "@/lib/utils";
 import {
   DEFAULT_PIPELINE,
   toCard,
+  type Company,
+  type Contact,
   type CrmLead,
   type CrmLeadCard,
   type CrmStage,
@@ -106,10 +108,16 @@ export function CrmPipeline({
   cards: initial,
   stages = DEFAULT_PIPELINE.stages,
   tags = [],
+  companies = [],
+  contacts = [],
+  defaultOwner = "",
 }: {
   cards: CrmLeadCard[];
   stages?: Stage[];
   tags?: Tag[];
+  companies?: Company[];
+  contacts?: Contact[];
+  defaultOwner?: string;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(initial);
@@ -203,13 +211,20 @@ export function CrmPipeline({
             onClick={() => setShowNew(true)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            <Plus className="h-4 w-4" /> Novo lead
+            <Plus className="h-4 w-4" /> Novo negócio
           </button>
         </div>
       </div>
 
       {showNew && (
-        <NewLeadModal onClose={() => setShowNew(false)} onCreated={addLead} />
+        <NewLeadModal
+          onClose={() => setShowNew(false)}
+          onCreated={addLead}
+          companies={companies}
+          contacts={contacts}
+          stages={stages}
+          defaultOwner={defaultOwner}
+        />
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">

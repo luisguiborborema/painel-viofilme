@@ -54,7 +54,15 @@ export default async function CrmPage({
     {
       key: "pipeline",
       label: "Pipeline",
-      content: <CrmPipeline cards={cards} stages={pipeline.stages} tags={tags} />,
+      content: (
+        <CrmPipeline
+          cards={cards}
+          stages={pipeline.stages}
+          tags={tags}
+          companies={companies}
+          contacts={contacts}
+        />
+      ),
     },
     {
       key: "empresas",

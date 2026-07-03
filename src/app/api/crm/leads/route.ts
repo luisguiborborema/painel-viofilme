@@ -25,6 +25,12 @@ type Body = {
   source?: string;
   owner?: string;
   bant?: Record<string, string>;
+  // CRM v2 — vínculo de empresa/contato ao criar o negócio
+  companyId?: string;
+  newCompany?: { name: string; segment?: string; phone?: string; email?: string };
+  contactId?: string;
+  newContact?: { name: string; phone?: string; email?: string; title?: string };
+  pipelineId?: string;
 };
 
 /** Cria, atualiza ou move (troca de estágio) um lead do CRM. */
@@ -95,13 +101,75 @@ export async function POST(req: Request) {
     }
     payload.stage = body.stage ?? "prospeccao";
     payload.stage_changed_at = now;
+
+    // 1) Empresa: usa a existente, cria a nova, ou deriva do nome do negócio.
+    let companyId = body.companyId ?? null;
+    if (!companyId) {
+      const nc = body.newCompany;
+      const { data: co, error: coErr } = await supabase
+        .from("crm_companies")
+        .insert({
+          name: nc?.name?.trim() || body.name,
+          segment: nc?.segment ?? body.segment ?? null,
+          phone: (nc?.phone ?? body.contactPhone)?.replace(/\D/g, "") || null,
+          email: nc?.email ?? body.contactEmail ?? null,
+          owner: body.owner ?? user.name,
+        })
+        .select("id")
+        .single();
+      if (coErr) return NextResponse.json({ error: coErr.message }, { status: 500 });
+      companyId = co.id as string;
+    }
+
+    // 2) Contato: usa o existente ou cria um novo (contato primário da empresa).
+    let contactId = body.contactId ?? null;
+    if (!contactId) {
+      const nctName = body.newContact?.name?.trim() || body.contactName?.trim();
+      if (nctName) {
+        const { data: ct, error: ctErr } = await supabase
+          .from("crm_contacts")
+          .insert({
+            company_id: companyId,
+            name: nctName,
+            title: body.newContact?.title ?? null,
+            phone: (body.newContact?.phone ?? body.contactPhone)?.replace(/\D/g, "") || null,
+            email: body.newContact?.email ?? body.contactEmail ?? null,
+            is_primary: true,
+            owner: body.owner ?? user.name,
+          })
+          .select("id")
+          .single();
+        if (ctErr) return NextResponse.json({ error: ctErr.message }, { status: 500 });
+        contactId = ct.id as string;
+      }
+    }
+
+    payload.company_id = companyId;
+    payload.primary_contact_id = contactId;
+    if (body.pipelineId) payload.pipeline_id = body.pipelineId;
+    if (body.stageId) payload.stage_id = body.stageId;
+
     const { data, error } = await supabase
       .from("crm_leads")
       .insert(payload)
       .select("id")
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, persisted: true, id: data.id });
+
+    // 3) Associação deal ↔ contato primário.
+    if (contactId) {
+      await supabase
+        .from("crm_deal_contacts")
+        .insert({ deal_id: data.id, contact_id: contactId, is_primary: true });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      persisted: true,
+      id: data.id,
+      companyId,
+      contactId,
+    });
   }
 
   // update
