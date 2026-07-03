@@ -1430,3 +1430,20 @@ export async function getConversation(id: string): Promise<{
   if (!conversation) return null;
   return { conversation, messages: MOCK_MESSAGES[id] ?? [] };
 }
+
+// ── Metas por cliente (Gestão à Vista) ───────────────────────────────────────
+
+import type { ClientGoal } from "./gestao-vista";
+
+export async function getClientGoals(
+  clientId: string,
+  period: string,
+): Promise<ClientGoal[]> {
+  if (isSupabaseConfigured()) return sb.sbGetClientGoals(clientId, period);
+  return [];
+}
+
+export async function getGoalsForPeriod(period: string): Promise<ClientGoal[]> {
+  if (isSupabaseConfigured()) return sb.sbGetGoalsForPeriod(period);
+  return [];
+}

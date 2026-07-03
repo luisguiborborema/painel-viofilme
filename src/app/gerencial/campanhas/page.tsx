@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Campanhas agora vive dentro da Gestão à Vista (aba interna). */
+/** Campanhas foi absorvida pela Gestão à Vista (lentes de performance). */
 export default function GerencialCampanhas() {
-  redirect("/gerencial/gestao-a-vista?tab=campanhas");
+  redirect("/gerencial/gestao-a-vista");
 }

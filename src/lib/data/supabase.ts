@@ -1086,3 +1086,38 @@ export async function sbGetConversation(id: string): Promise<{
     })),
   };
 }
+
+// ── Metas por cliente (client_goals) ─────────────────────────────────────────
+
+import type { ClientGoal, GoalMetric } from "./gestao-vista";
+
+function mapGoal(r: Record<string, unknown>): ClientGoal {
+  return {
+    clientId: String(r.client_id),
+    metric: r.metric as GoalMetric,
+    targetValue: Number(r.target_value ?? 0),
+    period: String(r.period),
+  };
+}
+
+export async function sbGetClientGoals(
+  clientId: string,
+  period: string,
+): Promise<ClientGoal[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_goals")
+    .select("client_id,metric,target_value,period")
+    .eq("client_id", clientId)
+    .eq("period", period);
+  return (data ?? []).map(mapGoal);
+}
+
+export async function sbGetGoalsForPeriod(period: string): Promise<ClientGoal[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_goals")
+    .select("client_id,metric,target_value,period")
+    .eq("period", period);
+  return (data ?? []).map(mapGoal);
+}

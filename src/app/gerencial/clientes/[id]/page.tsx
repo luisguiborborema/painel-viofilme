@@ -29,6 +29,7 @@ import {
   getVioLaunch,
 } from "@/lib/data/operacao";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
+import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
 import { cn, formatBRL, formatCompact, formatNumber } from "@/lib/utils";
@@ -367,6 +368,7 @@ export default async function RaioXCliente({
 
   const tabs: ClientTab[] = [
     { key: "resumo", label: "Resumo", content: resumo },
+    { key: "metas", label: "Metas", content: <ClientGoalsCard clientId={id} /> },
     {
       key: "tarefas",
       label: "Tarefas",

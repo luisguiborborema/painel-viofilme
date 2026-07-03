@@ -12,6 +12,7 @@ import {
   ListChecks,
   Megaphone,
   Rocket,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const ICONS: Record<string, LucideIcon> = {
   resultados: BarChart3,
   dashboard: LayoutDashboard,
   pipeline: KanbanSquare,
+  metas: Target,
 };
 
 export type ClientTab = {

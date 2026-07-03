@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Resultados agora vive dentro da Gestão à Vista (aba interna). */
+/** Resultados foi absorvida pela Gestão à Vista (lentes de performance). */
 export default function GerencialResultados() {
-  redirect("/gerencial/gestao-a-vista?tab=resultados");
+  redirect("/gerencial/gestao-a-vista");
 }
