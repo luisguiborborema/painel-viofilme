@@ -2,7 +2,16 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { CrmDashboard } from "@/components/crm/crm-dashboard";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
-import { getCrmDashboard, getCrmLeads, crmNowIso } from "@/lib/data/queries";
+import { CrmCompanies } from "@/components/crm/crm-companies";
+import { CrmContacts } from "@/components/crm/crm-contacts";
+import {
+  getCrmDashboard,
+  getCrmLeads,
+  getCrmCompanies,
+  getCrmContacts,
+  getCrmTags,
+  crmNowIso,
+} from "@/lib/data/queries";
 import { toCard, CRM_AGENDA } from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 
@@ -14,9 +23,12 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, events] = await Promise.all([
+  const [dashboard, leads, companies, contacts, tags, events] = await Promise.all([
     getCrmDashboard(),
     getCrmLeads(),
+    getCrmCompanies(),
+    getCrmContacts(),
+    getCrmTags(),
     listUpcomingEvents(6),
   ]);
   const nowIso = crmNowIso();
@@ -34,6 +46,18 @@ export default async function CrmPage({
   const tabs: ClientTab[] = [
     { key: "dashboard", label: "Dashboard", content: <CrmDashboard d={dashboard} agenda={agenda} /> },
     { key: "pipeline", label: "Pipeline", content: <CrmPipeline cards={cards} /> },
+    {
+      key: "empresas",
+      label: "Empresas",
+      content: (
+        <CrmCompanies companies={companies} contacts={contacts} deals={leads} tags={tags} />
+      ),
+    },
+    {
+      key: "contatos",
+      label: "Contatos",
+      content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
+    },
   ];
 
   return (

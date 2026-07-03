@@ -20,18 +20,25 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import { Building2, Star, Users } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
   BANT_LABELS,
   stageLabel,
   type Bant,
+  type Company,
+  type Contact,
   type CrmInteraction,
   type CrmLead,
   type CrmTask,
+  type PropertyDef,
+  type Tag,
 } from "@/lib/data/crm";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
+import { TagChips } from "./tag-chips";
+import { PropertyList } from "./property-list";
 
 type Composer = "note" | "whatsapp" | "email" | "call";
 
@@ -57,10 +64,18 @@ export function LeadDetail({
   lead: initialLead,
   interactions: initialInteractions,
   tasks: initialTasks,
+  company = null,
+  companyContacts = [],
+  tags = [],
+  properties = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
   tasks: CrmTask[];
+  company?: Company | null;
+  companyContacts?: Contact[];
+  tags?: Tag[];
+  properties?: PropertyDef[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -204,6 +219,64 @@ export function LeadDetail({
             {lead.contactPhone && <Row label="Telefone" value={lead.contactPhone} />}
             {lead.contactEmail && <Row label="E-mail" value={lead.contactEmail} />}
           </Card>
+
+          {company && (
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <h2 className="mb-2 text-sm font-semibold text-ink">Empresa</h2>
+              <Link
+                href={`/gerencial/crm/empresa/${company.id}`}
+                className="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2.5 hover:bg-subtle"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{company.name}</p>
+                  <p className="truncate text-xs text-muted">
+                    {company.segment ?? "Ver empresa"}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+              </Link>
+            </div>
+          )}
+
+          {companyContacts.length > 0 && (
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-ink">
+                <Users className="h-4 w-4" /> Contatos ({companyContacts.length})
+              </h2>
+              <div className="space-y-1.5">
+                {companyContacts.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 rounded-lg bg-canvas px-2.5 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium text-ink">{c.name}</p>
+                        {(c.isPrimary || c.id === lead.primaryContactId) && (
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        )}
+                      </div>
+                      <p className="truncate text-[11px] text-muted">
+                        {c.title ?? c.phone ?? c.email ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(lead.tags?.length ?? 0) > 0 && (
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <h2 className="mb-2 text-sm font-semibold text-ink">Tags</h2>
+              <TagChips ids={lead.tags} tags={tags} />
+            </div>
+          )}
+
+          <PropertyList
+            defs={properties.filter((p) => p.objectType === "deal")}
+            values={lead.properties ?? {}}
+          />
 
           <Card title="Qualificação (BANT)">
             <div className="space-y-2">

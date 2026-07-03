@@ -49,8 +49,105 @@ export type CrmLead = {
   lostAt?: string;
   lostReason?: string;
   convertedClientId?: string;
+  // CRM v2 (modelo HubSpot) — associações e customização
+  companyId?: string;
+  primaryContactId?: string;
+  pipelineId?: string;
+  stageId?: string;
+  tags?: string[]; // ids de Tag
+  properties?: Record<string, unknown>; // valores das propriedades customizadas
   createdAt: string;
   updatedAt: string;
+};
+
+/** Deal (negócio) = a oportunidade no funil. Alias semântico de CrmLead. */
+export type Deal = CrmLead;
+
+// ── CRM v2: objetos Empresa / Contato + customização ────────────────────────
+
+export type Company = {
+  id: string;
+  name: string;
+  segment?: string;
+  website?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  size?: string;
+  owner?: string;
+  tags: string[];
+  properties: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Contact = {
+  id: string;
+  companyId?: string;
+  name: string;
+  title?: string;
+  phone?: string;
+  email?: string;
+  isPrimary: boolean;
+  owner?: string;
+  tags: string[];
+  properties: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DealContact = {
+  dealId: string;
+  contactId: string;
+  role?: string;
+  isPrimary: boolean;
+};
+
+export type CrmObjectType = "company" | "contact" | "deal";
+
+export type PropertyFieldType =
+  | "text"
+  | "number"
+  | "currency"
+  | "select"
+  | "multiselect"
+  | "date"
+  | "checkbox"
+  | "phone"
+  | "email"
+  | "url";
+
+export type PropertyOption = { value: string; label: string; color?: string };
+
+export type PropertyDef = {
+  id: string;
+  objectType: CrmObjectType;
+  key: string;
+  label: string;
+  fieldType: PropertyFieldType;
+  options: PropertyOption[];
+  position: number;
+  isDefault: boolean;
+};
+
+export type Tag = { id: string; name: string; color: string };
+
+export type Stage = {
+  id: string;
+  key: string;
+  label: string;
+  color: string;
+  probability: number;
+  position: number;
+  kind: "open" | "won" | "lost";
+};
+
+export type Pipeline = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  position: number;
+  stages: Stage[];
 };
 
 export type CrmInteraction = {
@@ -76,14 +173,38 @@ export type CrmTask = {
 
 // ── Estágios do funil ───────────────────────────────────────────────────────
 
-export const CRM_STAGES: { key: CrmStage; label: string; open: boolean }[] = [
-  { key: "prospeccao", label: "Prospecção", open: true },
-  { key: "reuniao", label: "Reunião marcada", open: true },
-  { key: "proposta", label: "Proposta enviada", open: true },
-  { key: "negociacao", label: "Em negociação", open: true },
-  { key: "ganho", label: "Ganho", open: false },
-  { key: "perdido", label: "Perdido", open: false },
+export const CRM_STAGES: {
+  key: CrmStage;
+  label: string;
+  open: boolean;
+  color: string;
+  probability: number;
+  kind: "open" | "won" | "lost";
+}[] = [
+  { key: "prospeccao", label: "Prospecção", open: true, color: "#64748b", probability: 20, kind: "open" },
+  { key: "reuniao", label: "Reunião marcada", open: true, color: "#0ea5e9", probability: 40, kind: "open" },
+  { key: "proposta", label: "Proposta enviada", open: true, color: "#8b5cf6", probability: 60, kind: "open" },
+  { key: "negociacao", label: "Em negociação", open: true, color: "#f59e0b", probability: 75, kind: "open" },
+  { key: "ganho", label: "Ganho", open: false, color: "#10b981", probability: 100, kind: "won" },
+  { key: "perdido", label: "Perdido", open: false, color: "#f43f5e", probability: 0, kind: "lost" },
 ];
+
+/** Pipeline default derivado das stages fixas (mock / fallback demo). */
+export const DEFAULT_PIPELINE: Pipeline = {
+  id: "pipeline-default",
+  name: "Pipeline comercial",
+  isDefault: true,
+  position: 0,
+  stages: CRM_STAGES.map((s, i) => ({
+    id: s.key,
+    key: s.key,
+    label: s.label,
+    color: s.color,
+    probability: s.probability,
+    position: i + 1,
+    kind: s.kind,
+  })),
+};
 
 export const OPEN_STAGES = CRM_STAGES.filter((s) => s.open).map((s) => s.key);
 
@@ -357,3 +478,99 @@ export const CRM_AGENDA: AgendaItem[] = [
 ];
 
 export { REF as CRM_REFERENCE_ISO };
+
+// ── CRM v2: mock de Empresas/Contatos derivado dos leads + customização ──────
+
+/** Empresas mock: uma por lead legado (espelha o backfill da migration). */
+export const MOCK_COMPANIES: Company[] = MOCK_LEADS.map((l) => ({
+  id: `co-${l.id}`,
+  name: l.name,
+  segment: l.segment,
+  phone: l.contactPhone,
+  email: l.contactEmail,
+  owner: l.owner,
+  tags: [],
+  properties: {},
+  createdAt: l.createdAt,
+  updatedAt: l.updatedAt,
+}));
+
+/** Contatos mock: contato primário por lead legado. */
+export const MOCK_CONTACTS: Contact[] = MOCK_LEADS.filter(
+  (l) => l.contactName || l.contactPhone || l.contactEmail,
+).map((l) => ({
+  id: `ct-${l.id}`,
+  companyId: `co-${l.id}`,
+  name: l.contactName ?? l.name,
+  phone: l.contactPhone,
+  email: l.contactEmail,
+  isPrimary: true,
+  owner: l.owner,
+  tags: [],
+  properties: {},
+  createdAt: l.createdAt,
+  updatedAt: l.updatedAt,
+}));
+
+// Vincula os leads mock às empresas/contatos derivados (companyId/primaryContactId).
+for (const l of MOCK_LEADS) {
+  l.companyId = `co-${l.id}`;
+  l.pipelineId = DEFAULT_PIPELINE.id;
+  l.stageId = l.stage;
+  l.tags = l.tags ?? [];
+  l.properties = l.properties ?? {};
+  if (MOCK_CONTACTS.some((c) => c.id === `ct-${l.id}`)) {
+    l.primaryContactId = `ct-${l.id}`;
+  }
+}
+
+export const MOCK_DEAL_CONTACTS: DealContact[] = MOCK_LEADS.filter(
+  (l) => l.primaryContactId,
+).map((l) => ({
+  dealId: l.id,
+  contactId: l.primaryContactId!,
+  isPrimary: true,
+}));
+
+export const MOCK_TAGS: Tag[] = [
+  { id: "tag-quente", name: "Quente", color: "#f43f5e" },
+  { id: "tag-indicacao", name: "Indicação", color: "#10b981" },
+  { id: "tag-enterprise", name: "Enterprise", color: "#8b5cf6" },
+  { id: "tag-retomar", name: "Retomar", color: "#f59e0b" },
+];
+
+export const MOCK_PROPERTIES: PropertyDef[] = [
+  { id: "prop-ig", objectType: "company", key: "instagram", label: "Instagram", fieldType: "text", options: [], position: 1, isDefault: true },
+  { id: "prop-cnpj", objectType: "company", key: "cnpj", label: "CNPJ", fieldType: "text", options: [], position: 2, isDefault: true },
+  { id: "prop-optin", objectType: "contact", key: "whatsapp_optin", label: "Aceita WhatsApp", fieldType: "checkbox", options: [], position: 1, isDefault: true },
+  { id: "prop-conc", objectType: "deal", key: "concorrente", label: "Concorrente atual", fieldType: "text", options: [], position: 1, isDefault: true },
+];
+
+// ── Helpers de composição (Empresa com seus deals/contatos) ─────────────────
+
+export type CompanyDetail = {
+  company: Company;
+  contacts: Contact[];
+  deals: CrmLead[];
+};
+
+export function buildCompanyDetail(
+  companyId: string,
+  companies: Company[],
+  contacts: Contact[],
+  deals: CrmLead[],
+): CompanyDetail | null {
+  const company = companies.find((c) => c.id === companyId);
+  if (!company) return null;
+  return {
+    company,
+    contacts: contacts.filter((c) => c.companyId === companyId),
+    deals: deals.filter((d) => d.companyId === companyId),
+  };
+}
+
+/** Resolve a lista de tags (com cor) a partir de ids. */
+export function resolveTags(ids: string[] | undefined, all: Tag[]): Tag[] {
+  if (!ids?.length) return [];
+  return ids.map((id) => all.find((t) => t.id === id)).filter((t): t is Tag => Boolean(t));
+}

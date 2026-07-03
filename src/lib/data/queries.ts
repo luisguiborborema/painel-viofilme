@@ -1351,12 +1351,26 @@ import {
   MOCK_LEADS,
   MOCK_TASKS,
   MOCK_INTERACTIONS,
+  MOCK_COMPANIES,
+  MOCK_CONTACTS,
+  MOCK_DEAL_CONTACTS,
+  MOCK_TAGS,
+  MOCK_PROPERTIES,
+  DEFAULT_PIPELINE,
   CRM_REFERENCE_ISO,
   computeDashboard,
+  buildCompanyDetail,
   type CrmLead,
   type CrmTask,
   type CrmInteraction,
   type BdrDashboard,
+  type Company,
+  type Contact,
+  type DealContact,
+  type Pipeline,
+  type Tag,
+  type PropertyDef,
+  type CompanyDetail,
 } from "./crm";
 
 /** "Agora" do CRM: tempo real com Supabase; data de referência no modo demo. */
@@ -1392,6 +1406,56 @@ export async function getCrmLead(id: string): Promise<{
     interactions: MOCK_INTERACTIONS.filter((i) => i.leadId === id),
     tasks: MOCK_TASKS.filter((t) => t.leadId === id),
   };
+}
+
+// ── CRM v2: Empresas / Contatos / Pipeline / Tags / Propriedades ─────────────
+
+export async function getCrmCompanies(): Promise<Company[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmCompanies();
+  return MOCK_COMPANIES;
+}
+
+export async function getCrmContacts(): Promise<Contact[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmContacts();
+  return MOCK_CONTACTS;
+}
+
+export async function getCrmDealContacts(): Promise<DealContact[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmDealContacts();
+  return MOCK_DEAL_CONTACTS;
+}
+
+export async function getCrmPipelines(): Promise<Pipeline[]> {
+  if (isSupabaseConfigured()) {
+    const pipes = await sb.sbGetCrmPipelines();
+    return pipes.length ? pipes : [DEFAULT_PIPELINE];
+  }
+  return [DEFAULT_PIPELINE];
+}
+
+/** Pipeline default (o primeiro marcado como default, ou o primeiro da lista). */
+export async function getDefaultPipeline(): Promise<Pipeline> {
+  const pipes = await getCrmPipelines();
+  return pipes.find((p) => p.isDefault) ?? pipes[0] ?? DEFAULT_PIPELINE;
+}
+
+export async function getCrmTags(): Promise<Tag[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmTags();
+  return MOCK_TAGS;
+}
+
+export async function getCrmProperties(): Promise<PropertyDef[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmProperties();
+  return MOCK_PROPERTIES;
+}
+
+export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
+  const [companies, contacts, deals] = await Promise.all([
+    getCrmCompanies(),
+    getCrmContacts(),
+    getCrmLeads(),
+  ]);
+  return buildCompanyDetail(id, companies, contacts, deals);
 }
 
 // ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────

@@ -862,10 +862,20 @@ import type {
   CrmStage,
   CrmTask,
   CrmChannel,
+  Company,
+  Contact,
+  DealContact,
+  Pipeline,
+  Stage,
+  Tag,
+  PropertyDef,
+  PropertyOption,
+  CrmObjectType,
+  PropertyFieldType,
 } from "./crm";
 
 const CRM_LEAD_COLS =
-  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,created_at,updated_at";
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
 
 type CrmLeadRow = Record<string, unknown>;
 
@@ -895,6 +905,12 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
     lostAt: s("lost_at"),
     lostReason: s("lost_reason"),
     convertedClientId: s("converted_client_id"),
+    companyId: s("company_id"),
+    primaryContactId: s("primary_contact_id"),
+    pipelineId: s("pipeline_id"),
+    stageId: s("stage_id"),
+    tags: (r.tags as string[] | null) ?? [],
+    properties: (r.properties as Record<string, unknown> | null) ?? {},
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };
@@ -972,6 +988,145 @@ export async function sbGetCrmLead(
     interactions: (ints ?? []).map(mapCrmInteraction),
     tasks: (tks ?? []).map(mapCrmTask),
   };
+}
+
+// ── CRM v2: Empresas / Contatos / Pipeline / Tags / Propriedades ─────────────
+
+function mapCompany(r: CrmLeadRow): Company {
+  const s = (k: string) => (r[k] == null ? undefined : String(r[k]));
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    segment: s("segment"),
+    website: s("website"),
+    phone: s("phone"),
+    email: s("email"),
+    city: s("city"),
+    size: s("size"),
+    owner: s("owner"),
+    tags: (r.tags as string[] | null) ?? [],
+    properties: (r.properties as Record<string, unknown> | null) ?? {},
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
+function mapContact(r: CrmLeadRow): Contact {
+  const s = (k: string) => (r[k] == null ? undefined : String(r[k]));
+  return {
+    id: String(r.id),
+    companyId: s("company_id"),
+    name: String(r.name),
+    title: s("title"),
+    phone: s("phone"),
+    email: s("email"),
+    isPrimary: Boolean(r.is_primary),
+    owner: s("owner"),
+    tags: (r.tags as string[] | null) ?? [],
+    properties: (r.properties as Record<string, unknown> | null) ?? {},
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
+const COMPANY_COLS =
+  "id,name,segment,website,phone,email,city,size,owner,tags,properties,created_at,updated_at";
+const CONTACT_COLS =
+  "id,company_id,name,title,phone,email,is_primary,owner,tags,properties,created_at,updated_at";
+
+export async function sbGetCrmCompanies(): Promise<Company[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_companies")
+    .select(COMPANY_COLS)
+    .order("name", { ascending: true });
+  return (data ?? []).map(mapCompany);
+}
+
+export async function sbGetCrmContacts(): Promise<Contact[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_contacts")
+    .select(CONTACT_COLS)
+    .order("name", { ascending: true });
+  return (data ?? []).map(mapContact);
+}
+
+export async function sbGetCrmDealContacts(): Promise<DealContact[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_deal_contacts")
+    .select("deal_id,contact_id,role,is_primary");
+  return (data ?? []).map((r) => ({
+    dealId: String(r.deal_id),
+    contactId: String(r.contact_id),
+    role: r.role == null ? undefined : String(r.role),
+    isPrimary: Boolean(r.is_primary),
+  }));
+}
+
+export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
+  const supabase = await createClient();
+  const [{ data: pipes }, { data: stages }] = await Promise.all([
+    supabase
+      .from("crm_pipelines")
+      .select("id,name,is_default,position")
+      .order("position", { ascending: true }),
+    supabase
+      .from("crm_stages")
+      .select("id,pipeline_id,key,label,color,probability,position,kind")
+      .order("position", { ascending: true }),
+  ]);
+  return (pipes ?? []).map((p) => ({
+    id: String(p.id),
+    name: String(p.name),
+    isDefault: Boolean(p.is_default),
+    position: Number(p.position ?? 0),
+    stages: (stages ?? [])
+      .filter((s) => String(s.pipeline_id) === String(p.id))
+      .map(
+        (s): Stage => ({
+          id: String(s.id),
+          key: String(s.key),
+          label: String(s.label),
+          color: String(s.color ?? "#64748b"),
+          probability: Number(s.probability ?? 0),
+          position: Number(s.position ?? 0),
+          kind: (s.kind as Stage["kind"]) ?? "open",
+        }),
+      ),
+  }));
+}
+
+export async function sbGetCrmTags(): Promise<Tag[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_tags")
+    .select("id,name,color")
+    .order("name", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name),
+    color: String(r.color ?? "#2a63c9"),
+  }));
+}
+
+export async function sbGetCrmProperties(): Promise<PropertyDef[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_properties")
+    .select("id,object_type,key,label,field_type,options,position,is_default")
+    .order("position", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    objectType: (r.object_type as CrmObjectType) ?? "deal",
+    key: String(r.key),
+    label: String(r.label),
+    fieldType: (r.field_type as PropertyFieldType) ?? "text",
+    options: (r.options as PropertyOption[] | null) ?? [],
+    position: Number(r.position ?? 0),
+    isDefault: Boolean(r.is_default),
+  }));
 }
 
 // ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────
