@@ -2,21 +2,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  ArrowUpRight,
-  Calendar,
   CheckCircle2,
   Circle,
-  CreditCard,
   Download,
   ExternalLink,
   FileText,
-  Flag,
   Mail,
-  MessageSquare,
   Phone,
-  Plus,
-  Star,
-  Undo2,
   Video,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -25,15 +17,21 @@ import { getClientById } from "@/lib/data/queries";
 import {
   getClientCreatives,
   getClientDocuments,
+  getClientTasks,
   getEditorialLine,
+  getHubClientsOps,
   getVioLaunch,
+  OPS_TEAM,
+  RESPONSIBLE_ROLES,
+  TASK_STAGES,
+  type DeliveryTask,
 } from "@/lib/data/operacao";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
-import { cn, formatBRL, formatCompact, formatNumber } from "@/lib/utils";
-import type { CSTimelineEvent, Platform } from "@/lib/data/types";
+import { cn, formatCompact, formatNumber } from "@/lib/utils";
+import type { Platform } from "@/lib/data/types";
 
 function initials(name: string) {
   return name
@@ -44,21 +42,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase();
 }
-
-function scoreTone(s: number) {
-  if (s >= 75) return "text-emerald-400";
-  if (s >= 50) return "text-amber-400";
-  return "text-rose-400";
-}
-
-const TIMELINE_ICON: Record<CSTimelineEvent["kind"], typeof Star> = {
-  nps: Star,
-  meeting: Calendar,
-  refund: Undo2,
-  payment: CreditCard,
-  onboarding: Flag,
-  note: MessageSquare,
-};
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -78,6 +61,61 @@ function Placeholder({ title, text }: { title: string; text: string }) {
   );
 }
 
+function Row2({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="shrink-0 text-xs font-medium text-muted">{label}</dt>
+      <dd className="text-right text-ink/90">{value}</dd>
+    </div>
+  );
+}
+
+const opsMemberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
+const STAGE_STATUS: Record<string, { label: string; chip: string }> = {
+  done: { label: "Concluída", chip: "bg-emerald-500/15 text-emerald-600" },
+  doing: { label: "Em produção", chip: "bg-sky-500/15 text-sky-500" },
+  todo: { label: "Para produzir", chip: "bg-subtle text-muted" },
+  review: { label: "Revisão interna", chip: "bg-violet-500/15 text-violet-500" },
+  approval: { label: "Para aprovar", chip: "bg-amber-500/15 text-amber-600" },
+};
+
+function TarefasList({ tasks }: { tasks: DeliveryTask[] }) {
+  if (tasks.length === 0) {
+    return <Placeholder title="Sem tarefas" text="Nenhuma tarefa registrada para este cliente. Elas aparecem aqui quando entram na Linha Editorial ou como pedido/projeto." />;
+  }
+  return (
+    <Card className="overflow-x-auto p-0">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-line text-left text-xs text-muted">
+            <th className="px-4 py-2.5">Tarefa</th>
+            <th className="px-4 py-2.5">Prazo</th>
+            <th className="px-4 py-2.5">Responsável</th>
+            <th className="px-4 py-2.5">Origem</th>
+            <th className="px-4 py-2.5">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((t) => {
+            const st = STAGE_STATUS[t.stage] ?? STAGE_STATUS.todo;
+            return (
+              <tr key={t.id} className="border-b border-line/60 hover:bg-subtle">
+                <td className="px-4 py-3 font-medium text-ink">{t.title}</td>
+                <td className={cn("px-4 py-3 text-xs", t.late ? "font-medium text-rose-500" : "text-muted")}>{t.dueLabel}</td>
+                <td className="px-4 py-3 text-muted">{opsMemberName(t.assignee)}</td>
+                <td className="px-4 py-3 text-muted">{t.origin}</td>
+                <td className="px-4 py-3">
+                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", st.chip)}>{st.label}</span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
 export default async function RaioXCliente({
   params,
 }: {
@@ -88,6 +126,8 @@ export default async function RaioXCliente({
   if (!d) notFound();
 
   const c = d.client;
+  const ops = getHubClientsOps().find((x) => x.id === id);
+  const clientTasks = getClientTasks(c.name);
   const portal = await getClientById(id);
   const config = {
     hasPaidTraffic: portal?.hasPaidTraffic ?? d.campaignsInvested > 0,
@@ -103,142 +143,102 @@ export default async function RaioXCliente({
   const creatives = getClientCreatives(id);
   const editorial = getEditorialLine(id);
 
-  // --- Aba Resumo -----------------------------------------------------------
+  // --- Aba Resumo (HUB07 — 3 camadas) ---------------------------------------
+  const lateTasks = clientTasks.filter((t) => t.late);
+  const approvalTasks = clientTasks.filter((t) => t.stage === "approval");
+  const STAGE_TONE: Record<string, string> = {
+    todo: "text-muted", doing: "text-sky-500", review: "text-violet-500",
+    approval: "text-amber-500", done: "text-emerald-500",
+  };
   const resumo = (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="p-5">
-          <h2 className="text-sm font-semibold text-ink">NPS &amp; satisfação</h2>
-          <p className="mt-3 text-5xl font-bold text-emerald-400">{c.nps}</p>
-          <p className="text-sm font-medium text-ink">{d.npsClassification}</p>
-          <p className="mt-1 text-xs text-muted">
-            Última pesquisa em {d.npsLastSurvey}
-          </p>
-          <p className="mt-3 rounded-xl bg-subtle p-3 text-sm italic text-ink/80">
-            {d.npsQuote}
-          </p>
-        </Card>
-
-        <Card className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Timeline da conta</h2>
-            <button className="inline-flex items-center gap-1 text-xs font-medium text-brand-300 hover:text-brand-200">
-              <Plus className="h-3.5 w-3.5" /> Adicionar
-            </button>
+      {/* Camada 1 — Precisa de ação agora */}
+      <Card className="border-l-4 border-l-rose-400 p-5">
+        <h2 className="mb-3 text-sm font-semibold text-ink">1 · Precisa de ação agora</h2>
+        {lateTasks.length === 0 && approvalTasks.length === 0 ? (
+          <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">Nada pendente. Cliente em dia. ✅</p>
+        ) : (
+          <div className="space-y-3">
+            {lateTasks.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-500">Atrasadas ({lateTasks.length})</p>
+                <ul className="space-y-1">
+                  {lateTasks.map((t) => (
+                    <li key={t.id} className="flex items-center justify-between rounded-lg bg-rose-500/5 px-3 py-2 text-sm">
+                      <span className="text-ink">{t.title}</span>
+                      <span className="text-xs font-medium text-rose-500">{t.dueLabel}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {approvalTasks.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600">Aguardando aprovação ({approvalTasks.length})</p>
+                <ul className="space-y-1">
+                  {approvalTasks.map((t) => (
+                    <li key={t.id} className="flex items-center justify-between rounded-lg bg-amber-500/5 px-3 py-2 text-sm">
+                      <span className="text-ink">{t.title}</span>
+                      <span className="text-xs font-medium text-amber-600">{t.dueLabel}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <ol className="relative ml-1 space-y-3 border-l border-line pl-5">
-            {d.timeline.map((ev) => {
-              const Icon = TIMELINE_ICON[ev.kind];
-              return (
-                <li key={ev.id} className="relative">
-                  <span className="absolute -left-[26px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-500/20 text-brand-300">
-                    <Icon className="h-2.5 w-2.5" />
-                  </span>
-                  <p className="text-sm text-ink/90">{ev.text}</p>
-                  <p className="text-xs text-muted">{ev.date}</p>
-                </li>
-              );
-            })}
-          </ol>
-        </Card>
+        )}
+      </Card>
 
-        <Card className="flex flex-col p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Reuniões</h2>
-            <button className="inline-flex items-center gap-1 text-xs font-medium text-brand-300 hover:text-brand-200">
-              <Plus className="h-3.5 w-3.5" /> Agendar
-            </button>
-          </div>
-          {d.nextMeeting && (
-            <div className="rounded-xl bg-subtle p-3">
-              <p className="text-xs font-medium text-emerald-300">
-                {d.nextMeeting.whenLabel}
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-ink">
-                {d.nextMeeting.title}
-              </p>
-              <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-sky-400">
-                <Video className="h-3.5 w-3.5" /> Google Meet
-              </span>
-            </div>
-          )}
-          <div className="mt-4 border-t border-line pt-3 text-xs text-muted">
-            {d.nextContact}
-          </div>
-        </Card>
-      </div>
+      {/* Camada 2 — Em andamento (funil) */}
+      <Card className="p-5">
+        <h2 className="mb-3 text-sm font-semibold text-ink">2 · Em andamento — funil de produção</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {TASK_STAGES.map((s) => {
+            const n = clientTasks.filter((t) => t.stage === s.key).length;
+            return (
+              <div key={s.key} className="rounded-xl border border-line p-3 text-center">
+                <p className={cn("text-2xl font-bold", STAGE_TONE[s.key] ?? "text-ink")}>{n}</p>
+                <p className="text-[11px] text-muted">{s.label}</p>
+              </div>
+            );
+          })}
+        </div>
+        {clientTasks.length === 0 && <p className="mt-3 text-xs text-muted">Sem tarefas registradas para este cliente ainda.</p>}
+      </Card>
 
+      {/* Camada 3 — Estratégico / referência */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">
-            Briefing da conta
-          </h2>
-          <dl className="space-y-3 text-sm">
-            <div>
-              <dt className="text-xs font-medium text-muted">Objetivo principal</dt>
-              <dd className="text-ink/90">{d.briefing.objetivo}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted">Tom de voz</dt>
-              <dd className="text-ink/90">{d.briefing.tomDeVoz}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted">Público-alvo</dt>
-              <dd className="text-ink/90">{d.briefing.publico}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted">Concorrentes</dt>
-              <dd className="text-ink/90">{d.briefing.concorrentes}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted">Restrições</dt>
-              <dd className="text-ink/90">{d.briefing.restricoes}</dd>
-            </div>
+          <h2 className="mb-3 text-sm font-semibold text-ink">3 · Contrato &amp; responsáveis</h2>
+          <dl className="space-y-2.5 text-sm">
+            <Row2 label="Plano / fee" value={`${ops?.plan ?? d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
+            <Row2 label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
+            <Row2 label="Status do mês" value={ops ? `${ops.monthDone}/${ops.monthTotal} entregues · ${ops.monthApproval} aguardando` : "—"} />
+            {ops && RESPONSIBLE_ROLES.map((r) => (
+              <Row2 key={r.key} label={r.label} value={ops.responsibles[r.key]} />
+            ))}
           </dl>
         </Card>
 
         <Card className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">
-              Campanhas ativas &amp; performance
-            </h2>
-            <Link
-              href="/gerencial/campanhas"
-              className="inline-flex items-center gap-1 text-xs font-medium text-brand-300 hover:text-brand-200"
-            >
-              Ver campanhas <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <ul className="space-y-2">
-            {d.campaigns.map((cp) => (
-              <li
-                key={cp.name}
-                className="flex items-center justify-between rounded-xl bg-subtle p-3"
-              >
-                <span className="text-sm text-ink">{cp.name}</span>
-                <span
-                  className={cn(
-                    "text-sm font-semibold",
-                    cp.tone === "ok" ? "text-emerald-400" : "text-amber-400",
-                  )}
-                >
-                  CPL {formatBRL(cp.cpl)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-muted">
-            Total investido no mês:{" "}
-            <span className="font-semibold text-ink">
-              R$ {formatNumber(d.campaignsInvested)}
-            </span>
-          </p>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Briefing &amp; agenda</h2>
+          <dl className="space-y-2.5 text-sm">
+            <Row2 label="Objetivo" value={d.briefing.objetivo} />
+            <Row2 label="Tom de voz" value={d.briefing.tomDeVoz} />
+            <Row2 label="Público" value={d.briefing.publico} />
+            <Row2 label="Concorrentes" value={d.briefing.concorrentes} />
+            <Row2 label="Restrições" value={d.briefing.restricoes} />
+            {d.nextMeeting && <Row2 label="Próxima agenda" value={`${d.nextMeeting.whenLabel} · ${d.nextMeeting.title}`} />}
+          </dl>
         </Card>
       </div>
 
       <ClientConfigCard clientId={id} initial={config} />
     </div>
   );
+
+  // --- Aba Tarefas (HUB08) --------------------------------------------------
+  const tarefas = <TarefasList tasks={clientTasks} />;
 
   // --- Aba VioLaunch --------------------------------------------------------
   const violaunch = (
@@ -369,16 +369,7 @@ export default async function RaioXCliente({
   const tabs: ClientTab[] = [
     { key: "resumo", label: "Resumo", content: resumo },
     { key: "metas", label: "Metas", content: <ClientGoalsCard clientId={id} /> },
-    {
-      key: "tarefas",
-      label: "Tarefas",
-      content: (
-        <Placeholder
-          title="Tarefas deste cliente"
-          text="A execução das tarefas é gerida no Painel de Entregas (em construção na Vertical 2). Aqui você verá as tarefas filtradas por este cliente."
-        />
-      ),
-    },
+    { key: "tarefas", label: "Tarefas", content: tarefas },
     {
       key: "editorial",
       label: "Linha editorial",
@@ -423,22 +414,53 @@ export default async function RaioXCliente({
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <p className={cn("text-3xl font-bold", scoreTone(c.healthScore))}>
-              {c.healthScore}
-            </p>
-            <p className="text-xs text-muted">
-              Score · cliente desde {d.clientSince}
-            </p>
+          {ops && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                ops.semaforo.state === "atrasado"
+                  ? "bg-rose-500/15 text-rose-500"
+                  : ops.semaforo.state === "aguardando"
+                    ? "bg-amber-500/15 text-amber-600"
+                    : "bg-emerald-500/15 text-emerald-600",
+              )}
+            >
+              {ops.semaforo.state === "atrasado"
+                ? `Atrasado · ${ops.semaforo.late}`
+                : ops.semaforo.state === "aguardando"
+                  ? `Aguardando cliente · ${ops.semaforo.approval}`
+                  : "Em dia"}
+            </span>
+          )}
+        </div>
+
+        {/* Responsáveis por função (HUB06) */}
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4">
+          {ops &&
+            RESPONSIBLE_ROLES.map((r) => (
+              <div key={r.key}>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>
+                <p className="text-sm font-medium text-ink">{ops.responsibles[r.key]}</p>
+              </div>
+            ))}
+          <div className="ml-auto">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Squad</p>
+            <p className="text-sm font-medium text-ink">{ops?.squadName ?? "—"}</p>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-5">
-          <Stat label="Plano" value={`${d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
-          <Stat label="Tempo de casa" value={d.tenure} />
-          <Stat label="LTV projetado" value={formatBRL(d.ltv)} />
-          <Stat label="NPS atual" value={`${c.nps} · ${d.npsClassification}`} />
-          <Stat label="Faturas" value={d.invoicesNote} />
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-4">
+          <Stat label="Plano / fee" value={`${ops?.plan ?? d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
+          <Stat label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
+          <Stat
+            label="Status do mês"
+            value={ops ? `${ops.monthDone}/${ops.monthTotal} entregues · ${ops.monthApproval} aguard.` : "—"}
+          />
+          <Stat
+            label="LE próximo mês"
+            value={ops ? `${ops.leNextMonth.status}${ops.leNextMonth.date ? ` · ${ops.leNextMonth.date}` : ""}` : "—"}
+          />
+          <Stat label="Próxima agenda" value={ops?.nextAgenda ?? "—"} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">

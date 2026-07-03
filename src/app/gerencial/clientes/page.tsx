@@ -1,9 +1,11 @@
 import { Users } from "lucide-react";
-import { getHubClients } from "@/lib/data/operacao";
+import { getHubClientsOps } from "@/lib/data/operacao";
+import { getSession } from "@/lib/auth/session";
 import { HubClientes } from "@/components/gerencial/hub-clientes";
 
-export default function GerencialClientes() {
-  const clients = getHubClients();
+export default async function GerencialClientes() {
+  const clients = getHubClientsOps();
+  const user = await getSession();
 
   return (
     <div className="space-y-4">
@@ -16,12 +18,12 @@ export default function GerencialClientes() {
             Hub de clientes
           </h1>
           <p className="text-sm text-muted">
-            Visão individualizada da carteira — estratégia, saúde e onboarding.
+            A mesa de cada cliente — o que precisa resolver hoje, por squad.
           </p>
         </div>
       </div>
 
-      <HubClientes clients={clients} />
+      <HubClientes clients={clients} meName={user?.name} />
     </div>
   );
 }

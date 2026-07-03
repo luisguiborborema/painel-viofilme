@@ -3,350 +3,247 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
   LayoutGrid,
   List,
   Plus,
-  Rocket,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn, formatNumber } from "@/lib/utils";
-import { HUB_PLANS, type HubClient, type HubPlan } from "@/lib/data/operacao";
+import {
+  RESPONSIBLE_ROLES,
+  type HubClientOps,
+  type HubSemaforo,
+} from "@/lib/data/operacao";
 
-type StatusFilter = "todos" | "ativo" | "onboarding" | "risco";
+type Scope = "meus" | "squad" | "todos";
+type EstadoFilter = "todas" | "em-dia" | "atrasado" | "aguardando" | "le-pendente";
+
+const SEMAFORO: Record<HubSemaforo["state"], { label: string; chip: string; icon: typeof CheckCircle2 }> = {
+  "em-dia": { label: "Em dia", chip: "bg-emerald-500/15 text-emerald-600", icon: CheckCircle2 },
+  atrasado: { label: "Atrasado", chip: "bg-rose-500/15 text-rose-500", icon: AlertTriangle },
+  aguardando: { label: "Aguardando cliente", chip: "bg-amber-500/15 text-amber-600", icon: Clock3 },
+};
 
 function initials(name: string) {
-  return name
-    .split(" ")
-    .filter((w) => w.length > 2)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+  return name.split(" ").filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-function healthTone(score: number) {
-  if (score >= 80) return { text: "text-emerald-400", bar: "bg-emerald-400" };
-  if (score >= 50) return { text: "text-amber-400", bar: "bg-amber-400" };
-  return { text: "text-rose-400", bar: "bg-rose-400" };
-}
+const AVATAR_BG = ["bg-brand-500", "bg-emerald-500", "bg-violet-500", "bg-sky-500", "bg-amber-500", "bg-rose-500"];
 
-const AVATAR_BG = [
-  "bg-brand-500",
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-sky-500",
-  "bg-amber-500",
-  "bg-rose-500",
-];
-
-function Avatar({ name, idx }: { name: string; idx: number }) {
+function ClientAvatar({ name, idx }: { name: string; idx: number }) {
   return (
-    <span
-      className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white",
-        AVATAR_BG[idx % AVATAR_BG.length],
-      )}
-    >
+    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white", AVATAR_BG[idx % AVATAR_BG.length])}>
       {initials(name)}
     </span>
   );
 }
 
-function StatusBadges({ client }: { client: HubClient }) {
+function RespRow({ c }: { c: HubClientOps }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {client.status === "onboarding" ? (
-        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-300">
-          Em onboarding
-        </span>
-      ) : client.atRisk ? (
-        <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-300">
-          Risco churn
-        </span>
-      ) : (
-        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-          Ativo
-        </span>
-      )}
-      <span className="rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">
-        {client.plan}
-      </span>
+    <div className="flex items-center gap-1">
+      {RESPONSIBLE_ROLES.map((r) => {
+        const name = c.responsibles[r.key];
+        if (!name) return null;
+        return (
+          <span
+            key={r.key}
+            title={`${r.label}: ${name}`}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-surface bg-subtle-strong text-[9px] font-bold text-ink"
+          >
+            {initials(name)}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-function HealthBlock({ client }: { client: HubClient }) {
-  if (client.onboarding) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <p className="flex items-center gap-1 text-sm font-semibold text-ink">
-            <Rocket className="h-3.5 w-3.5 text-sky-300" />
-            {client.onboarding.step}/{client.onboarding.total}
-          </p>
-          <p className="text-[11px] text-muted">VioLaunch</p>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-ink">
-            {client.onboarding.startDate}
-          </p>
-          <p className="text-[11px] text-muted">Início</p>
-        </div>
-      </div>
-    );
-  }
-  const tone = healthTone(client.healthScore);
+function Semaforo({ s }: { s: HubSemaforo }) {
+  const meta = SEMAFORO[s.state];
+  const Icon = meta.icon;
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div>
-        <p className={cn("text-sm font-semibold", tone.text)}>
-          {client.healthScore}
-        </p>
-        <p className="text-[11px] text-muted">Score saúde</p>
-        <div className="mt-1 h-1 overflow-hidden rounded-full bg-subtle-strong">
-          <div
-            className={cn("h-full rounded-full", tone.bar)}
-            style={{ width: `${client.healthScore}%` }}
-          />
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-ink">{client.nps}</p>
-        <p className="text-[11px] text-muted">NPS</p>
-      </div>
-    </div>
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", meta.chip)}>
+      <Icon className="h-3.5 w-3.5" /> {meta.label}
+    </span>
   );
 }
 
-export function HubClientes({ clients }: { clients: HubClient[] }) {
+export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meName?: string }) {
+  const [layout, setLayout] = usePersistentState<"card" | "lista">("vio-hub-layout", "card");
+  const [scope, setScope] = useState<Scope>("squad");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("todos");
-  const [plan, setPlan] = useState<HubPlan | null>(null);
-  const [view, setView] = usePersistentState<"cards" | "lista">(
-    "vio-hub-view",
-    "cards",
-  );
+  const [estado, setEstado] = useState<EstadoFilter>("todas");
+  const [resp, setResp] = useState<string>("");
+  const [plan, setPlan] = useState<string>("");
 
-  const counts = useMemo(
-    () => ({
-      todos: clients.length,
-      ativo: clients.filter((c) => c.status === "ativo").length,
-      onboarding: clients.filter((c) => c.status === "onboarding").length,
-      risco: clients.filter((c) => c.atRisk).length,
-    }),
+  const meFirst = meName?.split(" ")[0].toLowerCase();
+  const isMine = (c: HubClientOps) =>
+    !!meFirst && Object.values(c.responsibles).some((n) => n.toLowerCase().includes(meFirst));
+
+  const respNames = useMemo(
+    () => [...new Set(clients.flatMap((c) => Object.values(c.responsibles)))].sort(),
     [clients],
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return clients.filter((c) => {
-      if (q && !`${c.name} ${c.segment} ${c.city}`.toLowerCase().includes(q))
-        return false;
-      if (status === "risco" && !c.atRisk) return false;
-      if (status === "ativo" && c.status !== "ativo") return false;
-      if (status === "onboarding" && c.status !== "onboarding") return false;
-      if (plan && c.plan !== plan) return false;
-      return true;
-    });
-  }, [clients, query, status, plan]);
-
-  const STATUS_TABS: { key: StatusFilter; label: string; n: number }[] = [
-    { key: "todos", label: "Todos", n: counts.todos },
-    { key: "ativo", label: "Ativos", n: counts.ativo },
-    { key: "onboarding", label: "Em onboarding", n: counts.onboarding },
-    { key: "risco", label: "Risco churn", n: counts.risco },
-  ];
+  const filtered = useMemo(
+    () =>
+      clients.filter((c) => {
+        if (scope === "meus" && !isMine(c)) return false;
+        if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
+        if (estado === "em-dia" && c.semaforo.state !== "em-dia") return false;
+        if (estado === "atrasado" && c.semaforo.state !== "atrasado") return false;
+        if (estado === "aguardando" && c.semaforo.state !== "aguardando") return false;
+        if (estado === "le-pendente" && c.leNextMonth.status !== "pendente") return false;
+        if (resp && !Object.values(c.responsibles).includes(resp)) return false;
+        if (plan && c.plan !== plan) return false;
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clients, scope, query, estado, resp, plan, meFirst],
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
+      {/* Ações de topo (HUB05) */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar cliente…"
-            className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-400"
+            placeholder="Buscar cliente"
+            className="w-full rounded-xl border border-line bg-surface py-2 pl-8 pr-3 text-sm text-ink outline-none focus:border-brand-400"
           />
         </div>
-        <div className="flex items-center rounded-xl border border-line bg-surface p-0.5">
-          <button
-            onClick={() => setView("cards")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
-              view === "cards" ? "bg-subtle text-ink" : "text-muted",
-            )}
-          >
-            <LayoutGrid className="h-4 w-4" /> Cards
+        <div className="inline-flex rounded-xl border border-line bg-surface p-0.5">
+          {(["meus", "squad", "todos"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-colors", scope === s ? "bg-brand-600 text-white" : "text-muted hover:text-ink")}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex rounded-xl border border-line bg-surface p-0.5">
+          <button onClick={() => setLayout("card")} className={cn("rounded-lg p-1.5", layout === "card" ? "bg-subtle text-ink" : "text-muted")} title="Cards">
+            <LayoutGrid className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => setView("lista")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
-              view === "lista" ? "bg-subtle text-ink" : "text-muted",
-            )}
-          >
-            <List className="h-4 w-4" /> Lista
+          <button onClick={() => setLayout("lista")} className={cn("rounded-lg p-1.5", layout === "lista" ? "bg-subtle text-ink" : "text-muted")} title="Lista">
+            <List className="h-4 w-4" />
           </button>
         </div>
-        <button
-          onClick={() => setPlan(null)}
-          className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
-        >
-          <SlidersHorizontal className="h-4 w-4" /> Filtros
-        </button>
-        <button className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600">
+        <button className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">
           <Plus className="h-4 w-4" /> Novo cliente
         </button>
       </div>
 
-      {/* Filtros: status */}
+      {/* Filtros operacionais (HUB03) */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">
-          Status:
-        </span>
-        {STATUS_TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setStatus(t.key)}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-              status === t.key
-                ? "bg-brand-500 text-white"
-                : "bg-surface text-muted hover:text-ink",
-            )}
-          >
-            {t.label} ({t.n})
-          </button>
-        ))}
+        <select value={estado} onChange={(e) => setEstado(e.target.value as EstadoFilter)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+          <option value="todas">Todos os estados</option>
+          <option value="em-dia">Em dia</option>
+          <option value="atrasado">Com atraso</option>
+          <option value="aguardando">Aguardando cliente</option>
+          <option value="le-pendente">LE pendente</option>
+        </select>
+        <select value={resp} onChange={(e) => setResp(e.target.value)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+          <option value="">Todos responsáveis</option>
+          {respNames.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select value={plan} onChange={(e) => setPlan(e.target.value)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+          <option value="">Todos os planos</option>
+          {["Social Pro", "Tráfego + Social", "Full Service"].map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <span className="text-xs text-muted">{filtered.length} cliente(s)</span>
       </div>
 
-      {/* Filtros: plano */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">
-          Plano:
-        </span>
-        {HUB_PLANS.map((p) => (
-          <button
-            key={p}
-            onClick={() => setPlan(plan === p ? null : p)}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-              plan === p
-                ? "bg-ink text-surface"
-                : "bg-surface text-muted hover:text-ink",
-            )}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">
-        {status === "todos" ? "Todos os clientes" : "Clientes filtrados"} ·{" "}
-        {filtered.length}
-      </p>
-
-      {/* Conteúdo */}
-      {view === "cards" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {layout === "card" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c, i) => (
-            <Link
-              key={c.id}
-              href={`/gerencial/clientes/${c.id}`}
-              className="rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-brand-300"
-            >
-              <div className="mb-3 flex items-start gap-3">
-                <Avatar name={c.name} idx={i} />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {c.name}
-                  </p>
-                  <p className="truncate text-xs text-muted">
-                    {c.segment} · {c.city}
-                  </p>
+            <Link key={c.id} href={`/gerencial/clientes/${c.id}`} className="block">
+              <div className="h-full rounded-2xl border border-line bg-surface p-4 transition-shadow hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <ClientAvatar name={c.name} idx={i} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-ink">{c.name}</p>
+                    <p className="text-xs text-muted">{c.plan} · R$ {formatNumber(c.mrr)}/mês</p>
+                  </div>
                 </div>
-              </div>
-              <div className="mb-3">
-                <StatusBadges client={c} />
-              </div>
-              <HealthBlock client={c} />
-              <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5 text-xs">
-                <span className="text-muted">{c.responsavel}</span>
-                <span className="font-medium text-ink">
-                  R$ {formatNumber(c.mrr)}/mês
-                </span>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {c.services.map((s) => (
+                    <span key={s} className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">{s}</span>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                  <RespRow c={c} />
+                  <span className="text-[10px] text-muted">{c.squadName}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <Semaforo s={c.semaforo} />
+                  <span className="text-[11px]">
+                    {c.semaforo.late > 0 && <span className="text-rose-500">{c.semaforo.late} atrasada(s) </span>}
+                    {c.semaforo.approval > 0 && <span className="text-amber-600">· {c.semaforo.approval} aguardando</span>}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] text-muted">
+                  LE próx. mês:{" "}
+                  <span className={c.leNextMonth.status === "montada" ? "text-emerald-600" : "text-amber-600"}>
+                    {c.leNextMonth.status === "montada" ? "montada" : "pendente"}
+                  </span>{" "}· {c.nextAgenda}
+                </p>
               </div>
             </Link>
           ))}
-
-          {/* Novo cliente */}
-          <button className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-muted transition-colors hover:border-brand-300 hover:text-brand-300">
-            <Plus className="h-6 w-6" />
-            <span className="text-sm font-medium">Novo cliente</span>
-          </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">Plano</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Saúde</th>
-                <th className="px-4 py-3 font-medium">NPS</th>
-                <th className="px-4 py-3 font-medium">CS</th>
-                <th className="px-4 py-3 text-right font-medium">Mensal</th>
+              <tr className="border-b border-line text-left text-xs text-muted">
+                <th className="px-3 py-2.5">Cliente</th>
+                <th className="px-3 py-2.5">Plano / fee</th>
+                <th className="px-3 py-2.5">Responsáveis</th>
+                <th className="px-3 py-2.5">Semáforo</th>
+                <th className="px-3 py-2.5 text-right">Atrasadas</th>
+                <th className="px-3 py-2.5 text-right">Aguardando</th>
+                <th className="px-3 py-2.5">LE próx.</th>
+                <th className="px-3 py-2.5">Próxima agenda</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c, i) => {
-                const tone = healthTone(c.healthScore);
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-line last:border-0 hover:bg-subtle"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/gerencial/clientes/${c.id}`}
-                        className="flex items-center gap-2"
-                      >
-                        <Avatar name={c.name} idx={i} />
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-ink">
-                            {c.name}
-                          </p>
-                          <p className="truncate text-xs text-muted">
-                            {c.segment} · {c.city}
-                          </p>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted">{c.plan}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadges client={c} />
-                    </td>
-                    <td className={cn("px-4 py-3 font-semibold", tone.text)}>
-                      {c.onboarding
-                        ? `${c.onboarding.step}/${c.onboarding.total}`
-                        : c.healthScore}
-                    </td>
-                    <td className="px-4 py-3 text-ink">{c.nps}</td>
-                    <td className="px-4 py-3 text-muted">{c.responsavel}</td>
-                    <td className="px-4 py-3 text-right font-medium text-ink">
-                      R$ {formatNumber(c.mrr)}
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map((c) => (
+                <tr key={c.id} className="border-b border-line/60 hover:bg-subtle">
+                  <td className="px-3 py-2.5">
+                    <Link href={`/gerencial/clientes/${c.id}`} className="font-medium text-ink hover:text-brand-600">{c.name}</Link>
+                    <p className="text-[10px] text-muted">{c.squadName}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted">{c.plan} · R$ {formatNumber(c.mrr)}</td>
+                  <td className="px-3 py-2.5"><RespRow c={c} /></td>
+                  <td className="px-3 py-2.5"><Semaforo s={c.semaforo} /></td>
+                  <td className="px-3 py-2.5 text-right">{c.semaforo.late || "—"}</td>
+                  <td className="px-3 py-2.5 text-right">{c.semaforo.approval || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={c.leNextMonth.status === "montada" ? "text-emerald-600" : "text-amber-600"}>
+                      {c.leNextMonth.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-muted">{c.nextAgenda}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+      )}
+      {filtered.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-line py-10 text-center text-sm text-muted">
+          Nenhum cliente neste escopo/filtro.
+        </p>
       )}
     </div>
   );

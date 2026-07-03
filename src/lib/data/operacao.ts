@@ -72,6 +72,117 @@ export const HUB_PLANS: HubPlan[] = [
   "Full Service",
 ];
 
+// --- Hub operacional (HUB00-08) ---------------------------------------------
+// Escopo por squad modelado desde já (hoje só existe 1 squad).
+export const SQUADS = [{ id: "sq-1", name: "Produção" }];
+
+export type ResponsibleRole = "social" | "performance" | "designer" | "copy";
+export const RESPONSIBLE_ROLES: { key: ResponsibleRole; label: string }[] = [
+  { key: "social", label: "Social" },
+  { key: "performance", label: "Performance" },
+  { key: "designer", label: "Designer" },
+  { key: "copy", label: "Copy" },
+];
+
+/** Serviços contratados a partir do plano. */
+function servicesForPlan(plan: HubPlan): string[] {
+  if (plan === "Full Service") return ["Tráfego", "Social", "Design", "UGC"];
+  if (plan === "Tráfego + Social") return ["Tráfego", "Social"];
+  return ["Social"];
+}
+function deliverablesForPlan(plan: HubPlan): string {
+  if (plan === "Full Service") return "16 posts · 6 reels · 4 criativos · UGC";
+  if (plan === "Tráfego + Social") return "12 posts · 4 reels · 3 campanhas";
+  return "12 posts · 4 reels";
+}
+
+/** Responsáveis por função (mock determinístico por índice). */
+function responsiblesFor(idx: number): Record<ResponsibleRole, string> {
+  const socials = ["Ana Lima"];
+  const perfs = ["Mariana"];
+  const designers = ["Robert", "Lucas"];
+  return {
+    social: socials[0],
+    performance: perfs[0],
+    designer: designers[idx % designers.length],
+    copy: "Gustavo",
+  };
+}
+
+/** Casa a task (nome abreviado) ao cliente do Hub por tokens significativos. */
+function normTokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")    .replace(/[^a-z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4);
+}
+function tasksForClientName(name: string, tasks: DeliveryTask[]): DeliveryTask[] {
+  const a = new Set(normTokens(name));
+  return tasks.filter((t) => normTokens(t.client).some((w) => a.has(w)));
+}
+
+/** Tarefas do cliente (para a aba Tarefas e o Resumo da página interna). */
+export function getClientTasks(clientName: string): DeliveryTask[] {
+  return tasksForClientName(clientName, getDeliveryTasks());
+}
+
+export type HubSemaforo = {
+  state: "em-dia" | "atrasado" | "aguardando";
+  late: number;
+  approval: number;
+};
+export type HubResponsibles = Record<ResponsibleRole, string>;
+
+export type HubClientOps = HubClient & {
+  squadId: string;
+  squadName: string;
+  responsibles: HubResponsibles;
+  services: string[];
+  deliverables: string;
+  monthTotal: number;
+  monthDone: number;
+  monthApproval: number;
+  leNextMonth: { status: "montada" | "pendente"; date?: string };
+  nextAgenda?: string;
+  semaforo: HubSemaforo;
+};
+
+/** Precedência: atraso vence; aguardando cliente é sub-info. */
+function semaforoFrom(tasks: DeliveryTask[]): HubSemaforo {
+  const late = tasks.filter((t) => t.late).length;
+  const approval = tasks.filter((t) => t.stage === "approval").length;
+  const state = late > 0 ? "atrasado" : approval > 0 ? "aguardando" : "em-dia";
+  return { state, late, approval };
+}
+
+export function getHubClientsOps(): HubClientOps[] {
+  const tasks = getDeliveryTasks();
+  return getHubClients().map((c, idx) => {
+    const t = tasksForClientName(c.name, tasks);
+    const monthDone = t.filter((x) => x.stage === "done").length;
+    const monthApproval = t.filter((x) => x.stage === "approval").length;
+    const leMounted = idx % 3 !== 0; // mock: maioria montada
+    return {
+      ...c,
+      squadId: "sq-1",
+      squadName: "Produção",
+      responsibles: responsiblesFor(idx),
+      services: servicesForPlan(c.plan),
+      deliverables: deliverablesForPlan(c.plan),
+      monthTotal: t.length,
+      monthDone,
+      monthApproval,
+      leNextMonth: leMounted
+        ? { status: "montada", date: "até 25/07" }
+        : { status: "pendente", date: "prazo 25/07" },
+      nextAgenda: c.onboarding ? "Kickoff · esta semana" : "Alinhamento mensal · 26/06 10h",
+      semaforo: semaforoFrom(t),
+    };
+  });
+}
+
 // --- VioLaunch (onboarding) --------------------------------------------------
 const VIOLAUNCH_STEPS = [
   "Contrato assinado",
