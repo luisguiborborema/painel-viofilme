@@ -52,6 +52,16 @@ export default async function CrmPage({
   const crmTasks = await getCrmTasks();
   const taskItems = buildTaskItems(crmTasks, leads);
   const dealPickList = leads.map((l) => ({ id: l.id, name: l.name, owner: l.owner }));
+  // Badge da aba Tarefas: minhas pendentes vencendo hoje ou atrasadas.
+  const nowD = new Date(nowIso);
+  const endOfToday = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1).getTime();
+  const myDueCount = taskItems.filter(
+    (t) =>
+      t.status === "pending" &&
+      (t.owner ?? "") === currentUser &&
+      t.dueDate &&
+      new Date(t.dueDate).getTime() < endOfToday,
+  ).length;
 
   // Agenda de hoje: eventos reais do Google (fallback para mock).
   const fmtTime = (iso?: string) =>
@@ -82,6 +92,7 @@ export default async function CrmPage({
     {
       key: "tarefas",
       label: "Tarefas",
+      badge: myDueCount,
       content: (
         <CrmTasks tasks={taskItems} deals={dealPickList} currentUser={currentUser} />
       ),

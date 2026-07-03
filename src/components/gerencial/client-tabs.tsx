@@ -38,6 +38,7 @@ export type ClientTab = {
   key: string;
   label: string;
   content: React.ReactNode;
+  badge?: number;
 };
 
 export function ClientTabs({
@@ -73,6 +74,16 @@ export function ClientTabs({
             >
               <Icon className="h-4 w-4" />
               {t.label}
+              {t.badge ? (
+                <span
+                  className={cn(
+                    "ml-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[10px] font-bold",
+                    isActive ? "bg-brand-500 text-white" : "bg-brand-500/15 text-brand-600",
+                  )}
+                >
+                  {t.badge}
+                </span>
+              ) : null}
             </button>
           );
         })}

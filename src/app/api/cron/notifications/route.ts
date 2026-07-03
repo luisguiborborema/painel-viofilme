@@ -6,7 +6,7 @@ import { getCSPortfolio } from "@/lib/data/cs";
 import { getHourBank } from "@/lib/data/rh";
 import { getDeliveryTasks } from "@/lib/data/operacao";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
-import { isWhatsappConfigured } from "@/lib/whatsapp/config";
+import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import {
   buildUpdateMessage,
   isDue,
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     churn: 0,
     hourBank: 0,
     tasks: 0,
+    crmOverdue: 0,
     updatesSent: 0,
     updatesFailed: 0,
   };
@@ -125,6 +126,38 @@ export async function GET(request: NextRequest) {
       } else {
         result.updatesFailed++;
         await trigger.recurringUpdateFailed(clientName, "envio recusado pelo WhatsApp");
+      }
+    }
+  }
+
+  // 1c) Tarefas atrasadas do CRM (dados reais) — resumo diário ao time -----
+  if (isSupabaseConfigured() && hasServiceRole() && WHATSAPP_NOTIFY_NUMBERS.length) {
+    const admin = createAdminClient();
+    const now = new Date();
+    const { data: overdue } = await admin
+      .from("crm_tasks")
+      .select("title, due_date, crm_leads(name, owner)")
+      .eq("status", "pending")
+      .lt("due_date", now.toISOString())
+      .order("due_date", { ascending: true });
+
+    const items = overdue ?? [];
+    result.crmOverdue = items.length;
+    if (items.length && isWhatsappConfigured()) {
+      // Agrupa por responsável.
+      const byOwner = new Map<string, string[]>();
+      for (const t of items) {
+        const lead = t.crm_leads as { name?: string; owner?: string } | null;
+        const owner = lead?.owner || "Sem responsável";
+        const line = `• ${String(t.title)} — ${lead?.name ?? "negócio"}`;
+        byOwner.set(owner, [...(byOwner.get(owner) ?? []), line]);
+      }
+      const parts = [...byOwner.entries()].map(
+        ([owner, lines]) => `*${owner}* (${lines.length})\n${lines.slice(0, 8).join("\n")}`,
+      );
+      const message = `⏰ *Tarefas atrasadas no CRM* (${items.length})\n\n${parts.join("\n\n")}`;
+      for (const num of WHATSAPP_NOTIFY_NUMBERS) {
+        await sendWhatsappText(num, message);
       }
     }
   }
