@@ -134,21 +134,36 @@ export async function getMediaInsights(
   return out;
 }
 
-/** Insights da conta (alcance, impressões, novos seguidores) por período. */
+/**
+ * Insights da conta (alcance, impressões, novos seguidores) por período.
+ *
+ * Busca cada métrica ISOLADAMENTE de propósito: a Meta depreciou métricas de
+ * conta em ritmos diferentes por versão (ex.: `impressions` foi removida do
+ * nível de conta) e, se UMA métrica no `metric=` for inválida, a Graph API
+ * falha a requisição INTEIRA — zerando também as métricas válidas. Com uma
+ * chamada por métrica, uma depreciada não derruba as demais.
+ */
 export async function getInstagramInsights(
   igUserId: string,
   pageAccessToken: string,
   metrics = ["reach", "impressions", "profile_views"],
   period = "day",
 ) {
-  const data = await graphGet<{
-    data: { name: string; values: { value: number; end_time: string }[] }[];
-  }>(`${igUserId}/insights`, {
-    metric: metrics.join(","),
-    period,
-    access_token: pageAccessToken,
-  });
-  return data.data;
+  type Insight = { name: string; values: { value: number; end_time: string }[] };
+  const results = await Promise.allSettled(
+    metrics.map((metric) =>
+      graphGet<{ data: Insight[] }>(`${igUserId}/insights`, {
+        metric,
+        period,
+        access_token: pageAccessToken,
+      }),
+    ),
+  );
+  const out: Insight[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") out.push(...r.value.data);
+  }
+  return out;
 }
 
 // --- Meta Ads (Marketing API) ----------------------------------------------
