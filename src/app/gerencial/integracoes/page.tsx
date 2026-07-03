@@ -206,9 +206,11 @@ export default async function GerencialIntegracoes({
                 </span>
               </li>
               <li>
-                Preencha <code>NEXT_PUBLIC_META_APP_ID</code> e{" "}
-                <code>META_APP_SECRET</code> no <code>.env.local</code> e
-                reinicie o servidor.
+                Defina <code>NEXT_PUBLIC_META_APP_ID</code> e{" "}
+                <code>META_APP_SECRET</code> nas variáveis de ambiente da{" "}
+                <strong>Vercel</strong> (Production) e faça <strong>redeploy</strong>.
+                Garanta que <code>NEXT_PUBLIC_APP_URL</code> seja só o domínio base
+                (sem <code>/api/...</code>).
               </li>
             </ol>
           </CardContent>
