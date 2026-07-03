@@ -160,6 +160,28 @@ export async function getValidAccess(): Promise<GoogleAccess | null> {
   return { token: conn.access_token, calendarId, readCalendarIds };
 }
 
+/** Desconecta a conta: revoga o token no Google e apaga a conexão. */
+export async function disconnectGoogle(): Promise<boolean> {
+  if (!isSupabaseConfigured() || !hasServiceRole()) return false;
+  const conn = await readConnection();
+  // Best-effort: revoga o acesso no Google.
+  const token = conn?.refresh_token || conn?.access_token;
+  if (token) {
+    try {
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        cache: "no-store",
+      });
+    } catch {
+      /* ignora falha de revogação */
+    }
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("google_connections").delete().eq("scope", "agency");
+  return !error;
+}
+
 /** Status da conexão para as telas de Integrações/Agenda. */
 export async function getGoogleStatus(): Promise<GoogleStatus> {
   if (!isGoogleConfigured()) return { connected: false };

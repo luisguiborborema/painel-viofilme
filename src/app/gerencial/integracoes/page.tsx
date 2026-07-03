@@ -23,6 +23,7 @@ import {
 } from "@/lib/google/config";
 import { getGoogleStatus } from "@/lib/google/client";
 import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
+import { GoogleDisconnectButton } from "@/components/gerencial/google-disconnect-button";
 
 const GERROS: Record<string, string> = {
   config: "Google ainda não configurado (defina GOOGLE_CLIENT_ID/SECRET).",
@@ -108,11 +109,14 @@ export default async function GerencialIntegracoes({
               <Badge variant="muted">Não conectada</Badge>
             )}
             {googleConfigured ? (
-              <Link href="/api/google/connect">
-                <Button variant={google.connected ? "outline" : "primary"} size="sm">
-                  {google.connected ? "Reconectar" : "Conectar Google"}
-                </Button>
-              </Link>
+              <>
+                <Link href="/api/google/connect">
+                  <Button variant={google.connected ? "outline" : "primary"} size="sm">
+                    {google.connected ? "Reconectar" : "Conectar Google"}
+                  </Button>
+                </Link>
+                {google.connected && <GoogleDisconnectButton />}
+              </>
             ) : (
               <span className="text-xs text-muted">Configuração pendente</span>
             )}
