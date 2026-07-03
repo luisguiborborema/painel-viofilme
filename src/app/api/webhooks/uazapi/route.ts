@@ -12,12 +12,16 @@ export const dynamic = "force-dynamic";
  * Configure no painel Uazapi apontando para:
  *   https://painel-viofilme.vercel.app/api/webhooks/uazapi?secret=SEU_SEGREDO
  *
- * Cada mensagem recebida é anexada à timeline do lead correspondente (casado
- * pelo telefone). Idempotência via índice único (channel, external_id).
- * O formato do payload do Uazapi varia por versão, então a extração é tolerante.
+ * Toda chamada é registrada em wa_webhook_log (diagnóstico). Cada mensagem
+ * recebida vira/atualiza uma conversa no inbox (wa_conversations/wa_messages) e,
+ * quando casa por telefone, também entra na timeline do lead. O formato do
+ * payload do Uazapi varia por versão, então a extração é bem tolerante.
  */
 
-function firstString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null;
+
+function pickString(obj: Obj, keys: string[]): string | undefined {
   for (const k of keys) {
     const v = obj[k];
     if (typeof v === "string" && v.trim()) return v;
@@ -29,56 +33,127 @@ function firstString(obj: Record<string, unknown>, keys: string[]): string | und
 /** Extrai só os dígitos do telefone a partir de "5527...@s.whatsapp.net" etc. */
 function digits(raw?: string): string {
   if (!raw) return "";
-  return raw.split("@")[0].replace(/\D/g, "");
+  return raw.split("@")[0].split(":")[0].replace(/\D/g, "");
+}
+
+/** Texto da mensagem, cobrindo formatos Baileys/Uazapi aninhados. */
+function extractText(msg: Obj): string | undefined {
+  const direct = pickString(msg, ["text", "content", "body", "caption", "message"]);
+  if (direct) return direct;
+  const m = msg.message;
+  if (isObj(m)) {
+    const nested = pickString(m, ["conversation", "text", "caption"]);
+    if (nested) return nested;
+    const ext = m.extendedTextMessage;
+    if (isObj(ext) && typeof ext.text === "string") return ext.text;
+    for (const key of ["imageMessage", "videoMessage", "documentMessage"]) {
+      const mm = m[key];
+      if (isObj(mm) && typeof mm.caption === "string" && mm.caption.trim())
+        return mm.caption;
+    }
+  }
+  return undefined;
+}
+
+function extractPhone(msg: Obj): string {
+  let raw = pickString(msg, ["sender", "chatid", "chatId", "from", "phone", "number", "jid"]);
+  if (!raw && isObj(msg.key)) raw = pickString(msg.key, ["remoteJid", "participant"]);
+  return digits(raw);
+}
+
+function isFromMe(msg: Obj): boolean {
+  if (msg.fromMe === true || msg.fromMe === "true") return true;
+  if (isObj(msg.key) && (msg.key.fromMe === true || msg.key.fromMe === "true")) return true;
+  return false;
+}
+
+function isGroup(msg: Obj): boolean {
+  const jid =
+    pickString(msg, ["chatid", "chatId", "remoteJid", "from"]) ??
+    (isObj(msg.key) ? pickString(msg.key, ["remoteJid"]) : undefined) ??
+    "";
+  return jid.includes("@g.us") || msg.isGroup === true;
+}
+
+/** Localiza o(s) objeto(s) de mensagem dentro do envelope do webhook. */
+function findMessages(payload: unknown): Obj[] {
+  if (Array.isArray(payload)) return payload.flatMap(findMessages);
+  if (!isObj(payload)) return [];
+  if (isObj(payload.message)) return [payload.message];
+  if (Array.isArray(payload.messages)) return payload.messages.filter(isObj) as Obj[];
+  if (isObj(payload.data)) {
+    if (isObj(payload.data.message)) return [payload.data.message];
+    if (Array.isArray(payload.data.messages))
+      return payload.data.messages.filter(isObj) as Obj[];
+    return [payload.data];
+  }
+  // Talvez a própria raiz seja a mensagem.
+  if ("text" in payload || "body" in payload || "key" in payload || "content" in payload)
+    return [payload];
+  return [];
+}
+
+async function log(raw: unknown, note: string) {
+  if (!isSupabaseConfigured() || !hasServiceRole()) return;
+  try {
+    await createAdminClient().from("wa_webhook_log").insert({ raw: raw as object, note });
+  } catch {
+    /* diagnóstico não deve derrubar o webhook */
+  }
 }
 
 export async function POST(req: NextRequest) {
-  // Validação opcional de segredo por query string.
+  const raw = await req.text();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    await log({ raw }, "json-invalido");
+    return NextResponse.json({ ok: true, ignored: "no-json" });
+  }
+
+  // Secret opcional por query string (registra tentativa inválida).
   if (UAZAPI_WEBHOOK_SECRET) {
     const secret = req.nextUrl.searchParams.get("secret");
     if (secret !== UAZAPI_WEBHOOK_SECRET) {
+      await log(payload, "secret-invalido");
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ ok: true, ignored: "no-json" });
+  const messages = findMessages(payload);
+  if (messages.length === 0) {
+    await log(payload, "sem-mensagem");
+    return NextResponse.json({ ok: true, ignored: "no-message" });
   }
 
-  // A mensagem pode vir em `message`, `data` ou na raiz.
-  const msg =
-    (payload.message as Record<string, unknown>) ??
-    (payload.data as Record<string, unknown>) ??
-    payload;
-
-  // Só processa mensagens recebidas (ignora as enviadas por nós e eventos de status).
-  const fromMe = msg.fromMe === true || msg.fromMe === "true";
-  if (fromMe) return NextResponse.json({ ok: true, ignored: "fromMe" });
-
-  const text = firstString(msg, ["text", "content", "body", "caption", "message"]);
-  const phone = digits(
-    firstString(msg, ["sender", "chatid", "chatId", "from", "phone", "number"]),
-  );
-  const externalId = firstString(msg, ["id", "messageid", "messageId", "key"]);
-  const senderName = firstString(msg, ["senderName", "pushName", "notifyName", "name"]);
-
-  if (!text || !phone) {
-    return NextResponse.json({ ok: true, ignored: "incomplete" });
+  const results: string[] = [];
+  for (const msg of messages) {
+    results.push(await handleMessage(msg));
   }
+  await log(payload, `processado: ${results.join(",")}`);
+  return NextResponse.json({ ok: true, results });
+}
 
-  if (!isSupabaseConfigured() || !hasServiceRole()) {
-    // Sem banco/serviço: só confirma o recebimento (modo demo).
-    return NextResponse.json({ ok: true, persisted: false });
-  }
+async function handleMessage(msg: Obj): Promise<string> {
+  if (isFromMe(msg)) return "fromMe";
+  if (isGroup(msg)) return "grupo";
+
+  const text = extractText(msg);
+  const phone = extractPhone(msg);
+  const externalId = pickString(msg, ["id", "messageid", "messageId"]) ??
+    (isObj(msg.key) ? pickString(msg.key, ["id"]) : undefined);
+  const senderName = pickString(msg, [
+    "senderName", "pushName", "notifyName", "sender_pushName", "name",
+  ]);
+
+  if (!text || !phone) return "incompleto";
+  if (!isSupabaseConfigured() || !hasServiceRole()) return "sem-banco";
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
   const tail = phone.slice(-8);
 
-  // 1) Casa (opcionalmente) um lead do CRM pelo telefone.
   const { data: leads } = await admin
     .from("crm_leads")
     .select("id,contact_phone")
@@ -88,7 +163,6 @@ export async function POST(req: NextRequest) {
     String(l.contact_phone ?? "").endsWith(tail),
   );
 
-  // 2) Inbox: upsert da conversa (todo contato vira conversa) + mensagem.
   const { data: existing } = await admin
     .from("wa_conversations")
     .select("id,unread_count")
@@ -128,21 +202,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (conversationId) {
-    const { error: msgErr } = await admin.from("wa_messages").insert({
+    await admin.from("wa_messages").insert({
       conversation_id: conversationId,
       direction: "in",
       type: "text",
       body: text,
       external_id: externalId ?? null,
     });
-    if (msgErr && !String(msgErr.message).includes("duplicate")) {
-      return NextResponse.json({ error: msgErr.message }, { status: 500 });
-    }
   }
 
-  // 3) Se houver lead, também registra na timeline dele (idempotente).
   if (lead) {
-    const { error } = await admin.from("crm_interactions").insert({
+    await admin.from("crm_interactions").insert({
       lead_id: lead.id,
       channel: "whatsapp",
       direction: "in",
@@ -150,19 +220,8 @@ export async function POST(req: NextRequest) {
       external_id: externalId ?? null,
       meta: { phone },
     });
-    if (error && !String(error.message).includes("duplicate")) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    await admin
-      .from("crm_leads")
-      .update({ last_interaction_at: now })
-      .eq("id", lead.id);
+    await admin.from("crm_leads").update({ last_interaction_at: now }).eq("id", lead.id);
   }
 
-  return NextResponse.json({
-    ok: true,
-    persisted: true,
-    conversationId,
-    leadId: lead?.id ?? null,
-  });
+  return lead ? "ok+lead" : "ok";
 }
