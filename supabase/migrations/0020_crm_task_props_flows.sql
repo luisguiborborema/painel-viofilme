@@ -45,20 +45,20 @@ cross join (values
 ) as v(position, title, due_days)
 where not exists (select 1 from public.crm_task_flow_steps);
 
--- RLS + grants
+-- RLS + grants (estático — evita o deadlock que o bloco do $$ causava com o
+-- reload de schema do PostgREST; rode um comando por vez se ainda travar).
 alter table public.crm_task_flows      enable row level security;
 alter table public.crm_task_flow_steps enable row level security;
 
-do $$
-declare t text;
-begin
-  foreach t in array array['crm_task_flows','crm_task_flow_steps'] loop
-    execute format('drop policy if exists "gerencial gerencia %1$s" on public.%1$s', t);
-    execute format($f$
-      create policy "gerencial gerencia %1$s" on public.%1$s
-        for all using (public.app_role() = 'gerencial')
-        with check (public.app_role() = 'gerencial')
-    $f$, t);
-    execute format('grant all on public.%1$s to anon, authenticated, service_role', t);
-  end loop;
-end $$;
+drop policy if exists "gerencial gerencia crm_task_flows" on public.crm_task_flows;
+create policy "gerencial gerencia crm_task_flows" on public.crm_task_flows
+  for all using (public.app_role() = 'gerencial')
+  with check (public.app_role() = 'gerencial');
+
+drop policy if exists "gerencial gerencia crm_task_flow_steps" on public.crm_task_flow_steps;
+create policy "gerencial gerencia crm_task_flow_steps" on public.crm_task_flow_steps
+  for all using (public.app_role() = 'gerencial')
+  with check (public.app_role() = 'gerencial');
+
+grant all on public.crm_task_flows      to anon, authenticated, service_role;
+grant all on public.crm_task_flow_steps to anon, authenticated, service_role;
