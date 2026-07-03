@@ -5,6 +5,25 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// CORS: captura pode ser chamada de qualquer site (só cria lead; protegido por
+// slug válido + honeypot). Restrinja definindo CAPTURE_ALLOWED_ORIGIN (ex.:
+// "https://seusite.com.br") se quiser travar a origem.
+const CORS = {
+  "Access-Control-Allow-Origin": process.env.CAPTURE_ALLOWED_ORIGIN || "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+function json(data: unknown, init?: { status?: number }) {
+  return NextResponse.json(data, { status: init?.status ?? 200, headers: CORS });
+}
+
+/** Preflight CORS. */
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
+
 type Body = {
   slug?: string;
   name?: string;
@@ -22,21 +41,30 @@ type Body = {
  */
 export async function POST(req: Request) {
   let b: Body;
+  const ct = req.headers.get("content-type") ?? "";
   try {
-    b = await req.json();
+    if (ct.includes("application/json")) {
+      b = await req.json();
+    } else {
+      // form-urlencoded ou multipart (formulário HTML puro).
+      const form = await req.formData();
+      b = Object.fromEntries(
+        [...form.entries()].map(([k, v]) => [k, String(v)]),
+      ) as Body;
+    }
   } catch {
-    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    return json({ error: "corpo inválido" }, { status: 400 });
   }
 
   // Honeypot: bots preenchem campos ocultos → finge sucesso e ignora.
-  if (b.website && b.website.trim()) return NextResponse.json({ ok: true });
+  if (b.website && b.website.trim()) return json({ ok: true });
 
   if (!b.slug || !b.name?.trim()) {
-    return NextResponse.json({ error: "dados obrigatórios ausentes" }, { status: 400 });
+    return json({ error: "dados obrigatórios ausentes" }, { status: 400 });
   }
   if (!isSupabaseConfigured() || !hasServiceRole()) {
     // Sem backend: aceita (demo) sem persistir.
-    return NextResponse.json({ ok: true, persisted: false });
+    return json({ ok: true, persisted: false });
   }
 
   const admin = createAdminClient();
@@ -47,7 +75,7 @@ export async function POST(req: Request) {
     .eq("slug", b.slug)
     .maybeSingle();
   if (!form || !form.active) {
-    return NextResponse.json({ error: "formulário indisponível" }, { status: 404 });
+    return json({ error: "formulário indisponível" }, { status: 404 });
   }
 
   const owner = (form.owner as string | null) ?? null;
@@ -74,7 +102,7 @@ export async function POST(req: Request) {
       })
       .select("id")
       .single();
-    if (error) return NextResponse.json({ error: "falha ao criar" }, { status: 500 });
+    if (error) return json({ error: "falha ao criar" }, { status: 500 });
     companyId = co.id as string;
   }
 
@@ -118,7 +146,7 @@ export async function POST(req: Request) {
     })
     .select("id")
     .single();
-  if (dErr) return NextResponse.json({ error: "falha ao criar" }, { status: 500 });
+  if (dErr) return json({ error: "falha ao criar" }, { status: 500 });
 
   if (contactId) {
     await admin
@@ -134,5 +162,5 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, persisted: true });
+  return json({ ok: true, persisted: true });
 }
