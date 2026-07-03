@@ -20,7 +20,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { Building2, Star, Users } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
@@ -39,6 +39,7 @@ import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
 import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
+import { DealContacts } from "./deal-contacts";
 
 type Composer = "note" | "whatsapp" | "email" | "call";
 
@@ -66,6 +67,7 @@ export function LeadDetail({
   tasks: initialTasks,
   company = null,
   companyContacts = [],
+  dealContacts = [],
   tags = [],
   properties = [],
 }: {
@@ -74,6 +76,7 @@ export function LeadDetail({
   tasks: CrmTask[];
   company?: Company | null;
   companyContacts?: Contact[];
+  dealContacts?: Contact[];
   tags?: Tag[];
   properties?: PropertyDef[];
 }) {
@@ -241,30 +244,12 @@ export function LeadDetail({
             </div>
           )}
 
-          {companyContacts.length > 0 && (
-            <div className="rounded-2xl border border-line bg-surface p-4">
-              <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-ink">
-                <Users className="h-4 w-4" /> Contatos ({companyContacts.length})
-              </h2>
-              <div className="space-y-1.5">
-                {companyContacts.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 rounded-lg bg-canvas px-2.5 py-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium text-ink">{c.name}</p>
-                        {(c.isPrimary || c.id === lead.primaryContactId) && (
-                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        )}
-                      </div>
-                      <p className="truncate text-[11px] text-muted">
-                        {c.title ?? c.phone ?? c.email ?? "—"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <DealContacts
+            dealId={lead.id}
+            initial={dealContacts}
+            candidates={companyContacts}
+            primaryContactId={lead.primaryContactId}
+          />
 
           <TagPicker
             objectType="deal"

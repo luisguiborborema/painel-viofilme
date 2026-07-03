@@ -598,3 +598,29 @@ export function resolveTags(ids: string[] | undefined, all: Tag[]): Tag[] {
   if (!ids?.length) return [];
   return ids.map((id) => all.find((t) => t.id === id)).filter((t): t is Tag => Boolean(t));
 }
+
+export type ContactDetail = {
+  contact: Contact;
+  company: Company | null;
+  deals: CrmLead[];
+};
+
+/** Contato + empresa + negócios associados (primário OU via deal_contacts). */
+export function buildContactDetail(
+  contactId: string,
+  contacts: Contact[],
+  companies: Company[],
+  deals: CrmLead[],
+  dealContacts: DealContact[],
+): ContactDetail | null {
+  const contact = contacts.find((c) => c.id === contactId);
+  if (!contact) return null;
+  const dealIds = new Set<string>();
+  for (const dc of dealContacts) if (dc.contactId === contactId) dealIds.add(dc.dealId);
+  for (const d of deals) if (d.primaryContactId === contactId) dealIds.add(d.id);
+  return {
+    contact,
+    company: companies.find((c) => c.id === contact.companyId) ?? null,
+    deals: deals.filter((d) => dealIds.has(d.id)),
+  };
+}

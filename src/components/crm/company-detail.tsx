@@ -1,14 +1,5 @@
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Briefcase,
-  Globe,
-  Mail,
-  MapPin,
-  Phone,
-  Star,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, Briefcase, Mail, Phone, Star, Users } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import {
   CRM_STAGES,
@@ -21,6 +12,7 @@ import {
 } from "@/lib/data/crm";
 import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
+import { EditableFields } from "./editable-fields";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -126,7 +118,11 @@ export function CompanyDetail({
             </div>
             <div className="divide-y divide-line">
               {contacts.map((c) => (
-                <div key={c.id} className="flex items-center gap-3 px-4 py-3">
+                <Link
+                  key={c.id}
+                  href={`/gerencial/crm/contato/${c.id}`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-subtle"
+                >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-600">
                     {initials(c.name)}
                   </span>
@@ -151,7 +147,7 @@ export function CompanyDetail({
                       </span>
                     )}
                   </div>
-                </div>
+                </Link>
               ))}
               {contacts.length === 0 && (
                 <p className="px-4 py-8 text-center text-sm text-muted">
@@ -171,29 +167,31 @@ export function CompanyDetail({
             initialIds={company.tags}
           />
 
-          <section className="rounded-2xl border border-line bg-surface p-4">
-            <h2 className="mb-2 text-sm font-semibold text-ink">Dados da empresa</h2>
-            <div className="space-y-1.5 text-sm">
-              {company.website && (
-                <InfoRow icon={<Globe className="h-3.5 w-3.5" />} value={company.website} />
-              )}
-              {company.phone && (
-                <InfoRow icon={<Phone className="h-3.5 w-3.5" />} value={company.phone} />
-              )}
-              {company.email && (
-                <InfoRow icon={<Mail className="h-3.5 w-3.5" />} value={company.email} />
-              )}
-              {company.city && (
-                <InfoRow icon={<MapPin className="h-3.5 w-3.5" />} value={company.city} />
-              )}
-              {company.size && (
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-muted">Porte</span>
-                  <span className="text-ink">{company.size}</span>
-                </div>
-              )}
-            </div>
-          </section>
+          <EditableFields
+            objectType="company"
+            id={company.id}
+            title="Dados da empresa"
+            initial={{
+              name: company.name,
+              segment: company.segment ?? "",
+              website: company.website ?? "",
+              phone: company.phone ?? "",
+              email: company.email ?? "",
+              city: company.city ?? "",
+              size: company.size ?? "",
+              owner: company.owner ?? "",
+            }}
+            fields={[
+              { key: "name", label: "Nome" },
+              { key: "segment", label: "Segmento" },
+              { key: "website", label: "Website", type: "url" },
+              { key: "phone", label: "Telefone", type: "tel" },
+              { key: "email", label: "E-mail", type: "email" },
+              { key: "city", label: "Cidade" },
+              { key: "size", label: "Porte", placeholder: "1-10, 11-50…" },
+              { key: "owner", label: "Responsável" },
+            ]}
+          />
 
           <ObjectProperties
             objectType="company"
@@ -203,15 +201,6 @@ export function CompanyDetail({
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-function InfoRow({ icon, value }: { icon: React.ReactNode; value: string }) {
-  return (
-    <div className="flex items-center gap-2 py-1 text-ink">
-      <span className="text-muted">{icon}</span>
-      <span className="truncate">{value}</span>
     </div>
   );
 }

@@ -1360,6 +1360,7 @@ import {
   CRM_REFERENCE_ISO,
   computeDashboard,
   buildCompanyDetail,
+  buildContactDetail,
   type CrmLead,
   type CrmTask,
   type CrmInteraction,
@@ -1371,6 +1372,7 @@ import {
   type Tag,
   type PropertyDef,
   type CompanyDetail,
+  type ContactDetail,
 } from "./crm";
 
 /** "Agora" do CRM: tempo real com Supabase; data de referência no modo demo. */
@@ -1460,6 +1462,16 @@ export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
     getCrmLeads(),
   ]);
   return buildCompanyDetail(id, companies, contacts, deals);
+}
+
+export async function getCrmContact(id: string): Promise<ContactDetail | null> {
+  const [contacts, companies, deals, dealContacts] = await Promise.all([
+    getCrmContacts(),
+    getCrmCompanies(),
+    getCrmLeads(),
+    getCrmDealContacts(),
+  ]);
+  return buildContactDetail(id, contacts, companies, deals, dealContacts);
 }
 
 // ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────

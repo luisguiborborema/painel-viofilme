@@ -12,6 +12,13 @@ const TABLE: Record<string, string> = {
   deal: "crm_leads",
 };
 
+// Colunas nativas editáveis por objeto (evita escrever colunas arbitrárias).
+const ALLOWED_FIELDS: Record<string, Set<string>> = {
+  company: new Set(["name", "segment", "website", "phone", "email", "city", "size", "owner"]),
+  contact: new Set(["name", "title", "phone", "email", "owner", "company_id", "is_primary"]),
+  deal: new Set(["name", "monthly_value", "media_budget", "plan", "source", "owner", "probability", "segment"]),
+};
+
 type Body = {
   objectType?: "company" | "contact" | "deal";
   id?: string;
@@ -61,7 +68,10 @@ export async function POST(req: Request) {
   }
   if (Array.isArray(body.tags)) patch.tags = body.tags;
   if (body.fields && typeof body.fields === "object") {
-    for (const [k, v] of Object.entries(body.fields)) patch[k] = v;
+    const allowed = ALLOWED_FIELDS[body.objectType ?? ""] ?? new Set<string>();
+    for (const [k, v] of Object.entries(body.fields)) {
+      if (allowed.has(k)) patch[k] = v === "" ? null : v;
+    }
   }
 
   const { error } = await supabase.from(table).update(patch).eq("id", body.id);

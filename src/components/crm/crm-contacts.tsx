@@ -58,9 +58,7 @@ export function CrmContacts({
         {rows.map((c) => (
           <button
             key={c.id}
-            onClick={() =>
-              c.companyId && router.push(`/gerencial/crm/empresa/${c.companyId}`)
-            }
+            onClick={() => router.push(`/gerencial/crm/contato/${c.id}`)}
             className="flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-subtle"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-600">

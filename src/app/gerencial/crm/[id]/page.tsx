@@ -3,6 +3,8 @@ import { LeadDetail } from "@/components/crm/lead-detail";
 import {
   getCrmLead,
   getCrmCompany,
+  getCrmContacts,
+  getCrmDealContacts,
   getCrmTags,
   getCrmProperties,
 } from "@/lib/data/queries";
@@ -15,20 +17,30 @@ export default async function LeadPage({
   const { id } = await params;
   const data = await getCrmLead(id);
   if (!data) notFound();
+  const lead = data.lead;
 
-  const [detail, tags, properties] = await Promise.all([
-    data.lead.companyId ? getCrmCompany(data.lead.companyId) : Promise.resolve(null),
+  const [detail, allContacts, dealContactRels, tags, properties] = await Promise.all([
+    lead.companyId ? getCrmCompany(lead.companyId) : Promise.resolve(null),
+    getCrmContacts(),
+    getCrmDealContacts(),
     getCrmTags(),
     getCrmProperties(),
   ]);
 
+  // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
+  const assocIds = new Set<string>();
+  for (const dc of dealContactRels) if (dc.dealId === lead.id) assocIds.add(dc.contactId);
+  if (lead.primaryContactId) assocIds.add(lead.primaryContactId);
+  const dealContacts = allContacts.filter((c) => assocIds.has(c.id));
+
   return (
     <LeadDetail
-      lead={data.lead}
+      lead={lead}
       interactions={data.interactions}
       tasks={data.tasks}
       company={detail?.company ?? null}
       companyContacts={detail?.contacts ?? []}
+      dealContacts={dealContacts}
       tags={tags}
       properties={properties}
     />
