@@ -2,14 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Loader2, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
+import {
+  AUTOMATION_TYPES,
   NATIVE_DEAL_FIELDS,
   REQUIREMENT_OPS,
   type Pipeline,
   type PropertyDef,
   type RequirementOp,
   type Stage,
+  type StageAutomation,
   type StageRequirement,
 } from "@/lib/data/crm";
 
@@ -145,7 +156,9 @@ function StageRow({
   const [prob, setProb] = useState(stage.probability);
   const [kind, setKind] = useState<Stage["kind"]>(stage.kind);
   const [reqs, setReqs] = useState<StageRequirement[]>(stage.requirements ?? []);
+  const [autos, setAutos] = useState<StageAutomation[]>(stage.automations ?? []);
   const [showRules, setShowRules] = useState(false);
+  const [showAutos, setShowAutos] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const dirty =
@@ -153,7 +166,8 @@ function StageRow({
     color !== stage.color ||
     prob !== stage.probability ||
     kind !== stage.kind ||
-    JSON.stringify(reqs) !== JSON.stringify(stage.requirements ?? []);
+    JSON.stringify(reqs) !== JSON.stringify(stage.requirements ?? []) ||
+    JSON.stringify(autos) !== JSON.stringify(stage.automations ?? []);
 
   function addReq() {
     const first = fieldOptions[0];
@@ -173,6 +187,25 @@ function StageRow({
     setReqs((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  function addAuto(type: StageAutomation["type"]) {
+    const a: StageAutomation =
+      type === "task"
+        ? { type: "task", title: "Follow-up", dueDays: 1 }
+        : type === "whatsapp"
+          ? { type: "whatsapp", message: "" }
+          : { type: "notify", message: "" };
+    setAutos((prev) => [...prev, a]);
+    setShowAutos(true);
+  }
+
+  function updateAuto(i: number, patch: Partial<StageAutomation>) {
+    setAutos((prev) => prev.map((a, idx) => (idx === i ? ({ ...a, ...patch } as StageAutomation) : a)));
+  }
+
+  function removeAuto(i: number) {
+    setAutos((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   async function save() {
     setSaving(true);
     await post({
@@ -183,6 +216,7 @@ function StageRow({
       probability: prob,
       kind,
       requirements: reqs,
+      automations: autos,
     });
     setSaving(false);
     onSaved();
@@ -274,6 +308,20 @@ function StageRow({
       </button>
 
       <button
+        onClick={() => setShowAutos((s) => !s)}
+        className={
+          "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium " +
+          (autos.length
+            ? "border-amber-400/50 bg-amber-500/10 text-amber-600"
+            : "border-line text-muted hover:bg-subtle")
+        }
+        title="Automações ao entrar neste estágio"
+      >
+        <Zap className="h-3.5 w-3.5" />
+        {autos.length || "Automações"}
+      </button>
+
+      <button
         onClick={onDelete}
         disabled={busy}
         className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
@@ -346,6 +394,74 @@ function StageRow({
             Sem requisitos — qualquer negócio pode entrar neste estágio.
           </p>
         )}
+      </div>
+    )}
+
+    {showAutos && (
+      <div className="mt-3 space-y-2 border-t border-line pt-3">
+        <p className="text-[11px] text-muted">
+          Ao um negócio <strong>entrar</strong> em “{stage.label}”, executar:
+        </p>
+        {autos.map((a, i) => (
+          <div key={i} className="rounded-lg border border-line bg-canvas p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+                <Zap className="h-3.5 w-3.5 text-amber-500" />
+                {AUTOMATION_TYPES.find((t) => t.key === a.type)?.label}
+              </span>
+              <button
+                onClick={() => removeAuto(i)}
+                className="rounded-lg p-1 text-muted hover:bg-rose-500/10 hover:text-rose-500"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {a.type === "task" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  value={a.title}
+                  onChange={(e) => updateAuto(i, { title: e.target.value })}
+                  placeholder="Título da tarefa"
+                  className="min-w-[180px] flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                />
+                <label className="flex items-center gap-1 text-[11px] text-muted">
+                  vence em
+                  <input
+                    type="number"
+                    min={0}
+                    value={a.dueDays ?? 1}
+                    onChange={(e) => updateAuto(i, { dueDays: Number(e.target.value) })}
+                    className="w-14 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                  dias
+                </label>
+              </div>
+            ) : (
+              <textarea
+                value={a.message}
+                onChange={(e) => updateAuto(i, { message: e.target.value })}
+                rows={2}
+                placeholder={
+                  a.type === "whatsapp"
+                    ? "Mensagem enviada ao contato do negócio…"
+                    : "Aviso enviado ao time…"
+                }
+                className="mt-2 w-full resize-none rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+              />
+            )}
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {AUTOMATION_TYPES.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => addAuto(t.key)}
+              className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle"
+            >
+              <Plus className="h-3.5 w-3.5" /> {t.label}
+            </button>
+          ))}
+        </div>
       </div>
     )}
     </div>

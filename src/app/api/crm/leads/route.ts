@@ -2,7 +2,76 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { requirementMet, type StageRequirement } from "@/lib/data/crm";
+import {
+  requirementMet,
+  type StageAutomation,
+  type StageRequirement,
+} from "@/lib/data/crm";
+import { sendWhatsappText } from "@/lib/whatsapp/send";
+import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
+
+type SB = Awaited<ReturnType<typeof createClient>>;
+
+/** Executa as automações do estágio destino após a mudança (best-effort). */
+async function runStageAutomations(
+  supabase: SB,
+  dealId: string,
+  automations: StageAutomation[],
+  authorName: string,
+) {
+  if (!automations?.length) return;
+  const now = new Date();
+
+  // Dados do negócio para preencher as ações (contato/nome).
+  const { data: deal } = await supabase
+    .from("crm_leads")
+    .select("name, primary_contact_id, contact_phone, owner")
+    .eq("id", dealId)
+    .maybeSingle();
+  let contactPhone: string | null = (deal?.contact_phone as string | null) ?? null;
+  if (deal?.primary_contact_id) {
+    const { data: ct } = await supabase
+      .from("crm_contacts")
+      .select("phone")
+      .eq("id", deal.primary_contact_id)
+      .maybeSingle();
+    if (ct?.phone) contactPhone = String(ct.phone);
+  }
+
+  for (const a of automations) {
+    try {
+      if (a.type === "task") {
+        const due = new Date(now.getTime() + (a.dueDays ?? 1) * 86_400_000);
+        await supabase.from("crm_tasks").insert({
+          lead_id: dealId,
+          title: a.title || "Follow-up",
+          due_date: due.toISOString(),
+          status: "pending",
+        });
+      } else if (a.type === "whatsapp") {
+        if (contactPhone) await sendWhatsappText(contactPhone, a.message);
+        await supabase.from("crm_interactions").insert({
+          lead_id: dealId,
+          channel: "whatsapp",
+          direction: "out",
+          author: authorName,
+          body: a.message,
+        });
+      } else if (a.type === "notify") {
+        for (const num of WHATSAPP_NOTIFY_NUMBERS) {
+          await sendWhatsappText(num, `🔔 ${deal?.name ?? "Negócio"}: ${a.message}`);
+        }
+        await supabase.from("crm_interactions").insert({
+          lead_id: dealId,
+          channel: "system",
+          body: `🔔 ${a.message}`,
+        });
+      }
+    } catch {
+      /* best-effort: uma automação que falha não bloqueia as demais */
+    }
+  }
+}
 
 /** Valor de um campo/propriedade a partir da linha crua de crm_leads. */
 function rowValue(row: Record<string, unknown>, req: StageRequirement): unknown {
@@ -71,13 +140,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "id/stage ausente" }, { status: 400 });
     }
 
-    // Regras de movimentação: valida os requisitos do estágio destino.
+    // Regras + automações do estágio destino.
+    let stageAutomations: StageAutomation[] = [];
     if (body.stageId) {
       const { data: stage } = await supabase
         .from("crm_stages")
-        .select("requirements")
+        .select("requirements, automations")
         .eq("id", body.stageId)
         .maybeSingle();
+      stageAutomations = (stage?.automations as StageAutomation[] | null) ?? [];
       const reqs = (stage?.requirements as StageRequirement[] | null) ?? [];
       if (reqs.length) {
         const { data: dealRow } = await supabase
@@ -112,6 +183,10 @@ export async function POST(req: Request) {
     }
     const { error } = await supabase.from("crm_leads").update(patch).eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Automações do estágio (best-effort, não bloqueiam a resposta em caso de erro).
+    await runStageAutomations(supabase, body.id, stageAutomations, user.name);
+
     return NextResponse.json({ ok: true, persisted: true });
   }
 

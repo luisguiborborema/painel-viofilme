@@ -1074,7 +1074,7 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
       .order("position", { ascending: true }),
     supabase
       .from("crm_stages")
-      .select("id,pipeline_id,key,label,color,probability,position,kind,requirements")
+      .select("id,pipeline_id,key,label,color,probability,position,kind,requirements,automations")
       .order("position", { ascending: true }),
   ]);
   return (pipes ?? []).map((p) => ({
@@ -1094,6 +1094,7 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
           position: Number(s.position ?? 0),
           kind: (s.kind as Stage["kind"]) ?? "open",
           requirements: (s.requirements as Stage["requirements"] | null) ?? [],
+          automations: (s.automations as Stage["automations"] | null) ?? [],
         }),
       ),
   }));

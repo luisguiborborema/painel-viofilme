@@ -150,6 +150,18 @@ export type StageRequirement = {
   value?: string; // usado por equals/gt
 };
 
+/** Ação disparada quando um negócio entra no estágio. */
+export type StageAutomation =
+  | { type: "task"; title: string; dueDays?: number }
+  | { type: "whatsapp"; message: string }
+  | { type: "notify"; message: string };
+
+export const AUTOMATION_TYPES: { key: StageAutomation["type"]; label: string }[] = [
+  { key: "task", label: "Criar tarefa de follow-up" },
+  { key: "whatsapp", label: "Enviar WhatsApp ao contato" },
+  { key: "notify", label: "Notificar o time" },
+];
+
 export type Stage = {
   id: string;
   key: string;
@@ -159,6 +171,7 @@ export type Stage = {
   position: number;
   kind: "open" | "won" | "lost";
   requirements: StageRequirement[];
+  automations: StageAutomation[];
 };
 
 /** Campos nativos do negócio disponíveis como requisito. */
@@ -277,6 +290,7 @@ export const DEFAULT_PIPELINE: Pipeline = {
     position: i + 1,
     kind: s.kind,
     requirements: [],
+    automations: [],
   })),
 };
 

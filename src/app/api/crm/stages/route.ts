@@ -25,6 +25,7 @@ type Body = {
   probability?: number;
   kind?: string;
   requirements?: Requirement[];
+  automations?: unknown[];
   orders?: { id: string; position: number }[];
 };
 
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
     if (body.probability != null) patch.probability = body.probability;
     if (body.kind != null && KINDS.includes(body.kind)) patch.kind = body.kind;
     if (Array.isArray(body.requirements)) patch.requirements = body.requirements;
+    if (Array.isArray(body.automations)) patch.automations = body.automations;
     const { error } = await supabase.from("crm_stages").update(patch).eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
