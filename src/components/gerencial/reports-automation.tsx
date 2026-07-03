@@ -7,7 +7,7 @@ import {
   Pause,
   Play,
   Plus,
-  Send,
+
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -54,91 +54,12 @@ export function ReportsAutomation({ clients }: { clients: ClientOpt[] }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <div className="space-y-4">
-        <ManualSend clients={clients} onSent={reload} />
-        <NewUpdate clients={clients} onCreated={reload} />
-      </div>
+      <NewUpdate clients={clients} onCreated={reload} />
       <div className="space-y-4">
         <UpdatesList updates={updates} loading={loading} onChange={reload} />
         <SendsHistory sends={sends} />
       </div>
     </div>
-  );
-}
-
-// ── REL05 — envio manual ─────────────────────────────────────────────────────
-
-function ManualSend({ clients, onSent }: { clients: ClientOpt[]; onSent: () => void }) {
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
-  const [period, setPeriod] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
-
-  async function send() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/reports/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, period }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "falha");
-      setOk(true);
-      setMsg(
-        json.sent
-          ? json.mode === "pdf"
-            ? "Relatório (PDF) enviado por WhatsApp."
-            : "Aviso enviado (PDF indisponível — enviado como texto)."
-          : "Registrado (WhatsApp não configurado).",
-      );
-      onSent();
-    } catch (e) {
-      setOk(false);
-      setMsg(e instanceof Error ? e.message : "erro");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card className="p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <Send className="h-[18px] w-[18px] text-brand-600" />
-        <h2 className="text-sm font-semibold text-ink">Enviar relatório por WhatsApp</h2>
-      </div>
-      <p className="mb-3 text-xs text-muted">
-        Envio manual — gera o PDF do período e manda ao WhatsApp do cliente.
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        <select
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-        >
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <input
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-          placeholder="Período (ex.: junho/2025)"
-          className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-        />
-      </div>
-      <button
-        onClick={send}
-        disabled={busy || !clientId}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-      >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        Enviar relatório (PDF)
-      </button>
-      {msg && <p className={cn("mt-2 text-xs", ok ? "text-emerald-600" : "text-rose-500")}>{msg}</p>}
-    </Card>
   );
 }
 

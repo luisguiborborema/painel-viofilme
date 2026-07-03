@@ -36,7 +36,11 @@ export async function POST(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
-  let b: { clientId?: string; period?: string };
+  let b: {
+    clientId?: string;
+    period?: string;
+    metrics?: { label: string; value: string; variation?: string }[];
+  };
   try {
     b = await req.json();
   } catch {
@@ -72,11 +76,14 @@ export async function POST(req: Request) {
     }).format(new Date());
   const clientName = String(client.name);
 
-  // Métricas do relatório (mock determinístico até a Meta acender).
-  const metrics = UPDATE_METRICS.map((m) => {
-    const r = resolveMetricValue(b.clientId!, m.key);
-    return { label: m.label, value: r.formatted, variation: r.variation };
-  });
+  // Métricas: as selecionadas no gerador; senão, o resumo padrão (4 métricas).
+  const metrics =
+    Array.isArray(b.metrics) && b.metrics.length > 0
+      ? b.metrics.map((m) => ({ label: String(m.label), value: String(m.value), variation: m.variation }))
+      : UPDATE_METRICS.map((m) => {
+          const r = resolveMetricValue(b.clientId!, m.key);
+          return { label: m.label, value: r.formatted, variation: r.variation };
+        });
 
   const caption = `Olá! 📊 Segue o relatório de resultados de ${clientName} — ${period}. Qualquer dúvida, é só chamar!`;
 

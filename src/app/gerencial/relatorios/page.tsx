@@ -5,6 +5,7 @@ import { getClients } from "@/lib/data/queries";
 
 export default async function GerencialRelatorios() {
   const clients = await getClients();
+  const opts = clients.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <div className="space-y-4">
@@ -22,14 +23,14 @@ export default async function GerencialRelatorios() {
         </div>
       </div>
 
-      <RelatoriosCentral />
+      <RelatoriosCentral clients={opts} />
 
       <div className="pt-2">
-        <h2 className="mb-1 text-lg font-semibold text-ink">Envios &amp; automação</h2>
+        <h2 className="mb-1 text-lg font-semibold text-ink">Updates recorrentes &amp; histórico</h2>
         <p className="mb-3 text-sm text-muted">
-          Envio manual do relatório, updates recorrentes por cliente e histórico de envios.
+          Updates automáticos por cliente (WhatsApp) e histórico de envios.
         </p>
-        <ReportsAutomation clients={clients.map((c) => ({ id: c.id, name: c.name }))} />
+        <ReportsAutomation clients={opts} />
       </div>
     </div>
   );
