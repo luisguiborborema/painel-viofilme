@@ -141,4 +141,12 @@ export const trigger = {
       body: `${clientName} enviou um pedido de conteúdo.`,
       url: clientId ? `/gerencial/clientes/${clientId}` : "/gerencial/clientes",
     }),
+
+  // --- Central de Relatórios (equipe) --------------------------------------
+  recurringUpdateFailed: (clientName: string, reason: string) =>
+    toManagement({
+      title: "Update recorrente falhou",
+      body: `${clientName}: ${reason}. Verifique na Central de Relatórios.`,
+      url: "/gerencial/relatorios",
+    }),
 };

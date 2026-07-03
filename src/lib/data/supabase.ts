@@ -1121,3 +1121,57 @@ export async function sbGetGoalsForPeriod(period: string): Promise<ClientGoal[]>
     .eq("period", period);
   return (data ?? []).map(mapGoal);
 }
+
+// ── Central de Relatórios: updates recorrentes + envios ──────────────────────
+
+import type { RecurringUpdate, UpdateMetric } from "./recurring";
+
+export async function sbGetRecurringUpdates(clientId?: string): Promise<RecurringUpdate[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("recurring_updates")
+    .select("id,client_id,metrics,recurrence,channel,recipient,status,last_sent_at,created_by,clients(name)")
+    .order("created_at", { ascending: false });
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data } = await q;
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: String(r.id),
+    clientId: String(r.client_id),
+    clientName: (r.clients as { name?: string } | null)?.name ?? undefined,
+    metrics: (r.metrics as UpdateMetric[]) ?? [],
+    recurrence: String(r.recurrence),
+    channel: String(r.channel ?? "whatsapp"),
+    recipient: String(r.recipient ?? "client"),
+    status: (r.status as "active" | "paused") ?? "active",
+    lastSentAt: r.last_sent_at == null ? undefined : String(r.last_sent_at),
+    createdBy: r.created_by == null ? undefined : String(r.created_by),
+  }));
+}
+
+export type ReportSend = {
+  id: string;
+  clientName?: string;
+  kind: string;
+  channel: string;
+  sentBy?: string;
+  detail?: string;
+  createdAt: string;
+};
+
+export async function sbGetReportSends(): Promise<ReportSend[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("report_sends")
+    .select("id,kind,channel,sent_by,detail,created_at,clients(name)")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: String(r.id),
+    clientName: (r.clients as { name?: string } | null)?.name ?? undefined,
+    kind: String(r.kind ?? "report"),
+    channel: String(r.channel ?? "whatsapp"),
+    sentBy: r.sent_by == null ? undefined : String(r.sent_by),
+    detail: r.detail == null ? undefined : String(r.detail),
+    createdAt: String(r.created_at),
+  }));
+}

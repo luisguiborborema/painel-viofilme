@@ -1447,3 +1447,18 @@ export async function getGoalsForPeriod(period: string): Promise<ClientGoal[]> {
   if (isSupabaseConfigured()) return sb.sbGetGoalsForPeriod(period);
   return [];
 }
+
+// ── Central de Relatórios: updates recorrentes + envios ──────────────────────
+
+import type { RecurringUpdate } from "./recurring";
+import type { ReportSend } from "./supabase";
+
+export async function getRecurringUpdates(clientId?: string): Promise<RecurringUpdate[]> {
+  if (isSupabaseConfigured()) return sb.sbGetRecurringUpdates(clientId);
+  return [];
+}
+
+export async function getReportSends(): Promise<ReportSend[]> {
+  if (isSupabaseConfigured()) return sb.sbGetReportSends();
+  return [];
+}

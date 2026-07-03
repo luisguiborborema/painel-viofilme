@@ -5,6 +5,13 @@ import { trigger } from "@/lib/push/triggers";
 import { getCSPortfolio } from "@/lib/data/cs";
 import { getHourBank } from "@/lib/data/rh";
 import { getDeliveryTasks } from "@/lib/data/operacao";
+import { sendWhatsappText } from "@/lib/whatsapp/send";
+import { isWhatsappConfigured } from "@/lib/whatsapp/config";
+import {
+  buildUpdateMessage,
+  isDue,
+  type UpdateMetric,
+} from "@/lib/data/recurring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +34,8 @@ export async function GET(request: NextRequest) {
     churn: 0,
     hourBank: 0,
     tasks: 0,
+    updatesSent: 0,
+    updatesFailed: 0,
   };
 
   // 1) Lembretes de reunião (dados reais) --------------------------------
@@ -53,6 +62,70 @@ export async function GET(request: NextRequest) {
         when,
       );
       result.meetingReminders++;
+    }
+  }
+
+  // 1b) Updates recorrentes (REL04) — dispara os que "caem" hoje ----------
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const admin = createAdminClient();
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+
+    const { data: updates } = await admin
+      .from("recurring_updates")
+      .select("id,client_id,metrics,recurrence,last_sent_at,clients(name,whatsapp)")
+      .eq("status", "active");
+
+    for (const u of updates ?? []) {
+      const rec = String(u.recurrence);
+      if (!isDue(rec, now)) continue;
+      // Anti-repetição: já enviado hoje?
+      if (u.last_sent_at && String(u.last_sent_at).slice(0, 10) === today) continue;
+
+      const client = u.clients as { name?: string; whatsapp?: string } | null;
+      const clientName = client?.name ?? "Cliente";
+      const phone = String(client?.whatsapp ?? "");
+      const metrics = ((u.metrics as UpdateMetric[]) ?? []).filter(Boolean);
+
+      // Falha: sem WhatsApp ou sem métrica → pula, loga e avisa a equipe.
+      if (!phone || metrics.length === 0) {
+        await admin.from("recurring_update_logs").insert({
+          update_id: u.id,
+          payload: { reason: !phone ? "cliente sem WhatsApp" : "sem métrica" },
+          delivery_status: "failed",
+        });
+        await trigger.recurringUpdateFailed(clientName, !phone ? "sem WhatsApp cadastrado" : "sem métrica");
+        result.updatesFailed++;
+        continue;
+      }
+
+      const message = buildUpdateMessage(clientName, String(u.client_id), metrics);
+      const sent = isWhatsappConfigured() ? await sendWhatsappText(phone, message) : false;
+
+      await admin.from("recurring_update_logs").insert({
+        update_id: u.id,
+        payload: { metrics, phone },
+        delivery_status: sent ? "sent" : "failed",
+      });
+      await admin.from("report_sends").insert({
+        client_id: u.client_id,
+        kind: "update",
+        channel: "whatsapp",
+        recipient: phone,
+        sent_by: "automático",
+        detail: metrics.join(", "),
+      });
+      await admin
+        .from("recurring_updates")
+        .update({ last_sent_at: now.toISOString() })
+        .eq("id", u.id);
+
+      if (sent) {
+        result.updatesSent++;
+      } else {
+        result.updatesFailed++;
+        await trigger.recurringUpdateFailed(clientName, "envio recusado pelo WhatsApp");
+      }
     }
   }
 
