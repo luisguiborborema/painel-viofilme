@@ -681,6 +681,102 @@ export function resolveTags(ids: string[] | undefined, all: Tag[]): Tag[] {
   return ids.map((id) => all.find((t) => t.id === id)).filter((t): t is Tag => Boolean(t));
 }
 
+export type LostReason = { id: string; label: string; position: number };
+
+export const MOCK_LOST_REASONS: LostReason[] = [
+  { id: "lr1", label: "Preço acima do orçamento", position: 1 },
+  { id: "lr2", label: "Sem budget no momento", position: 2 },
+  { id: "lr3", label: "Escolheu concorrente", position: 3 },
+  { id: "lr4", label: "Sem resposta / sumiu", position: 4 },
+  { id: "lr5", label: "Timing ruim", position: 5 },
+  { id: "lr6", label: "Não era fit", position: 6 },
+];
+
+export type FunnelStageStat = {
+  key: string;
+  label: string;
+  color: string;
+  current: number; // negócios atualmente neste estágio (aberto)
+  reached: number; // negócios que alcançaram este estágio (aprox. por posição)
+  value: number;
+  avgAgeDays: number;
+  conversion: number; // % vindo do estágio anterior
+};
+
+export type FunnelAnalytics = {
+  stages: FunnelStageStat[];
+  won: number;
+  lost: number;
+  winRate: number;
+  openCount: number;
+  openValue: number;
+  lostReasons: { label: string; count: number }[];
+};
+
+/**
+ * Análise do funil a partir do estado atual (snapshot). "reached" é aproximado
+ * pela posição do estágio: um negócio no estágio N já passou pelos anteriores
+ * (e negócios ganhos passaram por todos). Fica exato quando o histórico
+ * (crm_stage_history) for usado num passo futuro.
+ */
+export function buildFunnelAnalytics(
+  leads: CrmLead[],
+  stages: Stage[],
+  nowIso: string,
+): FunnelAnalytics {
+  const open = stages.filter((s) => s.kind === "open").sort((a, b) => a.position - b.position);
+  const wonKeys = new Set(stages.filter((s) => s.kind === "won").map((s) => s.key));
+  const lostKeys = new Set(stages.filter((s) => s.kind === "lost").map((s) => s.key));
+  const idxByKey = new Map(open.map((s, i) => [s.key, i]));
+
+  const openDeals = leads.filter((l) => idxByKey.has(l.stage));
+  const wonDeals = leads.filter((l) => wonKeys.has(l.stage) || Boolean(l.wonAt));
+  const lostDeals = leads.filter((l) => lostKeys.has(l.stage) || Boolean(l.lostAt));
+
+  const stageStats: FunnelStageStat[] = open.map((s, i) => {
+    const inStage = openDeals.filter((l) => l.stage === s.key);
+    const reached =
+      openDeals.filter((l) => (idxByKey.get(l.stage) ?? -1) >= i).length + wonDeals.length;
+    const ages = inStage.map((l) => Math.max(0, daysBetween(l.stageChangedAt, nowIso)));
+    const avgAgeDays = ages.length ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : 0;
+    return {
+      key: s.key,
+      label: s.label,
+      color: s.color,
+      current: inStage.length,
+      reached,
+      value: inStage.reduce((sum, l) => sum + l.monthlyValue, 0),
+      avgAgeDays,
+      conversion: 0, // preenchido abaixo
+    };
+  });
+  for (let i = 0; i < stageStats.length; i++) {
+    const prev = i === 0 ? stageStats[i].reached : stageStats[i - 1].reached;
+    stageStats[i].conversion = prev ? Math.round((stageStats[i].reached / prev) * 100) : 0;
+  }
+
+  const reasons = new Map<string, number>();
+  for (const l of lostDeals) {
+    const key = l.lostReason?.trim() || "Não informado";
+    reasons.set(key, (reasons.get(key) ?? 0) + 1);
+  }
+  const lostReasons = [...reasons.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const won = wonDeals.length;
+  const lost = lostDeals.length;
+  return {
+    stages: stageStats,
+    won,
+    lost,
+    winRate: won + lost ? Math.round((won / (won + lost)) * 100) : 0,
+    openCount: openDeals.length,
+    openValue: openDeals.reduce((s, l) => s + l.monthlyValue, 0),
+    lostReasons,
+  };
+}
+
 export type ContactDetail = {
   contact: Contact;
   company: Company | null;

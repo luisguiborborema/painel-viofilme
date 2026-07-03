@@ -8,6 +8,7 @@ import {
   getCrmTags,
   getCrmProperties,
   getAttendants,
+  getCrmLostReasons,
 } from "@/lib/data/queries";
 
 export default async function LeadPage({
@@ -20,14 +21,16 @@ export default async function LeadPage({
   if (!data) notFound();
   const lead = data.lead;
 
-  const [detail, allContacts, dealContactRels, tags, properties, team] = await Promise.all([
-    lead.companyId ? getCrmCompany(lead.companyId) : Promise.resolve(null),
-    getCrmContacts(),
-    getCrmDealContacts(),
-    getCrmTags(),
-    getCrmProperties(),
-    getAttendants(),
-  ]);
+  const [detail, allContacts, dealContactRels, tags, properties, team, lostReasons] =
+    await Promise.all([
+      lead.companyId ? getCrmCompany(lead.companyId) : Promise.resolve(null),
+      getCrmContacts(),
+      getCrmDealContacts(),
+      getCrmTags(),
+      getCrmProperties(),
+      getAttendants(),
+      getCrmLostReasons(),
+    ]);
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
   const assocIds = new Set<string>();
@@ -46,6 +49,7 @@ export default async function LeadPage({
       tags={tags}
       properties={properties}
       team={team.map((t) => t.name)}
+      lostReasons={lostReasons.map((r) => r.label)}
     />
   );
 }

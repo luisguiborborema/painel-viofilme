@@ -71,6 +71,7 @@ export function LeadDetail({
   tags = [],
   properties = [],
   team = [],
+  lostReasons = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -81,6 +82,7 @@ export function LeadDetail({
   tags?: Tag[];
   properties?: PropertyDef[];
   team?: string[];
+  lostReasons?: string[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -154,7 +156,7 @@ export function LeadDetail({
             >
               <CalendarClock className="h-4 w-4" /> Agendar
             </button>
-            <LoseButton onConfirm={markLost} />
+            <LoseButton onConfirm={markLost} reasons={lostReasons} />
             <button
               onClick={() => setShowWin(true)}
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
@@ -535,9 +537,16 @@ function Composer({
   );
 }
 
-function LoseButton({ onConfirm }: { onConfirm: (reason: string) => void }) {
+function LoseButton({
+  onConfirm,
+  reasons,
+}: {
+  onConfirm: (reason: string) => void;
+  reasons: string[];
+}) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
   if (!open) {
     return (
       <button
@@ -548,18 +557,42 @@ function LoseButton({ onConfirm }: { onConfirm: (reason: string) => void }) {
       </button>
     );
   }
+  const finalReason = [reason, note.trim()].filter(Boolean).join(" — ");
   return (
     <div className="flex items-center gap-1.5">
+      {reasons.length > 0 ? (
+        <select
+          autoFocus
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="w-44 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+        >
+          <option value="">Motivo da perda…</option>
+          {reasons.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          autoFocus
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Motivo da perda"
+          className="w-40 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+        />
+      )}
       <input
-        autoFocus
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="Motivo da perda"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="observação (opcional)"
         className="w-40 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
       />
       <button
-        onClick={() => onConfirm(reason)}
-        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+        onClick={() => onConfirm(finalReason)}
+        disabled={!reason}
+        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
       >
         Confirmar
       </button>

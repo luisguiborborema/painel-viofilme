@@ -5,6 +5,7 @@ import { CrmPipeline } from "@/components/crm/crm-pipeline";
 import { CrmCompanies } from "@/components/crm/crm-companies";
 import { CrmContacts } from "@/components/crm/crm-contacts";
 import { CrmSettings } from "@/components/crm/crm-settings";
+import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import {
   getCrmDashboard,
   getCrmLeads,
@@ -16,7 +17,7 @@ import {
   getAttendants,
   crmNowIso,
 } from "@/lib/data/queries";
-import { toCard, CRM_AGENDA } from "@/lib/data/crm";
+import { toCard, buildFunnelAnalytics, CRM_AGENDA } from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { getSession } from "@/lib/auth/session";
 
@@ -45,6 +46,7 @@ export default async function CrmPage({
   const currentUser = user?.name ?? "";
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
+  const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
 
   // Agenda de hoje: eventos reais do Google (fallback para mock).
   const fmtTime = (iso?: string) =>
@@ -83,6 +85,11 @@ export default async function CrmPage({
       key: "contatos",
       label: "Contatos",
       content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
+    },
+    {
+      key: "analise",
+      label: "Análise",
+      content: <CrmAnalytics funnel={funnel} />,
     },
     {
       key: "configuracoes",

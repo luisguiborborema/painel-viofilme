@@ -1361,7 +1361,12 @@ import {
   computeDashboard,
   buildCompanyDetail,
   buildContactDetail,
+  buildFunnelAnalytics,
+  MOCK_LOST_REASONS,
   type CrmLead,
+  type LostReason,
+  type FunnelAnalytics,
+  type Stage,
   type CrmTask,
   type CrmInteraction,
   type BdrDashboard,
@@ -1462,6 +1467,16 @@ export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
     getCrmLeads(),
   ]);
   return buildCompanyDetail(id, companies, contacts, deals);
+}
+
+export async function getCrmLostReasons(): Promise<LostReason[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmLostReasons();
+  return MOCK_LOST_REASONS;
+}
+
+export async function getCrmFunnel(): Promise<FunnelAnalytics> {
+  const [leads, pipeline] = await Promise.all([getCrmLeads(), getDefaultPipeline()]);
+  return buildFunnelAnalytics(leads, pipeline.stages as Stage[], crmNowIso());
 }
 
 export async function getCrmContact(id: string): Promise<ContactDetail | null> {

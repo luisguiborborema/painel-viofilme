@@ -872,6 +872,7 @@ import type {
   PropertyOption,
   CrmObjectType,
   PropertyFieldType,
+  LostReason,
 } from "./crm";
 
 const CRM_LEAD_COLS =
@@ -1110,6 +1111,19 @@ export async function sbGetCrmTags(): Promise<Tag[]> {
     id: String(r.id),
     name: String(r.name),
     color: String(r.color ?? "#2a63c9"),
+  }));
+}
+
+export async function sbGetCrmLostReasons(): Promise<LostReason[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_lost_reasons")
+    .select("id,label,position")
+    .order("position", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    label: String(r.label),
+    position: Number(r.position ?? 0),
   }));
 }
 

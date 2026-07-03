@@ -173,6 +173,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "id/stage ausente" }, { status: 400 });
     }
 
+    // Estágio atual (para o histórico do funil).
+    const { data: curDeal } = await supabase
+      .from("crm_leads")
+      .select("stage")
+      .eq("id", body.id)
+      .maybeSingle();
+    const fromStage = curDeal?.stage ? String(curDeal.stage) : null;
+
     // Regras + automações do estágio destino.
     let stageAutomations: StageAutomation[] = [];
     if (body.stageId) {
@@ -216,6 +224,16 @@ export async function POST(req: Request) {
     }
     const { error } = await supabase.from("crm_leads").update(patch).eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Histórico do funil (best-effort) — só quando o estágio realmente mudou.
+    if (fromStage !== body.stage) {
+      await supabase.from("crm_stage_history").insert({
+        deal_id: body.id,
+        from_stage: fromStage,
+        to_stage: body.stage,
+        changed_by: user.name,
+      });
+    }
 
     // Automações do estágio (best-effort, não bloqueiam a resposta em caso de erro).
     await runStageAutomations(supabase, body.id, stageAutomations, user.name);
