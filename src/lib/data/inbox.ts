@@ -33,7 +33,7 @@ export type WaMessage = {
   id: string;
   conversationId: string;
   direction: "in" | "out";
-  type: "text" | "audio" | "image" | "document";
+  type: "text" | "audio" | "image" | "video" | "document";
   body?: string;
   mediaUrl?: string;
   author?: string;

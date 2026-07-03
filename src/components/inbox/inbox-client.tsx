@@ -5,10 +5,14 @@ import Link from "next/link";
 import {
   Check,
   CheckCheck,
+  FileText,
   Loader2,
   MessagesSquare,
+  Mic,
+  Paperclip,
   Search,
   Send,
+  Square,
   UserCircle2,
   Users,
 } from "lucide-react";
@@ -26,6 +30,37 @@ import {
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+}
+
+function MessageBody({ m }: { m: WaMessage }) {
+  if (m.mediaUrl && m.type === "image") {
+    return (
+      <a href={m.mediaUrl} target="_blank" rel="noreferrer">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={m.mediaUrl} alt="imagem" className="max-h-64 rounded-lg" />
+        {m.body && <p className="mt-1 whitespace-pre-wrap">{m.body}</p>}
+      </a>
+    );
+  }
+  if (m.mediaUrl && m.type === "audio") {
+    return <audio controls src={m.mediaUrl} className="mt-0.5 max-w-[220px]" />;
+  }
+  if (m.mediaUrl && m.type === "video") {
+    return <video controls src={m.mediaUrl} className="max-h-64 rounded-lg" />;
+  }
+  if (m.mediaUrl && m.type === "document") {
+    return (
+      <a
+        href={m.mediaUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2 underline"
+      >
+        <FileText className="h-4 w-4" /> {m.body || "Documento"}
+      </a>
+    );
+  }
+  return <p className="whitespace-pre-wrap">{m.body}</p>;
 }
 
 function stamp(iso?: string) {
@@ -55,7 +90,12 @@ export function InboxClient({
   const [selected, setSelected] = useState<WaConversation | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const filtered = conversations
     .filter((c) => c.status === status)
@@ -148,6 +188,85 @@ export function InboxClient({
     }).catch(() => {});
     setSending(false);
     loadConversations();
+  }
+
+  function mediaType(mime: string): "image" | "audio" | "video" | "document" {
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("video/")) return "video";
+    return "document";
+  }
+
+  async function uploadAndSend(file: File, forceType?: "audio") {
+    if (!selectedId) return;
+    setUploading(true);
+    try {
+      const type = forceType ?? mediaType(file.type);
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("conversationId", selectedId);
+      const up = await fetch("/api/inbox/upload", { method: "POST", body: fd });
+      const upJson = await up.json();
+      if (!up.ok) throw new Error(upJson.error ?? "upload falhou");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `tmp-${prev.length}`,
+          conversationId: selectedId,
+          direction: "out",
+          type,
+          mediaUrl: upJson.url,
+          author: "Você",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      await fetch("/api/inbox/send-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: selectedId,
+          type,
+          fileUrl: upJson.url,
+          filename: file.name,
+        }),
+      });
+      loadConversations();
+    } catch {
+      /* ignora */
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+        ? "audio/ogg;codecs=opus"
+        : "audio/webm";
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        const ext = mime.includes("ogg") ? "ogg" : "webm";
+        const blob = new Blob(chunksRef.current, { type: mime });
+        if (blob.size > 0) {
+          await uploadAndSend(new File([blob], `audio-${Date.now()}.${ext}`, { type: mime }), "audio");
+        }
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      alert("Não foi possível acessar o microfone.");
+    }
   }
 
   async function assign(assignedTo: string | null) {
@@ -333,7 +452,7 @@ export function InboxClient({
                         : "rounded-bl-sm bg-surface text-ink",
                     )}
                   >
-                    <p className="whitespace-pre-wrap">{m.body}</p>
+                    <MessageBody m={m} />
                     <span
                       className={cn(
                         "mt-0.5 flex items-center justify-end gap-1 text-[10px]",
@@ -357,7 +476,26 @@ export function InboxClient({
             </div>
 
             <div className="border-t border-line bg-surface p-3">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,audio/*,video/*,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadAndSend(file);
+                  e.target.value = "";
+                }}
+              />
               <div className="flex items-end gap-2">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading || recording}
+                  title="Anexar arquivo"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-muted hover:bg-subtle disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                </button>
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -368,16 +506,30 @@ export function InboxClient({
                     }
                   }}
                   rows={1}
-                  placeholder="Escreva uma mensagem…"
-                  className="max-h-32 flex-1 resize-none rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+                  placeholder={recording ? "Gravando áudio…" : "Escreva uma mensagem…"}
+                  disabled={recording}
+                  className="max-h-32 flex-1 resize-none rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-brand-400 disabled:opacity-60"
                 />
-                <button
-                  onClick={send}
-                  disabled={sending || !text.trim()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </button>
+                {text.trim() ? (
+                  <button
+                    onClick={send}
+                    disabled={sending}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                ) : (
+                  <button
+                    onClick={toggleRecording}
+                    title={recording ? "Parar e enviar" : "Gravar áudio"}
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white",
+                      recording ? "animate-pulse bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700",
+                    )}
+                  >
+                    {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                )}
               </div>
             </div>
           </>
