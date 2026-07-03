@@ -5,11 +5,13 @@ import type {
   Pipeline,
   PropertyDef,
   Tag,
+  TaskFlow,
 } from "@/lib/data/crm";
 import { PropertyManager } from "./property-manager";
 import { StageManager } from "./stage-manager";
 import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
+import { FlowManager } from "./flow-manager";
 
 /**
  * Central de personalização do CRM: estágios do pipeline, propriedades
@@ -22,6 +24,7 @@ export function CrmSettings({
   leads,
   companies,
   contacts,
+  flows,
 }: {
   properties: PropertyDef[];
   pipeline: Pipeline;
@@ -29,6 +32,7 @@ export function CrmSettings({
   leads: CrmLead[];
   companies: Company[];
   contacts: Contact[];
+  flows: TaskFlow[];
 }) {
   return (
     <div className="space-y-8">
@@ -60,6 +64,15 @@ export function CrmSettings({
           na ficha de cada objeto para preenchimento.
         </p>
         <PropertyManager properties={properties} />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-ink">Fluxos de tarefas</h2>
+        <p className="mb-3 text-xs text-muted">
+          Playbooks: conjuntos ordenados de tarefas (com prazo relativo) que você
+          aplica de uma vez a um negócio.
+        </p>
+        <FlowManager flows={flows} />
       </section>
 
       <section>

@@ -873,6 +873,7 @@ import type {
   CrmObjectType,
   PropertyFieldType,
   LostReason,
+  TaskFlow,
 } from "./crm";
 
 const CRM_LEAD_COLS =
@@ -1116,6 +1117,29 @@ export async function sbGetCrmTags(): Promise<Tag[]> {
     id: String(r.id),
     name: String(r.name),
     color: String(r.color ?? "#2a63c9"),
+  }));
+}
+
+export async function sbGetCrmTaskFlows(): Promise<TaskFlow[]> {
+  const supabase = await createClient();
+  const [{ data: flows }, { data: steps }] = await Promise.all([
+    supabase.from("crm_task_flows").select("id,name,created_at").order("created_at", { ascending: true }),
+    supabase
+      .from("crm_task_flow_steps")
+      .select("id,flow_id,position,title,due_days")
+      .order("position", { ascending: true }),
+  ]);
+  return (flows ?? []).map((f) => ({
+    id: String(f.id),
+    name: String(f.name),
+    steps: (steps ?? [])
+      .filter((s) => String(s.flow_id) === String(f.id))
+      .map((s) => ({
+        id: String(s.id),
+        position: Number(s.position ?? 0),
+        title: String(s.title),
+        dueDays: Number(s.due_days ?? 1),
+      })),
   }));
 }
 

@@ -34,6 +34,7 @@ import {
   type CrmTask,
   type PropertyDef,
   type Tag,
+  type TaskFlow,
 } from "@/lib/data/crm";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
@@ -72,6 +73,7 @@ export function LeadDetail({
   properties = [],
   team = [],
   lostReasons = [],
+  flows = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -83,6 +85,7 @@ export function LeadDetail({
   properties?: PropertyDef[];
   team?: string[];
   lostReasons?: string[];
+  flows?: TaskFlow[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -137,6 +140,15 @@ export function LeadDetail({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add", leadId: lead.id, title, dueDate: dueIso }),
+    }).catch(() => {});
+    router.refresh();
+  }
+
+  async function applyFlow(flowId: string) {
+    await fetch("/api/crm/task-flows", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "apply", dealId: lead.id, flowId }),
     }).catch(() => {});
     router.refresh();
   }
@@ -255,7 +267,7 @@ export function LeadDetail({
             {lead.contactEmail && <Row label="E-mail" value={lead.contactEmail} />}
           </Card>
 
-          <TasksCard tasks={tasks} onToggle={toggleTask} onAdd={addTask} />
+          <TasksCard tasks={tasks} onToggle={toggleTask} onAdd={addTask} flows={flows} onApplyFlow={applyFlow} />
 
           {company && (
             <div className="rounded-2xl border border-line bg-surface p-4">
@@ -640,10 +652,14 @@ function TasksCard({
   tasks,
   onToggle,
   onAdd,
+  flows = [],
+  onApplyFlow,
 }: {
   tasks: CrmTask[];
   onToggle: (t: CrmTask) => void;
   onAdd: (title: string, dueIso?: string) => void;
+  flows?: TaskFlow[];
+  onApplyFlow?: (flowId: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -668,12 +684,29 @@ function TasksCard({
         <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <ListTodo className="h-4 w-4" /> Tarefas{pending ? ` (${pending})` : ""}
         </h2>
-        <button
-          onClick={() => setAdding((a) => !a)}
-          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2 py-1 text-[11px] font-medium text-muted hover:bg-subtle"
-        >
-          <Plus className="h-3 w-3" /> nova
-        </button>
+        <div className="flex items-center gap-1.5">
+          {flows.length > 0 && onApplyFlow && (
+            <select
+              value=""
+              onChange={(e) => e.target.value && onApplyFlow(e.target.value)}
+              className="rounded-lg border border-dashed border-line bg-surface px-1.5 py-1 text-[11px] font-medium text-muted outline-none hover:bg-subtle"
+              title="Aplicar fluxo de tarefas"
+            >
+              <option value="">＋ fluxo</option>
+              {flows.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={() => setAdding((a) => !a)}
+            className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2 py-1 text-[11px] font-medium text-muted hover:bg-subtle"
+          >
+            <Plus className="h-3 w-3" /> nova
+          </button>
+        </div>
       </div>
 
       {adding && (

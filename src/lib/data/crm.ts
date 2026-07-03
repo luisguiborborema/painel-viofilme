@@ -663,6 +663,19 @@ export const MOCK_DEAL_CONTACTS: DealContact[] = MOCK_LEADS.filter(
   isPrimary: true,
 }));
 
+export const MOCK_TASK_FLOWS: TaskFlow[] = [
+  {
+    id: "flow-prospeccao",
+    name: "Cadência de prospecção",
+    steps: [
+      { id: "s1", position: 1, title: "Primeira ligação de abordagem", dueDays: 0 },
+      { id: "s2", position: 2, title: "Enviar material por WhatsApp", dueDays: 1 },
+      { id: "s3", position: 3, title: "Follow-up da proposta", dueDays: 3 },
+      { id: "s4", position: 4, title: "Última tentativa de contato", dueDays: 7 },
+    ],
+  },
+];
+
 export const MOCK_TAGS: Tag[] = [
   { id: "tag-quente", name: "Quente", color: "#f43f5e" },
   { id: "tag-indicacao", name: "Indicação", color: "#10b981" },

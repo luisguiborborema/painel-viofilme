@@ -17,6 +17,7 @@ import {
   getCrmProperties,
   getDefaultPipeline,
   getAttendants,
+  getCrmTaskFlows,
   crmNowIso,
 } from "@/lib/data/queries";
 import { toCard, buildFunnelAnalytics, buildTaskItems, CRM_AGENDA } from "@/lib/data/crm";
@@ -49,7 +50,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
-  const crmTasks = await getCrmTasks();
+  const [crmTasks, flows] = await Promise.all([getCrmTasks(), getCrmTaskFlows()]);
   const taskItems = buildTaskItems(crmTasks, leads);
   const dealPickList = leads.map((l) => ({ id: l.id, name: l.name, owner: l.owner }));
   // Badge da aba Tarefas: minhas pendentes vencendo hoje ou atrasadas.
@@ -131,6 +132,7 @@ export default async function CrmPage({
           leads={leads}
           companies={companies}
           contacts={contacts}
+          flows={flows}
         />
       ),
     },

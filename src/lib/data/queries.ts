@@ -1363,8 +1363,10 @@ import {
   buildContactDetail,
   buildFunnelAnalytics,
   MOCK_LOST_REASONS,
+  MOCK_TASK_FLOWS,
   type CrmLead,
   type LostReason,
+  type TaskFlow,
   type FunnelAnalytics,
   type Stage,
   type CrmTask,
@@ -1472,6 +1474,11 @@ export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
 export async function getCrmLostReasons(): Promise<LostReason[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmLostReasons();
   return MOCK_LOST_REASONS;
+}
+
+export async function getCrmTaskFlows(): Promise<TaskFlow[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmTaskFlows();
+  return MOCK_TASK_FLOWS;
 }
 
 export async function getCrmFunnel(): Promise<FunnelAnalytics> {
