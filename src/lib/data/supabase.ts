@@ -852,3 +852,124 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
     documents: [],
   };
 }
+
+// ── Módulo 2: CRM & Vendas ───────────────────────────────────────────────────
+
+import type {
+  Bant,
+  CrmInteraction,
+  CrmLead,
+  CrmStage,
+  CrmTask,
+  CrmChannel,
+} from "./crm";
+
+const CRM_LEAD_COLS =
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,created_at,updated_at";
+
+type CrmLeadRow = Record<string, unknown>;
+
+function mapCrmLead(r: CrmLeadRow): CrmLead {
+  const s = (k: string) => (r[k] == null ? undefined : String(r[k]));
+  const n = (k: string) => Number(r[k] ?? 0);
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    contactName: s("contact_name"),
+    contactPhone: s("contact_phone"),
+    contactEmail: s("contact_email"),
+    segment: s("segment"),
+    stage: (r.stage as CrmStage) ?? "prospeccao",
+    monthlyValue: n("monthly_value"),
+    mediaBudget: n("media_budget"),
+    plan: s("plan"),
+    probability: n("probability"),
+    source: s("source"),
+    owner: s("owner"),
+    bant: (r.bant as Bant) ?? {},
+    nextTaskTitle: s("next_task_title"),
+    nextTaskDue: s("next_task_due"),
+    lastInteractionAt: s("last_interaction_at"),
+    stageChangedAt: s("stage_changed_at") ?? String(r.created_at),
+    wonAt: s("won_at"),
+    lostAt: s("lost_at"),
+    lostReason: s("lost_reason"),
+    convertedClientId: s("converted_client_id"),
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
+function mapCrmTask(r: CrmLeadRow): CrmTask {
+  return {
+    id: String(r.id),
+    leadId: String(r.lead_id),
+    title: String(r.title),
+    dueDate: r.due_date == null ? undefined : String(r.due_date),
+    status: (r.status as "pending" | "done") ?? "pending",
+    doneAt: r.done_at == null ? undefined : String(r.done_at),
+    createdAt: String(r.created_at),
+  };
+}
+
+function mapCrmInteraction(r: CrmLeadRow): CrmInteraction {
+  return {
+    id: String(r.id),
+    leadId: String(r.lead_id),
+    channel: (r.channel as CrmChannel) ?? "note",
+    direction: (r.direction as "in" | "out" | null) ?? null,
+    body: String(r.body ?? ""),
+    author: r.author == null ? undefined : String(r.author),
+    meta: (r.meta as Record<string, unknown>) ?? {},
+    createdAt: String(r.created_at),
+  };
+}
+
+export async function sbGetCrmLeads(): Promise<CrmLead[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_leads")
+    .select(CRM_LEAD_COLS)
+    .order("stage_changed_at", { ascending: true });
+  return (data ?? []).map(mapCrmLead);
+}
+
+export async function sbGetCrmTasks(): Promise<CrmTask[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_tasks")
+    .select("id,lead_id,title,due_date,status,done_at,created_at")
+    .order("due_date", { ascending: true });
+  return (data ?? []).map(mapCrmTask);
+}
+
+export async function sbGetCrmLead(
+  id: string,
+): Promise<{ lead: CrmLead; interactions: CrmInteraction[]; tasks: CrmTask[] } | null> {
+  const supabase = await createClient();
+  const { data: leadRow } = await supabase
+    .from("crm_leads")
+    .select(CRM_LEAD_COLS)
+    .eq("id", id)
+    .maybeSingle();
+  if (!leadRow) return null;
+
+  const [{ data: ints }, { data: tks }] = await Promise.all([
+    supabase
+      .from("crm_interactions")
+      .select("id,lead_id,channel,direction,body,author,meta,created_at")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("crm_tasks")
+      .select("id,lead_id,title,due_date,status,done_at,created_at")
+      .eq("lead_id", id)
+      .order("due_date", { ascending: true }),
+  ]);
+
+  return {
+    lead: mapCrmLead(leadRow),
+    interactions: (ints ?? []).map(mapCrmInteraction),
+    tasks: (tks ?? []).map(mapCrmTask),
+  };
+}

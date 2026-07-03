@@ -9,6 +9,7 @@
  */
 export type SectionKey =
   | "visao-geral"
+  | "crm"
   | "clientes"
   | "entregas"
   | "campanhas"
@@ -21,6 +22,7 @@ export type SectionKey =
 
 export const SECTIONS: { key: SectionKey; label: string; href: string }[] = [
   { key: "visao-geral", label: "Visão geral", href: "/gerencial" },
+  { key: "crm", label: "CRM & Vendas", href: "/gerencial/crm" },
   { key: "clientes", label: "Clientes", href: "/gerencial/clientes" },
   { key: "entregas", label: "Entregas", href: "/gerencial/entregas" },
   { key: "campanhas", label: "Campanhas", href: "/gerencial/campanhas" },
@@ -43,6 +45,11 @@ export type TeamTemplate = {
 
 export const TEAM_TEMPLATES: TeamTemplate[] = [
   { value: "gestor", label: "Gestor (vê tudo)", sections: null },
+  {
+    value: "comercial",
+    label: "Comercial / BDR",
+    sections: ["crm", "clientes"],
+  },
   { value: "financeiro", label: "Financeiro", sections: ["financeiro"] },
   { value: "rh", label: "RH & cultura", sections: ["rh"] },
   {

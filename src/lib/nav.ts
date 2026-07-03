@@ -4,6 +4,7 @@ import {
   Megaphone,
   Images,
   BarChart3,
+  Target,
   Gauge,
   Plug,
   Receipt,
@@ -37,6 +38,12 @@ export type NavGroup = {
 };
 
 const GERENCIAL_GROUPS: NavGroup[] = [
+  {
+    title: "Comercial",
+    items: [
+      { label: "CRM & Vendas", href: "/gerencial/crm", icon: Target, section: "crm" },
+    ],
+  },
   {
     title: "Operacional",
     items: [

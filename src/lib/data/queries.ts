@@ -1344,3 +1344,52 @@ export async function getAgencyAiContext() {
 }
 
 export type AgencyAiContext = Awaited<ReturnType<typeof getAgencyAiContext>>;
+
+// ── Módulo 2: CRM & Vendas ───────────────────────────────────────────────────
+
+import {
+  MOCK_LEADS,
+  MOCK_TASKS,
+  MOCK_INTERACTIONS,
+  CRM_REFERENCE_ISO,
+  computeDashboard,
+  type CrmLead,
+  type CrmTask,
+  type CrmInteraction,
+  type BdrDashboard,
+} from "./crm";
+
+/** "Agora" do CRM: tempo real com Supabase; data de referência no modo demo. */
+export function crmNowIso(): string {
+  return isSupabaseConfigured() ? new Date().toISOString() : CRM_REFERENCE_ISO;
+}
+
+export async function getCrmLeads(): Promise<CrmLead[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmLeads();
+  return MOCK_LEADS;
+}
+
+export async function getCrmTasks(): Promise<CrmTask[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmTasks();
+  return MOCK_TASKS;
+}
+
+export async function getCrmDashboard(): Promise<BdrDashboard> {
+  const [leads, tasks] = await Promise.all([getCrmLeads(), getCrmTasks()]);
+  return computeDashboard(leads, tasks, crmNowIso());
+}
+
+export async function getCrmLead(id: string): Promise<{
+  lead: CrmLead;
+  interactions: CrmInteraction[];
+  tasks: CrmTask[];
+} | null> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmLead(id);
+  const lead = MOCK_LEADS.find((l) => l.id === id);
+  if (!lead) return null;
+  return {
+    lead,
+    interactions: MOCK_INTERACTIONS.filter((i) => i.leadId === id),
+    tasks: MOCK_TASKS.filter((t) => t.leadId === id),
+  };
+}

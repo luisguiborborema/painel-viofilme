@@ -7,6 +7,8 @@ import {
   CalendarRange,
   FolderOpen,
   Images,
+  KanbanSquare,
+  LayoutDashboard,
   ListChecks,
   Megaphone,
   Rocket,
@@ -24,6 +26,8 @@ const ICONS: Record<string, LucideIcon> = {
   documentos: FolderOpen,
   campanhas: Megaphone,
   resultados: BarChart3,
+  dashboard: LayoutDashboard,
+  pipeline: KanbanSquare,
 };
 
 export type ClientTab = {

@@ -7,6 +7,8 @@
  */
 export const UAZAPI_URL = (process.env.UAZAPI_URL ?? "").replace(/\/+$/, "");
 export const UAZAPI_TOKEN = process.env.UAZAPI_TOKEN ?? "";
+/** Segredo (opcional) validado no webhook de entrada: /api/webhooks/uazapi?secret=… */
+export const UAZAPI_WEBHOOK_SECRET = process.env.UAZAPI_WEBHOOK_SECRET ?? "";
 
 export const WHATSAPP_NOTIFY_NUMBERS = (process.env.UAZAPI_NOTIFY_NUMBERS ?? "")
   .split(",")
