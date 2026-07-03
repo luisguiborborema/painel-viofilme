@@ -99,6 +99,17 @@ export async function POST(req: Request) {
     if (!body.name) {
       return NextResponse.json({ error: "nome ausente" }, { status: 400 });
     }
+    // Todo negócio precisa de um contato (existente ou novo).
+    const willHaveContact =
+      Boolean(body.contactId) ||
+      Boolean(body.newContact?.name?.trim()) ||
+      Boolean(body.contactName?.trim());
+    if (!willHaveContact) {
+      return NextResponse.json(
+        { error: "Selecione ou crie um contato para o negócio." },
+        { status: 400 },
+      );
+    }
     payload.stage = body.stage ?? "prospeccao";
     payload.stage_changed_at = now;
 

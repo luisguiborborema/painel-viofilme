@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Search, Users, Briefcase } from "lucide-react";
+import { Building2, Plus, Search, Users, Briefcase } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
 import type { Company, Contact, CrmLead, Tag } from "@/lib/data/crm";
 import { TagChips } from "./tag-chips";
+import { NewCompanyModal } from "./new-company-modal";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -24,6 +25,7 @@ export function CrmCompanies({
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [showNew, setShowNew] = useState(false);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -52,16 +54,26 @@ export function CrmCompanies({
         <p className="text-sm text-muted">
           {companies.length} empresa{companies.length !== 1 ? "s" : ""}
         </p>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar empresa ou segmento…"
-            className="w-64 rounded-xl border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-400"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar empresa ou segmento…"
+              className="w-64 rounded-xl border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-400"
+            />
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Nova empresa
+          </button>
         </div>
       </div>
+
+      {showNew && <NewCompanyModal onClose={() => setShowNew(false)} />}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map(({ company, contacts: nc, deals: nd, openValue }) => (

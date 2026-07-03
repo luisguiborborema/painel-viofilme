@@ -93,7 +93,9 @@ export function NewLeadModal({
     setCompany(c);
     setCompanyInput(c.name);
     setShowCompanyList(false);
-    setContactMode("existing");
+    // Se a empresa não tem contatos, já abre os campos de novo contato.
+    const hasContacts = contacts.some((ct) => ct.companyId === c.id);
+    setContactMode(hasContacts ? "existing" : "new");
     setContactId("");
     if (!d.name.trim()) setDeal("name", `${c.name} — novo negócio`);
   }
@@ -105,7 +107,10 @@ export function NewLeadModal({
   }
 
   const companyName = company?.name ?? companyInput.trim();
-  const canSubmit = Boolean(companyName) && Boolean(d.name.trim()) && !busy;
+  const hasContact =
+    (contactMode === "existing" && Boolean(contactId)) || Boolean(newContact.name.trim());
+  const canSubmit =
+    Boolean(companyName) && Boolean(d.name.trim()) && hasContact && !busy;
 
   async function submit() {
     if (!canSubmit) return;
@@ -265,7 +270,10 @@ export function NewLeadModal({
           {/* Contato */}
           <div>
             <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-              <UserPlus className="h-3.5 w-3.5" /> Contato
+              <UserPlus className="h-3.5 w-3.5" /> Contato *
+              {!hasContact && (
+                <span className="normal-case text-rose-500">— obrigatório</span>
+              )}
             </p>
             {companyContacts.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
