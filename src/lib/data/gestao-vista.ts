@@ -262,17 +262,29 @@ export function buildHealth(
   goals: ClientGoal[],
 ): ClientHealth[] {
   return clients.map((c) => {
-    const metric = primaryMetricFor(c.clientType);
-    const meta = metricMeta(metric);
-    const actual = actualOf(c, metric);
-    const goal = goals.find((g) => g.clientId === c.id && g.metric === metric);
+    const clientGoals = goals.filter((g) => g.clientId === c.id);
+    // Métrica avaliada: a primária do tipo, se houver meta; senão a 1ª meta
+    // cadastrada (ordem de GOAL_METRICS). Assim qualquer meta "acende" a conta.
+    const primary = primaryMetricFor(c.clientType);
+    let goal = clientGoals.find((g) => g.metric === primary);
     if (!goal) {
-      return { id: c.id, name: c.name, clientType: c.clientType, manager: c.trafficManager, metric, actual, status: "no-goal" as const };
+      goal = GOAL_METRICS.map((m) => clientGoals.find((g) => g.metric === m.key)).find(
+        (g): g is ClientGoal => !!g,
+      );
     }
+    if (!goal) {
+      const metric = primary;
+      return {
+        id: c.id, name: c.name, clientType: c.clientType, manager: c.trafficManager,
+        metric, actual: actualOf(c, metric), status: "no-goal" as const,
+      };
+    }
+    const meta = metricMeta(goal.metric);
+    const actual = actualOf(c, goal.metric);
     const attainment = attainmentOf(actual, goal.targetValue, meta.higherBetter);
     return {
       id: c.id, name: c.name, clientType: c.clientType, manager: c.trafficManager,
-      metric, actual, target: goal.targetValue, attainment,
+      metric: goal.metric, actual, target: goal.targetValue, attainment,
       status: attainment >= 1 ? ("healthy" as const) : ("risk" as const),
     };
   });
