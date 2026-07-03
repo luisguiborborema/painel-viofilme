@@ -28,9 +28,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() valida o JWT LOCALMENTE (WebCrypto) quando o projeto usa chaves
+  // assimétricas — sem round-trip ao servidor de auth a cada navegação. Cai no
+  // custo do getUser() só em projetos legados (segredo simétrico): nunca piora.
+  // A renovação de token/cookies continua acontecendo aqui (setAll no refresh).
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ? { id: data.claims.sub as string } : null;
 
   return { response, user };
 }

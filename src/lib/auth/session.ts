@@ -20,16 +20,25 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // getClaims() lê a identidade do JWT já validado (localmente, via WebCrypto,
+  // em projetos com chaves assimétricas) — evita o round-trip de rede do
+  // getUser() a cada render. O proxy já renovou o token nesta requisição, então
+  // aqui não há refresh nem escrita de cookie. A query de profiles abaixo
+  // continua sendo a fonte de verdade de role/allowed_sections.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims) return null;
+  const userId = claims.sub as string;
+  const userEmail = (claims.email as string | undefined) ?? "";
+  const avatarUrl =
+    ((claims.user_metadata as { avatar_url?: string } | undefined)?.avatar_url) ??
+    null;
 
   // Perfil + cliente vinculado
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, full_name, role, client_id, team_role, allowed_sections, clients(name)")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   const role = (profile?.role as Role) ?? "cliente";
@@ -44,13 +53,13 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     : (clientRel?.name ?? null);
 
   return {
-    id: user.id,
-    email: user.email ?? "",
-    name: profile?.full_name ?? user.email ?? "Usuário",
+    id: userId,
+    email: userEmail,
+    name: profile?.full_name ?? userEmail ?? "Usuário",
     role,
     clientId: profile?.client_id ?? null,
     clientName,
-    avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+    avatarUrl,
     allowedSections:
       (profile?.allowed_sections as string[] | null | undefined) ?? null,
     teamRole: (profile?.team_role as string | null | undefined) ?? null,
