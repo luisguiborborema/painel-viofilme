@@ -7,21 +7,21 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Webhook de ENTRADA do Uazapi (WhatsApp inbox ao vivo).
+ * Webhook de ENTRADA do Uazapi (WhatsApp inbox ao vivo — espelho Kommo).
  *
- * Configure no painel Uazapi apontando para:
- *   https://painel-viofilme.vercel.app/api/webhooks/uazapi?secret=SEU_SEGREDO
+ * O Uazapi NÃO preserva query string, mas envia o `token` da instância no
+ * corpo. Autorizamos se o `token` do corpo (ou o ?secret= da URL) bater com
+ * UAZAPI_WEBHOOK_SECRET. Deixe o env vazio para não validar.
  *
- * Toda chamada é registrada em wa_webhook_log (diagnóstico). Cada mensagem
- * recebida vira/atualiza uma conversa no inbox (wa_conversations/wa_messages) e,
- * quando casa por telefone, também entra na timeline do lead. O formato do
- * payload do Uazapi varia por versão, então a extração é bem tolerante.
+ * Espelha os dois lados: mensagens do dono (fromMe) entram como "out",
+ * mensagens do contato como "in". Uma conversa por telefone (chatid).
  */
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null;
 
-function pickString(obj: Obj, keys: string[]): string | undefined {
+function pickString(obj: Obj | undefined, keys: string[]): string | undefined {
+  if (!obj) return undefined;
   for (const k of keys) {
     const v = obj[k];
     if (typeof v === "string" && v.trim()) return v;
@@ -30,15 +30,19 @@ function pickString(obj: Obj, keys: string[]): string | undefined {
   return undefined;
 }
 
-/** Extrai só os dígitos do telefone a partir de "5527...@s.whatsapp.net" etc. */
+/** Só dígitos do telefone a partir de "5527...@s.whatsapp.net" / "…:sufixo". */
 function digits(raw?: string): string {
   if (!raw) return "";
   return raw.split("@")[0].split(":")[0].replace(/\D/g, "");
 }
 
-/** Texto da mensagem, cobrindo formatos Baileys/Uazapi aninhados. */
+/** Texto da mensagem, cobrindo formatos Uazapi/Baileys. */
 function extractText(msg: Obj): string | undefined {
-  const direct = pickString(msg, ["text", "content", "body", "caption", "message"]);
+  const t = msg.text;
+  if (typeof t === "string" && t.trim()) return t;
+  const c = msg.content;
+  if (typeof c === "string" && c.trim()) return c;
+  const direct = pickString(msg, ["body", "caption", "message"]);
   if (direct) return direct;
   const m = msg.message;
   if (isObj(m)) {
@@ -46,51 +50,31 @@ function extractText(msg: Obj): string | undefined {
     if (nested) return nested;
     const ext = m.extendedTextMessage;
     if (isObj(ext) && typeof ext.text === "string") return ext.text;
-    for (const key of ["imageMessage", "videoMessage", "documentMessage"]) {
-      const mm = m[key];
-      if (isObj(mm) && typeof mm.caption === "string" && mm.caption.trim())
-        return mm.caption;
-    }
   }
   return undefined;
 }
 
-function extractPhone(msg: Obj): string {
-  let raw = pickString(msg, ["sender", "chatid", "chatId", "from", "phone", "number", "jid"]);
-  if (!raw && isObj(msg.key)) raw = pickString(msg.key, ["remoteJid", "participant"]);
-  return digits(raw);
-}
+type Envelope = { message: Obj; chat?: Obj };
 
-function isFromMe(msg: Obj): boolean {
-  if (msg.fromMe === true || msg.fromMe === "true") return true;
-  if (isObj(msg.key) && (msg.key.fromMe === true || msg.key.fromMe === "true")) return true;
-  return false;
-}
-
-function isGroup(msg: Obj): boolean {
-  const jid =
-    pickString(msg, ["chatid", "chatId", "remoteJid", "from"]) ??
-    (isObj(msg.key) ? pickString(msg.key, ["remoteJid"]) : undefined) ??
-    "";
-  return jid.includes("@g.us") || msg.isGroup === true;
-}
-
-/** Localiza o(s) objeto(s) de mensagem dentro do envelope do webhook. */
-function findMessages(payload: unknown): Obj[] {
-  if (Array.isArray(payload)) return payload.flatMap(findMessages);
+function normalize(payload: unknown, chat?: Obj): Envelope[] {
+  if (Array.isArray(payload)) return payload.flatMap((p) => normalize(p, chat));
   if (!isObj(payload)) return [];
-  if (isObj(payload.message)) return [payload.message];
-  if (Array.isArray(payload.messages)) return payload.messages.filter(isObj) as Obj[];
-  if (isObj(payload.data)) {
-    if (isObj(payload.data.message)) return [payload.data.message];
-    if (Array.isArray(payload.data.messages))
-      return payload.data.messages.filter(isObj) as Obj[];
-    return [payload.data];
-  }
-  // Talvez a própria raiz seja a mensagem.
-  if ("text" in payload || "body" in payload || "key" in payload || "content" in payload)
-    return [payload];
+  const ownChat = isObj(payload.chat) ? payload.chat : chat;
+  if (isObj(payload.message)) return [{ message: payload.message, chat: ownChat }];
+  if (Array.isArray(payload.messages))
+    return (payload.messages.filter(isObj) as Obj[]).map((m) => ({ message: m, chat: ownChat }));
+  if (isObj(payload.data)) return normalize(payload.data, ownChat);
+  if ("text" in payload || "content" in payload || "chatid" in payload || "key" in payload)
+    return [{ message: payload, chat: ownChat }];
   return [];
+}
+
+function authorized(req: NextRequest, payload: unknown): boolean {
+  if (!UAZAPI_WEBHOOK_SECRET) return true;
+  const querySecret = req.nextUrl.searchParams.get("secret");
+  if (querySecret === UAZAPI_WEBHOOK_SECRET) return true;
+  const token = isObj(payload) ? pickString(payload, ["token"]) : undefined;
+  return token === UAZAPI_WEBHOOK_SECRET;
 }
 
 async function log(raw: unknown, note: string) {
@@ -103,56 +87,69 @@ async function log(raw: unknown, note: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const raw = await req.text();
+  const body = await req.text();
   let payload: unknown;
   try {
-    payload = JSON.parse(raw);
+    payload = JSON.parse(body);
   } catch {
-    await log({ raw }, "json-invalido");
+    await log({ body }, "json-invalido");
     return NextResponse.json({ ok: true, ignored: "no-json" });
   }
 
-  // Secret opcional por query string (registra tentativa inválida).
-  if (UAZAPI_WEBHOOK_SECRET) {
-    const secret = req.nextUrl.searchParams.get("secret");
-    if (secret !== UAZAPI_WEBHOOK_SECRET) {
-      await log(payload, "secret-invalido");
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!authorized(req, payload)) {
+    await log(payload, "secret-invalido");
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const messages = findMessages(payload);
-  if (messages.length === 0) {
+  const envelopes = normalize(payload);
+  if (envelopes.length === 0) {
     await log(payload, "sem-mensagem");
     return NextResponse.json({ ok: true, ignored: "no-message" });
   }
 
   const results: string[] = [];
-  for (const msg of messages) {
-    results.push(await handleMessage(msg));
-  }
+  for (const env of envelopes) results.push(await handle(env));
   await log(payload, `processado: ${results.join(",")}`);
   return NextResponse.json({ ok: true, results });
 }
 
-async function handleMessage(msg: Obj): Promise<string> {
-  if (isFromMe(msg)) return "fromMe";
-  if (isGroup(msg)) return "grupo";
+async function handle({ message: msg, chat }: Envelope): Promise<string> {
+  // Grupos: fora de escopo por enquanto.
+  const groupFlag =
+    msg.isGroup === true ||
+    (pickString(msg, ["chatid", "chatId", "remoteJid", "from"]) ?? "").includes("@g.us");
+  if (groupFlag) return "grupo";
 
-  const text = extractText(msg);
-  const phone = extractPhone(msg);
-  const externalId = pickString(msg, ["id", "messageid", "messageId"]) ??
+  // Mensagens enviadas pela nossa própria API já foram gravadas no envio.
+  if (msg.wasSentByApi === true) return "api-echo";
+
+  const fromMe = msg.fromMe === true || msg.fromMe === "true";
+
+  // Telefone da conversa: chatid é o mais confiável (sender pode ser @lid).
+  const phone = digits(
+    pickString(msg, ["chatid", "chatId"]) ??
+      pickString(chat, ["wa_chatid", "phone"]) ??
+      pickString(msg, ["sender_pn", "from", "number"]) ??
+      pickString(msg, ["sender"]),
+  );
+
+  const text = extractText(msg) ?? mediaPlaceholder(msg);
+  const externalId =
+    pickString(msg, ["messageid", "id", "messageId"]) ??
     (isObj(msg.key) ? pickString(msg.key, ["id"]) : undefined);
-  const senderName = pickString(msg, [
-    "senderName", "pushName", "notifyName", "sender_pushName", "name",
-  ]);
+  // Nome do contato (não do dono): vem do objeto chat.
+  const contactName =
+    pickString(chat, ["wa_name", "name", "wa_contactName"]) ??
+    (!fromMe ? pickString(msg, ["senderName"]) : undefined);
 
-  if (!text || !phone) return "incompleto";
+  if (!phone) return "sem-telefone";
+  if (!text) return "sem-texto";
   if (!isSupabaseConfigured() || !hasServiceRole()) return "sem-banco";
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
   const tail = phone.slice(-8);
+  const direction = fromMe ? "out" : "in";
 
   const { data: leads } = await admin
     .from("crm_leads")
@@ -174,12 +171,12 @@ async function handleMessage(msg: Obj): Promise<string> {
     await admin
       .from("wa_conversations")
       .update({
-        name: senderName ?? undefined,
+        name: contactName ?? undefined,
         lead_id: lead?.id ?? undefined,
         last_message_at: now,
         last_message_preview: text.slice(0, 120),
-        last_direction: "in",
-        unread_count: Number(existing?.unread_count ?? 0) + 1,
+        last_direction: direction,
+        unread_count: fromMe ? 0 : Number(existing?.unread_count ?? 0) + 1,
         updated_at: now,
       })
       .eq("id", conversationId);
@@ -188,13 +185,13 @@ async function handleMessage(msg: Obj): Promise<string> {
       .from("wa_conversations")
       .insert({
         phone,
-        name: senderName ?? null,
+        name: contactName ?? null,
         lead_id: lead?.id ?? null,
         status: "open",
         last_message_at: now,
         last_message_preview: text.slice(0, 120),
-        last_direction: "in",
-        unread_count: 1,
+        last_direction: direction,
+        unread_count: fromMe ? 0 : 1,
       })
       .select("id")
       .single();
@@ -204,7 +201,7 @@ async function handleMessage(msg: Obj): Promise<string> {
   if (conversationId) {
     await admin.from("wa_messages").insert({
       conversation_id: conversationId,
-      direction: "in",
+      direction,
       type: "text",
       body: text,
       external_id: externalId ?? null,
@@ -215,7 +212,7 @@ async function handleMessage(msg: Obj): Promise<string> {
     await admin.from("crm_interactions").insert({
       lead_id: lead.id,
       channel: "whatsapp",
-      direction: "in",
+      direction,
       body: text,
       external_id: externalId ?? null,
       meta: { phone },
@@ -223,5 +220,27 @@ async function handleMessage(msg: Obj): Promise<string> {
     await admin.from("crm_leads").update({ last_interaction_at: now }).eq("id", lead.id);
   }
 
-  return lead ? "ok+lead" : "ok";
+  return lead ? `${direction}+lead` : direction;
+}
+
+/** Placeholder legível para mensagens não-texto (mídia). */
+function mediaPlaceholder(msg: Obj): string | undefined {
+  const type = pickString(msg, ["mediaType", "messageType", "type"]);
+  if (!type || type === "text" || type === "Conversation") return undefined;
+  const map: Record<string, string> = {
+    image: "[imagem]",
+    ImageMessage: "[imagem]",
+    audio: "[áudio]",
+    AudioMessage: "[áudio]",
+    ptt: "[áudio]",
+    video: "[vídeo]",
+    VideoMessage: "[vídeo]",
+    document: "[documento]",
+    DocumentMessage: "[documento]",
+    sticker: "[figurinha]",
+    StickerMessage: "[figurinha]",
+    user_created_sticker: "[figurinha]",
+    media: "[mídia]",
+  };
+  return map[type] ?? `[${type}]`;
 }
