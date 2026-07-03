@@ -2,9 +2,10 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { GestaoVista } from "@/components/gerencial/gestao-vista";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
-import { getGoalsForPeriod } from "@/lib/data/queries";
+import { getGoalsForPeriod, getClients } from "@/lib/data/queries";
 import {
   GAV_CLIENTS,
+  buildGavClients,
   buildHealth,
   buildTrafficRanking,
   buildSocialRanking,
@@ -24,8 +25,12 @@ export default async function GestaoAVista() {
   const ownName = user?.name;
 
   const period = periodFromIso(new Date().toISOString());
-  const goals = await getGoalsForPeriod(period);
-  const clients = GAV_CLIENTS;
+  const [goals, realClients] = await Promise.all([
+    getGoalsForPeriod(period),
+    getClients(),
+  ]);
+  // Base a partir dos clientes REAIS (métricas mock por id) → metas casam.
+  const clients = realClients.length ? buildGavClients(realClients) : GAV_CLIENTS;
 
   const health = buildHealth(clients, goals);
   const trafficAll = buildTrafficRanking(clients, goals);

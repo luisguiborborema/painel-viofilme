@@ -155,6 +155,70 @@ export const GAV_CLIENTS: GavClient[] = [
   },
 ];
 
+// Pools de responsáveis (mock até client_responsibles existir no Hub).
+const TRAFFIC_POOL = ["Ana Lima", "Marcos Silva"];
+const SOCIAL_POOL = ["Robert Oliveira", "Camila Souza"];
+const FORMATS = ["UGC", "Motion", "Estático", "Reels"] as const;
+
+function seedFrom(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** PRNG determinístico (mulberry32) — mesmas métricas mock para o mesmo id. */
+function rng(seed: number) {
+  let s = seed;
+  return () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Monta a base da Gestão à Vista a partir dos clientes REAIS, com métricas
+ * mock determinísticas por id (até a integração Meta acender — GAV07). Assim as
+ * metas cadastradas (client_goals, por id real) casam no termômetro.
+ */
+export function buildGavClients(
+  reals: { id: string; name: string; clientType?: ClientType }[],
+): GavClient[] {
+  return reals.map((c, i) => {
+    const rand = rng(seedFrom(c.id));
+    const clientType =
+      c.clientType ?? (["ecommerce", "lead_gen", "local_business"] as ClientType[])[i % 3];
+    const spend = 2000 + Math.round(rand() * 7000);
+    const conversions = 40 + Math.round(rand() * 500);
+    const cpl = Math.round((spend / Math.max(1, conversions)) * 10) / 10;
+    const roas = Math.round((2 + rand() * 4) * 10) / 10;
+    const revenue = Math.round(spend * roas);
+    const clicks = 1500 + Math.round(rand() * 8000);
+    const reach = clicks * (20 + Math.round(rand() * 20));
+    const ctr = Math.round((clicks / reach) * 1000) / 10;
+    return {
+      id: c.id,
+      name: c.name,
+      clientType,
+      trafficManager: TRAFFIC_POOL[i % TRAFFIC_POOL.length],
+      socialAnalyst: SOCIAL_POOL[i % SOCIAL_POOL.length],
+      traffic: { reach, clicks, ctr, conversions, spend, revenue, cpl, roas },
+      social: {
+        engagementRate: Math.round((2 + rand() * 5) * 10) / 10,
+        commentRate: Math.round((0.4 + rand() * 1.4) * 10) / 10,
+        followersGrowth: 100 + Math.round(rand() * 1400),
+        engagement: 2000 + Math.round(rand() * 13000),
+      },
+      topFormat: FORMATS[Math.floor(rand() * FORMATS.length)],
+    };
+  });
+}
+
 /** Métrica primária do termômetro por tipo de cliente. */
 export function primaryMetricFor(type: ClientType): GoalMetric {
   if (type === "ecommerce") return "roas";
