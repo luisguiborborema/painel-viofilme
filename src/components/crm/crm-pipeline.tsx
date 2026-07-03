@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
-import { CRM_STAGES, toCard, type CrmLead, type CrmLeadCard, type CrmStage } from "@/lib/data/crm";
+import {
+  DEFAULT_PIPELINE,
+  toCard,
+  type CrmLead,
+  type CrmLeadCard,
+  type CrmStage,
+  type Stage,
+} from "@/lib/data/crm";
 import { NewLeadModal } from "./new-lead-modal";
 
 function cardBorder(card: CrmLeadCard): string {
@@ -86,12 +93,20 @@ function LeadCard({
   );
 }
 
-export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
+export function CrmPipeline({
+  cards: initial,
+  stages = DEFAULT_PIPELINE.stages,
+}: {
+  cards: CrmLeadCard[];
+  stages?: Stage[];
+}) {
   const router = useRouter();
   const [cards, setCards] = useState(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
   const [showNew, setShowNew] = useState(false);
+
+  const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
 
   function addLead(lead: CrmLead) {
     setShowNew(false);
@@ -100,24 +115,32 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
   }
 
   const openValue = cards
-    .filter((c) => c.stage !== "ganho" && c.stage !== "perdido")
+    .filter((c) => !closedKeys.has(c.stage))
     .reduce((s, c) => s + c.monthlyValue, 0);
 
-  async function moveTo(stage: CrmStage) {
+  async function moveTo(stage: Stage) {
     const id = dragId;
     setDragId(null);
     setOverStage(null);
     if (!id) return;
     const card = cards.find((c) => c.id === id);
-    if (!card || card.stage === stage) return;
+    if (!card || card.stage === stage.key) return;
     setCards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, stage, daysInStage: 0, rot: "fresh" } : c)),
+      prev.map((c) =>
+        c.id === id ? { ...c, stage: stage.key, daysInStage: 0, rot: "fresh" } : c,
+      ),
     );
     try {
       await fetch("/api/crm/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "move", id, stage }),
+        body: JSON.stringify({
+          action: "move",
+          id,
+          stage: stage.key,
+          stageId: stage.id,
+          kind: stage.kind,
+        }),
       });
     } catch {
       /* otimista: mantém no board mesmo se falhar */
@@ -129,7 +152,7 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          {cards.filter((c) => c.stage !== "ganho" && c.stage !== "perdido").length}{" "}
+          {cards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
           negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
           em aberto
         </p>
@@ -152,7 +175,7 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {CRM_STAGES.map((s) => {
+        {stages.map((s) => {
           const inStage = cards.filter((c) => c.stage === s.key);
           const sum = inStage.reduce((acc, c) => acc + c.monthlyValue, 0);
           return (
@@ -163,7 +186,7 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
                 setOverStage(s.key);
               }}
               onDragLeave={() => setOverStage((cur) => (cur === s.key ? null : cur))}
-              onDrop={() => moveTo(s.key)}
+              onDrop={() => moveTo(s)}
               className={cn(
                 "flex w-[240px] shrink-0 flex-col rounded-2xl border p-2.5 transition-colors",
                 overStage === s.key
@@ -172,7 +195,13 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
               )}
             >
               <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-xs font-semibold text-ink">{s.label}</span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  {s.label}
+                </span>
                 <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">
                   {inStage.length}
                 </span>

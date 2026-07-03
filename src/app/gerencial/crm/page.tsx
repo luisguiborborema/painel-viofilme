@@ -12,6 +12,7 @@ import {
   getCrmContacts,
   getCrmTags,
   getCrmProperties,
+  getDefaultPipeline,
   crmNowIso,
 } from "@/lib/data/queries";
 import { toCard, CRM_AGENDA } from "@/lib/data/crm";
@@ -25,7 +26,7 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, companies, contacts, tags, properties, events] =
+  const [dashboard, leads, companies, contacts, tags, properties, pipeline, events] =
     await Promise.all([
       getCrmDashboard(),
       getCrmLeads(),
@@ -33,6 +34,7 @@ export default async function CrmPage({
       getCrmContacts(),
       getCrmTags(),
       getCrmProperties(),
+      getDefaultPipeline(),
       listUpcomingEvents(6),
     ]);
   const nowIso = crmNowIso();
@@ -49,7 +51,11 @@ export default async function CrmPage({
 
   const tabs: ClientTab[] = [
     { key: "dashboard", label: "Dashboard", content: <CrmDashboard d={dashboard} agenda={agenda} /> },
-    { key: "pipeline", label: "Pipeline", content: <CrmPipeline cards={cards} /> },
+    {
+      key: "pipeline",
+      label: "Pipeline",
+      content: <CrmPipeline cards={cards} stages={pipeline.stages} />,
+    },
     {
       key: "empresas",
       label: "Empresas",
@@ -65,7 +71,7 @@ export default async function CrmPage({
     {
       key: "configuracoes",
       label: "Configurações",
-      content: <CrmSettings properties={properties} />,
+      content: <CrmSettings properties={properties} pipeline={pipeline} />,
     },
   ];
 

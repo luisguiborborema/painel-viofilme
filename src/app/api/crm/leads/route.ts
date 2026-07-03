@@ -10,6 +10,8 @@ type Body = {
   action?: "create" | "update" | "move";
   id?: string;
   stage?: string;
+  stageId?: string;
+  kind?: "open" | "won" | "lost";
   reason?: string;
   name?: string;
   contactName?: string;
@@ -57,11 +59,15 @@ export async function POST(req: Request) {
       stage_changed_at: now,
       updated_at: now,
     };
-    if (body.stage === "perdido") {
+    if (body.stageId) patch.stage_id = body.stageId;
+    // won/lost pelo TIPO do estágio (kind), com fallback às keys padrão.
+    const kind = body.kind ?? (body.stage === "ganho" ? "won" : body.stage === "perdido" ? "lost" : "open");
+    if (kind === "lost") {
       patch.lost_at = now;
       patch.lost_reason = body.reason ?? null;
+    } else if (kind === "won") {
+      patch.won_at = now;
     }
-    if (body.stage === "ganho") patch.won_at = now;
     const { error } = await supabase.from("crm_leads").update(patch).eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });

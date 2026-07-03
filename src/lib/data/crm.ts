@@ -9,13 +9,19 @@ import { REFERENCE_DATE } from "./mock";
 
 // ── Tipos base ──────────────────────────────────────────────────────────────
 
+/**
+ * Key de estágio. Os 6 abaixo são os padrão (seed); com o pipeline editável,
+ * novos estágios têm keys arbitrárias — por isso o tipo aceita qualquer string
+ * (o `& {}` preserva o autocomplete das padrão).
+ */
 export type CrmStage =
   | "prospeccao"
   | "reuniao"
   | "proposta"
   | "negociacao"
   | "ganho"
-  | "perdido";
+  | "perdido"
+  | (string & {});
 
 export type CrmChannel = "whatsapp" | "email" | "call" | "note" | "system";
 
