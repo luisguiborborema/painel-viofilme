@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     password?: string;
     teamRole?: string;
     allowedSections?: string[] | null;
+    whatsapp?: string;
     active?: boolean;
   };
   try {
@@ -114,6 +115,7 @@ export async function POST(req: Request) {
         .update({
           team_role: body.teamRole ?? "custom",
           allowed_sections: allowed,
+          whatsapp: body.whatsapp !== undefined ? body.whatsapp.replace(/\D/g, "") || null : undefined,
         })
         .eq("id", body.userId);
       if (error) {

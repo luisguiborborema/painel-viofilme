@@ -349,6 +349,7 @@ function EditRow({
     member.teamRole ?? (member.allowedSections == null ? "gestor" : "custom"),
     member.allowedSections,
   );
+  const [whatsapp, setWhatsapp] = useState(member.whatsapp ?? "");
   return (
     <div className="mt-3 rounded-xl border border-line bg-canvas p-3">
       <SectionPicker
@@ -357,13 +358,25 @@ function EditRow({
         onTemplate={ed.onTemplate}
         onToggle={ed.onToggle}
       />
+      <label className="mt-3 block">
+        <span className="mb-1 block text-xs font-medium text-muted">
+          WhatsApp (para notificações individuais — ex.: tarefas atrasadas)
+        </span>
+        <input
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          placeholder="5527999998888"
+          inputMode="tel"
+          className="w-full max-w-xs rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+        />
+      </label>
       <button
-        onClick={() => onSubmit({ action: "update", userId: member.id, ...ed.payload() })}
+        onClick={() => onSubmit({ action: "update", userId: member.id, whatsapp, ...ed.payload() })}
         disabled={busy}
         className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-        Salvar acessos
+        Salvar
       </button>
     </div>
   );

@@ -130,34 +130,57 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 1c) Tarefas atrasadas do CRM (dados reais) — resumo diário ao time -----
-  if (isSupabaseConfigured() && hasServiceRole() && WHATSAPP_NOTIFY_NUMBERS.length) {
+  // 1c) Tarefas atrasadas do CRM — DM individual ao responsável -------------
+  if (isSupabaseConfigured() && hasServiceRole() && isWhatsappConfigured()) {
     const admin = createAdminClient();
     const now = new Date();
     const { data: overdue } = await admin
       .from("crm_tasks")
-      .select("title, due_date, crm_leads(name, owner)")
+      .select("title, due_date, assignee, crm_leads(name, owner)")
       .eq("status", "pending")
       .lt("due_date", now.toISOString())
       .order("due_date", { ascending: true });
 
     const items = overdue ?? [];
     result.crmOverdue = items.length;
-    if (items.length && isWhatsappConfigured()) {
-      // Agrupa por responsável.
+
+    if (items.length) {
+      // Telefone por responsável (profiles.whatsapp), casado pelo nome.
+      const { data: profiles } = await admin
+        .from("profiles")
+        .select("full_name, whatsapp")
+        .eq("role", "gerencial");
+      const phoneByName = new Map<string, string>();
+      for (const p of profiles ?? []) {
+        if (p.full_name && p.whatsapp) phoneByName.set(String(p.full_name), String(p.whatsapp));
+      }
+
+      // Agrupa por responsável (assignee da tarefa, senão dono do negócio).
       const byOwner = new Map<string, string[]>();
       for (const t of items) {
         const lead = t.crm_leads as { name?: string; owner?: string } | null;
-        const owner = lead?.owner || "Sem responsável";
+        const owner = (t.assignee as string | null) || lead?.owner || "Sem responsável";
         const line = `• ${String(t.title)} — ${lead?.name ?? "negócio"}`;
         byOwner.set(owner, [...(byOwner.get(owner) ?? []), line]);
       }
-      const parts = [...byOwner.entries()].map(
-        ([owner, lines]) => `*${owner}* (${lines.length})\n${lines.slice(0, 8).join("\n")}`,
-      );
-      const message = `⏰ *Tarefas atrasadas no CRM* (${items.length})\n\n${parts.join("\n\n")}`;
-      for (const num of WHATSAPP_NOTIFY_NUMBERS) {
-        await sendWhatsappText(num, message);
+
+      const teamFallback: string[] = [];
+      for (const [owner, lines] of byOwner.entries()) {
+        const phone = phoneByName.get(owner);
+        const block = `*${owner}* (${lines.length})\n${lines.slice(0, 12).join("\n")}`;
+        if (phone) {
+          await sendWhatsappText(
+            phone,
+            `⏰ *Suas tarefas atrasadas no CRM* (${lines.length})\n${lines.slice(0, 12).join("\n")}`,
+          );
+        } else {
+          teamFallback.push(block);
+        }
+      }
+      // Quem não tem WhatsApp cadastrado entra no resumo ao time.
+      if (teamFallback.length && WHATSAPP_NOTIFY_NUMBERS.length) {
+        const message = `⏰ *Tarefas atrasadas no CRM (sem responsável com WhatsApp)*\n\n${teamFallback.join("\n\n")}`;
+        for (const num of WHATSAPP_NOTIFY_NUMBERS) await sendWhatsappText(num, message);
       }
     }
   }

@@ -7,6 +7,7 @@ export type TeamMemberRow = {
   name: string;
   teamRole: string | null;
   allowedSections: string[] | null;
+  whatsapp: string | null;
   active: boolean;
 };
 
@@ -17,7 +18,7 @@ export async function listTeam(): Promise<TeamMemberRow[]> {
 
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, full_name, team_role, allowed_sections")
+    .select("id, full_name, team_role, allowed_sections, whatsapp")
     .eq("role", "gerencial");
 
   const { data: usersData } = await admin.auth.admin.listUsers();
@@ -38,6 +39,7 @@ export async function listTeam(): Promise<TeamMemberRow[]> {
       name: (p.full_name as string | null) ?? "",
       teamRole: (p.team_role as string | null) ?? null,
       allowedSections: (p.allowed_sections as string[] | null) ?? null,
+      whatsapp: (p.whatsapp as string | null) ?? null,
       active: auth?.active ?? true,
     };
   });
