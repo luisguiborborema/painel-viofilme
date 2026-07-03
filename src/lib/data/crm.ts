@@ -109,7 +109,7 @@ export type DealContact = {
   isPrimary: boolean;
 };
 
-export type CrmObjectType = "company" | "contact" | "deal";
+export type CrmObjectType = "company" | "contact" | "deal" | "task";
 
 export type PropertyFieldType =
   | "text"
@@ -254,8 +254,13 @@ export type CrmTask = {
   dueDate?: string;
   status: "pending" | "done";
   doneAt?: string;
+  assignee?: string;
+  properties?: Record<string, unknown>;
   createdAt: string;
 };
+
+export type TaskFlowStep = { id: string; position: number; title: string; dueDays: number };
+export type TaskFlow = { id: string; name: string; steps: TaskFlowStep[] };
 
 /** Tarefa enriquecida com o negócio a que pertence (para a tela de Tarefas). */
 export type TaskItem = CrmTask & {

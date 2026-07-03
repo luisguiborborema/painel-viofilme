@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const OBJECT_TYPES = ["company", "contact", "deal"];
+const OBJECT_TYPES = ["company", "contact", "deal", "task"];
 const FIELD_TYPES = [
   "text", "number", "currency", "select", "multiselect",
   "date", "checkbox", "phone", "email", "url",

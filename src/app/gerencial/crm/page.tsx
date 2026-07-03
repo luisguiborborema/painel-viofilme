@@ -94,7 +94,13 @@ export default async function CrmPage({
       label: "Tarefas",
       badge: myDueCount,
       content: (
-        <CrmTasks tasks={taskItems} deals={dealPickList} currentUser={currentUser} />
+        <CrmTasks
+          tasks={taskItems}
+          deals={dealPickList}
+          currentUser={currentUser}
+          properties={properties}
+          team={teamNames}
+        />
       ),
     },
     {

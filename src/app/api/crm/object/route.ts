@@ -10,6 +10,7 @@ const TABLE: Record<string, string> = {
   company: "crm_companies",
   contact: "crm_contacts",
   deal: "crm_leads",
+  task: "crm_tasks",
 };
 
 // Colunas nativas editáveis por objeto (evita escrever colunas arbitrárias).
@@ -17,10 +18,11 @@ const ALLOWED_FIELDS: Record<string, Set<string>> = {
   company: new Set(["name", "segment", "website", "phone", "email", "city", "size", "owner"]),
   contact: new Set(["name", "title", "phone", "email", "owner", "company_id", "is_primary"]),
   deal: new Set(["name", "monthly_value", "media_budget", "plan", "source", "owner", "probability", "segment"]),
+  task: new Set(["title", "due_date", "status", "assignee"]),
 };
 
 type Body = {
-  objectType?: "company" | "contact" | "deal";
+  objectType?: "company" | "contact" | "deal" | "task";
   id?: string;
   properties?: Record<string, unknown>; // mapa COMPLETO de propriedades (merge no servidor)
   tags?: string[]; // ids de tag (substitui)
@@ -54,7 +56,9 @@ export async function POST(req: Request) {
   }
   const supabase = await createClient();
 
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  // crm_tasks não tem coluna updated_at.
+  const patch: Record<string, unknown> =
+    body.objectType === "task" ? {} : { updated_at: new Date().toISOString() };
 
   if (body.properties && typeof body.properties === "object") {
     // Merge: lê as propriedades atuais e sobrepõe as recebidas.

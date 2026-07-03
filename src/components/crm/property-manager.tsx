@@ -14,6 +14,7 @@ const OBJECTS: { key: CrmObjectType; label: string }[] = [
   { key: "company", label: "Empresa" },
   { key: "contact", label: "Contato" },
   { key: "deal", label: "Negócio" },
+  { key: "task", label: "Tarefa" },
 ];
 
 const FIELD_TYPES: { key: PropertyFieldType; label: string }[] = [

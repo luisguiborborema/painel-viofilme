@@ -925,9 +925,14 @@ function mapCrmTask(r: CrmLeadRow): CrmTask {
     dueDate: r.due_date == null ? undefined : String(r.due_date),
     status: (r.status as "pending" | "done") ?? "pending",
     doneAt: r.done_at == null ? undefined : String(r.done_at),
+    assignee: r.assignee == null ? undefined : String(r.assignee),
+    properties: (r.properties as Record<string, unknown> | null) ?? {},
     createdAt: String(r.created_at),
   };
 }
+
+const CRM_TASK_COLS =
+  "id,lead_id,title,due_date,status,done_at,assignee,properties,created_at";
 
 function mapCrmInteraction(r: CrmLeadRow): CrmInteraction {
   return {
@@ -955,7 +960,7 @@ export async function sbGetCrmTasks(): Promise<CrmTask[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("crm_tasks")
-    .select("id,lead_id,title,due_date,status,done_at,created_at")
+    .select(CRM_TASK_COLS)
     .order("due_date", { ascending: true });
   return (data ?? []).map(mapCrmTask);
 }
@@ -979,7 +984,7 @@ export async function sbGetCrmLead(
       .order("created_at", { ascending: true }),
     supabase
       .from("crm_tasks")
-      .select("id,lead_id,title,due_date,status,done_at,created_at")
+      .select(CRM_TASK_COLS)
       .eq("lead_id", id)
       .order("due_date", { ascending: true }),
   ]);

@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { CalendarClock, Check, Loader2, Plus, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
-import type { TaskItem } from "@/lib/data/crm";
+import type { PropertyDef, TaskItem } from "@/lib/data/crm";
+import { TaskModal } from "./task-modal";
 
 type Bucket = "overdue" | "today" | "week" | "later" | "nodate";
 
@@ -46,16 +47,21 @@ export function CrmTasks({
   tasks,
   deals,
   currentUser = "",
+  properties = [],
+  team = [],
 }: {
   tasks: TaskItem[];
   deals: { id: string; name: string; owner?: string }[];
   currentUser?: string;
+  properties?: PropertyDef[];
+  team?: string[];
 }) {
   const router = useRouter();
   const [mine, setMine] = useState(Boolean(currentUser));
   const [done, setDone] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<TaskItem | null>(null);
   const now = useMemo(() => new Date(), []);
 
   const filtered = tasks.filter(
@@ -150,9 +156,13 @@ export function CrmTasks({
             </h3>
             <div className="overflow-hidden rounded-2xl border border-line bg-surface">
               {items.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
+                <div
+                  key={t.id}
+                  onClick={() => setSelected(t)}
+                  className="flex cursor-pointer items-center gap-3 border-b border-line px-4 py-3 last:border-b-0 hover:bg-subtle"
+                >
                   <button
-                    onClick={() => toggle(t)}
+                    onClick={(e) => { e.stopPropagation(); toggle(t); }}
                     disabled={busyId === t.id}
                     className={cn(
                       "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
@@ -170,9 +180,13 @@ export function CrmTasks({
                     <p className={cn("truncate text-sm font-medium", t.status === "done" ? "text-muted line-through" : "text-ink")}>
                       {t.title}
                     </p>
-                    <Link href={`/gerencial/crm/${t.leadId}`} className="text-xs text-muted hover:text-ink hover:underline">
+                    <Link
+                      href={`/gerencial/crm/${t.leadId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-muted hover:text-ink hover:underline"
+                    >
                       {t.dealName}
-                      {t.owner ? ` · ${t.owner}` : ""}
+                      {(t.assignee || t.owner) ? ` · ${t.assignee ?? t.owner}` : ""}
                     </Link>
                   </div>
                   {t.dueDate && (
@@ -182,7 +196,7 @@ export function CrmTasks({
                     </span>
                   )}
                   {t.status === "done" && (
-                    <button onClick={() => toggle(t)} className="text-muted hover:text-ink" title="Reabrir">
+                    <button onClick={(e) => { e.stopPropagation(); toggle(t); }} className="text-muted hover:text-ink" title="Reabrir">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   )}
@@ -197,6 +211,16 @@ export function CrmTasks({
         <div className="rounded-2xl border border-dashed border-line py-12 text-center text-sm text-muted">
           {done ? "Nenhuma tarefa concluída." : "Nenhuma tarefa pendente. 🎉"}
         </div>
+      )}
+
+      {selected && (
+        <TaskModal
+          task={selected}
+          dealName={selected.dealName}
+          properties={properties}
+          team={team}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
