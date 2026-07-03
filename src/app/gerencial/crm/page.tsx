@@ -20,6 +20,7 @@ import {
   getDefaultPipeline,
   getAttendants,
   getCrmTaskFlows,
+  getCaptureForms,
   crmNowIso,
 } from "@/lib/data/queries";
 import {
@@ -61,10 +62,11 @@ export default async function CrmPage({
   const cards = leads.map((l) => toCard(l, nowIso));
   const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, goals] = await Promise.all([
+  const [crmTasks, flows, goals, captureForms] = await Promise.all([
     getCrmTasks(),
     getCrmTaskFlows(),
     getCrmGoals(curMonth),
+    getCaptureForms(),
   ]);
   const taskItems = buildTaskItems(crmTasks, leads);
   const forecast = buildForecast(leads, goals, teamNames, curMonth);
@@ -162,6 +164,8 @@ export default async function CrmPage({
           companies={companies}
           contacts={contacts}
           flows={flows}
+          captureForms={captureForms}
+          team={teamNames}
         />
       ),
     },

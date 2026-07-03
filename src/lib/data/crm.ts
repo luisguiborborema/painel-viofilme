@@ -665,6 +665,19 @@ export const MOCK_DEAL_CONTACTS: DealContact[] = MOCK_LEADS.filter(
   isPrimary: true,
 }));
 
+export type CaptureForm = {
+  id: string;
+  name: string;
+  slug: string;
+  owner?: string;
+  source: string;
+  active: boolean;
+};
+
+export const MOCK_CAPTURE_FORMS: CaptureForm[] = [
+  { id: "cf1", name: "Fale com a gente", slug: "fale-com-a-gente", source: "Site", active: true },
+];
+
 export const MOCK_GOALS: CrmGoal[] = [
   { owner: "Ana Lima", month: monthKey(REF), target: 12000 },
   { owner: "Marcos Silva", month: monthKey(REF), target: 9000 },

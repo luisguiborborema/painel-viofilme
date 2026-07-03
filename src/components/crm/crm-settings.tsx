@@ -6,12 +6,14 @@ import type {
   PropertyDef,
   Tag,
   TaskFlow,
+  CaptureForm,
 } from "@/lib/data/crm";
 import { PropertyManager } from "./property-manager";
 import { StageManager } from "./stage-manager";
 import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
 import { FlowManager } from "./flow-manager";
+import { CaptureFormsManager } from "./capture-forms-manager";
 
 /**
  * Central de personalização do CRM: estágios do pipeline, propriedades
@@ -25,6 +27,8 @@ export function CrmSettings({
   companies,
   contacts,
   flows,
+  captureForms,
+  team = [],
 }: {
   properties: PropertyDef[];
   pipeline: Pipeline;
@@ -33,6 +37,8 @@ export function CrmSettings({
   companies: Company[];
   contacts: Contact[];
   flows: TaskFlow[];
+  captureForms: CaptureForm[];
+  team?: string[];
 }) {
   return (
     <div className="space-y-8">
@@ -74,6 +80,15 @@ export function CrmSettings({
           aplica de uma vez a um negócio.
         </p>
         <FlowManager flows={flows} />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-ink">Formulários de captura</h2>
+        <p className="mb-3 text-xs text-muted">
+          Links públicos que criam leads direto no CRM (site, bio do Instagram,
+          campanhas). Cada envio vira empresa + contato + negócio.
+        </p>
+        <CaptureFormsManager forms={captureForms} team={team} />
       </section>
 
       <section>

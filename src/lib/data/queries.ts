@@ -1365,10 +1365,12 @@ import {
   MOCK_LOST_REASONS,
   MOCK_TASK_FLOWS,
   MOCK_GOALS,
+  MOCK_CAPTURE_FORMS,
   type CrmLead,
   type LostReason,
   type TaskFlow,
   type CrmGoal,
+  type CaptureForm,
   type FunnelAnalytics,
   type Stage,
   type CrmTask,
@@ -1486,6 +1488,11 @@ export async function getCrmTaskFlows(): Promise<TaskFlow[]> {
 export async function getCrmGoals(month: string): Promise<CrmGoal[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmGoals(month);
   return MOCK_GOALS.filter((g) => g.month === month);
+}
+
+export async function getCaptureForms(): Promise<CaptureForm[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCaptureForms();
+  return MOCK_CAPTURE_FORMS;
 }
 
 export async function getCrmFunnel(): Promise<FunnelAnalytics> {

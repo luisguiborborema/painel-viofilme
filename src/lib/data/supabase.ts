@@ -875,6 +875,7 @@ import type {
   LostReason,
   TaskFlow,
   CrmGoal,
+  CaptureForm,
 } from "./crm";
 
 const CRM_LEAD_COLS =
@@ -1141,6 +1142,22 @@ export async function sbGetCrmTaskFlows(): Promise<TaskFlow[]> {
         title: String(s.title),
         dueDays: Number(s.due_days ?? 1),
       })),
+  }));
+}
+
+export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_capture_forms")
+    .select("id,name,slug,owner,source,active")
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name),
+    slug: String(r.slug),
+    owner: r.owner == null ? undefined : String(r.owner),
+    source: String(r.source ?? "Formulário"),
+    active: Boolean(r.active),
   }));
 }
 
