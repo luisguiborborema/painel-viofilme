@@ -1,9 +1,11 @@
 import { ListChecks } from "lucide-react";
 import { getDeliveryTasks } from "@/lib/data/operacao";
+import { getSession } from "@/lib/auth/session";
 import { DeliveryPanel } from "@/components/gerencial/delivery-panel";
 
-export default function GerencialEntregas() {
+export default async function GerencialEntregas() {
   const tasks = getDeliveryTasks();
+  const user = await getSession();
 
   return (
     <div className="space-y-4">
@@ -16,12 +18,12 @@ export default function GerencialEntregas() {
             Painel de Entregas
           </h1>
           <p className="text-sm text-muted">
-            Execução da equipe — tarefas, prazos e carga de trabalho.
+            A cozinha — o que sai hoje, quem está sobrecarregado e onde trava.
           </p>
         </div>
       </div>
 
-      <DeliveryPanel tasks={tasks} />
+      <DeliveryPanel tasks={tasks} meName={user?.name} />
     </div>
   );
 }

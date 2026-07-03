@@ -6,6 +6,7 @@
  * serão ligadas ao Supabase depois.
  */
 import { CS_CLIENTS } from "./cs";
+import { REFERENCE_DATE } from "./mock";
 
 export type HubPlan = "Tráfego + Social" | "Social Pro" | "Full Service";
 export type HubStatus = "ativo" | "onboarding";
@@ -298,6 +299,29 @@ export const TASK_STAGES: { key: TaskStage; label: string }[] = [
   { key: "done", label: "Concluído" },
 ];
 
+/** Capacidade compartilhada: nº de tasks/dia por pessoa (alerta de cor). */
+export const DELIVERY_CAPACITY_PER_DAY = 4;
+
+/** Duração padrão por tipo de task (min) — base da Timeline (ENT10). */
+export const TASK_TYPE_DURATIONS: Record<TaskType, number> = {
+  Arte: 90,
+  Vídeo: 180,
+  Copy: 45,
+  Tráfego: 60,
+};
+
+/** Data de entrega (ISO) a partir do índice do dia (0=Seg da semana atual). */
+function deliveryDate(dayIdx: number): string {
+  const d = new Date(REFERENCE_DATE);
+  d.setUTCDate(d.getUTCDate() + dayIdx);
+  d.setUTCHours(12, 0, 0, 0);
+  return d.toISOString();
+}
+
+/** "Hoje" do Painel de Entregas (quarta da semana de referência). */
+export const DELIVERY_TODAY_ISO = deliveryDate(2);
+export const DELIVERY_TODAY_IDX = 2;
+
 export type DeliveryTask = {
   id: string;
   title: string;
@@ -313,10 +337,11 @@ export type DeliveryTask = {
   day: number; // dia de entrega (0=Seg..4=Sex)
   startDay: number; // início (Gantt)
   span: number; // duração em dias (Gantt)
+  dueDate: string; // ISO — data de entrega real (ENT09)
 };
 
 export function getDeliveryTasks(): DeliveryTask[] {
-  return [
+  const base: Omit<DeliveryTask, "dueDate">[] = [
     { id: "tk1", title: "Arte carrossel 5 slides — saúde bucal", client: "Clínica Odonto Plus", type: "Arte", origin: "Linha editorial", assignee: "robert", stage: "todo", dueLabel: "Atrasada 2 dias", late: true, estimateH: 4, loggedH: 0, day: 1, startDay: 1, span: 1 },
     { id: "tk2", title: "Arte post feed — menu degustação", client: "Rest. Sabor do Mar", type: "Arte", origin: "Linha editorial", assignee: "robert", stage: "doing", dueLabel: "Hoje · 19h", late: false, estimateH: 3, loggedH: 1.5, day: 2, startDay: 1, span: 2 },
     { id: "tk3", title: "Thumb Reels — bastidores cozinha", client: "Rest. Sabor do Mar", type: "Arte", origin: "Linha editorial", assignee: "lucas", stage: "doing", dueLabel: "Hoje · 12h", late: false, estimateH: 1.5, loggedH: 1, day: 2, startDay: 2, span: 1 },
@@ -332,6 +357,14 @@ export function getDeliveryTasks(): DeliveryTask[] {
     { id: "tk13", title: "Relatório mensal — apresentação", client: "Rede Farmácia BH", type: "Tráfego", origin: "Tarefa avulsa", assignee: "mariana", stage: "todo", dueLabel: "Prazo: 30/06", late: false, estimateH: 2, loggedH: 0, day: 4, startDay: 3, span: 2 },
     { id: "tk14", title: "Aprovação calendário julho", client: "Advocacia Menezes", type: "Copy", origin: "Linha editorial", assignee: "ana", stage: "approval", dueLabel: "Aguarda cliente", late: false, estimateH: 1, loggedH: 1, day: 1, startDay: 1, span: 1 },
   ];
+
+  // Adiciona a data de entrega real e recalcula "atrasada" pela régua da data
+  // (aprovação cliente e concluída não contam como atraso da cozinha).
+  return base.map((t) => ({
+    ...t,
+    dueDate: deliveryDate(t.day),
+    late: t.day < DELIVERY_TODAY_IDX && t.stage !== "done" && t.stage !== "approval",
+  }));
 }
 
 export function getEditorialLine(clientId: string): EditorialLine {
