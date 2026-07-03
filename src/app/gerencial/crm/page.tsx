@@ -94,7 +94,16 @@ export default async function CrmPage({
     {
       key: "configuracoes",
       label: "Configurações",
-      content: <CrmSettings properties={properties} pipeline={pipeline} tags={tags} />,
+      content: (
+        <CrmSettings
+          properties={properties}
+          pipeline={pipeline}
+          tags={tags}
+          leads={leads}
+          companies={companies}
+          contacts={contacts}
+        />
+      ),
     },
   ];
 

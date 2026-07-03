@@ -1,7 +1,15 @@
-import type { Pipeline, PropertyDef, Tag } from "@/lib/data/crm";
+import type {
+  Company,
+  Contact,
+  CrmLead,
+  Pipeline,
+  PropertyDef,
+  Tag,
+} from "@/lib/data/crm";
 import { PropertyManager } from "./property-manager";
 import { StageManager } from "./stage-manager";
 import { TagManager } from "./tag-manager";
+import { CrmImportExport } from "./crm-import-export";
 
 /**
  * Central de personalização do CRM: estágios do pipeline, propriedades
@@ -11,10 +19,16 @@ export function CrmSettings({
   properties,
   pipeline,
   tags,
+  leads,
+  companies,
+  contacts,
 }: {
   properties: PropertyDef[];
   pipeline: Pipeline;
   tags: Tag[];
+  leads: CrmLead[];
+  companies: Company[];
+  contacts: Contact[];
 }) {
   return (
     <div className="space-y-8">
@@ -46,6 +60,14 @@ export function CrmSettings({
           na ficha de cada objeto para preenchimento.
         </p>
         <PropertyManager properties={properties} />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-ink">Importar / Exportar</h2>
+        <p className="mb-3 text-xs text-muted">
+          Baixe seus dados em CSV ou importe negócios em massa por planilha.
+        </p>
+        <CrmImportExport leads={leads} companies={companies} contacts={contacts} />
       </section>
     </div>
   );
