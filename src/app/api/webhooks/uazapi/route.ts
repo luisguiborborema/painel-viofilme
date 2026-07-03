@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { UAZAPI_WEBHOOK_SECRET } from "@/lib/whatsapp/config";
+import { downloadUazapiMedia } from "@/lib/whatsapp/download";
+
+type MediaType = "image" | "audio" | "video" | "document";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,7 +136,8 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
       pickString(msg, ["sender"]),
   );
 
-  const text = extractText(msg) ?? mediaPlaceholder(msg);
+  const caption = extractText(msg);
+  const media = detectMedia(msg);
   const externalId =
     pickString(msg, ["messageid", "id", "messageId"]) ??
     (isObj(msg.key) ? pickString(msg.key, ["id"]) : undefined);
@@ -143,13 +147,30 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
     (!fromMe ? pickString(msg, ["senderName"]) : undefined);
 
   if (!phone) return "sem-telefone";
-  if (!text) return "sem-texto";
+  if (!caption && !media) return "sem-texto";
   if (!isSupabaseConfigured() || !hasServiceRole()) return "sem-banco";
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
   const tail = phone.slice(-8);
   const direction = fromMe ? "out" : "in";
+
+  // Resolve a mídia recebida: baixa via Uazapi e re-hospeda no nosso Storage.
+  let msgType = "text";
+  let body: string | null = caption ?? null;
+  let mediaUrl: string | null = null;
+  if (media) {
+    const dl = await downloadUazapiMedia(externalId ?? "", { audio: media === "audio" });
+    if (dl?.base64) {
+      mediaUrl = await uploadIncoming(admin, phone, dl.base64, dl.mimetype, media);
+    }
+    if (mediaUrl) {
+      msgType = media;
+    } else {
+      body = caption ?? placeholderFor(media);
+    }
+  }
+  const preview = body ?? placeholderFor((msgType as MediaType) ?? "document");
 
   const { data: leads } = await admin
     .from("crm_leads")
@@ -174,7 +195,7 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
         name: contactName ?? undefined,
         lead_id: lead?.id ?? undefined,
         last_message_at: now,
-        last_message_preview: text.slice(0, 120),
+        last_message_preview: preview.slice(0, 120),
         last_direction: direction,
         unread_count: fromMe ? 0 : Number(existing?.unread_count ?? 0) + 1,
         updated_at: now,
@@ -189,7 +210,7 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
         lead_id: lead?.id ?? null,
         status: "open",
         last_message_at: now,
-        last_message_preview: text.slice(0, 120),
+        last_message_preview: preview.slice(0, 120),
         last_direction: direction,
         unread_count: fromMe ? 0 : 1,
       })
@@ -202,8 +223,9 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
     await admin.from("wa_messages").insert({
       conversation_id: conversationId,
       direction,
-      type: "text",
-      body: text,
+      type: msgType,
+      body,
+      media_url: mediaUrl,
       external_id: externalId ?? null,
     });
   }
@@ -213,9 +235,9 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
       lead_id: lead.id,
       channel: "whatsapp",
       direction,
-      body: text,
+      body: preview,
       external_id: externalId ?? null,
-      meta: { phone },
+      meta: { phone, mediaUrl },
     });
     await admin.from("crm_leads").update({ last_interaction_at: now }).eq("id", lead.id);
   }
@@ -223,24 +245,69 @@ async function handle({ message: msg, chat }: Envelope): Promise<string> {
   return lead ? `${direction}+lead` : direction;
 }
 
-/** Placeholder legível para mensagens não-texto (mídia). */
-function mediaPlaceholder(msg: Obj): string | undefined {
-  const type = pickString(msg, ["mediaType", "messageType", "type"]);
-  if (!type || type === "text" || type === "Conversation") return undefined;
-  const map: Record<string, string> = {
-    image: "[imagem]",
-    ImageMessage: "[imagem]",
-    audio: "[áudio]",
-    AudioMessage: "[áudio]",
-    ptt: "[áudio]",
-    video: "[vídeo]",
-    VideoMessage: "[vídeo]",
-    document: "[documento]",
-    DocumentMessage: "[documento]",
-    sticker: "[figurinha]",
-    StickerMessage: "[figurinha]",
-    user_created_sticker: "[figurinha]",
-    media: "[mídia]",
-  };
-  return map[type] ?? `[${type}]`;
+/** Detecta o tipo de mídia da mensagem (ou null se for texto). */
+function detectMedia(msg: Obj): MediaType | null {
+  const raw = (pickString(msg, ["mediaType", "messageType", "type"]) ?? "").toLowerCase();
+  if (!raw || raw === "text" || raw === "conversation" || raw === "extendedtextmessage")
+    return null;
+  if (raw.includes("image") || raw.includes("sticker")) return "image";
+  if (raw.includes("audio") || raw === "ptt") return "audio";
+  if (raw.includes("video") || raw.includes("gif")) return "video";
+  if (raw.includes("document")) return "document";
+  if (raw === "media") {
+    const c = msg.content;
+    const mt = isObj(c) ? String(c.mimetype ?? "") : "";
+    if (mt.startsWith("image")) return "image";
+    if (mt.startsWith("audio")) return "audio";
+    if (mt.startsWith("video")) return "video";
+    return "document";
+  }
+  return null;
+}
+
+function placeholderFor(type: MediaType): string {
+  return { image: "[imagem]", audio: "[áudio]", video: "[vídeo]", document: "[documento]" }[type];
+}
+
+const EXT: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/ogg": "ogg",
+  "audio/opus": "ogg",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "video/mp4": "mp4",
+  "application/pdf": "pdf",
+};
+
+/** Sobe a mídia recebida (base64) para o bucket público e devolve a URL. */
+async function uploadIncoming(
+  admin: ReturnType<typeof createAdminClient>,
+  phone: string,
+  base64: string,
+  mimetype: string | undefined,
+  type: MediaType,
+): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    if (buffer.length === 0 || buffer.length > 20 * 1024 * 1024) return null;
+    const mime = mimetype || defaultMime(type);
+    const ext = EXT[mime] ?? (type === "audio" ? "mp3" : type === "image" ? "jpg" : "bin");
+    const path = `incoming/${phone}/${Date.now()}-${buffer.length % 100000}.${ext}`;
+    await admin.storage
+      .createBucket("wa-media", { public: true, fileSizeLimit: "20MB" })
+      .catch(() => {});
+    const { error } = await admin.storage
+      .from("wa-media")
+      .upload(path, buffer, { contentType: mime, upsert: false });
+    if (error) return null;
+    return admin.storage.from("wa-media").getPublicUrl(path).data.publicUrl;
+  } catch {
+    return null;
+  }
+}
+
+function defaultMime(type: MediaType): string {
+  return { image: "image/jpeg", audio: "audio/mpeg", video: "video/mp4", document: "application/octet-stream" }[type];
 }
