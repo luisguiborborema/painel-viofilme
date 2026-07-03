@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "add" | "done";
+  action?: "add" | "done" | "reopen";
   leadId?: string;
   taskId?: string;
   title?: string;
@@ -37,12 +37,13 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  if (action === "done") {
+  if (action === "done" || action === "reopen") {
     if (!b.taskId) return NextResponse.json({ error: "taskId ausente" }, { status: 400 });
-    const { error } = await supabase
-      .from("crm_tasks")
-      .update({ status: "done", done_at: now })
-      .eq("id", b.taskId);
+    const patch =
+      action === "done"
+        ? { status: "done", done_at: now }
+        : { status: "pending", done_at: null };
+    const { error } = await supabase.from("crm_tasks").update(patch).eq("id", b.taskId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }

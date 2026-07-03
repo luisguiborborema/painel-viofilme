@@ -257,6 +257,26 @@ export type CrmTask = {
   createdAt: string;
 };
 
+/** Tarefa enriquecida com o negócio a que pertence (para a tela de Tarefas). */
+export type TaskItem = CrmTask & {
+  dealName: string;
+  owner?: string;
+  companyId?: string;
+};
+
+export function buildTaskItems(tasks: CrmTask[], leads: CrmLead[]): TaskItem[] {
+  const byId = new Map(leads.map((l) => [l.id, l]));
+  return tasks.map((t) => {
+    const lead = byId.get(t.leadId);
+    return {
+      ...t,
+      dealName: lead?.name ?? "Negócio",
+      owner: lead?.owner,
+      companyId: lead?.companyId,
+    };
+  });
+}
+
 // ── Estágios do funil ───────────────────────────────────────────────────────
 
 export const CRM_STAGES: {

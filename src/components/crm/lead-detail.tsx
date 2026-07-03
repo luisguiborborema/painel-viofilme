@@ -20,7 +20,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { Building2 } from "lucide-react";
+import { Building2, Check, ListTodo, Plus } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
@@ -111,6 +111,34 @@ export function LeadDetail({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "done", taskId }),
     }).catch(() => {});
+  }
+
+  async function toggleTask(task: CrmTask) {
+    const next = task.status === "done" ? "pending" : "done";
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)));
+    await fetch("/api/crm/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: next === "done" ? "done" : "reopen", taskId: task.id }),
+    }).catch(() => {});
+  }
+
+  async function addTask(title: string, dueIso?: string) {
+    const tmp: CrmTask = {
+      id: `tmp-${Date.now()}`,
+      leadId: lead.id,
+      title,
+      dueDate: dueIso,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    setTasks((prev) => [...prev, tmp]);
+    await fetch("/api/crm/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add", leadId: lead.id, title, dueDate: dueIso }),
+    }).catch(() => {});
+    router.refresh();
   }
 
   async function markLost(reason: string) {
@@ -226,6 +254,8 @@ export function LeadDetail({
             {lead.contactPhone && <Row label="Telefone" value={lead.contactPhone} />}
             {lead.contactEmail && <Row label="E-mail" value={lead.contactEmail} />}
           </Card>
+
+          <TasksCard tasks={tasks} onToggle={toggleTask} onAdd={addTask} />
 
           {company && (
             <div className="rounded-2xl border border-line bg-surface p-4">
@@ -602,6 +632,109 @@ function LoseButton({
       >
         ✕
       </button>
+    </div>
+  );
+}
+
+function TasksCard({
+  tasks,
+  onToggle,
+  onAdd,
+}: {
+  tasks: CrmTask[];
+  onToggle: (t: CrmTask) => void;
+  onAdd: (title: string, dueIso?: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState("");
+  const sorted = [...tasks].sort((a, b) => {
+    if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+    return (a.dueDate ?? "9").localeCompare(b.dueDate ?? "9");
+  });
+  const pending = tasks.filter((t) => t.status === "pending").length;
+
+  function submit() {
+    if (!title.trim()) return;
+    onAdd(title.trim(), due ? new Date(due).toISOString() : undefined);
+    setTitle("");
+    setDue("");
+    setAdding(false);
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+          <ListTodo className="h-4 w-4" /> Tarefas{pending ? ` (${pending})` : ""}
+        </h2>
+        <button
+          onClick={() => setAdding((a) => !a)}
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2 py-1 text-[11px] font-medium text-muted hover:bg-subtle"
+        >
+          <Plus className="h-3 w-3" /> nova
+        </button>
+      </div>
+
+      {adding && (
+        <div className="mb-2 space-y-2 rounded-xl border border-brand-400/40 bg-brand-50/40 p-2.5">
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Título da tarefa"
+            className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+              className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+            />
+            <button
+              onClick={submit}
+              disabled={!title.trim()}
+              className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              Adicionar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sorted.length === 0 ? (
+        <p className="py-2 text-center text-xs text-muted">Nenhuma tarefa.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {sorted.map((t) => (
+            <div key={t.id} className="flex items-center gap-2">
+              <button
+                onClick={() => onToggle(t)}
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                  t.status === "done"
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : "border-line hover:border-brand-400",
+                )}
+              >
+                {t.status === "done" && <Check className="h-3 w-3" />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className={cn("truncate text-sm", t.status === "done" ? "text-muted line-through" : "text-ink")}>
+                  {t.title}
+                </p>
+                {t.dueDate && (
+                  <p className="text-[11px] text-muted">
+                    {dayMonth(t.dueDate)} {clockLabel(t.dueDate)}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
