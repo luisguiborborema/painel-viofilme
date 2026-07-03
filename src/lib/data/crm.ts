@@ -761,6 +761,46 @@ export type FunnelStageStat = {
   conversion: number; // % vindo do estágio anterior
 };
 
+export type StageChange = {
+  dealId: string;
+  fromStage?: string;
+  toStage: string;
+  changedBy?: string;
+  changedAt: string;
+};
+
+/**
+ * Tempo médio (dias) que os negócios passam em cada estágio, a partir do
+ * histórico real de mudanças. Um estágio "entrado" em t fica ocupado até a
+ * próxima mudança daquele negócio (ou até agora, se ainda estiver lá).
+ */
+export function buildStageTimings(
+  history: StageChange[],
+  nowIso: string,
+): Record<string, { avgDays: number; count: number }> {
+  const byDeal = new Map<string, StageChange[]>();
+  for (const h of history) {
+    byDeal.set(h.dealId, [...(byDeal.get(h.dealId) ?? []), h]);
+  }
+  const acc: Record<string, { total: number; count: number }> = {};
+  const now = Date.parse(nowIso);
+  for (const changes of byDeal.values()) {
+    const sorted = [...changes].sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    for (let i = 0; i < sorted.length; i++) {
+      const stage = sorted[i].toStage;
+      const enter = Date.parse(sorted[i].changedAt);
+      const leave = i + 1 < sorted.length ? Date.parse(sorted[i + 1].changedAt) : now;
+      const days = Math.max(0, (leave - enter) / 86_400_000);
+      acc[stage] = { total: (acc[stage]?.total ?? 0) + days, count: (acc[stage]?.count ?? 0) + 1 };
+    }
+  }
+  const out: Record<string, { avgDays: number; count: number }> = {};
+  for (const [k, v] of Object.entries(acc)) {
+    out[k] = { avgDays: Math.round(v.total / v.count), count: v.count };
+  }
+  return out;
+}
+
 export type FunnelAnalytics = {
   stages: FunnelStageStat[];
   won: number;

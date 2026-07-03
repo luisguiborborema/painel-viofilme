@@ -33,6 +33,7 @@ import {
   type CrmLead,
   type CrmTask,
   type PropertyDef,
+  type StageChange,
   type Tag,
   type TaskFlow,
 } from "@/lib/data/crm";
@@ -74,6 +75,7 @@ export function LeadDetail({
   team = [],
   lostReasons = [],
   flows = [],
+  history = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -86,6 +88,7 @@ export function LeadDetail({
   team?: string[];
   lostReasons?: string[];
   flows?: TaskFlow[];
+  history?: StageChange[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -310,6 +313,8 @@ export function LeadDetail({
             defs={properties.filter((p) => p.objectType === "deal")}
             initialValues={lead.properties ?? {}}
           />
+
+          {history.length > 0 && <StageHistoryCard history={history} />}
 
           <Card title="Qualificação (BANT)">
             <div className="space-y-2">
@@ -768,6 +773,32 @@ function TasksCard({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function StageHistoryCard({ history }: { history: StageChange[] }) {
+  const items = [...history].reverse();
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
+      <h2 className="mb-2 text-sm font-semibold text-ink">Histórico de estágios</h2>
+      <div className="space-y-2">
+        {items.map((h, i) => (
+          <div key={i} className="flex items-start gap-2 text-sm">
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-ink">
+                {h.fromStage ? `${stageLabel(h.fromStage)} → ` : ""}
+                <span className="font-medium">{stageLabel(h.toStage)}</span>
+              </p>
+              <p className="text-[11px] text-muted">
+                {dayMonth(h.changedAt)} {clockLabel(h.changedAt)}
+                {h.changedBy ? ` · ${h.changedBy}` : ""}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

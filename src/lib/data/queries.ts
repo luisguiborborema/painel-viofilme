@@ -1371,6 +1371,7 @@ import {
   type TaskFlow,
   type CrmGoal,
   type CaptureForm,
+  type StageChange,
   type FunnelAnalytics,
   type Stage,
   type CrmTask,
@@ -1493,6 +1494,16 @@ export async function getCrmGoals(month: string): Promise<CrmGoal[]> {
 export async function getCaptureForms(): Promise<CaptureForm[]> {
   if (isSupabaseConfigured()) return sb.sbGetCaptureForms();
   return MOCK_CAPTURE_FORMS;
+}
+
+export async function getStageHistory(): Promise<StageChange[]> {
+  if (isSupabaseConfigured()) return sb.sbGetStageHistory();
+  return [];
+}
+
+export async function getDealHistory(dealId: string): Promise<StageChange[]> {
+  if (isSupabaseConfigured()) return sb.sbGetDealHistory(dealId);
+  return [];
 }
 
 export async function getCrmFunnel(): Promise<FunnelAnalytics> {

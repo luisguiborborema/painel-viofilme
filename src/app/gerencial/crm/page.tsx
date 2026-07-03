@@ -21,6 +21,7 @@ import {
   getAttendants,
   getCrmTaskFlows,
   getCaptureForms,
+  getStageHistory,
   crmNowIso,
 } from "@/lib/data/queries";
 import {
@@ -28,6 +29,7 @@ import {
   buildFunnelAnalytics,
   buildTaskItems,
   buildForecast,
+  buildStageTimings,
   monthKey,
   CRM_AGENDA,
 } from "@/lib/data/crm";
@@ -62,12 +64,14 @@ export default async function CrmPage({
   const cards = leads.map((l) => toCard(l, nowIso));
   const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, goals, captureForms] = await Promise.all([
+  const [crmTasks, flows, goals, captureForms, history] = await Promise.all([
     getCrmTasks(),
     getCrmTaskFlows(),
     getCrmGoals(curMonth),
     getCaptureForms(),
+    getStageHistory(),
   ]);
+  const stageTimings = buildStageTimings(history, nowIso);
   const taskItems = buildTaskItems(crmTasks, leads);
   const forecast = buildForecast(leads, goals, teamNames, curMonth);
   const canEditGoals = hasFullAccess(user?.allowedSections ?? null);
@@ -150,7 +154,7 @@ export default async function CrmPage({
     {
       key: "analise",
       label: "Análise",
-      content: <CrmAnalytics funnel={funnel} />,
+      content: <CrmAnalytics funnel={funnel} timings={stageTimings} />,
     },
     {
       key: "configuracoes",

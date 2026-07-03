@@ -10,6 +10,7 @@ import {
   getAttendants,
   getCrmLostReasons,
   getCrmTaskFlows,
+  getDealHistory,
 } from "@/lib/data/queries";
 
 export default async function LeadPage({
@@ -32,7 +33,10 @@ export default async function LeadPage({
       getAttendants(),
       getCrmLostReasons(),
     ]);
-  const flows = await getCrmTaskFlows();
+  const [flows, dealHistory] = await Promise.all([
+    getCrmTaskFlows(),
+    getDealHistory(id),
+  ]);
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
   const assocIds = new Set<string>();
@@ -53,6 +57,7 @@ export default async function LeadPage({
       team={team.map((t) => t.name)}
       lostReasons={lostReasons.map((r) => r.label)}
       flows={flows}
+      history={dealHistory}
     />
   );
 }

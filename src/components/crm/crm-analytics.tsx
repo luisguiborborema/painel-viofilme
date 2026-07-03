@@ -25,7 +25,13 @@ function Kpi({
   );
 }
 
-export function CrmAnalytics({ funnel }: { funnel: FunnelAnalytics }) {
+export function CrmAnalytics({
+  funnel,
+  timings = {},
+}: {
+  funnel: FunnelAnalytics;
+  timings?: Record<string, { avgDays: number; count: number }>;
+}) {
   const maxReached = Math.max(1, ...funnel.stages.map((s) => s.reached));
   const maxLost = Math.max(1, ...funnel.lostReasons.map((r) => r.count));
 
@@ -100,7 +106,10 @@ export function CrmAnalytics({ funnel }: { funnel: FunnelAnalytics }) {
                   </p>
                 )}
                 <p className="inline-flex items-center gap-1 text-muted">
-                  <Clock className="h-3 w-3" /> {s.avgAgeDays}d méd.
+                  <Clock className="h-3 w-3" />
+                  {timings[s.key]
+                    ? `${timings[s.key].avgDays}d no estágio`
+                    : `${s.avgAgeDays}d parado`}
                 </p>
               </div>
             </div>

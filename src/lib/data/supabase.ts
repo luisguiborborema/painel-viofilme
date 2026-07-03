@@ -876,6 +876,7 @@ import type {
   TaskFlow,
   CrmGoal,
   CaptureForm,
+  StageChange,
 } from "./crm";
 
 const CRM_LEAD_COLS =
@@ -1143,6 +1144,35 @@ export async function sbGetCrmTaskFlows(): Promise<TaskFlow[]> {
         dueDays: Number(s.due_days ?? 1),
       })),
   }));
+}
+
+function mapStageChange(r: Record<string, unknown>): StageChange {
+  return {
+    dealId: String(r.deal_id),
+    fromStage: r.from_stage == null ? undefined : String(r.from_stage),
+    toStage: String(r.to_stage),
+    changedBy: r.changed_by == null ? undefined : String(r.changed_by),
+    changedAt: String(r.changed_at),
+  };
+}
+
+export async function sbGetStageHistory(): Promise<StageChange[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_stage_history")
+    .select("deal_id,from_stage,to_stage,changed_by,changed_at")
+    .order("changed_at", { ascending: true });
+  return (data ?? []).map(mapStageChange);
+}
+
+export async function sbGetDealHistory(dealId: string): Promise<StageChange[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_stage_history")
+    .select("deal_id,from_stage,to_stage,changed_by,changed_at")
+    .eq("deal_id", dealId)
+    .order("changed_at", { ascending: true });
+  return (data ?? []).map(mapStageChange);
 }
 
 export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
