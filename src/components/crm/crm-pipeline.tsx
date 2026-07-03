@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
-import { CRM_STAGES, type CrmLeadCard, type CrmStage } from "@/lib/data/crm";
+import { CRM_STAGES, toCard, type CrmLead, type CrmLeadCard, type CrmStage } from "@/lib/data/crm";
+import { NewLeadModal } from "./new-lead-modal";
 
 function cardBorder(card: CrmLeadCard): string {
   if (card.rot === "stale") return "border-l-rose-500";
@@ -89,6 +91,13 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
   const [cards, setCards] = useState(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
+  const [showNew, setShowNew] = useState(false);
+
+  function addLead(lead: CrmLead) {
+    setShowNew(false);
+    setCards((prev) => [toCard(lead, new Date().toISOString()), ...prev]);
+    router.refresh();
+  }
 
   const openValue = cards
     .filter((c) => c.stage !== "ganho" && c.stage !== "perdido")
@@ -124,11 +133,23 @@ export function CrmPipeline({ cards: initial }: { cards: CrmLeadCard[] }) {
           negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
           em aberto
         </p>
-        <p className="text-xs text-muted">
-          Borda <span className="text-emerald-600">verde</span> = alta probabilidade ·{" "}
-          <span className="text-rose-500">vermelha</span> = parado
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="hidden text-xs text-muted sm:block">
+            Borda <span className="text-emerald-600">verde</span> = alta probabilidade ·{" "}
+            <span className="text-rose-500">vermelha</span> = parado
+          </p>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Novo lead
+          </button>
+        </div>
       </div>
+
+      {showNew && (
+        <NewLeadModal onClose={() => setShowNew(false)} onCreated={addLead} />
+      )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
         {CRM_STAGES.map((s) => {
