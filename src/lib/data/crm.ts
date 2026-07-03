@@ -154,12 +154,14 @@ export type StageRequirement = {
 export type StageAutomation =
   | { type: "task"; title: string; dueDays?: number }
   | { type: "whatsapp"; message: string }
-  | { type: "notify"; message: string };
+  | { type: "notify"; message: string }
+  | { type: "flow"; flowId: string };
 
 export const AUTOMATION_TYPES: { key: StageAutomation["type"]; label: string }[] = [
   { key: "task", label: "Criar tarefa de follow-up" },
   { key: "whatsapp", label: "Enviar WhatsApp ao contato" },
   { key: "notify", label: "Notificar o time" },
+  { key: "flow", label: "Aplicar fluxo de tarefas" },
 ];
 
 export type Stage = {

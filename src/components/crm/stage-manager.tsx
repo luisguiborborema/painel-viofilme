@@ -22,6 +22,7 @@ import {
   type Stage,
   type StageAutomation,
   type StageRequirement,
+  type TaskFlow,
 } from "@/lib/data/crm";
 
 type FieldOption = { source: "property" | "native"; field: string; label: string };
@@ -48,9 +49,11 @@ async function post(body: unknown) {
 export function StageManager({
   pipeline,
   dealProperties = [],
+  flows = [],
 }: {
   pipeline: Pipeline;
   dealProperties?: PropertyDef[];
+  flows?: TaskFlow[];
 }) {
   const router = useRouter();
   const stages = [...pipeline.stages].sort((a, b) => a.position - b.position);
@@ -116,6 +119,7 @@ export function StageManager({
             key={s.id}
             stage={s}
             fieldOptions={fieldOptions}
+            flows={flows}
             first={i === 0}
             last={i === stages.length - 1}
             busy={busy}
@@ -133,6 +137,7 @@ export function StageManager({
 function StageRow({
   stage,
   fieldOptions,
+  flows,
   first,
   last,
   busy,
@@ -143,6 +148,7 @@ function StageRow({
 }: {
   stage: Stage;
   fieldOptions: FieldOption[];
+  flows: TaskFlow[];
   first: boolean;
   last: boolean;
   busy: boolean;
@@ -193,7 +199,9 @@ function StageRow({
         ? { type: "task", title: "Follow-up", dueDays: 1 }
         : type === "whatsapp"
           ? { type: "whatsapp", message: "" }
-          : { type: "notify", message: "" };
+          : type === "notify"
+            ? { type: "notify", message: "" }
+            : { type: "flow", flowId: flows[0]?.id ?? "" };
     setAutos((prev) => [...prev, a]);
     setShowAutos(true);
   }
@@ -436,6 +444,19 @@ function StageRow({
                   dias
                 </label>
               </div>
+            ) : a.type === "flow" ? (
+              <select
+                value={a.flowId}
+                onChange={(e) => updateAuto(i, { flowId: e.target.value })}
+                className="mt-2 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+              >
+                {flows.length === 0 && <option value="">Crie um fluxo em “Fluxos de tarefas”</option>}
+                {flows.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.steps.length} tarefas)
+                  </option>
+                ))}
+              </select>
             ) : (
               <textarea
                 value={a.message}

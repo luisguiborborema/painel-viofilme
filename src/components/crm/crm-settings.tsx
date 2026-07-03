@@ -45,6 +45,7 @@ export function CrmSettings({
         <StageManager
           pipeline={pipeline}
           dealProperties={properties.filter((p) => p.objectType === "deal")}
+          flows={flows}
         />
       </section>
 

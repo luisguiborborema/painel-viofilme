@@ -99,6 +99,23 @@ async function runStageAutomations(
           channel: "system",
           body: `🔔 ${a.message}`,
         });
+      } else if (a.type === "flow") {
+        const { data: steps } = await supabase
+          .from("crm_task_flow_steps")
+          .select("title,due_days")
+          .eq("flow_id", a.flowId)
+          .order("position", { ascending: true });
+        if (steps?.length) {
+          const base = now.getTime();
+          await supabase.from("crm_tasks").insert(
+            steps.map((s) => ({
+              lead_id: dealId,
+              title: String(s.title),
+              due_date: new Date(base + Number(s.due_days ?? 1) * 86_400_000).toISOString(),
+              status: "pending",
+            })),
+          );
+        }
       }
     } catch {
       /* best-effort: uma automação que falha não bloqueia as demais */
