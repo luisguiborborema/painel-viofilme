@@ -38,7 +38,7 @@ import {
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
 import { TagChips } from "./tag-chips";
-import { PropertyList } from "./property-list";
+import { ObjectProperties } from "./object-properties";
 
 type Composer = "note" | "whatsapp" | "email" | "call";
 
@@ -273,9 +273,11 @@ export function LeadDetail({
             </div>
           )}
 
-          <PropertyList
+          <ObjectProperties
+            objectType="deal"
+            id={lead.id}
             defs={properties.filter((p) => p.objectType === "deal")}
-            values={lead.properties ?? {}}
+            initialValues={lead.properties ?? {}}
           />
 
           <Card title="Qualificação (BANT)">

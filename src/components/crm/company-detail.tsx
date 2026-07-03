@@ -20,7 +20,7 @@ import {
   type Tag,
 } from "@/lib/data/crm";
 import { TagChips } from "./tag-chips";
-import { PropertyList } from "./property-list";
+import { ObjectProperties } from "./object-properties";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -193,7 +193,12 @@ export function CompanyDetail({
             </div>
           </section>
 
-          <PropertyList defs={companyProps} values={company.properties} />
+          <ObjectProperties
+            objectType="company"
+            id={company.id}
+            defs={companyProps}
+            initialValues={company.properties}
+          />
         </div>
       </div>
     </div>

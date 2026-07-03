@@ -4,12 +4,14 @@ import { CrmDashboard } from "@/components/crm/crm-dashboard";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
 import { CrmCompanies } from "@/components/crm/crm-companies";
 import { CrmContacts } from "@/components/crm/crm-contacts";
+import { CrmSettings } from "@/components/crm/crm-settings";
 import {
   getCrmDashboard,
   getCrmLeads,
   getCrmCompanies,
   getCrmContacts,
   getCrmTags,
+  getCrmProperties,
   crmNowIso,
 } from "@/lib/data/queries";
 import { toCard, CRM_AGENDA } from "@/lib/data/crm";
@@ -23,14 +25,16 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, companies, contacts, tags, events] = await Promise.all([
-    getCrmDashboard(),
-    getCrmLeads(),
-    getCrmCompanies(),
-    getCrmContacts(),
-    getCrmTags(),
-    listUpcomingEvents(6),
-  ]);
+  const [dashboard, leads, companies, contacts, tags, properties, events] =
+    await Promise.all([
+      getCrmDashboard(),
+      getCrmLeads(),
+      getCrmCompanies(),
+      getCrmContacts(),
+      getCrmTags(),
+      getCrmProperties(),
+      listUpcomingEvents(6),
+    ]);
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
 
@@ -57,6 +61,11 @@ export default async function CrmPage({
       key: "contatos",
       label: "Contatos",
       content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
+    },
+    {
+      key: "configuracoes",
+      label: "Configurações",
+      content: <CrmSettings properties={properties} />,
     },
   ];
 
