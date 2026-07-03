@@ -37,8 +37,8 @@ import {
 } from "@/lib/data/crm";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
-import { TagChips } from "./tag-chips";
 import { ObjectProperties } from "./object-properties";
+import { TagPicker } from "./tag-picker";
 
 type Composer = "note" | "whatsapp" | "email" | "call";
 
@@ -266,12 +266,12 @@ export function LeadDetail({
             </div>
           )}
 
-          {(lead.tags?.length ?? 0) > 0 && (
-            <div className="rounded-2xl border border-line bg-surface p-4">
-              <h2 className="mb-2 text-sm font-semibold text-ink">Tags</h2>
-              <TagChips ids={lead.tags} tags={tags} />
-            </div>
-          )}
+          <TagPicker
+            objectType="deal"
+            id={lead.id}
+            allTags={tags}
+            initialIds={lead.tags ?? []}
+          />
 
           <ObjectProperties
             objectType="deal"

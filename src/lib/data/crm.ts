@@ -326,14 +326,28 @@ export function buildFocus(
   return items.sort((a, b) => order[a.kind] - order[b.kind] || (b.daysLate ?? 0) - (a.daysLate ?? 0));
 }
 
-/** Consolida os KPIs do dashboard BDR a partir de leads + tarefas. */
+/**
+ * Consolida os KPIs do dashboard BDR a partir de leads + tarefas.
+ * `stages` (opcional) torna o funil dinâmico conforme o pipeline configurado;
+ * sem ele, cai nos 6 estágios padrão.
+ */
 export function computeDashboard(
   leads: CrmLead[],
   tasks: CrmTask[],
   nowIso: string,
+  stages?: Stage[],
 ): BdrDashboard {
   const now = new Date(nowIso);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+  // Estágios abertos (do pipeline configurado ou dos padrão).
+  const openStages = stages?.length
+    ? stages.filter((s) => s.kind === "open")
+    : CRM_STAGES.filter((s) => s.open).map((s, i) => ({
+        id: s.key, key: s.key, label: s.label, color: s.color,
+        probability: s.probability, position: i, kind: "open" as const,
+      }));
+  const openKeys = new Set(openStages.map((s) => s.key));
 
   const wonThisMonth = leads.filter((l) => l.wonAt && Date.parse(l.wonAt) >= Date.parse(monthStart));
   const lostThisMonth = leads.filter((l) => l.lostAt && Date.parse(l.lostAt) >= Date.parse(monthStart));
@@ -342,14 +356,18 @@ export function computeDashboard(
   const winRate = closed ? Math.round((wonThisMonth.length / closed) * 100) : 0;
   const avgTicket = wonThisMonth.length ? Math.round(newMrr / wonThisMonth.length) : 0;
 
-  const open = leads.filter((l) => OPEN_STAGES.includes(l.stage));
-  const proposalsOpen = open.filter((l) => l.stage === "proposta" || l.stage === "negociacao");
+  const open = leads.filter((l) => openKeys.has(l.stage));
+  // "Propostas em aberto": estágios abertos com probabilidade alta (≥60%).
+  const proposalsOpen = open.filter((l) => {
+    const st = openStages.find((s) => s.key === l.stage);
+    return (st?.probability ?? l.probability) >= 60;
+  });
   const pipelineOpenValue = open.reduce((s, l) => s + l.monthlyValue, 0);
   const pipelineWeighted = Math.round(
     open.reduce((s, l) => s + (l.monthlyValue * l.probability) / 100, 0),
   );
 
-  const byStage: StageBucket[] = CRM_STAGES.filter((s) => s.open).map((s) => {
+  const byStage: StageBucket[] = openStages.map((s) => {
     const inStage = open.filter((l) => l.stage === s.key);
     return {
       stage: s.key,

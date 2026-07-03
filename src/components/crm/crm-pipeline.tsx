@@ -12,8 +12,10 @@ import {
   type CrmLeadCard,
   type CrmStage,
   type Stage,
+  type Tag,
 } from "@/lib/data/crm";
 import { NewLeadModal } from "./new-lead-modal";
+import { TagChips } from "./tag-chips";
 
 function cardBorder(card: CrmLeadCard): string {
   if (card.rot === "stale") return "border-l-rose-500";
@@ -32,10 +34,12 @@ function initials(name: string) {
 
 function LeadCard({
   card,
+  allTags,
   onOpen,
   onDragStart,
 }: {
   card: CrmLeadCard;
+  allTags: Tag[];
   onOpen: () => void;
   onDragStart: () => void;
 }) {
@@ -61,6 +65,11 @@ function LeadCard({
       </div>
       {card.contactName && (
         <p className="mt-0.5 text-xs text-muted">{card.contactName}</p>
+      )}
+      {(card.tags?.length ?? 0) > 0 && (
+        <div className="mt-1.5">
+          <TagChips ids={card.tags} tags={allTags} size="xs" />
+        </div>
       )}
       <p className="mt-2 text-sm font-bold text-ink">
         {formatBRL(card.monthlyValue)}
@@ -96,17 +105,23 @@ function LeadCard({
 export function CrmPipeline({
   cards: initial,
   stages = DEFAULT_PIPELINE.stages,
+  tags = [],
 }: {
   cards: CrmLeadCard[];
   stages?: Stage[];
+  tags?: Tag[];
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
+  const visibleCards = tagFilter
+    ? cards.filter((c) => c.tags?.includes(tagFilter))
+    : cards;
 
   function addLead(lead: CrmLead) {
     setShowNew(false);
@@ -114,7 +129,7 @@ export function CrmPipeline({
     router.refresh();
   }
 
-  const openValue = cards
+  const openValue = visibleCards
     .filter((c) => !closedKeys.has(c.stage))
     .reduce((s, c) => s + c.monthlyValue, 0);
 
@@ -152,15 +167,38 @@ export function CrmPipeline({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
-          {cards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
+          {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
           negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
           em aberto
         </p>
         <div className="flex items-center gap-3">
-          <p className="hidden text-xs text-muted sm:block">
-            Borda <span className="text-emerald-600">verde</span> = alta probabilidade ·{" "}
-            <span className="text-rose-500">vermelha</span> = parado
-          </p>
+          {tags.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setTagFilter(null)}
+                className={
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors " +
+                  (tagFilter === null ? "bg-ink text-surface" : "bg-subtle text-muted hover:bg-subtle-strong")
+                }
+              >
+                Todas
+              </button>
+              {tags.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTagFilter((cur) => (cur === t.id ? null : t.id))}
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity"
+                  style={{
+                    backgroundColor: `${t.color}22`,
+                    color: t.color,
+                    opacity: tagFilter && tagFilter !== t.id ? 0.4 : 1,
+                  }}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => setShowNew(true)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
@@ -176,7 +214,7 @@ export function CrmPipeline({
 
       <div className="flex gap-3 overflow-x-auto pb-2">
         {stages.map((s) => {
-          const inStage = cards.filter((c) => c.stage === s.key);
+          const inStage = visibleCards.filter((c) => c.stage === s.key);
           const sum = inStage.reduce((acc, c) => acc + c.monthlyValue, 0);
           return (
             <div
@@ -214,6 +252,7 @@ export function CrmPipeline({
                   <LeadCard
                     key={c.id}
                     card={c}
+                    allTags={tags}
                     onOpen={() => router.push(`/gerencial/crm/${c.id}`)}
                     onDragStart={() => setDragId(c.id)}
                   />

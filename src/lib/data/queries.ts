@@ -1389,8 +1389,12 @@ export async function getCrmTasks(): Promise<CrmTask[]> {
 }
 
 export async function getCrmDashboard(): Promise<BdrDashboard> {
-  const [leads, tasks] = await Promise.all([getCrmLeads(), getCrmTasks()]);
-  return computeDashboard(leads, tasks, crmNowIso());
+  const [leads, tasks, pipeline] = await Promise.all([
+    getCrmLeads(),
+    getCrmTasks(),
+    getDefaultPipeline(),
+  ]);
+  return computeDashboard(leads, tasks, crmNowIso(), pipeline.stages);
 }
 
 export async function getCrmLead(id: string): Promise<{

@@ -1,17 +1,20 @@
-import type { Pipeline, PropertyDef } from "@/lib/data/crm";
+import type { Pipeline, PropertyDef, Tag } from "@/lib/data/crm";
 import { PropertyManager } from "./property-manager";
 import { StageManager } from "./stage-manager";
+import { TagManager } from "./tag-manager";
 
 /**
- * Central de personalização do CRM. Fase 2: propriedades customizadas.
- * Fase 3: editor de pipeline/estágios. (Fase 4: gerenciamento de tags.)
+ * Central de personalização do CRM: estágios do pipeline, propriedades
+ * customizadas e tags (com cor).
  */
 export function CrmSettings({
   properties,
   pipeline,
+  tags,
 }: {
   properties: PropertyDef[];
   pipeline: Pipeline;
+  tags: Tag[];
 }) {
   return (
     <div className="space-y-8">
@@ -22,6 +25,15 @@ export function CrmSettings({
           Estágios do tipo <strong>Ganho</strong>/<strong>Perdido</strong> fecham o negócio.
         </p>
         <StageManager pipeline={pipeline} />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-ink">Tags</h2>
+        <p className="mb-3 text-xs text-muted">
+          Etiquetas coloridas para classificar Empresas, Contatos e Negócios. Aplique
+          na ficha de cada objeto e filtre no pipeline.
+        </p>
+        <TagManager tags={tags} />
       </section>
 
       <section>

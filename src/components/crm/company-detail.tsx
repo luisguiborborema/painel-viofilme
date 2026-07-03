@@ -19,8 +19,8 @@ import {
   type PropertyDef,
   type Tag,
 } from "@/lib/data/crm";
-import { TagChips } from "./tag-chips";
 import { ObjectProperties } from "./object-properties";
+import { TagPicker } from "./tag-picker";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -164,13 +164,15 @@ export function CompanyDetail({
 
         {/* Coluna lateral: dados + propriedades */}
         <div className="space-y-4">
+          <TagPicker
+            objectType="company"
+            id={company.id}
+            allTags={tags}
+            initialIds={company.tags}
+          />
+
           <section className="rounded-2xl border border-line bg-surface p-4">
             <h2 className="mb-2 text-sm font-semibold text-ink">Dados da empresa</h2>
-            {company.tags.length > 0 && (
-              <div className="mb-3">
-                <TagChips ids={company.tags} tags={tags} />
-              </div>
-            )}
             <div className="space-y-1.5 text-sm">
               {company.website && (
                 <InfoRow icon={<Globe className="h-3.5 w-3.5" />} value={company.website} />
