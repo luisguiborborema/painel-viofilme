@@ -138,6 +138,18 @@ export type PropertyDef = {
 
 export type Tag = { id: string; name: string; color: string };
 
+/** Operadores de um requisito de estágio. */
+export type RequirementOp = "filled" | "true" | "equals" | "gt";
+
+/** Regra que um negócio precisa cumprir para ENTRAR num estágio. */
+export type StageRequirement = {
+  source: "property" | "native"; // propriedade customizada ou campo nativo
+  field: string; // key da propriedade ou coluna nativa (monthly_value, plan, source…)
+  label: string; // rótulo exibido
+  op: RequirementOp;
+  value?: string; // usado por equals/gt
+};
+
 export type Stage = {
   id: string;
   key: string;
@@ -146,7 +158,62 @@ export type Stage = {
   probability: number;
   position: number;
   kind: "open" | "won" | "lost";
+  requirements: StageRequirement[];
 };
+
+/** Campos nativos do negócio disponíveis como requisito. */
+export const NATIVE_DEAL_FIELDS: { key: string; label: string }[] = [
+  { key: "monthly_value", label: "Valor mensal" },
+  { key: "plan", label: "Plano" },
+  { key: "source", label: "Origem" },
+  { key: "probability", label: "Probabilidade" },
+];
+
+export const REQUIREMENT_OPS: { key: RequirementOp; label: string; needsValue: boolean }[] = [
+  { key: "filled", label: "estiver preenchido", needsValue: false },
+  { key: "true", label: "estiver marcado (sim)", needsValue: false },
+  { key: "equals", label: "for igual a", needsValue: true },
+  { key: "gt", label: "for maior que", needsValue: true },
+];
+
+/** Valor de um campo/propriedade do negócio para avaliar um requisito. */
+export function dealValueForRequirement(deal: CrmLead, req: StageRequirement): unknown {
+  if (req.source === "property") return deal.properties?.[req.field];
+  switch (req.field) {
+    case "monthly_value":
+      return deal.monthlyValue;
+    case "plan":
+      return deal.plan;
+    case "source":
+      return deal.source;
+    case "probability":
+      return deal.probability;
+    default:
+      return undefined;
+  }
+}
+
+/** Um requisito isolado foi cumprido? (avaliação pura de valor × operador) */
+export function requirementMet(op: RequirementOp, value: unknown, target?: string): boolean {
+  switch (op) {
+    case "true":
+      return value === true || value === "true";
+    case "equals":
+      return String(value ?? "") === String(target ?? "");
+    case "gt":
+      return Number(value ?? 0) > Number(target ?? 0);
+    case "filled":
+    default:
+      return value != null && String(value).trim() !== "";
+  }
+}
+
+/** Requisitos NÃO cumpridos para o negócio entrar no estágio. */
+export function unmetStageRequirements(deal: CrmLead, stage: Stage): StageRequirement[] {
+  return (stage.requirements ?? []).filter(
+    (r) => !requirementMet(r.op, dealValueForRequirement(deal, r), r.value),
+  );
+}
 
 export type Pipeline = {
   id: string;
@@ -209,6 +276,7 @@ export const DEFAULT_PIPELINE: Pipeline = {
     probability: s.probability,
     position: i + 1,
     kind: s.kind,
+    requirements: [],
   })),
 };
 

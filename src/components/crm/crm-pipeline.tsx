@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
 import {
   DEFAULT_PIPELINE,
   toCard,
+  unmetStageRequirements,
   type Company,
   type Contact,
   type CrmLead,
   type CrmLeadCard,
   type CrmStage,
   type Stage,
+  type StageRequirement,
   type Tag,
 } from "@/lib/data/crm";
 import { NewLeadModal } from "./new-lead-modal";
@@ -125,6 +127,11 @@ export function CrmPipeline({
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{
+    dealId: string;
+    stageLabel: string;
+    missing: StageRequirement[];
+  } | null>(null);
 
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
   const visibleCards = tagFilter
@@ -148,13 +155,22 @@ export function CrmPipeline({
     if (!id) return;
     const card = cards.find((c) => c.id === id);
     if (!card || card.stage === stage.key) return;
+
+    // Regras de movimentação: bloqueia se o negócio não cumpre os requisitos.
+    const missing = unmetStageRequirements(card, stage);
+    if (missing.length) {
+      setBlocked({ dealId: id, stageLabel: stage.label, missing });
+      return;
+    }
+
+    const prevStage = card.stage;
     setCards((prev) =>
       prev.map((c) =>
         c.id === id ? { ...c, stage: stage.key, daysInStage: 0, rot: "fresh" } : c,
       ),
     );
     try {
-      await fetch("/api/crm/leads", {
+      const res = await fetch("/api/crm/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -165,8 +181,26 @@ export function CrmPipeline({
           kind: stage.kind,
         }),
       });
+      if (res.status === 422) {
+        // Servidor recusou (requisitos): reverte o movimento otimista.
+        const json = await res.json().catch(() => ({}));
+        setCards((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, stage: prevStage } : c)),
+        );
+        setBlocked({
+          dealId: id,
+          stageLabel: stage.label,
+          missing: (json.missing ?? []).map((label: string) => ({
+            source: "native" as const,
+            field: "",
+            label,
+            op: "filled" as const,
+          })),
+        });
+        return;
+      }
     } catch {
-      /* otimista: mantém no board mesmo se falhar */
+      /* otimista: mantém no board mesmo se falhar por rede */
     }
     router.refresh();
   }
@@ -282,6 +316,49 @@ export function CrmPipeline({
           );
         })}
       </div>
+
+      {blocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setBlocked(null)} />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600">
+                <ShieldAlert className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-ink">
+                  Não é possível mover para “{blocked.stageLabel}”
+                </h2>
+                <p className="mt-0.5 text-xs text-muted">
+                  Este estágio exige que o negócio cumpra:
+                </p>
+              </div>
+            </div>
+            <ul className="mt-3 space-y-1.5">
+              {blocked.missing.map((m, i) => (
+                <li key={i} className="flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-sm text-ink">
+                  <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  {m.label}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setBlocked(null)}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-muted hover:bg-subtle"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => router.push(`/gerencial/crm/${blocked.dealId}`)}
+                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                Abrir negócio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,14 @@ export const dynamic = "force-dynamic";
 
 const KINDS = ["open", "won", "lost"];
 
+type Requirement = {
+  source: "property" | "native";
+  field: string;
+  label: string;
+  op: "filled" | "true" | "equals" | "gt";
+  value?: string;
+};
+
 type Body = {
   action?: "create" | "update" | "delete" | "reorder";
   id?: string;
@@ -16,6 +24,7 @@ type Body = {
   color?: string;
   probability?: number;
   kind?: string;
+  requirements?: Requirement[];
   orders?: { id: string; position: number }[];
 };
 
@@ -71,6 +80,7 @@ export async function POST(req: Request) {
     if (body.color != null) patch.color = body.color;
     if (body.probability != null) patch.probability = body.probability;
     if (body.kind != null && KINDS.includes(body.kind)) patch.kind = body.kind;
+    if (Array.isArray(body.requirements)) patch.requirements = body.requirements;
     const { error } = await supabase.from("crm_stages").update(patch).eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });

@@ -24,7 +24,10 @@ export function CrmSettings({
           Adicione, renomeie, reordene e escolha a cor e a probabilidade de cada estágio.
           Estágios do tipo <strong>Ganho</strong>/<strong>Perdido</strong> fecham o negócio.
         </p>
-        <StageManager pipeline={pipeline} />
+        <StageManager
+          pipeline={pipeline}
+          dealProperties={properties.filter((p) => p.objectType === "deal")}
+        />
       </section>
 
       <section>

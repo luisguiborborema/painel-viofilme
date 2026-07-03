@@ -2,8 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Loader2, Plus, Trash2, X } from "lucide-react";
-import type { Pipeline, Stage } from "@/lib/data/crm";
+import { ChevronDown, ChevronUp, Loader2, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import {
+  NATIVE_DEAL_FIELDS,
+  REQUIREMENT_OPS,
+  type Pipeline,
+  type PropertyDef,
+  type RequirementOp,
+  type Stage,
+  type StageRequirement,
+} from "@/lib/data/crm";
+
+type FieldOption = { source: "property" | "native"; field: string; label: string };
 
 const PRESET_COLORS = [
   "#64748b", "#0ea5e9", "#8b5cf6", "#f59e0b",
@@ -24,11 +34,22 @@ async function post(body: unknown) {
   }).catch(() => {});
 }
 
-export function StageManager({ pipeline }: { pipeline: Pipeline }) {
+export function StageManager({
+  pipeline,
+  dealProperties = [],
+}: {
+  pipeline: Pipeline;
+  dealProperties?: PropertyDef[];
+}) {
   const router = useRouter();
   const stages = [...pipeline.stages].sort((a, b) => a.position - b.position);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const fieldOptions: FieldOption[] = [
+    ...NATIVE_DEAL_FIELDS.map((f) => ({ source: "native" as const, field: f.key, label: f.label })),
+    ...dealProperties.map((p) => ({ source: "property" as const, field: p.key, label: p.label })),
+  ];
 
   async function move(idx: number, dir: -1 | 1) {
     const j = idx + dir;
@@ -83,6 +104,7 @@ export function StageManager({ pipeline }: { pipeline: Pipeline }) {
           <StageRow
             key={s.id}
             stage={s}
+            fieldOptions={fieldOptions}
             first={i === 0}
             last={i === stages.length - 1}
             busy={busy}
@@ -99,6 +121,7 @@ export function StageManager({ pipeline }: { pipeline: Pipeline }) {
 
 function StageRow({
   stage,
+  fieldOptions,
   first,
   last,
   busy,
@@ -108,6 +131,7 @@ function StageRow({
   onSaved,
 }: {
   stage: Stage;
+  fieldOptions: FieldOption[];
   first: boolean;
   last: boolean;
   busy: boolean;
@@ -120,23 +144,53 @@ function StageRow({
   const [color, setColor] = useState(stage.color);
   const [prob, setProb] = useState(stage.probability);
   const [kind, setKind] = useState<Stage["kind"]>(stage.kind);
+  const [reqs, setReqs] = useState<StageRequirement[]>(stage.requirements ?? []);
+  const [showRules, setShowRules] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const dirty =
     label !== stage.label ||
     color !== stage.color ||
     prob !== stage.probability ||
-    kind !== stage.kind;
+    kind !== stage.kind ||
+    JSON.stringify(reqs) !== JSON.stringify(stage.requirements ?? []);
+
+  function addReq() {
+    const first = fieldOptions[0];
+    if (!first) return;
+    setReqs((prev) => [
+      ...prev,
+      { source: first.source, field: first.field, label: first.label, op: "filled" },
+    ]);
+    setShowRules(true);
+  }
+
+  function updateReq(i: number, patch: Partial<StageRequirement>) {
+    setReqs((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+
+  function removeReq(i: number) {
+    setReqs((prev) => prev.filter((_, idx) => idx !== i));
+  }
 
   async function save() {
     setSaving(true);
-    await post({ action: "update", id: stage.id, label, color, probability: prob, kind });
+    await post({
+      action: "update",
+      id: stage.id,
+      label,
+      color,
+      probability: prob,
+      kind,
+      requirements: reqs,
+    });
     setSaving(false);
     onSaved();
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3">
+    <div className="rounded-xl border border-line bg-surface p-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="flex flex-col">
         <button
           onClick={onUp}
@@ -206,6 +260,20 @@ function StageRow({
       )}
 
       <button
+        onClick={() => setShowRules((s) => !s)}
+        className={
+          "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium " +
+          (reqs.length
+            ? "border-brand-400/50 bg-brand-50/50 text-brand-600"
+            : "border-line text-muted hover:bg-subtle")
+        }
+        title="Regras para entrar neste estágio"
+      >
+        <ShieldCheck className="h-3.5 w-3.5" />
+        {reqs.length || "Regras"}
+      </button>
+
+      <button
         onClick={onDelete}
         disabled={busy}
         className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
@@ -213,6 +281,73 @@ function StageRow({
       >
         <Trash2 className="h-4 w-4" />
       </button>
+    </div>
+
+    {showRules && (
+      <div className="mt-3 space-y-2 border-t border-line pt-3">
+        <p className="text-[11px] text-muted">
+          Para <strong>entrar</strong> em “{stage.label}”, o negócio precisa cumprir:
+        </p>
+        {reqs.map((r, i) => {
+          const opMeta = REQUIREMENT_OPS.find((o) => o.key === r.op);
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <select
+                value={`${r.source}:${r.field}`}
+                onChange={(e) => {
+                  const [source, field] = e.target.value.split(":");
+                  const opt = fieldOptions.find((o) => o.source === source && o.field === field);
+                  updateReq(i, { source: source as StageRequirement["source"], field, label: opt?.label ?? field });
+                }}
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+              >
+                {fieldOptions.map((o) => (
+                  <option key={`${o.source}:${o.field}`} value={`${o.source}:${o.field}`}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={r.op}
+                onChange={(e) => updateReq(i, { op: e.target.value as RequirementOp })}
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+              >
+                {REQUIREMENT_OPS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {opMeta?.needsValue && (
+                <input
+                  value={r.value ?? ""}
+                  onChange={(e) => updateReq(i, { value: e.target.value })}
+                  placeholder="valor"
+                  className="w-24 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                />
+              )}
+              <button
+                onClick={() => removeReq(i)}
+                className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        })}
+        <button
+          onClick={addReq}
+          className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle"
+        >
+          <Plus className="h-3.5 w-3.5" /> Adicionar requisito
+        </button>
+        {reqs.length === 0 && (
+          <p className="text-[11px] text-muted">
+            Sem requisitos — qualquer negócio pode entrar neste estágio.
+          </p>
+        )}
+      </div>
+    )}
     </div>
   );
 }

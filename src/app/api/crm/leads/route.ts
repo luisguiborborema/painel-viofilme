@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { requirementMet, type StageRequirement } from "@/lib/data/crm";
+
+/** Valor de um campo/propriedade a partir da linha crua de crm_leads. */
+function rowValue(row: Record<string, unknown>, req: StageRequirement): unknown {
+  if (req.source === "property") {
+    const props = (row.properties as Record<string, unknown> | null) ?? {};
+    return props[req.field];
+  }
+  return row[req.field];
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +70,32 @@ export async function POST(req: Request) {
     if (!body.id || !body.stage) {
       return NextResponse.json({ error: "id/stage ausente" }, { status: 400 });
     }
+
+    // Regras de movimentação: valida os requisitos do estágio destino.
+    if (body.stageId) {
+      const { data: stage } = await supabase
+        .from("crm_stages")
+        .select("requirements")
+        .eq("id", body.stageId)
+        .maybeSingle();
+      const reqs = (stage?.requirements as StageRequirement[] | null) ?? [];
+      if (reqs.length) {
+        const { data: dealRow } = await supabase
+          .from("crm_leads")
+          .select("properties,monthly_value,plan,source,probability")
+          .eq("id", body.id)
+          .maybeSingle();
+        const row = (dealRow as Record<string, unknown>) ?? {};
+        const missing = reqs.filter((r) => !requirementMet(r.op, rowValue(row, r), r.value));
+        if (missing.length) {
+          return NextResponse.json(
+            { error: "requisitos não cumpridos", missing: missing.map((m) => m.label) },
+            { status: 422 },
+          );
+        }
+      }
+    }
+
     const patch: Record<string, unknown> = {
       stage: body.stage,
       stage_changed_at: now,
