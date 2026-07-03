@@ -258,6 +258,30 @@ export const EDITORIAL_STAGES: { key: EditorialStage; label: string }[] = [
 
 export type EditorialFormat = "Feed" | "Reels" | "Stories" | "Carrossel";
 
+/** Direcionamento de arte (HUB09.3) — a escolha dispara consequências. */
+export type ArtDirection =
+  | "Media Day"
+  | "Imagem da internet"
+  | "Banco do cliente"
+  | "Motion design"
+  | "Outro";
+
+export const ART_DIRECTIONS: ArtDirection[] = [
+  "Media Day",
+  "Imagem da internet",
+  "Banco do cliente",
+  "Motion design",
+  "Outro",
+];
+
+/** Referência/inspiração (HUB09.2) — alimenta o moodboard. */
+export type EditorialRef = {
+  id: string;
+  kind: "image" | "instagram" | "pinterest" | "link";
+  url?: string;
+  label?: string;
+};
+
 export type EditorialPost = {
   n: number;
   date: string; // "01/07"
@@ -267,6 +291,8 @@ export type EditorialPost = {
   pillar: string;
   description: string;
   assetNote: string;
+  artDirection: ArtDirection;
+  references: EditorialRef[];
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };
@@ -280,8 +306,14 @@ export type EditorialLine = {
   networks: string;
   responsibles: string;
   approvalMeeting: string;
+  /** Cabeçalho estratégico (macro) — HUB09.1 */
+  datasComemorativas: string;
+  narrativaCentral: string;
+  tensaoNarrativa: string;
+  moodboardGeral: EditorialRef[];
   pillars: EditorialPillar[];
   posts: EditorialPost[];
+  history: { id: string; month: string }[];
 };
 
 // --- Central de Relatórios (V3) ---------------------------------------------
@@ -478,8 +510,27 @@ export function getDeliveryTasks(): DeliveryTask[] {
   }));
 }
 
+function artDirectionFromNote(note: string): ArtDirection {
+  const n = note.toLowerCase();
+  if (n.includes("media day")) return "Media Day";
+  if (n.includes("artes") || n.includes("motion")) return "Motion design";
+  if (n.includes("estúdio") || n.includes("cliente")) return "Banco do cliente";
+  if (n.includes("template")) return "Outro";
+  return "Imagem da internet";
+}
+
 export function getEditorialLine(clientId: string): EditorialLine {
   const client = getHubClients().find((c) => c.id === clientId);
+  const rawPosts: Omit<EditorialPost, "artDirection" | "references">[] = [
+    { n: 1, date: "01/07", weekday: "seg", title: "Abertura do mês: boas-vindas a julho com o novo cardápio", format: "Feed", pillar: "Cardápio & produto", description: "Post estático. Legenda celebratória apresentando as novidades do mês.", assetNote: "Foto estúdio" },
+    { n: 2, date: "03/07", weekday: "qua", title: "Reels: o chef revela o segredo do camarão", format: "Reels", pillar: "Bastidores & autenticidade", description: "Vídeo de bastidores. Corte rápido, narração do chef.", assetNote: "Gravar no Media Day · 28/06" },
+    { n: 3, date: "04/07", weekday: "qui", title: "Stories: enquete — qual prato pedir essa semana?", format: "Stories", pillar: "Experiência & reservas", description: "Sequência interativa com 4 opções. Responder nos stories seguintes.", assetNote: "Template Stories" },
+    { n: 4, date: "07/07", weekday: "seg", title: "Carrossel: 5 motivos para experimentar a degustação", format: "Carrossel", pillar: "Cardápio & produto", description: "5 cards. Capa impactante, slides 2 a 5 com cada motivo.", assetNote: "6 artes separadas" },
+    { n: 5, date: "09/07", weekday: "qua", title: "Peixe do dia & a seleção semanal direta do mercado", format: "Feed", pillar: "Educação & contexto", description: "Foto do peixe no estoque. Legenda informativa sobre procedência.", assetNote: "Foto cliente ou stock" },
+    { n: 6, date: "11/07", weekday: "sex", title: "Reels: harmonização do menu degustação com vinhos", format: "Reels", pillar: "Cardápio & produto", description: "Sommelier explica os pares. Ritmo calmo, foco no produto.", assetNote: "Gravar no Media Day · 28/06" },
+    { n: 7, date: "14/07", weekday: "seg", title: "Depoimento real de cliente sobre a experiência", format: "Feed", pillar: "Experiência & reservas", description: "Print/foto do cliente com a citação em destaque.", assetNote: "Coletar autorização" },
+    { n: 8, date: "16/07", weekday: "qua", title: "Bastidores: a chegada dos ingredientes frescos", format: "Stories", pillar: "Bastidores & autenticidade", description: "Sequência curta mostrando o recebimento da manhã.", assetNote: "Gravar no dia" },
+  ];
   return {
     clientName: client?.name ?? "Cliente",
     month: "Julho / 2025",
@@ -489,21 +540,30 @@ export function getEditorialLine(clientId: string): EditorialLine {
     networks: "Instagram · Facebook",
     responsibles: "Ana Lima (SM) + Robert (Design)",
     approvalMeeting: "26/06 às 10h · hoje",
+    datasComemorativas: "Dia do Sorvete (23/07) · Dia dos Pais (2ª quinzena de ago)",
+    narrativaCentral: "Julho da experiência: o restaurante como destino gastronômico do inverno.",
+    tensaoNarrativa: "Sair do 'só comida' e vender experiência/ocasião — reservas e degustação.",
+    moodboardGeral: [
+      { id: "mg1", kind: "pinterest", url: "https://pinterest.com/board/inverno-gastro", label: "Paleta inverno" },
+      { id: "mg2", kind: "instagram", url: "https://instagram.com/p/exemplo", label: "Ref. bastidores" },
+    ],
     pillars: [
       { name: "Bastidores & autenticidade", posts: 6, color: "#f59e0b" },
       { name: "Cardápio & produto", posts: 7, color: "#34d399" },
       { name: "Experiência & reservas", posts: 5, color: "#38bdf8" },
       { name: "Educação & contexto", posts: 4, color: "#a855f7" },
     ],
-    posts: [
-      { n: 1, date: "01/07", weekday: "seg", title: "Abertura do mês: boas-vindas a julho com o novo cardápio", format: "Feed", pillar: "Cardápio & produto", description: "Post estático. Legenda celebratória apresentando as novidades do mês.", assetNote: "Foto estúdio" },
-      { n: 2, date: "03/07", weekday: "qua", title: "Reels: o chef revela o segredo do camarão", format: "Reels", pillar: "Bastidores & autenticidade", description: "Vídeo de bastidores. Corte rápido, narração do chef.", assetNote: "Gravar no Media Day · 28/06" },
-      { n: 3, date: "04/07", weekday: "qui", title: "Stories: enquete — qual prato pedir essa semana?", format: "Stories", pillar: "Experiência & reservas", description: "Sequência interativa com 4 opções. Responder nos stories seguintes.", assetNote: "Template Stories" },
-      { n: 4, date: "07/07", weekday: "seg", title: "Carrossel: 5 motivos para experimentar a degustação", format: "Carrossel", pillar: "Cardápio & produto", description: "5 cards. Capa impactante, slides 2 a 5 com cada motivo.", assetNote: "6 artes separadas" },
-      { n: 5, date: "09/07", weekday: "qua", title: "Peixe do dia & a seleção semanal direta do mercado", format: "Feed", pillar: "Educação & contexto", description: "Foto do peixe no estoque. Legenda informativa sobre procedência.", assetNote: "Foto cliente ou stock" },
-      { n: 6, date: "11/07", weekday: "sex", title: "Reels: harmonização do menu degustação com vinhos", format: "Reels", pillar: "Cardápio & produto", description: "Sommelier explica os pares. Ritmo calmo, foco no produto.", assetNote: "Gravar no Media Day · 28/06" },
-      { n: 7, date: "14/07", weekday: "seg", title: "Depoimento real de cliente sobre a experiência", format: "Feed", pillar: "Experiência & reservas", description: "Print/foto do cliente com a citação em destaque.", assetNote: "Coletar autorização" },
-      { n: 8, date: "16/07", weekday: "qua", title: "Bastidores: a chegada dos ingredientes frescos", format: "Stories", pillar: "Bastidores & autenticidade", description: "Sequência curta mostrando o recebimento da manhã.", assetNote: "Gravar no dia" },
+    posts: rawPosts.map((p) => ({
+      ...p,
+      artDirection: artDirectionFromNote(p.assetNote),
+      references:
+        p.n === 2
+          ? [{ id: `r-${p.n}`, kind: "instagram", url: "https://instagram.com/reel/ref", label: "Ritmo do corte" }]
+          : [],
+    })),
+    history: [
+      { id: "le-jun", month: "Junho / 2025" },
+      { id: "le-mai", month: "Maio / 2025" },
     ],
   };
 }

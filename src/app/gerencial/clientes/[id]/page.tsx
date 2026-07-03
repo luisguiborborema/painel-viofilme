@@ -373,7 +373,7 @@ export default async function RaioXCliente({
     {
       key: "editorial",
       label: "Linha editorial",
-      content: <LinhaEditorial data={editorial} />,
+      content: <LinhaEditorial data={editorial} clientId={id} />,
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },
