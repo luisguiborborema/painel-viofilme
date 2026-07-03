@@ -1,33 +1,27 @@
 import { PageHeader } from "@/components/dashboard/page-header";
-import { FilterTabs } from "@/components/dashboard/filter-tabs";
-import { ContentGrid } from "@/components/dashboard/content-grid";
-import { getClients, getContent } from "@/lib/data/queries";
+import { getHubClientsOps } from "@/lib/data/operacao";
+import { getSession } from "@/lib/auth/session";
+import { VioFlux } from "@/components/gerencial/vioflux";
 
-export default async function GerencialConteudo({
-  searchParams,
-}: {
-  searchParams: Promise<{ cliente?: string }>;
-}) {
-  const { cliente } = await searchParams;
-  const clients = await getClients();
+export default async function GerencialConteudo() {
+  const ops = getHubClientsOps();
+  const user = await getSession();
+  const meFirst = user?.name?.split(" ")[0].toLowerCase();
 
-  const tabs = [
-    { label: "Todos", value: "todos" },
-    ...clients.map((c) => ({ label: c.name, value: c.id })),
-  ];
-
-  const clientId =
-    cliente && cliente !== "todos" ? cliente : undefined;
-  const posts = await getContent(clientId);
+  const clients = ops.map((c) => ({ id: c.id, name: c.name }));
+  const myClientIds = meFirst
+    ? ops
+        .filter((c) => Object.values(c.responsibles).some((n) => n.toLowerCase().includes(meFirst)))
+        .map((c) => c.id)
+    : [];
 
   return (
     <div>
       <PageHeader
-        title="Conteúdo"
-        subtitle="Publicações e agendamentos de todos os clientes."
-        action={<FilterTabs param="cliente" options={tabs} />}
+        title="VioFlux"
+        subtitle="O passa-pratos — do conteúdo pronto à aprovação do cliente e às redes."
       />
-      <ContentGrid posts={posts} />
+      <VioFlux clients={clients} myClientIds={myClientIds} />
     </div>
   );
 }
