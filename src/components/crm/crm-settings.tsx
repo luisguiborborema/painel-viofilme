@@ -14,6 +14,7 @@ import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
 import { FlowManager } from "./flow-manager";
 import { CaptureFormsManager } from "./capture-forms-manager";
+import { DuplicatesManager } from "./duplicates-manager";
 
 /**
  * Central de personalização do CRM: estágios do pipeline, propriedades
@@ -89,6 +90,15 @@ export function CrmSettings({
           campanhas). Cada envio vira empresa + contato + negócio.
         </p>
         <CaptureFormsManager forms={captureForms} team={team} />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-ink">Duplicados</h2>
+        <p className="mb-3 text-xs text-muted">
+          Empresas/contatos repetidos (mesmo nome, telefone ou e-mail). Escolha qual
+          manter e mescle — negócios e associações migram para o registro primário.
+        </p>
+        <DuplicatesManager companies={companies} contacts={contacts} />
       </section>
 
       <section>

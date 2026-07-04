@@ -948,6 +948,70 @@ export function buildForecast(
   return { month, rows, totals };
 }
 
+// ── Detecção de duplicados ──────────────────────────────────────────────────
+
+function normName(s?: string): string {
+  return (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function normPhone(s?: string): string {
+  return (s ?? "").replace(/\D/g, "");
+}
+function normEmail(s?: string): string {
+  return (s ?? "").trim().toLowerCase();
+}
+
+/** Agrupa por qualquer chave em comum (union-find). Retorna grupos com >1 item. */
+function groupDuplicates<T extends { id: string }>(
+  items: T[],
+  keyFns: ((x: T) => string)[],
+): T[][] {
+  const parent = new Map<string, string>();
+  for (const it of items) parent.set(it.id, it.id);
+  const find = (x: string): string => {
+    let r = x;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    while (parent.get(x) !== r) {
+      const n = parent.get(x)!;
+      parent.set(x, r);
+      x = n;
+    }
+    return r;
+  };
+  const union = (a: string, b: string) => parent.set(find(a), find(b));
+  for (const fn of keyFns) {
+    const first = new Map<string, string>();
+    for (const it of items) {
+      const k = fn(it);
+      if (!k) continue;
+      if (first.has(k)) union(first.get(k)!, it.id);
+      else first.set(k, it.id);
+    }
+  }
+  const groups = new Map<string, T[]>();
+  for (const it of items) {
+    const r = find(it.id);
+    groups.set(r, [...(groups.get(r) ?? []), it]);
+  }
+  return [...groups.values()].filter((g) => g.length > 1);
+}
+
+/** Empresas duplicadas: mesmo nome, telefone ou e-mail. */
+export function findDuplicateCompanies(companies: Company[]): Company[][] {
+  return groupDuplicates(companies, [
+    (c) => normName(c.name),
+    (c) => normPhone(c.phone),
+    (c) => normEmail(c.email),
+  ]);
+}
+
+/** Contatos duplicados: mesmo telefone ou e-mail (nome é ambíguo demais). */
+export function findDuplicateContacts(contacts: Contact[]): Contact[][] {
+  return groupDuplicates(contacts, [
+    (c) => normPhone(c.phone),
+    (c) => normEmail(c.email),
+  ]);
+}
+
 export type ContactDetail = {
   contact: Contact;
   company: Company | null;
