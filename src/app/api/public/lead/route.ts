@@ -30,7 +30,9 @@ type Body = {
   company?: string;
   email?: string;
   phone?: string;
+  segment?: string; // Segmento / Setor (campo nativo)
   message?: string;
+  properties?: Record<string, unknown>; // propriedades customizadas do negócio
   website?: string; // honeypot — deve vir vazio
 };
 
@@ -48,9 +50,12 @@ export async function POST(req: Request) {
     } else {
       // form-urlencoded ou multipart (formulário HTML puro).
       const form = await req.formData();
-      b = Object.fromEntries(
-        [...form.entries()].map(([k, v]) => [k, String(v)]),
-      ) as Body;
+      const entries = [...form.entries()];
+      b = Object.fromEntries(entries.map(([k, v]) => [k, String(v)])) as Body;
+      // Campos "prop_<chave>" viram propriedades customizadas do negócio.
+      const props: Record<string, unknown> = {};
+      for (const [k, v] of entries) if (k.startsWith("prop_")) props[k.slice(5)] = String(v);
+      if (Object.keys(props).length) b.properties = props;
     }
   } catch {
     return json({ error: "corpo inválido" }, { status: 400 });
@@ -96,6 +101,7 @@ export async function POST(req: Request) {
       .from("crm_companies")
       .insert({
         name: companyName,
+        segment: b.segment?.trim() || null,
         phone: b.phone?.replace(/\D/g, "") || null,
         email: b.email?.trim() || null,
         owner,
@@ -140,8 +146,11 @@ export async function POST(req: Request) {
       pipeline_id: pipe?.id ?? null,
       stage_id: firstOpen?.id ?? null,
       stage: firstOpen?.key ?? "prospeccao",
+      segment: b.segment?.trim() || null,
       source,
       owner,
+      properties:
+        b.properties && typeof b.properties === "object" ? b.properties : {},
       stage_changed_at: new Date().toISOString(),
     })
     .select("id")
