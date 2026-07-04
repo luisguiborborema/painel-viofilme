@@ -37,8 +37,10 @@ import {
   type Tag,
   type TaskFlow,
 } from "@/lib/data/crm";
+import { FileText } from "lucide-react";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
+import { ProposalModal } from "./proposal-modal";
 import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { DealContacts } from "./deal-contacts";
@@ -96,6 +98,7 @@ export function LeadDetail({
   const [tasks, setTasks] = useState<CrmTask[]>(initialTasks);
   const [showWin, setShowWin] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showProposal, setShowProposal] = useState(false);
   const [won, setWon] = useState(lead.stage === "ganho");
 
   const pendingTask = useMemo(
@@ -192,6 +195,12 @@ export function LeadDetail({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowProposal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            <FileText className="h-4 w-4" /> Proposta
+          </button>
           {!won && lead.stage !== "perdido" && (
             <>
               <button
@@ -339,6 +348,15 @@ export function LeadDetail({
           </Card>
         </div>
       </div>
+
+      {showProposal && (
+        <ProposalModal
+          dealId={lead.id}
+          contactName={lead.contactName}
+          hasPhone={Boolean(lead.contactPhone) || dealContacts.some((c) => c.phone)}
+          onClose={() => setShowProposal(false)}
+        />
+      )}
 
       {showSchedule && (
         <ScheduleModal
