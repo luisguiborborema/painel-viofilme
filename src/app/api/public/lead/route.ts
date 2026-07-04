@@ -40,8 +40,20 @@ type Body = {
   segment?: string; // Segmento / Setor (campo nativo)
   message?: string;
   properties?: Record<string, unknown>; // propriedades customizadas do negócio
+  // aceitos como campo solto e mapeados para a propriedade do negócio:
+  faturamento?: string;
+  faturamento_medio_mensal?: string;
   website?: string; // honeypot — deve vir vazio
 };
+
+/** Junta properties + campos "soltos" conhecidos (ex.: faturamento). */
+function collectProperties(b: Body): Record<string, unknown> {
+  const props: Record<string, unknown> =
+    b.properties && typeof b.properties === "object" ? { ...b.properties } : {};
+  const fat = b.faturamento_medio_mensal ?? b.faturamento;
+  if (fat && !props.faturamento_medio_mensal) props.faturamento_medio_mensal = fat;
+  return props;
+}
 
 /**
  * Endpoint PÚBLICO de captura de leads (usado pelos formulários /captura/<slug>).
@@ -160,8 +172,7 @@ export async function POST(req: Request) {
       segment: b.segment?.trim() || null,
       source,
       owner,
-      properties:
-        b.properties && typeof b.properties === "object" ? b.properties : {},
+      properties: collectProperties(b),
       stage_changed_at: new Date().toISOString(),
     })
     .select("id")
