@@ -30,14 +30,18 @@ function Field({
           {value ? "Sim" : "Não"}
         </label>
       );
-    case "select":
+    case "select": {
+      const val = String(value ?? "");
+      const known = !val || def.options.some((o) => o.value === val);
       return (
         <select
-          value={String(value ?? "")}
+          value={val}
           onChange={(e) => onChange(e.target.value || null)}
           className={inputCls}
         >
           <option value="">—</option>
+          {/* valor vindo de fora (ex.: formulário) que não está entre as opções */}
+          {!known && <option value={val}>{val}</option>}
           {def.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -45,6 +49,7 @@ function Field({
           ))}
         </select>
       );
+    }
     case "multiselect": {
       const arr = Array.isArray(value) ? (value as string[]) : [];
       return (
