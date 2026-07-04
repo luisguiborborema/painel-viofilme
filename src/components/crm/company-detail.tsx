@@ -13,6 +13,7 @@ import {
 import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { EditableFields } from "./editable-fields";
+import { DeleteButton } from "./delete-button";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -62,12 +63,20 @@ export function CompanyDetail({
             </div>
           </div>
         </div>
-        {openValue > 0 && (
-          <div className="text-right">
-            <p className="text-lg font-bold text-ink">{formatBRL(openValue)}</p>
-            <p className="text-xs text-muted">em aberto/mês</p>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {openValue > 0 && (
+            <div className="text-right">
+              <p className="text-lg font-bold text-ink">{formatBRL(openValue)}</p>
+              <p className="text-xs text-muted">em aberto/mês</p>
+            </div>
+          )}
+          <DeleteButton
+            endpoint="/api/crm/companies"
+            id={company.id}
+            redirectTo="/gerencial/crm?tab=empresas"
+            confirmLabel={`Excluir “${company.name}”?`}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

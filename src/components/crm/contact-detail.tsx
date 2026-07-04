@@ -13,6 +13,7 @@ import {
 import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { EditableFields } from "./editable-fields";
+import { DeleteButton } from "./delete-button";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -39,33 +40,41 @@ export function ContactDetail({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Link
-          href={company ? `/gerencial/crm/empresa/${company.id}` : "/gerencial/crm?tab=contatos"}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-subtle"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-base font-bold text-brand-600">
-          {initials(contact.name)}
-        </span>
-        <div>
-          <h1 className="flex items-center gap-1.5 text-xl font-bold text-ink">
-            {contact.name}
-            {contact.isPrimary && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
-          </h1>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-            {contact.title && <span>{contact.title}</span>}
-            {company && (
-              <Link
-                href={`/gerencial/crm/empresa/${company.id}`}
-                className="inline-flex items-center gap-1 hover:text-ink"
-              >
-                <Building2 className="h-3.5 w-3.5" /> {company.name}
-              </Link>
-            )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href={company ? `/gerencial/crm/empresa/${company.id}` : "/gerencial/crm?tab=contatos"}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-subtle"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-base font-bold text-brand-600">
+            {initials(contact.name)}
+          </span>
+          <div>
+            <h1 className="flex items-center gap-1.5 text-xl font-bold text-ink">
+              {contact.name}
+              {contact.isPrimary && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+            </h1>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
+              {contact.title && <span>{contact.title}</span>}
+              {company && (
+                <Link
+                  href={`/gerencial/crm/empresa/${company.id}`}
+                  className="inline-flex items-center gap-1 hover:text-ink"
+                >
+                  <Building2 className="h-3.5 w-3.5" /> {company.name}
+                </Link>
+              )}
+            </div>
           </div>
         </div>
+        <DeleteButton
+          endpoint="/api/crm/contacts"
+          id={contact.id}
+          redirectTo="/gerencial/crm?tab=contatos"
+          confirmLabel={`Excluir “${contact.name}”?`}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
