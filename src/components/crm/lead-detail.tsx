@@ -20,7 +20,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { Building2, Check, ListTodo, Plus } from "lucide-react";
+import { Building2, Check, ListTodo, Plus, Trash2 } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
@@ -191,28 +191,31 @@ export function LeadDetail({
             </div>
           </div>
         </div>
-        {!won && lead.stage !== "perdido" && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSchedule(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle"
-            >
-              <CalendarClock className="h-4 w-4" /> Agendar
-            </button>
-            <LoseButton onConfirm={markLost} reasons={lostReasons} />
-            <button
-              onClick={() => setShowWin(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-            >
-              <Trophy className="h-4 w-4" /> Ganho
-            </button>
-          </div>
-        )}
-        {won && (
-          <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3.5 py-2 text-sm font-semibold text-emerald-600">
-            <CheckCircle2 className="h-4 w-4" /> Ganho — onboarding iniciado
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {!won && lead.stage !== "perdido" && (
+            <>
+              <button
+                onClick={() => setShowSchedule(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle"
+              >
+                <CalendarClock className="h-4 w-4" /> Agendar
+              </button>
+              <LoseButton onConfirm={markLost} reasons={lostReasons} />
+              <button
+                onClick={() => setShowWin(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <Trophy className="h-4 w-4" /> Ganho
+              </button>
+            </>
+          )}
+          {won && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3.5 py-2 text-sm font-semibold text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" /> Ganho — onboarding iniciado
+            </span>
+          )}
+          <DeleteDealButton dealId={lead.id} dealName={lead.name} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -648,6 +651,53 @@ function LoseButton({
         className="rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-subtle"
       >
         ✕
+      </button>
+    </div>
+  );
+}
+
+function DeleteDealButton({ dealId, dealName }: { dealId: string; dealName: string }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function remove() {
+    setBusy(true);
+    await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id: dealId }),
+    }).catch(() => {});
+    router.push("/gerencial/crm?tab=pipeline");
+    router.refresh();
+  }
+
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
+        title="Excluir negócio"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    );
+  }
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-2 py-1.5">
+      <span className="text-xs text-rose-600">Excluir “{dealName}”?</span>
+      <button
+        onClick={remove}
+        disabled={busy}
+        className="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Excluir"}
+      </button>
+      <button
+        onClick={() => setConfirming(false)}
+        className="rounded-lg px-2 py-1 text-xs text-muted hover:bg-subtle"
+      >
+        Cancelar
       </button>
     </div>
   );

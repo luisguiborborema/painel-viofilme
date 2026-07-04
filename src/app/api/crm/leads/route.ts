@@ -136,7 +136,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "update" | "move";
+  action?: "create" | "update" | "move" | "delete";
   id?: string;
   stage?: string;
   stageId?: string;
@@ -184,6 +184,14 @@ export async function POST(req: Request) {
 
   const supabase = await createClient();
   const now = new Date().toISOString();
+
+  if (action === "delete") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    // Cascata (interações, tarefas, deal_contacts, histórico) já cai por FK.
+    const { error } = await supabase.from("crm_leads").delete().eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
 
   if (action === "move") {
     if (!body.id || !body.stage) {
