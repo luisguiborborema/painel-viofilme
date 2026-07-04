@@ -5,23 +5,30 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// CORS: captura pode ser chamada de qualquer site (só cria lead; protegido por
-// slug válido + honeypot). Restrinja definindo CAPTURE_ALLOWED_ORIGIN (ex.:
-// "https://seusite.com.br") se quiser travar a origem.
-const CORS = {
-  "Access-Control-Allow-Origin": process.env.CAPTURE_ALLOWED_ORIGIN || "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Max-Age": "86400",
-};
+// CORS: por padrão aceita qualquer origem (só cria lead; protegido por slug +
+// honeypot). Para travar, defina CAPTURE_ALLOWED_ORIGIN no Vercel — pode ser
+// uma LISTA separada por vírgula (ex.: "https://www.seusite.com.br,https://seusite.com.br").
+// O endpoint ecoa a origem da requisição quando ela está na lista.
+const ALLOWED = (process.env.CAPTURE_ALLOWED_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-function json(data: unknown, init?: { status?: number }) {
-  return NextResponse.json(data, { status: init?.status ?? 200, headers: CORS });
+function corsHeaders(req: Request): Record<string, string> {
+  const base = {
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+  if (!ALLOWED.length) return { ...base, "Access-Control-Allow-Origin": "*" };
+  const origin = req.headers.get("origin") ?? "";
+  const allow = ALLOWED.includes(origin) ? origin : ALLOWED[0];
+  return { ...base, "Access-Control-Allow-Origin": allow, Vary: "Origin" };
 }
 
 /** Preflight CORS. */
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS });
+export async function OPTIONS(req: Request) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
 }
 
 type Body = {
@@ -42,6 +49,10 @@ type Body = {
  * contra bots. Cria empresa + contato + negócio no CRM.
  */
 export async function POST(req: Request) {
+  const cors = corsHeaders(req);
+  const json = (data: unknown, init?: { status?: number }) =>
+    NextResponse.json(data, { status: init?.status ?? 200, headers: cors });
+
   let b: Body;
   const ct = req.headers.get("content-type") ?? "";
   try {
