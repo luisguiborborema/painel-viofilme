@@ -7,6 +7,7 @@ import { formatBRL } from "@/lib/utils";
 import type { Company, Contact, CrmLead, Tag } from "@/lib/data/crm";
 import { TagChips } from "./tag-chips";
 import { NewCompanyModal } from "./new-company-modal";
+import { InlineDelete } from "./delete-button";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -26,6 +27,17 @@ export function CrmCompanies({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [deleted, setDeleted] = useState<Set<string>>(new Set());
+
+  async function removeCompany(id: string) {
+    setDeleted((prev) => new Set(prev).add(id));
+    await fetch("/api/crm/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    }).catch(() => {});
+    router.refresh();
+  }
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -76,11 +88,13 @@ export function CrmCompanies({
       {showNew && <NewCompanyModal onClose={() => setShowNew(false)} />}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {rows.map(({ company, contacts: nc, deals: nd, openValue }) => (
-          <button
+        {rows.filter((r) => !deleted.has(r.company.id)).map(({ company, contacts: nc, deals: nd, openValue }) => (
+          <div
             key={company.id}
+            role="button"
+            tabIndex={0}
             onClick={() => router.push(`/gerencial/crm/empresa/${company.id}`)}
-            className="flex flex-col rounded-2xl border border-line bg-surface p-4 text-left transition-shadow hover:shadow-md"
+            className="group flex cursor-pointer flex-col rounded-2xl border border-line bg-surface p-4 text-left transition-shadow hover:shadow-md"
           >
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold text-brand-600">
@@ -93,6 +107,7 @@ export function CrmCompanies({
                   {company.owner ? ` · ${company.owner}` : ""}
                 </p>
               </div>
+              <InlineDelete onConfirm={() => removeCompany(company.id)} />
             </div>
             {company.tags.length > 0 && (
               <div className="mt-2">
@@ -113,7 +128,7 @@ export function CrmCompanies({
                 <span className="text-xs font-normal text-muted">/mês em aberto</span>
               </p>
             )}
-          </button>
+          </div>
         ))}
         {rows.length === 0 && (
           <div className="col-span-full flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line py-12 text-center text-sm text-muted">

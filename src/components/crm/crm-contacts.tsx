@@ -6,6 +6,7 @@ import { Mail, Phone, Plus, Search, Star, Users } from "lucide-react";
 import type { Company, Contact, Tag } from "@/lib/data/crm";
 import { TagChips } from "./tag-chips";
 import { NewContactModal } from "./new-contact-modal";
+import { InlineDelete } from "./delete-button";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -23,7 +24,18 @@ export function CrmContacts({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const companyName = (id?: string) => companies.find((c) => c.id === id)?.name;
+
+  async function removeContact(id: string) {
+    setDeleted((prev) => new Set(prev).add(id));
+    await fetch("/api/crm/contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    }).catch(() => {});
+    router.refresh();
+  }
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -69,11 +81,13 @@ export function CrmContacts({
       )}
 
       <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-        {rows.map((c) => (
-          <button
+        {rows.filter((c) => !deleted.has(c.id)).map((c) => (
+          <div
             key={c.id}
+            role="button"
+            tabIndex={0}
             onClick={() => router.push(`/gerencial/crm/contato/${c.id}`)}
-            className="flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-subtle"
+            className="group flex w-full cursor-pointer items-center gap-3 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-subtle"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-600">
               {initials(c.name)}
@@ -101,7 +115,8 @@ export function CrmContacts({
               )}
             </div>
             <TagChips ids={c.tags} tags={tags} size="xs" />
-          </button>
+            <InlineDelete onConfirm={() => removeContact(c.id)} />
+          </div>
         ))}
         {rows.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-12 text-center text-sm text-muted">
