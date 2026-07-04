@@ -22,7 +22,7 @@ import { DuplicatesManager } from "./duplicates-manager";
  */
 export function CrmSettings({
   properties,
-  pipeline,
+  pipelines,
   tags,
   leads,
   companies,
@@ -32,7 +32,7 @@ export function CrmSettings({
   team = [],
 }: {
   properties: PropertyDef[];
-  pipeline: Pipeline;
+  pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
   companies: Company[];
@@ -44,13 +44,13 @@ export function CrmSettings({
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="text-sm font-semibold text-ink">Estágios do pipeline</h2>
+        <h2 className="text-sm font-semibold text-ink">Pipelines & estágios</h2>
         <p className="mb-3 text-xs text-muted">
-          Adicione, renomeie, reordene e escolha a cor e a probabilidade de cada estágio.
-          Estágios do tipo <strong>Ganho</strong>/<strong>Perdido</strong> fecham o negócio.
+          Crie funis (ex.: Novos negócios, Upsell) e edite os estágios de cada um —
+          nome, cor, probabilidade, regras e automações.
         </p>
         <StageManager
-          pipeline={pipeline}
+          pipelines={pipelines}
           dealProperties={properties.filter((p) => p.objectType === "deal")}
           flows={flows}
         />

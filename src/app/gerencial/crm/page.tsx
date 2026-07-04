@@ -17,7 +17,7 @@ import {
   getCrmContacts,
   getCrmTags,
   getCrmProperties,
-  getDefaultPipeline,
+  getCrmPipelines,
   getAttendants,
   getCrmTaskFlows,
   getCaptureForms,
@@ -31,6 +31,7 @@ import {
   buildForecast,
   buildStageTimings,
   monthKey,
+  DEFAULT_PIPELINE,
   CRM_AGENDA,
 } from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
@@ -45,7 +46,7 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, companies, contacts, tags, properties, pipeline, team, user, events] =
+  const [dashboard, leads, companies, contacts, tags, properties, pipelines, team, user, events] =
     await Promise.all([
       getCrmDashboard(),
       getCrmLeads(),
@@ -53,16 +54,17 @@ export default async function CrmPage({
       getCrmContacts(),
       getCrmTags(),
       getCrmProperties(),
-      getDefaultPipeline(),
+      getCrmPipelines(),
       getAttendants(),
       getSession(),
       listUpcomingEvents(6),
     ]);
+  const defaultPipeline = pipelines.find((p) => p.isDefault) ?? pipelines[0] ?? DEFAULT_PIPELINE;
   const teamNames = team.map((t) => t.name);
   const currentUser = user?.name ?? "";
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
-  const funnel = buildFunnelAnalytics(leads, pipeline.stages, nowIso);
+  const funnel = buildFunnelAnalytics(leads, defaultPipeline.stages, nowIso);
   const curMonth = monthKey(nowIso);
   const [crmTasks, flows, goals, captureForms, history] = await Promise.all([
     getCrmTasks(),
@@ -109,7 +111,7 @@ export default async function CrmPage({
       content: (
         <CrmPipeline
           cards={cards}
-          stages={pipeline.stages}
+          pipelines={pipelines}
           tags={tags}
           companies={companies}
           contacts={contacts}
@@ -162,7 +164,7 @@ export default async function CrmPage({
       content: (
         <CrmSettings
           properties={properties}
-          pipeline={pipeline}
+          pipelines={pipelines}
           tags={tags}
           leads={leads}
           companies={companies}

@@ -46,24 +46,51 @@ async function post(body: unknown) {
   }).catch(() => {});
 }
 
+async function postPipeline(body: unknown) {
+  await fetch("/api/crm/pipelines", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {});
+}
+
 export function StageManager({
-  pipeline,
+  pipelines,
   dealProperties = [],
   flows = [],
 }: {
-  pipeline: Pipeline;
+  pipelines: Pipeline[];
   dealProperties?: PropertyDef[];
   flows?: TaskFlow[];
 }) {
   const router = useRouter();
-  const stages = [...pipeline.stages].sort((a, b) => a.position - b.position);
+  const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "";
+  const [pipelineId, setPipelineId] = useState(defaultId);
+  const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
+  const stages = [...(pipeline?.stages ?? [])].sort((a, b) => a.position - b.position);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [newPipeName, setNewPipeName] = useState("");
 
   const fieldOptions: FieldOption[] = [
     ...NATIVE_DEAL_FIELDS.map((f) => ({ source: "native" as const, field: f.key, label: f.label })),
     ...dealProperties.map((p) => ({ source: "property" as const, field: p.key, label: p.label })),
   ];
+
+  async function createPipeline() {
+    if (!newPipeName.trim()) return;
+    setBusy(true);
+    await postPipeline({ action: "create", name: newPipeName.trim() });
+    setNewPipeName("");
+    setBusy(false);
+    router.refresh();
+  }
+  async function pipelineAction(body: Record<string, unknown>) {
+    setBusy(true);
+    await postPipeline(body);
+    setBusy(false);
+    router.refresh();
+  }
 
   async function move(idx: number, dir: -1 | 1) {
     const j = idx + dir;
@@ -91,20 +118,73 @@ export function StageManager({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted">
-          Pipeline: <span className="font-medium text-ink">{pipeline.name}</span>
-        </p>
-        <button
-          onClick={() => setAdding((a) => !a)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" /> Novo estágio
-        </button>
+      {/* Barra de pipelines */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1">
+          {pipelines.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPipelineId(p.id)}
+              className={
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
+                (p.id === pipelineId ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle")
+              }
+            >
+              {p.name}
+              {p.isDefault && <span className="ml-1 text-[10px] opacity-70">(padrão)</span>}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            value={newPipeName}
+            onChange={(e) => setNewPipeName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && createPipeline()}
+            placeholder="Novo pipeline…"
+            className="w-36 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+          />
+          <button
+            onClick={createPipeline}
+            disabled={busy || !newPipeName.trim()}
+            className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Criar
+          </button>
+        </div>
       </div>
+
+      {pipeline && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs">
+            {!pipeline.isDefault && (
+              <>
+                <button
+                  onClick={() => pipelineAction({ action: "set-default", id: pipeline.id })}
+                  className="rounded-lg border border-line px-2 py-1 font-medium text-ink hover:bg-subtle"
+                >
+                  Tornar padrão
+                </button>
+                <button
+                  onClick={() => pipelineAction({ action: "delete", id: pipeline.id })}
+                  className="rounded-lg border border-line px-2 py-1 font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
+                >
+                  Excluir pipeline
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setAdding((a) => !a)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Novo estágio
+          </button>
+        </div>
+      )}
 
       {adding && (
         <StageForm
+          pipelineId={pipelineId}
           onClose={() => setAdding(false)}
           onSaved={() => {
             setAdding(false);
@@ -490,9 +570,11 @@ function StageRow({
 }
 
 function StageForm({
+  pipelineId,
   onClose,
   onSaved,
 }: {
+  pipelineId: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -505,7 +587,7 @@ function StageForm({
   async function save() {
     if (!label.trim() || busy) return;
     setBusy(true);
-    await post({ action: "create", label: label.trim(), color, probability: prob, kind });
+    await post({ action: "create", pipelineId, label: label.trim(), color, probability: prob, kind });
     setBusy(false);
     onSaved();
   }

@@ -16,6 +16,7 @@ import {
   type CrmLead,
   type CrmLeadCard,
   type CrmStage,
+  type Pipeline,
   type Stage,
   type StageRequirement,
   type Tag,
@@ -151,7 +152,7 @@ function LeadCard({
 
 export function CrmPipeline({
   cards: initial,
-  stages = DEFAULT_PIPELINE.stages,
+  pipelines = [DEFAULT_PIPELINE],
   tags = [],
   companies = [],
   contacts = [],
@@ -159,7 +160,7 @@ export function CrmPipeline({
   currentUser = "",
 }: {
   cards: CrmLeadCard[];
-  stages?: Stage[];
+  pipelines?: Pipeline[];
   tags?: Tag[];
   companies?: Company[];
   contacts?: Contact[];
@@ -173,6 +174,11 @@ export function CrmPipeline({
   const [showNew, setShowNew] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [mine, setMine] = useState(false);
+
+  const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
+  const [pipelineId, setPipelineId] = useState(defaultId);
+  const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0] ?? DEFAULT_PIPELINE;
+  const stages = pipeline.stages;
   const [blocked, setBlocked] = useState<{
     dealId: string;
     stageLabel: string;
@@ -182,6 +188,7 @@ export function CrmPipeline({
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
   const visibleCards = cards.filter(
     (c) =>
+      (c.pipelineId || defaultId) === pipelineId &&
       (!tagFilter || c.tags?.includes(tagFilter)) &&
       (!mine || (c.owner ?? "") === currentUser),
   );
@@ -266,11 +273,26 @@ export function CrmPipeline({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">
-          {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
-          negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
-          em aberto
-        </p>
+        <div className="flex items-center gap-3">
+          {pipelines.length > 1 && (
+            <select
+              value={pipelineId}
+              onChange={(e) => setPipelineId(e.target.value)}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-brand-400"
+            >
+              {pipelines.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="text-sm text-muted">
+            {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
+            negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
+            em aberto
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           {currentUser && (
             <button
@@ -326,6 +348,7 @@ export function CrmPipeline({
           companies={companies}
           contacts={contacts}
           stages={stages}
+          pipelineId={pipeline.id}
           team={team}
           defaultOwner={currentUser}
         />

@@ -36,6 +36,7 @@ export function NewLeadModal({
   companies = [],
   contacts = [],
   stages = DEFAULT_PIPELINE.stages,
+  pipelineId,
   team = [],
   defaultOwner = "",
 }: {
@@ -44,6 +45,7 @@ export function NewLeadModal({
   companies?: Company[];
   contacts?: Contact[];
   stages?: Stage[];
+  pipelineId?: string;
   team?: string[];
   defaultOwner?: string;
 }) {
@@ -132,6 +134,7 @@ export function NewLeadModal({
       probability: Number(d.probability) || stageObj?.probability || 0,
       stage: d.stage,
       stageId: stageObj?.id,
+      pipelineId,
       // empresa
       ...(company
         ? { companyId: company.id }
@@ -176,6 +179,7 @@ export function NewLeadModal({
         bant: {},
         companyId: json.companyId ?? company?.id,
         primaryContactId: json.contactId,
+        pipelineId,
         tags: [],
         properties: {},
         stageChangedAt: nowIso,
