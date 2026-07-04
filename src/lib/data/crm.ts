@@ -354,6 +354,60 @@ export function rotLevel(daysInStage: number): Rot {
 
 export type CrmLeadCard = CrmLead & { daysInStage: number; rot: Rot };
 
+// ── Lead scoring (0–100, heurístico) ────────────────────────────────────────
+
+export type ScoreTier = "hot" | "warm" | "cold";
+
+export const SCORE_TIERS: Record<ScoreTier, { label: string; color: string; chip: string }> = {
+  hot: { label: "Quente", color: "#f43f5e", chip: "bg-rose-500/15 text-rose-600" },
+  warm: { label: "Morno", color: "#f59e0b", chip: "bg-amber-500/15 text-amber-600" },
+  cold: { label: "Frio", color: "#64748b", chip: "bg-subtle text-muted" },
+};
+
+export type DealScore = {
+  score: number;
+  tier: ScoreTier;
+  factors: { label: string; points: number }[];
+};
+
+/** Pontua um negócio por sinais de qualidade/engajamento (0–100). */
+export function scoreDeal(deal: CrmLead, nowIso: string): DealScore {
+  const factors: { label: string; points: number }[] = [];
+  const add = (label: string, points: number) => {
+    if (points) factors.push({ label, points });
+  };
+
+  // Valor mensal (até 25)
+  const v = deal.monthlyValue;
+  add("Valor mensal", v >= 5000 ? 25 : v >= 2000 ? 16 : v > 0 ? 8 : 0);
+
+  // Qualificação BANT (5 cada, até 20)
+  const bantFilled = (["budget", "authority", "need", "timing"] as const).filter(
+    (k) => deal.bant?.[k]?.trim(),
+  ).length;
+  add("Qualificação (BANT)", bantFilled * 5);
+
+  // Estágio / probabilidade (até 20)
+  add("Estágio no funil", Math.round((deal.probability / 100) * 20));
+
+  // Origem quente (indicação)
+  if ((deal.source ?? "").toLowerCase().includes("indica")) add("Indicação", 10);
+
+  // Recência da última interação (até 15)
+  if (deal.lastInteractionAt) {
+    const days = daysBetween(deal.lastInteractionAt, nowIso);
+    add("Engajamento recente", days <= 2 ? 15 : days <= 7 ? 10 : days <= 14 ? 4 : 0);
+  }
+
+  // Contatabilidade
+  add("Telefone", deal.contactPhone ? 5 : 0);
+  add("E-mail", deal.contactEmail ? 5 : 0);
+
+  const score = Math.max(0, Math.min(100, factors.reduce((s, f) => s + f.points, 0)));
+  const tier: ScoreTier = score >= 70 ? "hot" : score >= 40 ? "warm" : "cold";
+  return { score, tier, factors };
+}
+
 export function toCard(lead: CrmLead, nowIso: string): CrmLeadCard {
   const daysInStage = Math.max(0, daysBetween(lead.stageChangedAt, nowIso));
   return { ...lead, daysInStage, rot: rotLevel(daysInStage) };

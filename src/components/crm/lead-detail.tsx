@@ -26,6 +26,8 @@ import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
   BANT_LABELS,
   stageLabel,
+  scoreDeal,
+  SCORE_TIERS,
   type Bant,
   type Company,
   type Contact,
@@ -272,6 +274,8 @@ export function LeadDetail({
 
         {/* Coluna lateral: dados + BANT */}
         <div className="space-y-4">
+          <ScoreCard lead={lead} />
+
           <Card title="Principal">
             <Row label="Valor mensal" value={formatBRL(lead.monthlyValue)} strong />
             <OwnerRow dealId={lead.id} owner={lead.owner} team={team} />
@@ -866,6 +870,39 @@ function StageHistoryCard({ history }: { history: StageChange[] }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ScoreCard({ lead }: { lead: CrmLead }) {
+  const sc = scoreDeal(lead, new Date().toISOString());
+  const meta = SCORE_TIERS[sc.tier];
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-ink">Lead score</h2>
+        <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", meta.chip)}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="mb-3 flex items-end gap-2">
+        <span className="text-3xl font-bold text-ink">{sc.score}</span>
+        <span className="pb-1 text-xs text-muted">/ 100</span>
+      </div>
+      <div className="mb-3 h-2 overflow-hidden rounded-full bg-canvas">
+        <div className="h-full rounded-full" style={{ width: `${sc.score}%`, backgroundColor: meta.color }} />
+      </div>
+      <div className="space-y-1">
+        {sc.factors.map((f) => (
+          <div key={f.label} className="flex items-center justify-between text-xs">
+            <span className="text-muted">{f.label}</span>
+            <span className="font-semibold text-ink">+{f.points}</span>
+          </div>
+        ))}
+        {sc.factors.length === 0 && (
+          <p className="text-xs text-muted">Sem sinais suficientes ainda.</p>
+        )}
       </div>
     </div>
   );

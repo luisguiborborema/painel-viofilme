@@ -8,6 +8,8 @@ import { formatBRL } from "@/lib/utils";
 import {
   DEFAULT_PIPELINE,
   toCard,
+  scoreDeal,
+  SCORE_TIERS,
   unmetStageRequirements,
   type Company,
   type Contact,
@@ -114,14 +116,21 @@ function LeadCard({
         <span className="text-xs font-normal text-muted">/mês</span>
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {(() => {
+          const sc = scoreDeal(card, new Date().toISOString());
+          const meta = SCORE_TIERS[sc.tier];
+          return (
+            <span
+              className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", meta.chip)}
+              title={`Lead score: ${sc.score}/100 (${meta.label})`}
+            >
+              {meta.label} · {sc.score}
+            </span>
+          );
+        })()}
         {card.plan && (
           <span className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">
             {card.plan}
-          </span>
-        )}
-        {card.probability >= 70 && (
-          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-            {card.probability}%
           </span>
         )}
       </div>
