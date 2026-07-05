@@ -1,6 +1,9 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { TrendingDown, Trophy, Target, Clock } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
-import type { FunnelAnalytics } from "@/lib/data/crm";
+import { buildFunnelAnalytics, type CrmLead, type Pipeline } from "@/lib/data/crm";
 
 function Kpi({
   icon,
@@ -26,17 +29,47 @@ function Kpi({
 }
 
 export function CrmAnalytics({
-  funnel,
+  leads,
+  pipelines,
+  nowIso,
   timings = {},
 }: {
-  funnel: FunnelAnalytics;
+  leads: CrmLead[];
+  pipelines: Pipeline[];
+  nowIso: string;
   timings?: Record<string, { avgDays: number; count: number }>;
 }) {
+  const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "";
+  const [pipelineId, setPipelineId] = useState(defaultId);
+  const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
+
+  const funnel = useMemo(() => {
+    const scoped = leads.filter((l) => (l.pipelineId || defaultId) === pipelineId);
+    return buildFunnelAnalytics(scoped, pipeline?.stages ?? [], nowIso);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads, pipelineId]);
+
   const maxReached = Math.max(1, ...funnel.stages.map((s) => s.reached));
   const maxLost = Math.max(1, ...funnel.lostReasons.map((r) => r.count));
 
   return (
     <div className="space-y-6">
+      {pipelines.length > 1 && (
+        <div className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1">
+          {pipelines.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPipelineId(p.id)}
+              className={
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
+                (p.id === pipelineId ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle")
+              }
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           icon={<Target className="h-4 w-4" />}

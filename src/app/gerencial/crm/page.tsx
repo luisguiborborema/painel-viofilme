@@ -26,12 +26,10 @@ import {
 } from "@/lib/data/queries";
 import {
   toCard,
-  buildFunnelAnalytics,
   buildTaskItems,
   buildForecast,
   buildStageTimings,
   monthKey,
-  DEFAULT_PIPELINE,
   CRM_AGENDA,
 } from "@/lib/data/crm";
 import { listUpcomingEvents } from "@/lib/google/calendar";
@@ -59,12 +57,10 @@ export default async function CrmPage({
       getSession(),
       listUpcomingEvents(6),
     ]);
-  const defaultPipeline = pipelines.find((p) => p.isDefault) ?? pipelines[0] ?? DEFAULT_PIPELINE;
   const teamNames = team.map((t) => t.name);
   const currentUser = user?.name ?? "";
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
-  const funnel = buildFunnelAnalytics(leads, defaultPipeline.stages, nowIso);
   const curMonth = monthKey(nowIso);
   const [crmTasks, flows, goals, captureForms, history] = await Promise.all([
     getCrmTasks(),
@@ -156,7 +152,14 @@ export default async function CrmPage({
     {
       key: "analise",
       label: "Análise",
-      content: <CrmAnalytics funnel={funnel} timings={stageTimings} />,
+      content: (
+        <CrmAnalytics
+          leads={leads}
+          pipelines={pipelines}
+          nowIso={nowIso}
+          timings={stageTimings}
+        />
+      ),
     },
     {
       key: "configuracoes",

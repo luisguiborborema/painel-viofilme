@@ -11,6 +11,7 @@ import {
   getCrmLostReasons,
   getCrmTaskFlows,
   getDealHistory,
+  getCrmPipelines,
 } from "@/lib/data/queries";
 
 export default async function LeadPage({
@@ -33,9 +34,10 @@ export default async function LeadPage({
       getAttendants(),
       getCrmLostReasons(),
     ]);
-  const [flows, dealHistory] = await Promise.all([
+  const [flows, dealHistory, pipelines] = await Promise.all([
     getCrmTaskFlows(),
     getDealHistory(id),
+    getCrmPipelines(),
   ]);
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
@@ -58,6 +60,7 @@ export default async function LeadPage({
       lostReasons={lostReasons.map((r) => r.label)}
       flows={flows}
       history={dealHistory}
+      pipelines={pipelines}
     />
   );
 }

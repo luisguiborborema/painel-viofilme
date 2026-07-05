@@ -136,7 +136,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "update" | "move" | "delete";
+  action?: "create" | "update" | "move" | "delete" | "change-pipeline";
   id?: string;
   stage?: string;
   stageId?: string;
@@ -190,6 +190,36 @@ export async function POST(req: Request) {
     // Cascata (interações, tarefas, deal_contacts, histórico) já cai por FK.
     const { error } = await supabase.from("crm_leads").delete().eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "change-pipeline") {
+    if (!body.id || !body.pipelineId) {
+      return NextResponse.json({ error: "id/pipelineId ausente" }, { status: 400 });
+    }
+    // Move para o 1º estágio ABERTO do pipeline destino.
+    const { data: stages } = await supabase
+      .from("crm_stages")
+      .select("id,key,position,kind")
+      .eq("pipeline_id", body.pipelineId)
+      .order("position", { ascending: true });
+    const firstOpen = (stages ?? []).find((s) => s.kind === "open") ?? (stages ?? [])[0];
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({
+        pipeline_id: body.pipelineId,
+        stage_id: firstOpen?.id ?? null,
+        stage: firstOpen?.key ?? "prospeccao",
+        stage_changed_at: now,
+        updated_at: now,
+      })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (firstOpen) {
+      await supabase.from("crm_stage_history").insert({
+        deal_id: body.id, from_stage: null, to_stage: firstOpen.key, changed_by: user.name,
+      });
+    }
     return NextResponse.json({ ok: true, persisted: true });
   }
 

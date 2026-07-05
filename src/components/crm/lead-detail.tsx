@@ -34,6 +34,7 @@ import {
   type CrmInteraction,
   type CrmLead,
   type CrmTask,
+  type Pipeline,
   type PropertyDef,
   type StageChange,
   type Tag,
@@ -80,6 +81,7 @@ export function LeadDetail({
   lostReasons = [],
   flows = [],
   history = [],
+  pipelines = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -93,6 +95,7 @@ export function LeadDetail({
   lostReasons?: string[];
   flows?: TaskFlow[];
   history?: StageChange[];
+  pipelines?: Pipeline[];
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -148,6 +151,15 @@ export function LeadDetail({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add", leadId: lead.id, title, dueDate: dueIso }),
+    }).catch(() => {});
+    router.refresh();
+  }
+
+  async function changePipeline(pipelineId: string) {
+    await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "change-pipeline", id: lead.id, pipelineId }),
     }).catch(() => {});
     router.refresh();
   }
@@ -279,6 +291,22 @@ export function LeadDetail({
           <Card title="Principal">
             <Row label="Valor mensal" value={formatBRL(lead.monthlyValue)} strong />
             <OwnerRow dealId={lead.id} owner={lead.owner} team={team} />
+            {pipelines.length > 1 && (
+              <div className="flex items-center justify-between py-1.5 text-sm">
+                <span className="text-muted">Pipeline</span>
+                <select
+                  value={lead.pipelineId ?? pipelines.find((p) => p.isDefault)?.id ?? ""}
+                  onChange={(e) => changePipeline(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400"
+                >
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <Row label="Origem" value={lead.source ?? "—"} />
             <Row label="Plano" value={lead.plan ?? "—"} />
             <Row label="Probabilidade" value={`${lead.probability}%`} />
