@@ -2,21 +2,29 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type Attachment = { id: string; name: string; url: string; contentType: string; size: number };
+
 type Body = {
   action?:
     | "create-sector" | "rename-sector" | "delete-sector"
-    | "create-playbook" | "update-playbook" | "delete-playbook";
+    | "create-playbook" | "update-playbook" | "delete-playbook"
+    | "add-attachment" | "remove-attachment";
   id?: string;
   sectorId?: string;
   name?: string;
   title?: string;
   content?: string;
   format?: "md" | "html";
+  attachment?: Attachment;
+  attachmentId?: string;
 };
+
+const BUCKET = "playbook-files";
 
 /** CRUD de setores e playbooks (gerencial). */
 export async function POST(req: Request) {
@@ -96,6 +104,34 @@ export async function POST(req: Request) {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
       const { error } = await supabase.from("playbooks").delete().eq("id", b.id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+    case "add-attachment": {
+      if (!b.id || !b.attachment?.url) return NextResponse.json({ error: "dados ausentes" }, { status: 400 });
+      const { data: row, error: readErr } = await supabase
+        .from("playbooks").select("attachments").eq("id", b.id).single();
+      if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
+      const list = Array.isArray(row?.attachments) ? (row.attachments as Attachment[]) : [];
+      const { error } = await supabase
+        .from("playbooks").update({ attachments: [...list, b.attachment], updated_at: now }).eq("id", b.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+    case "remove-attachment": {
+      if (!b.id || !b.attachmentId) return NextResponse.json({ error: "dados ausentes" }, { status: 400 });
+      const { data: row, error: readErr } = await supabase
+        .from("playbooks").select("attachments").eq("id", b.id).single();
+      if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
+      const list = Array.isArray(row?.attachments) ? (row.attachments as Attachment[]) : [];
+      const { error } = await supabase
+        .from("playbooks")
+        .update({ attachments: list.filter((a) => a.id !== b.attachmentId), updated_at: now })
+        .eq("id", b.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      // Remove o arquivo do Storage (best-effort; attachmentId = path no bucket).
+      if (hasServiceRole()) {
+        createAdminClient().storage.from(BUCKET).remove([b.attachmentId]).catch(() => {});
+      }
       return NextResponse.json({ ok: true });
     }
     default:

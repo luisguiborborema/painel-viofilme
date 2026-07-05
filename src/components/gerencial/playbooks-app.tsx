@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  BookOpen, ChevronDown, ChevronRight, FileText, FolderPlus, Loader2,
-  Pencil, Plus, Search, Trash2, Upload, X,
+  BookOpen, ChevronDown, ChevronRight, ExternalLink, FileText, FileType2,
+  FolderPlus, ImageIcon, Loader2, Paperclip, Pencil, Plus, Search, Trash2, Upload, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PlaybookFormat, PlaybookSector } from "@/lib/data/playbooks";
+import type { PlaybookAttachment, PlaybookFormat, PlaybookSector } from "@/lib/data/playbooks";
 import { PlaybookViewer } from "./playbook-viewer";
+
+const isImage = (ct: string, name: string) => /^image\//.test(ct) || /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(name);
+const fmtSize = (n: number) =>
+  n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 
 async function post(body: unknown) {
   const res = await fetch("/api/gerencial/playbooks", {
@@ -185,6 +189,7 @@ export function PlaybooksApp({ sectors }: { sectors: PlaybookSector[] }) {
             <div className="p-6">
               <PlaybookViewer content={selected.content} format={selected.format} />
             </div>
+            <AttachmentsPanel key={selected.id} playbook={selected} />
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-16 text-center">
@@ -211,6 +216,125 @@ export function PlaybooksApp({ sectors }: { sectors: PlaybookSector[] }) {
             router.refresh();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function AttachmentsPanel({
+  playbook,
+}: {
+  playbook: { id: string; attachments: PlaybookAttachment[] };
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const items = playbook.attachments ?? [];
+
+  async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setBusy(true);
+    setErr(null);
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("playbookId", playbook.id);
+      const up = await fetch("/api/gerencial/playbooks/upload", { method: "POST", body: fd })
+        .then((r) => r.json())
+        .catch(() => null);
+      if (!up?.attachment) {
+        setErr(up?.error ?? "Falha ao enviar arquivo. Verifique se o Storage está configurado.");
+        continue;
+      }
+      await post({ action: "add-attachment", id: playbook.id, attachment: up.attachment });
+    }
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function remove(a: PlaybookAttachment) {
+    if (!window.confirm(`Remover o anexo "${a.name}"?`)) return;
+    setBusy(true);
+    await post({ action: "remove-attachment", id: playbook.id, attachmentId: a.id });
+    setBusy(false);
+    router.refresh();
+  }
+
+  return (
+    <div className="border-t border-line p-6">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Paperclip className="h-4 w-4 text-muted" /> Anexos
+          {items.length > 0 && <span className="text-xs font-normal text-muted">({items.length})</span>}
+        </h2>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          Anexar arquivo
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,image/*,application/pdf"
+          onChange={onFiles}
+          className="hidden"
+        />
+      </div>
+
+      {err && <p className="mb-3 rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-500">{err}</p>}
+
+      {items.length === 0 ? (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-full rounded-xl border border-dashed border-line px-3 py-6 text-center text-sm text-muted hover:bg-subtle"
+        >
+          Nenhum anexo. Envie um PDF ou imagem para este playbook.
+        </button>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {items.map((a) => (
+            <div key={a.id} className="group relative overflow-hidden rounded-xl border border-line bg-canvas">
+              <a href={a.url} target="_blank" rel="noopener noreferrer" className="block">
+                {isImage(a.contentType, a.name) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={a.url} alt={a.name} className="h-28 w-full object-cover" />
+                ) : (
+                  <div className="flex h-28 w-full items-center justify-center bg-subtle">
+                    {/pdf/i.test(a.contentType) || /\.pdf$/i.test(a.name) ? (
+                      <FileType2 className="h-9 w-9 text-rose-500" />
+                    ) : (
+                      <FileText className="h-9 w-9 text-muted" />
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 p-2.5">
+                  {isImage(a.contentType, a.name) ? (
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted" />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted" />
+                  )}
+                  <span className="truncate text-xs font-medium text-ink" title={a.name}>{a.name}</span>
+                </div>
+                <p className="px-2.5 pb-2.5 text-[10px] text-muted">{fmtSize(a.size)}</p>
+              </a>
+              <button
+                onClick={() => remove(a)}
+                disabled={busy}
+                className="absolute right-1.5 top-1.5 rounded-lg bg-surface/90 p-1 text-muted opacity-0 shadow-sm hover:text-rose-500 group-hover:opacity-100 disabled:opacity-60"
+                title="Remover anexo"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

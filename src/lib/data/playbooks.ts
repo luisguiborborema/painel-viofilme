@@ -4,6 +4,14 @@
  */
 export type PlaybookFormat = "md" | "html";
 
+export type PlaybookAttachment = {
+  id: string;
+  name: string;
+  url: string;
+  contentType: string;
+  size: number;
+};
+
 export type Playbook = {
   id: string;
   sectorId: string;
@@ -12,6 +20,7 @@ export type Playbook = {
   format: PlaybookFormat;
   position: number;
   updatedAt: string;
+  attachments: PlaybookAttachment[];
 };
 
 export type PlaybookSector = {
@@ -34,6 +43,7 @@ export const MOCK_PLAYBOOK_SECTORS: PlaybookSector[] = [
         format: "md",
         position: 1,
         updatedAt: new Date().toISOString(),
+        attachments: [],
         content: `# Onboarding de cliente
 
 Passo a passo para iniciar um novo cliente na Viofilme.

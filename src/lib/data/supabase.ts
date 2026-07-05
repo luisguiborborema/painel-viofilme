@@ -1182,7 +1182,7 @@ export async function sbGetPlaybookSectors(): Promise<PlaybookSector[]> {
     supabase.from("playbook_sectors").select("id,name,position").order("position", { ascending: true }),
     supabase
       .from("playbooks")
-      .select("id,sector_id,title,content,format,position,updated_at")
+      .select("id,sector_id,title,content,format,position,updated_at,attachments")
       .order("position", { ascending: true }),
   ]);
   return (sectors ?? []).map((s) => ({
@@ -1199,6 +1199,18 @@ export async function sbGetPlaybookSectors(): Promise<PlaybookSector[]> {
         format: (d.format as PlaybookFormat) === "html" ? "html" : "md",
         position: Number(d.position ?? 0),
         updatedAt: String(d.updated_at ?? ""),
+        attachments: Array.isArray(d.attachments)
+          ? (d.attachments as unknown[]).map((a) => {
+              const o = (a ?? {}) as Record<string, unknown>;
+              return {
+                id: String(o.id ?? ""),
+                name: String(o.name ?? "arquivo"),
+                url: String(o.url ?? ""),
+                contentType: String(o.contentType ?? ""),
+                size: Number(o.size ?? 0),
+              };
+            })
+          : [],
       })),
   }));
 }
