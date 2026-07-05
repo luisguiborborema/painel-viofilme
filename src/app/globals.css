@@ -147,3 +147,25 @@ body {
   background: var(--color-muted);
   background-clip: content-box;
 }
+
+/* Playbooks — estilo de leitura (Markdown/HTML renderizado) */
+.playbook-prose { color: var(--color-ink); font-size: 0.95rem; line-height: 1.7; }
+.playbook-prose > :first-child { margin-top: 0; }
+.playbook-prose h1 { font-size: 1.6rem; font-weight: 800; margin: 1.4rem 0 0.8rem; color: var(--color-ink); }
+.playbook-prose h2 { font-size: 1.25rem; font-weight: 700; margin: 1.3rem 0 0.6rem; color: var(--color-ink); }
+.playbook-prose h3 { font-size: 1.05rem; font-weight: 700; margin: 1.1rem 0 0.5rem; color: var(--color-ink); }
+.playbook-prose p { margin: 0.6rem 0; }
+.playbook-prose ul, .playbook-prose ol { margin: 0.6rem 0; padding-left: 1.4rem; }
+.playbook-prose ul { list-style: disc; }
+.playbook-prose ol { list-style: decimal; }
+.playbook-prose li { margin: 0.25rem 0; }
+.playbook-prose a { color: var(--color-brand-600); text-decoration: underline; }
+.playbook-prose code { background: var(--color-subtle); padding: 0.1rem 0.35rem; border-radius: 0.35rem; font-size: 0.85em; }
+.playbook-prose pre { background: var(--color-canvas); border: 1px solid var(--color-line); border-radius: 0.6rem; padding: 0.9rem; overflow-x: auto; margin: 0.8rem 0; }
+.playbook-prose pre code { background: none; padding: 0; }
+.playbook-prose blockquote { border-left: 3px solid var(--color-brand-500); background: var(--color-subtle); padding: 0.5rem 0.9rem; border-radius: 0.4rem; margin: 0.8rem 0; color: var(--color-muted); }
+.playbook-prose table { border-collapse: collapse; margin: 0.8rem 0; width: 100%; }
+.playbook-prose th, .playbook-prose td { border: 1px solid var(--color-line); padding: 0.4rem 0.7rem; text-align: left; }
+.playbook-prose th { background: var(--color-subtle); font-weight: 600; }
+.playbook-prose hr { border: none; border-top: 1px solid var(--color-line); margin: 1.2rem 0; }
+.playbook-prose img { max-width: 100%; border-radius: 0.5rem; }

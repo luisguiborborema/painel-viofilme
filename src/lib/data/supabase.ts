@@ -35,6 +35,7 @@ import type {
   MediaPerformance,
 } from "./queries";
 import type { OrganicResults, OrganicScopeView } from "./queries";
+import type { PlaybookSector, PlaybookFormat } from "./playbooks";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -1173,6 +1174,33 @@ export async function sbGetDealHistory(dealId: string): Promise<StageChange[]> {
     .eq("deal_id", dealId)
     .order("changed_at", { ascending: true });
   return (data ?? []).map(mapStageChange);
+}
+
+export async function sbGetPlaybookSectors(): Promise<PlaybookSector[]> {
+  const supabase = await createClient();
+  const [{ data: sectors }, { data: docs }] = await Promise.all([
+    supabase.from("playbook_sectors").select("id,name,position").order("position", { ascending: true }),
+    supabase
+      .from("playbooks")
+      .select("id,sector_id,title,content,format,position,updated_at")
+      .order("position", { ascending: true }),
+  ]);
+  return (sectors ?? []).map((s) => ({
+    id: String(s.id),
+    name: String(s.name),
+    position: Number(s.position ?? 0),
+    playbooks: (docs ?? [])
+      .filter((d) => String(d.sector_id) === String(s.id))
+      .map((d) => ({
+        id: String(d.id),
+        sectorId: String(d.sector_id),
+        title: String(d.title),
+        content: String(d.content ?? ""),
+        format: (d.format as PlaybookFormat) === "html" ? "html" : "md",
+        position: Number(d.position ?? 0),
+        updatedAt: String(d.updated_at ?? ""),
+      })),
+  }));
 }
 
 export async function sbGetCaptureForms(): Promise<CaptureForm[]> {

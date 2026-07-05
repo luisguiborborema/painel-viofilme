@@ -1589,3 +1589,15 @@ export async function getReportSends(): Promise<ReportSend[]> {
   if (isSupabaseConfigured()) return sb.sbGetReportSends();
   return [];
 }
+
+// ── Playbooks (central de documentos) ────────────────────────────────────────
+
+import {
+  MOCK_PLAYBOOK_SECTORS,
+  type PlaybookSector,
+} from "./playbooks";
+
+export async function getPlaybookSectors(): Promise<PlaybookSector[]> {
+  if (isSupabaseConfigured()) return sb.sbGetPlaybookSectors();
+  return MOCK_PLAYBOOK_SECTORS;
+}

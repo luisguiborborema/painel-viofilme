@@ -62,7 +62,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       },
       { label: "Central de Relatórios", href: "/gerencial/relatorios", icon: FileBarChart, section: "relatorios" },
       {
-        label: "Documentos",
+        label: "Playbooks",
         href: "/gerencial/documentos",
         icon: FolderOpen,
         anySection: ["clientes", "entregas", "conteudo", "campanhas", "resultados", "relatorios"],
