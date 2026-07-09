@@ -48,6 +48,9 @@ O sistema opera em **dois modos automáticos**: sem variáveis de ambiente confi
 | [PORTAL-CLIENTE.md](PORTAL-CLIENTE.md) | As telas que o cliente vê |
 | [APIS.md](APIS.md) | Todas as APIs — serviços externos + rotas internas `/api/*` |
 | [API-CRM.md](API-CRM.md) | Contrato detalhado das rotas do CRM (body, `action`s, respostas de sucesso/erro) |
+| [API-INBOX.md](API-INBOX.md) | Contrato das rotas do atendimento WhatsApp (`/api/inbox/*`) |
+| [API-GERENCIAL.md](API-GERENCIAL.md) | Contrato das rotas de gestão (`/api/gerencial/*` — time, metas, playbooks) |
+| [API-INTEGRACOES.md](API-INTEGRACOES.md) | Contrato de Meta/Google (OAuth) e webhooks Asaas/Uazapi |
 | [BACKEND.md](BACKEND.md) | Guia para sair do modo demo (Supabase + Meta + IA) |
 | [PWA-TEMA.md](PWA-TEMA.md) | Service worker, instalação PWA, push, tema claro/escuro |
 | [DEPLOY.md](DEPLOY.md) | Deploy no Vercel, variáveis de ambiente, cron jobs |

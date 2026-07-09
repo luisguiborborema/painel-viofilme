@@ -205,6 +205,8 @@ Rotas Next.js Route Handlers. Salvo indicação em contrário, exigem sessão `g
 
 ### Gerencial — `/api/gerencial/*`
 
+> Contrato detalhado em **[API-GERENCIAL.md](API-GERENCIAL.md)**.
+
 | Rota | Métodos | Propósito |
 |------|---------|-----------|
 | [`/api/gerencial/team`](../src/app/api/gerencial/team/route.ts) | POST | Gestão de usuários gerenciais (criar/editar/reset senha/ativar) — Gestor + service-role |
@@ -215,6 +217,8 @@ Rotas Next.js Route Handlers. Salvo indicação em contrário, exigem sessão `g
 | [`/api/gerencial/recurring-updates`](../src/app/api/gerencial/recurring-updates/route.ts) | GET, POST | Updates recorrentes (automação de envio de relatórios) |
 
 ### Inbox — `/api/inbox/*`
+
+> Contrato detalhado em **[API-INBOX.md](API-INBOX.md)**.
 
 | Rota | Métodos | Propósito |
 |------|---------|-----------|
@@ -227,6 +231,8 @@ Rotas Next.js Route Handlers. Salvo indicação em contrário, exigem sessão `g
 | [`/api/inbox/debug`](../src/app/api/inbox/debug/route.ts) | GET | Diagnóstico do webhook (últimas 20 chamadas) |
 
 ### Integrações — Meta / Google / WhatsApp / Push
+
+> Contrato detalhado de Meta/Google (OAuth) e webhooks em **[API-INTEGRACOES.md](API-INTEGRACOES.md)**.
 
 | Rota | Métodos | Propósito |
 |------|---------|-----------|
