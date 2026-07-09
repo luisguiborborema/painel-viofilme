@@ -251,6 +251,8 @@ Rotas Next.js Route Handlers. Salvo indicação em contrário, exigem sessão `g
 
 ### Webhooks (entrada) e outros
 
+> Webhooks em **[API-INTEGRACOES.md](API-INTEGRACOES.md)**; IA, notificações, relatórios e captura pública em **[API-DIVERSOS.md](API-DIVERSOS.md)**.
+
 | Rota | Métodos | Propósito |
 |------|---------|-----------|
 | [`/api/webhooks/asaas`](../src/app/api/webhooks/asaas/route.ts) | POST | Webhook de pagamentos do Asaas |

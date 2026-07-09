@@ -51,6 +51,7 @@ O sistema opera em **dois modos automáticos**: sem variáveis de ambiente confi
 | [API-INBOX.md](API-INBOX.md) | Contrato das rotas do atendimento WhatsApp (`/api/inbox/*`) |
 | [API-GERENCIAL.md](API-GERENCIAL.md) | Contrato das rotas de gestão (`/api/gerencial/*` — time, metas, playbooks) |
 | [API-INTEGRACOES.md](API-INTEGRACOES.md) | Contrato de Meta/Google (OAuth) e webhooks Asaas/Uazapi |
+| [API-DIVERSOS.md](API-DIVERSOS.md) | Demais rotas: IA (chat/insights), notificações/push/cron, relatórios/PDF, captura pública |
 | [BACKEND.md](BACKEND.md) | Guia para sair do modo demo (Supabase + Meta + IA) |
 | [PWA-TEMA.md](PWA-TEMA.md) | Service worker, instalação PWA, push, tema claro/escuro |
 | [DEPLOY.md](DEPLOY.md) | Deploy no Vercel, variáveis de ambiente, cron jobs |
