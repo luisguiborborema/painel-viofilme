@@ -179,6 +179,8 @@ Rotas Next.js Route Handlers. Salvo indicação em contrário, exigem sessão `g
 
 ### CRM — `/api/crm/*`
 
+> Contrato detalhado (corpo da requisição, `action`s e respostas de sucesso/erro) em **[API-CRM.md](API-CRM.md)**.
+
 | Rota | Métodos | Propósito |
 |------|---------|-----------|
 | [`/api/crm/leads`](../src/app/api/crm/leads/route.ts) | POST | CRUD de negócios + mover de estágio, trocar pipeline (com automações e rodízio de owner) |

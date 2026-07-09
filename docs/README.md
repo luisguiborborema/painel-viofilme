@@ -47,6 +47,7 @@ O sistema opera em **dois modos automáticos**: sem variáveis de ambiente confi
 | [MODULOS-GERENCIAL.md](MODULOS-GERENCIAL.md) | Cada módulo da área da agência (CRM, Inbox, Clientes, Entregas, etc.) |
 | [PORTAL-CLIENTE.md](PORTAL-CLIENTE.md) | As telas que o cliente vê |
 | [APIS.md](APIS.md) | Todas as APIs — serviços externos + rotas internas `/api/*` |
+| [API-CRM.md](API-CRM.md) | Contrato detalhado das rotas do CRM (body, `action`s, respostas de sucesso/erro) |
 | [BACKEND.md](BACKEND.md) | Guia para sair do modo demo (Supabase + Meta + IA) |
 | [PWA-TEMA.md](PWA-TEMA.md) | Service worker, instalação PWA, push, tema claro/escuro |
 | [DEPLOY.md](DEPLOY.md) | Deploy no Vercel, variáveis de ambiente, cron jobs |
