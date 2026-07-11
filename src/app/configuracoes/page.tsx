@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme/theme-provider";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { WhatsappTest } from "@/components/settings/whatsapp-test";
 import { TeamAccess } from "@/components/settings/team-access";
+import { AvatarUpload } from "@/components/settings/avatar-upload";
 
 function SectionHeader({
   icon: Icon,
@@ -94,7 +95,10 @@ export default async function Configuracoes() {
 
       {/* Conta */}
       <Card className="p-5">
-        <SectionHeader icon={UserRound} title="Conta" />
+        <SectionHeader icon={UserRound} title="Conta" subtitle="Sua foto e dados de acesso." />
+        <div className="mb-4 border-b border-line pb-4">
+          <AvatarUpload name={user?.name ?? "Usuário"} initialUrl={user?.avatarUrl} />
+        </div>
         <dl className="divide-y divide-line text-sm">
           <div className="flex items-center justify-between py-2.5">
             <dt className="text-muted">Nome</dt>

@@ -30,16 +30,20 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   if (!claims) return null;
   const userId = claims.sub as string;
   const userEmail = (claims.email as string | undefined) ?? "";
-  const avatarUrl =
+  const metaAvatar =
     ((claims.user_metadata as { avatar_url?: string } | undefined)?.avatar_url) ??
     null;
 
   // Perfil + cliente vinculado
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, client_id, team_role, allowed_sections, clients(name)")
+    .select("id, full_name, role, client_id, team_role, allowed_sections, avatar_url, clients(name)")
     .eq("id", userId)
     .single();
+
+  // Foto: preferimos o profiles.avatar_url (definido em Configurações) e caímos
+  // no avatar do JWT/metadata como fallback.
+  const avatarUrl = (profile?.avatar_url ? String(profile.avatar_url) : null) ?? metaAvatar;
 
   const role = (profile?.role as Role) ?? "cliente";
   // O join pode vir como objeto (to-one) ou array, dependendo da inferência.
