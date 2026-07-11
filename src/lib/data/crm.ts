@@ -278,19 +278,43 @@ export const DEAL_CARD_FIELDS: CardFieldDef[] = [
   { key: "link", label: "Link", group: "section" },
   { key: "empresa", label: "Empresa", group: "section" },
   { key: "contatos", label: "Contatos", group: "section" },
-  { key: "campos", label: "Campos (propriedades)", group: "section" },
+  { key: "tags", label: "Tags", group: "section" },
   { key: "bant", label: "Qualificação (BANT)", group: "section" },
   { key: "tarefas", label: "Tarefas", group: "section" },
   { key: "score", label: "Lead score", group: "section" },
   { key: "historico", label: "Histórico de estágios", group: "section" },
 ];
 
+/** Prefixo dos itens de propriedade customizada no layout do card. */
+export const CARD_PROP_PREFIX = "prop:";
+
 /**
- * Mescla a config salva com o catálogo: respeita ordem/visibilidade salvas e
- * acrescenta itens novos (não configurados) como visíveis ao final.
+ * Catálogo COMPLETO do card = itens nativos + uma entrada por propriedade
+ * customizada do negócio (`prop:<key>`), que entra na grade do topo.
  */
-export function resolveCardFields(config?: CardFieldSetting[] | null): ResolvedCardField[] {
-  const byKey = new Map(DEAL_CARD_FIELDS.map((f) => [f.key, f]));
+export function buildDealCardCatalog(
+  props: { key: string; label: string }[] = [],
+): CardFieldDef[] {
+  const grid = DEAL_CARD_FIELDS.filter((f) => f.group === "grid");
+  const sections = DEAL_CARD_FIELDS.filter((f) => f.group === "section");
+  const propItems: CardFieldDef[] = props.map((p) => ({
+    key: `${CARD_PROP_PREFIX}${p.key}`,
+    label: p.label,
+    group: "grid",
+  }));
+  return [...grid, ...propItems, ...sections];
+}
+
+/**
+ * Mescla a config salva com o catálogo (nativos + propriedades): respeita
+ * ordem/visibilidade salvas e acrescenta itens novos como visíveis ao final.
+ */
+export function resolveCardFields(
+  config?: CardFieldSetting[] | null,
+  props: { key: string; label: string }[] = [],
+): ResolvedCardField[] {
+  const catalog = buildDealCardCatalog(props);
+  const byKey = new Map(catalog.map((f) => [f.key, f]));
   const seen = new Set<string>();
   const out: ResolvedCardField[] = [];
   for (const c of config ?? []) {
@@ -300,7 +324,7 @@ export function resolveCardFields(config?: CardFieldSetting[] | null): ResolvedC
       seen.add(c.key);
     }
   }
-  for (const def of DEAL_CARD_FIELDS) {
+  for (const def of catalog) {
     if (!seen.has(def.key)) out.push({ ...def, visible: true });
   }
   return out;

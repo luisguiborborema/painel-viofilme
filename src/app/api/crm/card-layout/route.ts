@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { DEAL_CARD_FIELDS, type CardFieldSetting } from "@/lib/data/crm";
+import { CARD_PROP_PREFIX, DEAL_CARD_FIELDS, type CardFieldSetting } from "@/lib/data/crm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,11 +25,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "fields ausente" }, { status: 400 });
   }
   const objectType = b.objectType ?? "deal";
-  // Sanitiza: só chaves conhecidas do catálogo, sem duplicar.
+  // Sanitiza: chaves nativas conhecidas OU propriedades customizadas (prop:*).
   const known = new Set(DEAL_CARD_FIELDS.map((f) => f.key));
   const seen = new Set<string>();
   const fields = b.fields
-    .filter((f) => f && known.has(f.key) && !seen.has(f.key) && seen.add(f.key))
+    .filter(
+      (f) =>
+        f &&
+        (known.has(f.key) || f.key.startsWith(CARD_PROP_PREFIX)) &&
+        !seen.has(f.key) &&
+        seen.add(f.key),
+    )
     .map((f) => ({ key: f.key, visible: f.visible !== false }));
 
   if (!isSupabaseConfigured()) {

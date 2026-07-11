@@ -53,8 +53,16 @@ export function CrmSettings({
       key: "layout",
       label: "Layout do card",
       description:
-        "Escolha quais itens aparecem no card/modal do negócio e em que ordem — arraste para reordenar e use o interruptor para mostrar/ocultar.",
-      node: <CardLayoutManager initial={cardLayout} canEdit={canEditCardLayout} />,
+        "Escolha quais itens aparecem no card/modal do negócio e em que ordem — inclusive suas propriedades customizadas. Arraste para reordenar e use o interruptor para mostrar/ocultar.",
+      node: (
+        <CardLayoutManager
+          initial={cardLayout}
+          canEdit={canEditCardLayout}
+          dealProps={properties
+            .filter((p) => p.objectType === "deal")
+            .map((p) => ({ key: p.key, label: p.label }))}
+        />
+      ),
     },
     {
       key: "properties",

@@ -20,6 +20,7 @@ import {
   MessageSquare,
   PanelRight,
   Plus,
+  SlidersHorizontal,
   Square,
   Tag as TagIcon,
   Target,
@@ -32,6 +33,7 @@ import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
   BANT_LABELS,
+  CARD_PROP_PREFIX,
   DEFAULT_PIPELINE,
   resolveCardFields,
   stageLabel,
@@ -58,7 +60,6 @@ import {
   TasksCard,
   Timeline,
 } from "./lead-detail";
-import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { DealContacts } from "./deal-contacts";
 import { WinModal } from "./win-modal";
@@ -217,7 +218,7 @@ export function LeadModalContent({
     router.refresh();
   }
 
-  async function saveProp(key: string, value: string) {
+  async function saveProp(key: string, value: unknown) {
     setLead((l) => ({ ...l, properties: { ...(l.properties ?? {}), [key]: value } }));
     await fetch("/api/crm/object", {
       method: "POST",
@@ -250,10 +251,29 @@ export function LeadModalContent({
   const descricao = String(lead.properties?.descricao ?? "");
   const link = String(lead.properties?.link ?? "");
 
-  // Layout do card personalizável pelo Gestor: quais itens e em que ordem.
-  const resolved = resolveCardFields(cardFields);
+  // Layout do card personalizável pelo Gestor: itens nativos + propriedades.
+  const dealPropDefs = properties.filter((p) => p.objectType === "deal");
+  const resolved = resolveCardFields(
+    cardFields,
+    dealPropDefs.map((p) => ({ key: p.key, label: p.label })),
+  );
   const gridItems = resolved.filter((f) => f.visible && f.group === "grid");
   const sectionItems = resolved.filter((f) => f.visible && f.group === "section");
+
+  // Propriedade customizada renderizada como campo do grid (edição inline).
+  const renderPropField = (propKey: string) => {
+    const def = dealPropDefs.find((d) => d.key === propKey);
+    if (!def) return null;
+    return (
+      <Field icon={SlidersHorizontal} label={def.label}>
+        <PropertyValueInput
+          def={def}
+          value={lead.properties?.[propKey]}
+          onSave={(v) => saveProp(propKey, v)}
+        />
+      </Field>
+    );
+  };
 
   const gridRenderers: Record<string, () => React.ReactNode> = {
     status: () => (
@@ -371,27 +391,9 @@ export function LeadModalContent({
         primaryContactId={lead.primaryContactId}
       />
     ),
-    campos: () => (
-      <Section
-        title="Campos"
-        action={
-          <Link
-            href="/gerencial/crm?tab=configuracoes"
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-muted hover:text-ink"
-          >
-            <span className="text-base leading-none">＋</span> Nova propriedade
-          </Link>
-        }
-      >
-        <div className="space-y-3">
-          <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
-          <ObjectProperties
-            objectType="deal"
-            id={lead.id}
-            defs={properties.filter((p) => p.objectType === "deal")}
-            initialValues={lead.properties ?? {}}
-          />
-        </div>
+    tags: () => (
+      <Section title="Tags">
+        <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
       </Section>
     ),
     bant: () => (
@@ -460,7 +462,11 @@ export function LeadModalContent({
           {gridItems.length > 0 && (
             <div className="grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
               {gridItems.map((f) => (
-                <Fragment key={f.key}>{gridRenderers[f.key]?.()}</Fragment>
+                <Fragment key={f.key}>
+                  {f.key.startsWith(CARD_PROP_PREFIX)
+                    ? renderPropField(f.key.slice(CARD_PROP_PREFIX.length))
+                    : gridRenderers[f.key]?.()}
+                </Fragment>
               ))}
             </div>
           )}
@@ -900,6 +906,126 @@ function AutoSaveInput({
       onBlur={() => value !== initial && onSave(value)}
       placeholder={placeholder}
       className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+    />
+  );
+}
+
+const propInputCls =
+  "w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+/** Editor inline de uma propriedade customizada (por tipo), salva ao sair/mudar. */
+function PropertyValueInput({
+  def,
+  value,
+  onSave,
+}: {
+  def: PropertyDef;
+  value: unknown;
+  onSave: (v: unknown) => void;
+}) {
+  switch (def.fieldType) {
+    case "checkbox":
+      return (
+        <label className="inline-flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={Boolean(value)}
+            onChange={(e) => onSave(e.target.checked)}
+            className="h-4 w-4 rounded border-line accent-brand-600"
+          />
+          {value ? "Sim" : "Não"}
+        </label>
+      );
+    case "select": {
+      const val = String(value ?? "");
+      const known = !val || def.options.some((o) => o.value === val);
+      return (
+        <select value={val} onChange={(e) => onSave(e.target.value || null)} className={propInputCls}>
+          <option value="">—</option>
+          {!known && <option value={val}>{val}</option>}
+          {def.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    case "multiselect": {
+      const arr = Array.isArray(value) ? (value as string[]) : [];
+      if (def.options.length === 0) return <span className="text-sm text-muted">Sem opções</span>;
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {def.options.map((o) => {
+            const on = arr.includes(o.value);
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => onSave(on ? arr.filter((v) => v !== o.value) : [...arr, o.value])}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                  on ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong",
+                )}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    case "date":
+      return (
+        <input
+          type="date"
+          value={typeof value === "string" ? value.slice(0, 10) : ""}
+          onChange={(e) => onSave(e.target.value || null)}
+          className={propInputCls}
+        />
+      );
+    case "number":
+    case "currency":
+      return (
+        <BlurInput
+          type="number"
+          initial={value == null ? "" : String(value)}
+          placeholder={def.fieldType === "currency" ? "R$" : ""}
+          onSave={(s) => onSave(s === "" ? null : Number(s))}
+        />
+      );
+    default:
+      return (
+        <BlurInput
+          type={def.fieldType === "email" ? "email" : def.fieldType === "url" ? "url" : "text"}
+          initial={value == null ? "" : String(value)}
+          onSave={(s) => onSave(s || null)}
+        />
+      );
+  }
+}
+
+/** Input que só salva ao perder o foco (evita salvar a cada tecla). */
+function BlurInput({
+  type = "text",
+  initial,
+  placeholder,
+  onSave,
+}: {
+  type?: string;
+  initial: string;
+  placeholder?: string;
+  onSave: (v: string) => void;
+}) {
+  const [v, setV] = useState(initial);
+  return (
+    <input
+      type={type}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => v !== initial && onSave(v)}
+      placeholder={placeholder}
+      className={propInputCls}
     />
   );
 }

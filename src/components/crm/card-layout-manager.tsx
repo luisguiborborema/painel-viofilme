@@ -24,7 +24,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCardFields, type CardFieldSetting, type ResolvedCardField } from "@/lib/data/crm";
+import {
+  CARD_PROP_PREFIX,
+  resolveCardFields,
+  type CardFieldSetting,
+  type ResolvedCardField,
+} from "@/lib/data/crm";
 
 type LucideIcon = typeof Circle;
 
@@ -56,12 +61,14 @@ const ICONS: Record<string, LucideIcon> = {
 export function CardLayoutManager({
   initial,
   canEdit,
+  dealProps = [],
 }: {
   initial: CardFieldSetting[];
   canEdit: boolean;
+  dealProps?: { key: string; label: string }[];
 }) {
   const router = useRouter();
-  const resolved = resolveCardFields(initial);
+  const resolved = resolveCardFields(initial, dealProps);
   const [campos, setCampos] = useState<ResolvedCardField[]>(
     resolved.filter((f) => f.group === "grid"),
   );
@@ -187,7 +194,9 @@ function Group({
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {items.map((f, i) => {
-          const Icon = ICONS[f.key] ?? Circle;
+          const Icon = f.key.startsWith(CARD_PROP_PREFIX)
+            ? SlidersHorizontal
+            : (ICONS[f.key] ?? Circle);
           return (
             <div
               key={f.key}
