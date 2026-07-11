@@ -858,6 +858,8 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
 
 import type {
   Bant,
+  CardFieldSetting,
+  CrmComment,
   CrmInteraction,
   CrmLead,
   CrmStage,
@@ -881,7 +883,7 @@ import type {
 } from "./crm";
 
 const CRM_LEAD_COLS =
-  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
 
 type CrmLeadRow = Record<string, unknown>;
 
@@ -902,6 +904,7 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
     probability: n("probability"),
     source: s("source"),
     owner: s("owner"),
+    assignees: (r.assignees as string[] | null) ?? undefined,
     bant: (r.bant as Bant) ?? {},
     nextTaskTitle: s("next_task_title"),
     nextTaskDue: s("next_task_due"),
@@ -999,6 +1002,42 @@ export async function sbGetCrmLead(
     interactions: (ints ?? []).map(mapCrmInteraction),
     tasks: (tks ?? []).map(mapCrmTask),
   };
+}
+
+function mapCrmComment(r: Record<string, unknown>): CrmComment {
+  return {
+    id: String(r.id),
+    leadId: String(r.lead_id),
+    parentId: r.parent_id ? String(r.parent_id) : null,
+    author: r.author == null ? undefined : String(r.author),
+    authorId: r.author_id ? String(r.author_id) : null,
+    body: String(r.body ?? ""),
+    reactions: (r.reactions as Record<string, string[]> | null) ?? {},
+    edited: Boolean(r.edited),
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+  };
+}
+
+export async function sbGetCardLayout(objectType: string): Promise<CardFieldSetting[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_card_layout")
+    .select("fields")
+    .eq("object_type", objectType)
+    .maybeSingle();
+  const arr = (data?.fields as CardFieldSetting[] | null) ?? [];
+  return Array.isArray(arr) ? arr : [];
+}
+
+export async function sbGetCrmComments(leadId: string): Promise<CrmComment[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_comments")
+    .select("id,lead_id,parent_id,author,author_id,body,reactions,edited,created_at,updated_at")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(mapCrmComment);
 }
 
 // ── CRM v2: Empresas / Contatos / Pipeline / Tags / Propriedades ─────────────
@@ -1322,12 +1361,13 @@ export async function sbGetAttendants(): Promise<Attendant[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id,full_name")
+    .select("id,full_name,avatar_url")
     .eq("role", "gerencial")
     .order("full_name", { ascending: true });
   return (data ?? []).map((p) => ({
     id: String(p.id),
     name: String(p.full_name ?? "—"),
+    avatarUrl: p.avatar_url ? String(p.avatar_url) : undefined,
   }));
 }
 

@@ -306,6 +306,21 @@ Gera a proposta do negócio. **Não usa modo demo** (exige Supabase → `503` se
 
 ---
 
+### 2.20 `/api/crm/comments` — comentários internos do negócio
+Comentários da equipe num negócio (separados da timeline). Suportam thread, edição, exclusão e reações. `action` padrão: `edit` se houver `id`, senão `create`.
+
+| `action` | Obrigatório | O que faz |
+|----------|-------------|-----------|
+| `create` | `leadId`, `body` | Cria comentário (ou resposta, se `parentId`). Retorna `id`, `createdAt` |
+| `edit` | `id`, `body` | Edita o corpo (marca `edited`). **Só o autor** ou um Gestor |
+| `delete` | `id` | Exclui (respostas caem em cascata). **Só o autor** ou um Gestor |
+| `react` | `id`, `emoji` | Alterna a reação do usuário. Retorna `reactions` atualizado |
+
+**Corpo (create):** `{ "action":"create", "leadId":"uuid", "body":"texto", "parentId":"uuid?" }`.
+**Sucesso:** `{ ok, persisted:true, ... }` · **Erros:** `400 leadId/body ausente`, `403 sem permissão` (editar/excluir de outro autor), `404 comentário não encontrado`, `400 ação inválida`. Reações e nomes de autor são guardados na tabela `crm_comments` (migration `0027`).
+
+---
+
 ## 3. Resumo dos códigos de status
 
 | HTTP | Significado no CRM |

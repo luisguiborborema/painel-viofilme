@@ -22,6 +22,7 @@ import {
   getCrmTaskFlows,
   getCaptureForms,
   getStageHistory,
+  getCardLayout,
   crmNowIso,
 } from "@/lib/data/queries";
 import {
@@ -62,12 +63,13 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, goals, captureForms, history] = await Promise.all([
+  const [crmTasks, flows, goals, captureForms, history, cardLayout] = await Promise.all([
     getCrmTasks(),
     getCrmTaskFlows(),
     getCrmGoals(curMonth),
     getCaptureForms(),
     getStageHistory(),
+    getCardLayout("deal"),
   ]);
   const stageTimings = buildStageTimings(history, nowIso);
   const taskItems = buildTaskItems(crmTasks, leads);
@@ -175,6 +177,8 @@ export default async function CrmPage({
           flows={flows}
           captureForms={captureForms}
           team={teamNames}
+          cardLayout={cardLayout}
+          canEditCardLayout={canEditGoals}
         />
       ),
     },

@@ -1376,6 +1376,8 @@ import {
   type Stage,
   type CrmTask,
   type CrmInteraction,
+  type CrmComment,
+  type CardFieldSetting,
   type BdrDashboard,
   type Company,
   type Contact,
@@ -1424,6 +1426,18 @@ export async function getCrmLead(id: string): Promise<{
     interactions: MOCK_INTERACTIONS.filter((i) => i.leadId === id),
     tasks: MOCK_TASKS.filter((t) => t.leadId === id),
   };
+}
+
+/** Comentários internos da equipe num negócio (histórico separado da timeline). */
+export async function getCrmComments(leadId: string): Promise<CrmComment[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmComments(leadId);
+  return [];
+}
+
+/** Config de layout do card (quais itens aparecem e em que ordem). */
+export async function getCardLayout(objectType = "deal"): Promise<CardFieldSetting[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCardLayout(objectType);
+  return [];
 }
 
 // ── CRM v2: Empresas / Contatos / Pipeline / Tags / Propriedades ─────────────

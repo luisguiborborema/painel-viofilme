@@ -41,7 +41,7 @@ export type WaMessage = {
   createdAt: string;
 };
 
-export type Attendant = { id: string; name: string };
+export type Attendant = { id: string; name: string; avatarUrl?: string };
 
 /** Nome de exibição da conversa (nome do contato ou o telefone formatado). */
 export function conversationTitle(c: WaConversation): string {

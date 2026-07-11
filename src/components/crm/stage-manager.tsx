@@ -24,6 +24,7 @@ import {
   type StageRequirement,
   type TaskFlow,
 } from "@/lib/data/crm";
+import { cn } from "@/lib/utils";
 
 type FieldOption = { source: "property" | "native"; field: string; label: string };
 
@@ -71,6 +72,7 @@ export function StageManager({
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [newPipeName, setNewPipeName] = useState("");
+  const [showNewPipe, setShowNewPipe] = useState(false);
 
   const fieldOptions: FieldOption[] = [
     ...NATIVE_DEAL_FIELDS.map((f) => ({ source: "native" as const, field: f.key, label: f.label })),
@@ -117,98 +119,133 @@ export function StageManager({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Barra de pipelines */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1">
-          {pipelines.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPipelineId(p.id)}
-              className={
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
-                (p.id === pipelineId ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle")
-              }
-            >
-              {p.name}
-              {p.isDefault && <span className="ml-1 text-[10px] opacity-70">(padrão)</span>}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <input
-            value={newPipeName}
-            onChange={(e) => setNewPipeName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createPipeline()}
-            placeholder="Novo pipeline…"
-            className="w-36 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
-          />
-          <button
-            onClick={createPipeline}
-            disabled={busy || !newPipeName.trim()}
-            className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-50"
-          >
-            <Plus className="h-3.5 w-3.5" /> Criar
-          </button>
+    <div className="space-y-5">
+      {/* Pipeline: seletor + criar + ações */}
+      <div className="rounded-2xl border border-line bg-canvas p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Pipeline
+            </span>
+            {pipelines.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPipelineId(p.id)}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                  p.id === pipelineId ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+                )}
+              >
+                {p.name}
+                {p.isDefault && <span className="ml-1 text-[10px] opacity-70">(padrão)</span>}
+              </button>
+            ))}
+            {!showNewPipe ? (
+              <button
+                onClick={() => setShowNewPipe(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-line px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle"
+              >
+                <Plus className="h-3.5 w-3.5" /> Pipeline
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={newPipeName}
+                  onChange={(e) => setNewPipeName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && createPipeline()}
+                  placeholder="Nome do pipeline…"
+                  className="w-40 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+                />
+                <button
+                  onClick={createPipeline}
+                  disabled={busy || !newPipeName.trim()}
+                  className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  Criar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewPipe(false);
+                    setNewPipeName("");
+                  }}
+                  className="rounded-lg p-1.5 text-muted hover:bg-subtle"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+          {pipeline && !pipeline.isDefault && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                onClick={() => pipelineAction({ action: "set-default", id: pipeline.id })}
+                className="rounded-lg border border-line px-2 py-1 font-medium text-ink hover:bg-subtle"
+              >
+                Tornar padrão
+              </button>
+              <button
+                onClick={() => pipelineAction({ action: "delete", id: pipeline.id })}
+                className="rounded-lg border border-line px-2 py-1 font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
+              >
+                Excluir
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {pipeline && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs">
-            {!pipeline.isDefault && (
-              <>
-                <button
-                  onClick={() => pipelineAction({ action: "set-default", id: pipeline.id })}
-                  className="rounded-lg border border-line px-2 py-1 font-medium text-ink hover:bg-subtle"
-                >
-                  Tornar padrão
-                </button>
-                <button
-                  onClick={() => pipelineAction({ action: "delete", id: pipeline.id })}
-                  className="rounded-lg border border-line px-2 py-1 font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
-                >
-                  Excluir pipeline
-                </button>
-              </>
-            )}
-          </div>
-          <button
-            onClick={() => setAdding((a) => !a)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <Plus className="h-4 w-4" /> Novo estágio
-          </button>
+      {/* Estágios do pipeline selecionado */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink">
+            Estágios <span className="font-normal text-muted">({stages.length})</span>
+          </h3>
+          {pipeline && (
+            <button
+              onClick={() => setAdding((a) => !a)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" /> Novo estágio
+            </button>
+          )}
         </div>
-      )}
 
-      {adding && (
-        <StageForm
-          pipelineId={pipelineId}
-          onClose={() => setAdding(false)}
-          onSaved={() => {
-            setAdding(false);
-            router.refresh();
-          }}
-        />
-      )}
+        {adding && (
+          <div className="mb-2">
+            <StageForm
+              pipelineId={pipelineId}
+              onClose={() => setAdding(false)}
+              onSaved={() => {
+                setAdding(false);
+                router.refresh();
+              }}
+            />
+          </div>
+        )}
 
-      <div className="space-y-2">
-        {stages.map((s, i) => (
-          <StageRow
-            key={s.id}
-            stage={s}
-            fieldOptions={fieldOptions}
-            flows={flows}
-            first={i === 0}
-            last={i === stages.length - 1}
-            busy={busy}
-            onUp={() => move(i, -1)}
-            onDown={() => move(i, 1)}
-            onDelete={() => remove(s.id)}
-            onSaved={() => router.refresh()}
-          />
-        ))}
+        <div className="space-y-2">
+          {stages.map((s, i) => (
+            <StageRow
+              key={s.id}
+              stage={s}
+              fieldOptions={fieldOptions}
+              flows={flows}
+              first={i === 0}
+              last={i === stages.length - 1}
+              busy={busy}
+              onUp={() => move(i, -1)}
+              onDown={() => move(i, 1)}
+              onDelete={() => remove(s.id)}
+              onSaved={() => router.refresh()}
+            />
+          ))}
+          {stages.length === 0 && (
+            <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-xs text-muted">
+              Nenhum estágio neste pipeline. Crie o primeiro.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -312,7 +349,7 @@ function StageRow({
 
   return (
     <div className="rounded-xl border border-line bg-surface p-3">
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex items-center gap-3">
       <div className="flex flex-col">
         <button
           onClick={onUp}
@@ -330,24 +367,62 @@ function StageRow({
         </button>
       </div>
 
-      <div className="relative">
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="h-8 w-8 cursor-pointer rounded-lg border border-line bg-transparent p-0.5"
-          title="Cor do estágio"
-        />
-      </div>
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        className="h-8 w-8 shrink-0 cursor-pointer rounded-lg border border-line bg-transparent p-0.5"
+        title="Cor do estágio"
+      />
 
       <input
         value={label}
         onChange={(e) => setLabel(e.target.value)}
-        className="min-w-[140px] flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:border-brand-400"
+        className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:border-brand-400"
       />
 
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          onClick={() => setShowRules((s) => !s)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium",
+            reqs.length
+              ? "border-brand-400/50 bg-brand-50/50 text-brand-600"
+              : "border-line text-muted hover:bg-subtle",
+          )}
+          title="Regras para entrar neste estágio"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {reqs.length || "Regras"}
+        </button>
+        <button
+          onClick={() => setShowAutos((s) => !s)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium",
+            autos.length
+              ? "border-amber-400/50 bg-amber-500/10 text-amber-600"
+              : "border-line text-muted hover:bg-subtle",
+          )}
+          title="Automações ao entrar neste estágio"
+        >
+          <Zap className="h-3.5 w-3.5" />
+          {autos.length || "Automações"}
+        </button>
+        <button
+          onClick={onDelete}
+          disabled={busy}
+          className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
+          title="Excluir estágio (os negócios vão para o primeiro estágio)"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
+    {/* Atributos do estágio */}
+    <div className="mt-2.5 flex flex-wrap items-center gap-4 border-t border-line pt-2.5">
       <label className="flex items-center gap-1.5 text-xs text-muted">
-        Prob.
+        Probabilidade
         <input
           type="number"
           min={0}
@@ -358,65 +433,29 @@ function StageRow({
         />
         %
       </label>
-
-      <select
-        value={kind}
-        onChange={(e) => setKind(e.target.value as Stage["kind"])}
-        className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
-      >
-        {(["open", "won", "lost"] as const).map((k) => (
-          <option key={k} value={k}>
-            {KIND_LABEL[k]}
-          </option>
-        ))}
-      </select>
-
+      <label className="flex items-center gap-1.5 text-xs text-muted">
+        Tipo
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as Stage["kind"])}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+        >
+          {(["open", "won", "lost"] as const).map((k) => (
+            <option key={k} value={k}>
+              {KIND_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </label>
       {dirty && (
         <button
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          className="ml-auto rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
         </button>
       )}
-
-      <button
-        onClick={() => setShowRules((s) => !s)}
-        className={
-          "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium " +
-          (reqs.length
-            ? "border-brand-400/50 bg-brand-50/50 text-brand-600"
-            : "border-line text-muted hover:bg-subtle")
-        }
-        title="Regras para entrar neste estágio"
-      >
-        <ShieldCheck className="h-3.5 w-3.5" />
-        {reqs.length || "Regras"}
-      </button>
-
-      <button
-        onClick={() => setShowAutos((s) => !s)}
-        className={
-          "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium " +
-          (autos.length
-            ? "border-amber-400/50 bg-amber-500/10 text-amber-600"
-            : "border-line text-muted hover:bg-subtle")
-        }
-        title="Automações ao entrar neste estágio"
-      >
-        <Zap className="h-3.5 w-3.5" />
-        {autos.length || "Automações"}
-      </button>
-
-      <button
-        onClick={onDelete}
-        disabled={busy}
-        className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
-        title="Excluir estágio (os negócios vão para o primeiro estágio)"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
     </div>
 
     {showRules && (

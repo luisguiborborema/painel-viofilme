@@ -136,8 +136,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "update" | "move" | "delete" | "change-pipeline";
+  action?: "create" | "update" | "move" | "delete" | "change-pipeline" | "set-assignees";
   id?: string;
+  assignees?: string[];
   stage?: string;
   stageId?: string;
   kind?: "open" | "won" | "lost";
@@ -191,6 +192,20 @@ export async function POST(req: Request) {
     const { error } = await supabase.from("crm_leads").delete().eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "set-assignees") {
+    if (!body.id || !Array.isArray(body.assignees)) {
+      return NextResponse.json({ error: "id/assignees ausente" }, { status: 400 });
+    }
+    // Nomes únicos e não-vazios; owner = primeiro (RLS/rodízio).
+    const assignees = [...new Set(body.assignees.map((n) => n.trim()).filter(Boolean))];
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({ assignees, owner: assignees[0] ?? null, updated_at: now })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, assignees, owner: assignees[0] ?? null });
   }
 
   if (action === "change-pipeline") {
@@ -330,6 +345,7 @@ export async function POST(req: Request) {
     payload.stage = body.stage ?? "prospeccao";
     payload.stage_changed_at = now;
     payload.owner = await resolveOwner(supabase, body.owner, user.name);
+    payload.assignees = payload.owner ? [payload.owner] : [];
 
     // 1) Empresa: usa a existente, cria a nova, ou deriva do nome do negócio.
     let companyId = body.companyId ?? null;

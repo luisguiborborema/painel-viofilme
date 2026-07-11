@@ -45,7 +45,10 @@ export type CrmLead = {
   plan?: string;
   probability: number; // 0..100
   source?: string;
+  /** Responsável primário (nome). Governa RLS/rodízio; = assignees[0]. */
   owner?: string;
+  /** Responsáveis do negócio (nomes). Fallback: [owner]. */
+  assignees?: string[];
   bant: Bant;
   nextTaskTitle?: string;
   nextTaskDue?: string;
@@ -247,6 +250,75 @@ export type CrmInteraction = {
   author?: string;
   meta?: Record<string, unknown>;
   createdAt: string;
+};
+
+/** Reações de um comentário: emoji → nomes de quem reagiu. */
+export type CrmCommentReactions = Record<string, string[]>;
+
+/* ── Layout do card do negócio (personalizável pelo Gestor) ───────────── */
+
+export type CardFieldGroup = "grid" | "section";
+/** Item que pode aparecer no card/modal do negócio. */
+export type CardFieldDef = { key: string; label: string; group: CardFieldGroup };
+/** Config salva: ordem + visibilidade de cada item. */
+export type CardFieldSetting = { key: string; visible: boolean };
+export type ResolvedCardField = CardFieldDef & { visible: boolean };
+
+/** Catálogo de itens do card do negócio (ordem padrão). */
+export const DEAL_CARD_FIELDS: CardFieldDef[] = [
+  { key: "status", label: "Status", group: "grid" },
+  { key: "responsaveis", label: "Responsáveis", group: "grid" },
+  { key: "valor_mensal", label: "Valor mensal", group: "grid" },
+  { key: "proxima_acao", label: "Próxima ação", group: "grid" },
+  { key: "probabilidade", label: "Probabilidade", group: "grid" },
+  { key: "origem", label: "Origem", group: "grid" },
+  { key: "pipeline", label: "Pipeline", group: "grid" },
+  { key: "plano", label: "Plano", group: "grid" },
+  { key: "descricao", label: "Descrição", group: "section" },
+  { key: "link", label: "Link", group: "section" },
+  { key: "empresa", label: "Empresa", group: "section" },
+  { key: "contatos", label: "Contatos", group: "section" },
+  { key: "campos", label: "Campos (propriedades)", group: "section" },
+  { key: "bant", label: "Qualificação (BANT)", group: "section" },
+  { key: "tarefas", label: "Tarefas", group: "section" },
+  { key: "score", label: "Lead score", group: "section" },
+  { key: "historico", label: "Histórico de estágios", group: "section" },
+];
+
+/**
+ * Mescla a config salva com o catálogo: respeita ordem/visibilidade salvas e
+ * acrescenta itens novos (não configurados) como visíveis ao final.
+ */
+export function resolveCardFields(config?: CardFieldSetting[] | null): ResolvedCardField[] {
+  const byKey = new Map(DEAL_CARD_FIELDS.map((f) => [f.key, f]));
+  const seen = new Set<string>();
+  const out: ResolvedCardField[] = [];
+  for (const c of config ?? []) {
+    const def = byKey.get(c.key);
+    if (def && !seen.has(c.key)) {
+      out.push({ ...def, visible: c.visible !== false });
+      seen.add(c.key);
+    }
+  }
+  for (const def of DEAL_CARD_FIELDS) {
+    if (!seen.has(def.key)) out.push({ ...def, visible: true });
+  }
+  return out;
+}
+
+/** Comentário interno da equipe num negócio (thread + reações + edição). */
+export type CrmComment = {
+  id: string;
+  leadId: string;
+  /** Comentário-pai (resposta). Nulo = comentário raiz. */
+  parentId?: string | null;
+  author?: string;
+  authorId?: string | null;
+  body: string;
+  reactions: CrmCommentReactions;
+  edited: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CrmTask = {

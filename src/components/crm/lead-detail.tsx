@@ -426,7 +426,7 @@ export function LeadDetail({
   );
 }
 
-function Timeline({ items }: { items: CrmInteraction[] }) {
+export function Timeline({ items }: { items: CrmInteraction[] }) {
   if (items.length === 0) {
     return (
       <p className="px-4 py-8 text-center text-sm text-muted">
@@ -463,7 +463,7 @@ function Timeline({ items }: { items: CrmInteraction[] }) {
   );
 }
 
-function Composer({
+export function Composer({
   lead,
   onPosted,
   onBant,
@@ -637,7 +637,7 @@ function Composer({
   );
 }
 
-function LoseButton({
+export function LoseButton({
   onConfirm,
   reasons,
 }: {
@@ -706,7 +706,15 @@ function LoseButton({
   );
 }
 
-function DeleteDealButton({ dealId, dealName }: { dealId: string; dealName: string }) {
+export function DeleteDealButton({
+  dealId,
+  dealName,
+  variant = "page",
+}: {
+  dealId: string;
+  dealName: string;
+  variant?: "page" | "modal";
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -718,7 +726,9 @@ function DeleteDealButton({ dealId, dealName }: { dealId: string; dealName: stri
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", id: dealId }),
     }).catch(() => {});
-    router.push("/gerencial/crm?tab=pipeline");
+    // No modal: volta ao board (fecha o modal). Na página: navega ao pipeline.
+    if (variant === "modal") router.back();
+    else router.push("/gerencial/crm?tab=pipeline");
     router.refresh();
   }
 
@@ -753,7 +763,7 @@ function DeleteDealButton({ dealId, dealName }: { dealId: string; dealName: stri
   );
 }
 
-function TasksCard({
+export function TasksCard({
   tasks,
   onToggle,
   onAdd,
@@ -877,7 +887,7 @@ function TasksCard({
   );
 }
 
-function StageHistoryCard({ history }: { history: StageChange[] }) {
+export function StageHistoryCard({ history }: { history: StageChange[] }) {
   const items = [...history].reverse();
   return (
     <div className="rounded-2xl border border-line bg-surface p-4">
@@ -903,7 +913,7 @@ function StageHistoryCard({ history }: { history: StageChange[] }) {
   );
 }
 
-function ScoreCard({ lead }: { lead: CrmLead }) {
+export function ScoreCard({ lead }: { lead: CrmLead }) {
   const sc = scoreDeal(lead, new Date().toISOString());
   const meta = SCORE_TIERS[sc.tier];
   return (
