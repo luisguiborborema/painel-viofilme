@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2, Workflow, X } from "lucide-react";
 import type { TaskFlow } from "@/lib/data/crm";
+import { EmptyState } from "./settings-ui";
 
 async function post(body: unknown) {
   await fetch("/api/crm/task-flows", {
@@ -53,7 +54,7 @@ export function FlowManager({ flows }: { flows: TaskFlow[] }) {
         <FlowCard key={f.id} flow={f} />
       ))}
       {flows.length === 0 && (
-        <p className="text-sm text-muted">Nenhum fluxo ainda. Crie o primeiro acima.</p>
+        <EmptyState icon={Workflow}>Nenhum fluxo ainda. Crie o primeiro acima.</EmptyState>
       )}
     </div>
   );

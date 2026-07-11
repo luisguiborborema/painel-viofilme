@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Tags, Trash2 } from "lucide-react";
 import type { Tag } from "@/lib/data/crm";
+import { EmptyState } from "./settings-ui";
 
 const PRESET_COLORS = [
   "#f43f5e", "#f59e0b", "#10b981", "#0ea5e9",
@@ -90,40 +91,41 @@ export function TagManager({ tags }: { tags: Tag[] }) {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {tags.map((t) => (
-          <div
-            key={t.id}
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-2"
-          >
-            <label className="relative h-5 w-5 cursor-pointer">
-              <span
-                className="block h-5 w-5 rounded-full"
-                style={{ backgroundColor: t.color }}
-              />
-              <input
-                type="color"
-                value={t.color}
-                onChange={(e) => recolor(t.id, e.target.value)}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                title="Trocar cor"
-              />
-            </label>
-            <span className="text-sm font-medium text-ink">{t.name}</span>
-            <button
-              onClick={() => remove(t.id)}
-              disabled={busy}
-              className="rounded-full p-0.5 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
-              title="Excluir tag"
+      {tags.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((t) => (
+            <div
+              key={t.id}
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-2"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-        {tags.length === 0 && (
-          <p className="text-sm text-muted">Nenhuma tag ainda. Crie a primeira acima.</p>
-        )}
-      </div>
+              <label className="relative h-5 w-5 cursor-pointer">
+                <span
+                  className="block h-5 w-5 rounded-full"
+                  style={{ backgroundColor: t.color }}
+                />
+                <input
+                  type="color"
+                  value={t.color}
+                  onChange={(e) => recolor(t.id, e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  title="Trocar cor"
+                />
+              </label>
+              <span className="text-sm font-medium text-ink">{t.name}</span>
+              <button
+                onClick={() => remove(t.id)}
+                disabled={busy}
+                className="rounded-full p-0.5 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
+                title="Excluir tag"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={Tags}>Nenhuma tag ainda. Crie a primeira acima.</EmptyState>
+      )}
     </div>
   );
 }

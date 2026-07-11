@@ -114,6 +114,7 @@ export default async function CrmPage({
           companies={companies}
           contacts={contacts}
           team={teamNames}
+          teamMembers={team}
           currentUser={currentUser}
         />
       ),

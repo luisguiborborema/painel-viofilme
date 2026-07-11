@@ -21,6 +21,7 @@ import {
   type StageRequirement,
   type Tag,
 } from "@/lib/data/crm";
+import type { Attendant } from "@/lib/data/inbox";
 import { NewLeadModal } from "./new-lead-modal";
 import { TagChips } from "./tag-chips";
 
@@ -39,19 +40,62 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function Avatar({ name, url }: { name: string; url?: string }) {
+  if (!url) {
+    return (
+      <span
+        title={name}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-[10px] font-semibold text-brand-600 ring-2 ring-surface"
+      >
+        {initials(name)}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={name}
+      title={name}
+      className="h-6 w-6 rounded-full object-cover ring-2 ring-surface"
+    />
+  );
+}
+
+function AvatarStack({ names, team }: { names: string[]; team: Attendant[] }) {
+  const shown = names.slice(0, 3);
+  const extra = names.length - shown.length;
+  const urlOf = (n: string) => team.find((t) => t.name === n)?.avatarUrl;
+  return (
+    <div className="flex -space-x-1.5">
+      {shown.map((n) => (
+        <Avatar key={n} name={n} url={urlOf(n)} />
+      ))}
+      {extra > 0 && (
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[10px] font-semibold text-muted ring-2 ring-surface">
+          +{extra}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function LeadCard({
   card,
   allTags,
+  teamMembers,
   onOpen,
   onDragStart,
   onDelete,
 }: {
   card: CrmLeadCard;
   allTags: Tag[];
+  teamMembers: Attendant[];
   onOpen: () => void;
   onDragStart: () => void;
   onDelete: () => void;
 }) {
+  const assignees = card.assignees?.length ? card.assignees : card.owner ? [card.owner] : [];
   const [confirm, setConfirm] = useState(false);
   return (
     <div
@@ -99,9 +143,13 @@ function LeadCard({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-[10px] font-semibold text-brand-600">
-            {initials(card.owner ?? card.name)}
-          </span>
+          {assignees.length > 0 ? (
+            <AvatarStack names={assignees} team={teamMembers} />
+          ) : (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[10px] font-semibold text-muted ring-2 ring-surface">
+              {initials(card.name)}
+            </span>
+          )}
         </div>
       </div>
       {card.contactName && (
@@ -157,6 +205,7 @@ export function CrmPipeline({
   companies = [],
   contacts = [],
   team = [],
+  teamMembers = [],
   currentUser = "",
 }: {
   cards: CrmLeadCard[];
@@ -165,6 +214,7 @@ export function CrmPipeline({
   companies?: Company[];
   contacts?: Contact[];
   team?: string[];
+  teamMembers?: Attendant[];
   currentUser?: string;
 }) {
   const router = useRouter();
@@ -185,12 +235,15 @@ export function CrmPipeline({
     missing: StageRequirement[];
   } | null>(null);
 
+  const assigneesOf = (c: CrmLeadCard) =>
+    c.assignees?.length ? c.assignees : c.owner ? [c.owner] : [];
+
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
   const visibleCards = cards.filter(
     (c) =>
       (c.pipelineId || defaultId) === pipelineId &&
       (!tagFilter || c.tags?.includes(tagFilter)) &&
-      (!mine || (c.owner ?? "") === currentUser),
+      (!mine || assigneesOf(c).includes(currentUser)),
   );
 
   function addLead(lead: CrmLead) {
@@ -395,6 +448,7 @@ export function CrmPipeline({
                     key={c.id}
                     card={c}
                     allTags={tags}
+                    teamMembers={teamMembers}
                     onOpen={() => router.push(`/gerencial/crm/${c.id}`)}
                     onDragStart={() => setDragId(c.id)}
                     onDelete={() => deleteCard(c.id)}

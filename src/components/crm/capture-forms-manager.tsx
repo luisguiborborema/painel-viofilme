@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, FormInput, Loader2, Plus, Trash2 } from "lucide-react";
 import type { CaptureForm } from "@/lib/data/crm";
+import { EmptyState } from "./settings-ui";
 
 async function post(body: unknown) {
   await fetch("/api/crm/capture-forms", {
@@ -134,7 +135,9 @@ export function CaptureFormsManager({
           </div>
         </div>
       ))}
-      {forms.length === 0 && <p className="text-sm text-muted">Nenhum formulário ainda.</p>}
+      {forms.length === 0 && (
+        <EmptyState icon={FormInput}>Nenhum formulário ainda. Crie o primeiro acima.</EmptyState>
+      )}
       {busy && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
     </div>
   );

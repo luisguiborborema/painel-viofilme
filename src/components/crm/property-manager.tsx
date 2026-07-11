@@ -2,13 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import {
+  Calendar,
+  CheckSquare,
+  DollarSign,
+  Hash,
+  Link2,
+  List,
+  ListChecks,
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  Type,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import type {
   CrmObjectType,
   PropertyDef,
   PropertyFieldType,
   PropertyOption,
 } from "@/lib/data/crm";
+import { EmptyState } from "./settings-ui";
 
 const OBJECTS: { key: CrmObjectType; label: string }[] = [
   { key: "company", label: "Empresa" },
@@ -17,21 +35,21 @@ const OBJECTS: { key: CrmObjectType; label: string }[] = [
   { key: "task", label: "Tarefa" },
 ];
 
-const FIELD_TYPES: { key: PropertyFieldType; label: string }[] = [
-  { key: "text", label: "Texto" },
-  { key: "number", label: "Número" },
-  { key: "currency", label: "Moeda (R$)" },
-  { key: "select", label: "Seleção" },
-  { key: "multiselect", label: "Múltipla seleção" },
-  { key: "date", label: "Data" },
-  { key: "checkbox", label: "Sim/Não" },
-  { key: "phone", label: "Telefone" },
-  { key: "email", label: "E-mail" },
-  { key: "url", label: "URL" },
+const FIELD_TYPES: { key: PropertyFieldType; label: string; icon: LucideIcon }[] = [
+  { key: "text", label: "Texto", icon: Type },
+  { key: "number", label: "Número", icon: Hash },
+  { key: "currency", label: "Moeda (R$)", icon: DollarSign },
+  { key: "select", label: "Seleção", icon: List },
+  { key: "multiselect", label: "Múltipla seleção", icon: ListChecks },
+  { key: "date", label: "Data", icon: Calendar },
+  { key: "checkbox", label: "Sim/Não", icon: CheckSquare },
+  { key: "phone", label: "Telefone", icon: Phone },
+  { key: "email", label: "E-mail", icon: Mail },
+  { key: "url", label: "URL", icon: Link2 },
 ];
 
-const fieldTypeLabel = (t: string) =>
-  FIELD_TYPES.find((f) => f.key === t)?.label ?? t;
+const fieldTypeMeta = (t: string) => FIELD_TYPES.find((f) => f.key === t);
+const fieldTypeLabel = (t: string) => fieldTypeMeta(t)?.label ?? t;
 
 export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
   const router = useRouter();
@@ -93,46 +111,58 @@ export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
         />
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-        {list.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">
-                {p.label}
-                {p.isDefault && (
-                  <span className="ml-2 rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                    padrão
-                  </span>
-                )}
-              </p>
-              <p className="text-xs text-muted">
-                <code className="rounded bg-subtle px-1">{p.key}</code> · {fieldTypeLabel(p.fieldType)}
-                {p.options.length > 0 && ` · ${p.options.length} opções`}
-              </p>
-            </div>
-            <button
-              onClick={() => remove(p.id)}
-              disabled={busyId === p.id}
-              className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
-              title="Excluir propriedade"
-            >
-              {busyId === p.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-        ))}
-        {list.length === 0 && !adding && (
-          <p className="px-4 py-8 text-center text-sm text-muted">
+      {list.length > 0 ? (
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+          {list.map((p) => {
+            const Icon = fieldTypeMeta(p.fieldType)?.icon ?? Type;
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-3 border-b border-line px-3 py-2.5 last:border-b-0"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                    {p.label}
+                    {p.isDefault && (
+                      <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                        padrão
+                      </span>
+                    )}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    <code className="rounded bg-subtle px-1">{p.key}</code>
+                    {p.options.length > 0 && ` · ${p.options.length} opções`}
+                  </p>
+                </div>
+                <span className="hidden shrink-0 rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-muted sm:inline">
+                  {fieldTypeLabel(p.fieldType)}
+                </span>
+                <button
+                  onClick={() => remove(p.id)}
+                  disabled={busyId === p.id}
+                  className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
+                  title="Excluir propriedade"
+                >
+                  {busyId === p.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        !adding && (
+          <EmptyState icon={SlidersHorizontal}>
             Nenhuma propriedade customizada para {OBJECTS.find((o) => o.key === obj)?.label}.
-          </p>
-        )}
-      </div>
+          </EmptyState>
+        )
+      )}
     </div>
   );
 }
