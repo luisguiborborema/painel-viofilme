@@ -7,7 +7,16 @@ import { CalendarClock, Check, Loader2, Plus, RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import type { PropertyDef, TaskItem } from "@/lib/data/crm";
+import type { Attendant } from "@/lib/data/inbox";
+import { AvatarStack } from "@/components/ui/avatar";
 import { TaskModal } from "./task-modal";
+
+/** Responsáveis de uma tarefa (array), com fallback para assignee/owner. */
+function assigneesOf(t: TaskItem): string[] {
+  if (t.assignees?.length) return t.assignees;
+  if (t.assignee) return [t.assignee];
+  return t.owner ? [t.owner] : [];
+}
 
 type Bucket = "overdue" | "today" | "week" | "later" | "nodate";
 
@@ -49,12 +58,14 @@ export function CrmTasks({
   currentUser = "",
   properties = [],
   team = [],
+  teamMembers = [],
 }: {
   tasks: TaskItem[];
   deals: { id: string; name: string; owner?: string }[];
   currentUser?: string;
   properties?: PropertyDef[];
   team?: string[];
+  teamMembers?: Attendant[];
 }) {
   const router = useRouter();
   const [mine, setMine] = useState(Boolean(currentUser));
@@ -79,7 +90,6 @@ export function CrmTasks({
       g[k].sort((a, b) => (a.dueDate ?? "9").localeCompare(b.dueDate ?? "9"));
     }
     return g;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, now]);
 
   async function toggle(t: TaskItem) {
@@ -186,9 +196,11 @@ export function CrmTasks({
                       className="text-xs text-muted hover:text-ink hover:underline"
                     >
                       {t.dealName}
-                      {(t.assignee || t.owner) ? ` · ${t.assignee ?? t.owner}` : ""}
                     </Link>
                   </div>
+                  {assigneesOf(t).length > 0 && (
+                    <AvatarStack names={assigneesOf(t)} team={teamMembers} size={22} />
+                  )}
                   {t.dueDate && (
                     <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted">
                       <CalendarClock className="h-3.5 w-3.5" />

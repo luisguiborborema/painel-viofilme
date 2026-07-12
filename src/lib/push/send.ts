@@ -8,6 +8,8 @@
 import webpush from "web-push";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { allowedForCategory } from "@/lib/notify-prefs";
+import type { NotifCategory } from "@/lib/notify-categories";
 import { VAPID_PUBLIC_KEY } from "./config";
 
 const PRIVATE = process.env.VAPID_PRIVATE_KEY ?? "";
@@ -17,6 +19,8 @@ export type PushPayload = {
   body: string;
   url?: string; // rota a abrir no clique
   icon?: string;
+  /** Categoria p/ respeitar as preferências do usuário (silenciar). */
+  category?: NotifCategory;
 };
 
 type SubRow = { endpoint: string; p256dh: string; auth: string };
@@ -80,6 +84,9 @@ export async function notifyUser(
   payload: PushPayload,
 ): Promise<number> {
   if (!ready()) return 0;
+  if (payload.category && !(await allowedForCategory([userId], payload.category)).length) {
+    return 0;
+  }
   return sendToSubs(await subsForUserIds([userId]), payload);
 }
 
@@ -95,7 +102,10 @@ export async function notifyClient(
     .select("id")
     .eq("client_id", clientId);
   const ids = (profiles ?? []).map((p) => p.id as string);
-  return sendToSubs(await subsForUserIds(ids), payload);
+  const allowed = payload.category
+    ? await allowedForCategory(ids, payload.category)
+    : ids;
+  return sendToSubs(await subsForUserIds(allowed), payload);
 }
 
 /** Notifica toda a equipe gerencial. */
@@ -107,5 +117,8 @@ export async function notifyManagement(payload: PushPayload): Promise<number> {
     .select("id")
     .eq("role", "gerencial");
   const ids = (profiles ?? []).map((p) => p.id as string);
-  return sendToSubs(await subsForUserIds(ids), payload);
+  const allowed = payload.category
+    ? await allowedForCategory(ids, payload.category)
+    : ids;
+  return sendToSubs(await subsForUserIds(allowed), payload);
 }

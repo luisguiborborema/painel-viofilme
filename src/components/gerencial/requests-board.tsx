@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Images, Inbox } from "lucide-react";
+import { Briefcase, CalendarClock, Images, Inbox, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
@@ -166,6 +166,7 @@ function Card({
   const router = useRouter();
   const [value, setValue] = useState<RequestStatus>(status);
   const [busy, setBusy] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   async function change(next: RequestStatus) {
     setValue(next);
@@ -177,6 +178,47 @@ function Card({
     }).catch(() => {});
     setBusy(false);
     router.refresh();
+  }
+
+  /** Cria um negócio no CRM a partir da solicitação e leva o gestor até ele. */
+  async function convertToDeal() {
+    if (converting) return;
+    setConverting(true);
+    const res = await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        name: title,
+        contactName: client || "Cliente do portal",
+        source: kind === "meeting" ? "Portal — reunião" : "Portal — conteúdo",
+      }),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+
+    if (res?.id) {
+      await fetch("/api/crm/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add",
+          leadId: res.id,
+          title: `Solicitação do portal: ${title}`,
+        }),
+      }).catch(() => {});
+      await fetch("/api/gerencial/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, id, status: "in_progress" }),
+      }).catch(() => {});
+      router.push(`/gerencial/crm/${res.id}`);
+      return;
+    }
+    setConverting(false);
+    if (res?.persisted === false) {
+      alert("Conexão com o CRM indisponível no momento (modo demonstração).");
+    }
   }
 
   return (
@@ -219,6 +261,21 @@ function Card({
         </div>
       </div>
       {children}
+      <div className="mt-3 flex items-center justify-end border-t border-line/60 pt-3">
+        <button
+          onClick={convertToDeal}
+          disabled={converting || value === "done" || value === "declined"}
+          title="Cria um negócio no CRM a partir desta solicitação"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {converting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Briefcase className="h-3.5 w-3.5" />
+          )}
+          Gerar negócio no CRM
+        </button>
+      </div>
     </div>
   );
 }

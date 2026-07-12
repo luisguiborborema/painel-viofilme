@@ -38,7 +38,12 @@ async function clientPhone(clientId: string): Promise<string | null> {
 /** Cliente: push + WhatsApp (no telefone do cliente) + in-app. */
 async function toClient(clientId: string, p: PushPayload): Promise<void> {
   await notifyClient(clientId, p);
-  await notifyClientInApp(clientId, { title: p.title, body: p.body, url: p.url });
+  await notifyClientInApp(clientId, {
+    title: p.title,
+    body: p.body,
+    url: p.url,
+    category: p.category,
+  });
   if (isWhatsappConfigured()) {
     const phone = await clientPhone(clientId);
     if (phone) await sendWhatsappText(phone, waText(p));
@@ -48,7 +53,12 @@ async function toClient(clientId: string, p: PushPayload): Promise<void> {
 /** Equipe: push + WhatsApp (números fixos da agência) + in-app. */
 async function toManagement(p: PushPayload): Promise<void> {
   await notifyManagement(p);
-  await notifyManagementInApp({ title: p.title, body: p.body, url: p.url });
+  await notifyManagementInApp({
+    title: p.title,
+    body: p.body,
+    url: p.url,
+    category: p.category,
+  });
   if (isWhatsappConfigured()) {
     await Promise.all(
       WHATSAPP_NOTIFY_NUMBERS.map((n) => sendWhatsappText(n, waText(p))),
@@ -70,7 +80,7 @@ async function toUsers(
   );
   await createNotifications(
     recipients.map((r) => r.userId).filter((id): id is string => Boolean(id)),
-    { title: p.title, body: p.body, url: p.url },
+    { title: p.title, body: p.body, url: p.url, category: p.category },
   );
 }
 
@@ -82,6 +92,7 @@ export const trigger = {
     args: { dealName: string; author: string; preview: string; url?: string },
   ) =>
     toUsers(recipients, {
+      category: "comments",
       title: `💬 Comentário — ${args.dealName}`,
       body: `${args.author}: ${args.preview}`,
       url: args.url ?? "/gerencial/crm",
@@ -90,6 +101,7 @@ export const trigger = {
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {
+      category: "content",
       title: "Nova peça para aprovar",
       body: title || "Você tem um conteúdo aguardando aprovação.",
       url: "/cliente/conteudo",
@@ -97,6 +109,7 @@ export const trigger = {
 
   reportReady: (clientId: string, period: string) =>
     toClient(clientId, {
+      category: "reports",
       title: "Relatório do mês disponível",
       body: `Seus resultados de ${period} já estão no portal.`,
       url: "/cliente/resultados",
@@ -104,6 +117,7 @@ export const trigger = {
 
   meetingReminder: (clientId: string, title: string, whenLabel: string) =>
     toClient(clientId, {
+      category: "meetings",
       title: "Lembrete de reunião",
       body: `${title} — ${whenLabel}.`,
       url: "/cliente",
@@ -111,6 +125,7 @@ export const trigger = {
 
   invoiceDue: (clientId: string, amountLabel: string, dueLabel: string) =>
     toClient(clientId, {
+      category: "finance",
       title: "Fatura a vencer",
       body: `${amountLabel} vence ${dueLabel}.`,
       url: "/cliente/financeiro",
@@ -118,6 +133,7 @@ export const trigger = {
 
   paymentReceived: (clientId: string, amountLabel: string) =>
     toClient(clientId, {
+      category: "finance",
       title: "Pagamento confirmado",
       body: `Recebemos seu pagamento de ${amountLabel}. Obrigado!`,
       url: "/cliente/financeiro",
@@ -125,6 +141,7 @@ export const trigger = {
 
   paymentOverdue: (clientId: string, amountLabel: string) =>
     toClient(clientId, {
+      category: "finance",
       title: "Fatura vencida",
       body: `Há uma fatura de ${amountLabel} em aberto. Regularize para evitar bloqueios.`,
       url: "/cliente/financeiro",
@@ -138,6 +155,7 @@ export const trigger = {
     title: string,
   ) =>
     toManagement({
+      category: "content",
       title: decision === "approved" ? "Peça aprovada" : "Ajuste solicitado",
       body: `${clientName}: ${title}`,
       url: `/gerencial/clientes/${clientId}`,
@@ -145,6 +163,7 @@ export const trigger = {
 
   churnRisk: (count: number) =>
     toManagement({
+      category: "clients",
       title: "Cliente em risco de churn",
       body: `${count} conta(s) com health score crítico — ação recomendada.`,
       url: "/gerencial/clientes",
@@ -152,6 +171,7 @@ export const trigger = {
 
   tasksDue: (count: number) =>
     toManagement({
+      category: "tasks",
       title: "Tarefas para hoje / atrasadas",
       body: `${count} tarefa(s) precisam de atenção no Painel de Entregas.`,
       url: "/gerencial/entregas",
@@ -159,6 +179,7 @@ export const trigger = {
 
   hourBankExceeded: (count: number) =>
     toManagement({
+      category: "team",
       title: "Banco de horas excedido",
       body: `${count} colaborador(es) acima do limite de horas.`,
       url: "/gerencial/rh",
@@ -167,6 +188,7 @@ export const trigger = {
   // --- solicitações do cliente (equipe) ------------------------------------
   requestMeeting: (clientId: string | null, clientName: string) =>
     toManagement({
+      category: "requests",
       title: "Nova solicitação de reunião",
       body: `${clientName} pediu um horário.`,
       url: clientId ? `/gerencial/clientes/${clientId}` : "/gerencial/clientes",
@@ -174,6 +196,7 @@ export const trigger = {
 
   requestContent: (clientId: string | null, clientName: string) =>
     toManagement({
+      category: "requests",
       title: "Nova solicitação de conteúdo",
       body: `${clientName} enviou um pedido de conteúdo.`,
       url: clientId ? `/gerencial/clientes/${clientId}` : "/gerencial/clientes",
@@ -182,6 +205,7 @@ export const trigger = {
   // --- Central de Relatórios (equipe) --------------------------------------
   recurringUpdateFailed: (clientName: string, reason: string) =>
     toManagement({
+      category: "team",
       title: "Update recorrente falhou",
       body: `${clientName}: ${reason}. Verifique na Central de Relatórios.`,
       url: "/gerencial/relatorios",

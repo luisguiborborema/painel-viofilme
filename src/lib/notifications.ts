@@ -4,20 +4,30 @@
  */
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { allowedForCategory } from "@/lib/notify-prefs";
+import type { NotifCategory } from "@/lib/notify-categories";
 
-export type NotificationInput = { title: string; body?: string; url?: string };
+export type NotificationInput = {
+  title: string;
+  body?: string;
+  url?: string;
+  /** Categoria p/ respeitar as preferências do usuário (silenciar). */
+  category?: NotifCategory;
+};
 
 function ready(): boolean {
   return isSupabaseConfigured() && hasServiceRole();
 }
 
-/** Cria uma notificação para cada usuário informado. */
+/** Cria uma notificação para cada usuário informado (respeitando preferências). */
 export async function createNotifications(
   userIds: string[],
   n: NotificationInput,
 ): Promise<void> {
-  const ids = [...new Set(userIds.filter(Boolean))];
+  let ids = [...new Set(userIds.filter(Boolean))];
   if (!ids.length || !ready()) return;
+  if (n.category) ids = await allowedForCategory(ids, n.category);
+  if (!ids.length) return;
   try {
     const admin = createAdminClient();
     await admin.from("notifications").insert(

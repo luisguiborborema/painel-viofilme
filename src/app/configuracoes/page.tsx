@@ -6,9 +6,13 @@ import { hasFullAccess } from "@/lib/access";
 import { listTeam } from "@/lib/auth/team";
 import { isPushConfigured, VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { isWhatsappConfigured } from "@/lib/whatsapp/config";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
+import { sanitizeMuted } from "@/lib/notify-categories";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { WhatsappTest } from "@/components/settings/whatsapp-test";
+import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { TeamAccess } from "@/components/settings/team-access";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 
@@ -38,6 +42,18 @@ export default async function Configuracoes() {
   const user = await getSession();
   const isGestor = user?.role === "gerencial" && hasFullAccess(user.allowedSections);
   const team = isGestor ? await listTeam() : [];
+
+  // Preferências de notificação (categorias silenciadas) do usuário atual.
+  let mutedCategories: string[] = [];
+  if (user && isSupabaseConfigured()) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("notification_preferences")
+      .select("muted")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    mutedCategories = sanitizeMuted(data?.muted);
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -72,6 +88,9 @@ export default async function Configuracoes() {
         )}
         {user?.role === "gerencial" && (
           <WhatsappTest configured={isWhatsappConfigured()} />
+        )}
+        {user && (
+          <NotificationPreferences role={user.role} initialMuted={mutedCategories} />
         )}
       </Card>
 

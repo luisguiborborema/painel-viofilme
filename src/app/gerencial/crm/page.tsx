@@ -130,6 +130,7 @@ export default async function CrmPage({
           currentUser={currentUser}
           properties={properties}
           team={teamNames}
+          teamMembers={team}
         />
       ),
     },

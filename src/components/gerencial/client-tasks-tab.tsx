@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
 import { OPS_TEAM, type DeliveryTask } from "@/lib/data/operacao";
 import { TaskUniversal } from "./task-universal";
 
@@ -50,7 +51,12 @@ export function ClientTasksTab({ tasks: initial }: { tasks: DeliveryTask[] }) {
                 <tr key={t.id} onClick={() => setSelected(t)} className="cursor-pointer border-b border-line/60 hover:bg-subtle">
                   <td className="px-4 py-3 font-medium text-ink">{t.title}</td>
                   <td className={cn("px-4 py-3 text-xs", t.late ? "font-medium text-rose-500" : "text-muted")}>{t.dueLabel}</td>
-                  <td className="px-4 py-3 text-muted">{memberName(t.assignee)}</td>
+                  <td className="px-4 py-3 text-muted">
+                    <span className="inline-flex items-center gap-2">
+                      <Avatar name={memberName(t.assignee)} size={22} />
+                      {memberName(t.assignee)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-muted">{t.origin}</td>
                   <td className="px-4 py-3">
                     <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", st.chip)}>{st.label}</span>

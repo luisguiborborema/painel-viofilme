@@ -22,6 +22,7 @@ import {
   type Tag,
 } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
+import { AvatarStack } from "@/components/ui/avatar";
 import { NewLeadModal } from "./new-lead-modal";
 import { TagChips } from "./tag-chips";
 
@@ -38,46 +39,6 @@ function initials(name: string) {
     .map((n) => n[0])
     .join("")
     .toUpperCase();
-}
-
-function Avatar({ name, url }: { name: string; url?: string }) {
-  if (!url) {
-    return (
-      <span
-        title={name}
-        className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-[10px] font-semibold text-brand-600 ring-2 ring-surface"
-      >
-        {initials(name)}
-      </span>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={name}
-      title={name}
-      className="h-6 w-6 rounded-full object-cover ring-2 ring-surface"
-    />
-  );
-}
-
-function AvatarStack({ names, team }: { names: string[]; team: Attendant[] }) {
-  const shown = names.slice(0, 3);
-  const extra = names.length - shown.length;
-  const urlOf = (n: string) => team.find((t) => t.name === n)?.avatarUrl;
-  return (
-    <div className="flex -space-x-1.5">
-      {shown.map((n) => (
-        <Avatar key={n} name={n} url={urlOf(n)} />
-      ))}
-      {extra > 0 && (
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[10px] font-semibold text-muted ring-2 ring-surface">
-          +{extra}
-        </span>
-      )}
-    </div>
-  );
 }
 
 function LeadCard({
