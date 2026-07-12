@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { trigger } from "@/lib/push/triggers";
-import { notifyManagementInApp } from "@/lib/notifications";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { isGoogleConfigured } from "@/lib/google/config";
@@ -88,14 +87,9 @@ export async function POST(req: Request) {
     }
   }
 
-  // 2) Notifica a equipe: push + WhatsApp (trigger) e in-app (sininho).
+  // 2) Notifica a equipe (o trigger já dispara push + WhatsApp + in-app).
   if (type === "meeting") await trigger.requestMeeting(clientId, clientName);
   else await trigger.requestContent(clientId, clientName);
-  await notifyManagementInApp({
-    title: type === "meeting" ? "Nova solicitação de reunião" : "Nova solicitação de conteúdo",
-    body: `${clientName}: ${subject}`,
-    url: type === "meeting" ? "/gerencial/agenda" : "/gerencial/conteudo",
-  });
 
   // 3) Reunião → evento "[A confirmar]" no Google (best-effort).
   let event: { htmlLink?: string; hangoutLink?: string } | null = null;

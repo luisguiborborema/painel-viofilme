@@ -13,6 +13,7 @@
  */
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import type { ClientRequests, RequestStatus } from "./requests";
 import type {
   AccountMetricPoint,
   AdCampaign,
@@ -1516,4 +1517,52 @@ export async function sbGetReportSends(): Promise<ReportSend[]> {
     detail: r.detail == null ? undefined : String(r.detail),
     createdAt: String(r.created_at),
   }));
+}
+
+export async function sbGetClientRequests(): Promise<ClientRequests> {
+  const supabase = await createClient();
+  const [{ data: m }, { data: c }] = await Promise.all([
+    supabase
+      .from("meeting_requests")
+      .select("id,client_id,subject,notes,urgency,status,created_at,clients(name)")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("content_requests")
+      .select(
+        "id,client_id,format,networks,desired_date,desired_time,subject,description,guideline,reference_urls,urgency,status,created_at,clients(name)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
+  const name = (r: Record<string, unknown>) =>
+    (r.clients as { name?: string } | null)?.name ?? undefined;
+  return {
+    meetings: (m ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      clientId: String(r.client_id),
+      clientName: name(r),
+      subject: String(r.subject ?? "Reunião"),
+      notes: r.notes == null ? undefined : String(r.notes),
+      urgency: (r.urgency as "normal" | "urgent") ?? "normal",
+      status: (r.status as RequestStatus) ?? "pending",
+      createdAt: String(r.created_at),
+    })),
+    content: (c ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      clientId: String(r.client_id),
+      clientName: name(r),
+      format: String(r.format ?? "image"),
+      networks: (r.networks as string[] | null) ?? [],
+      desiredDate: r.desired_date == null ? undefined : String(r.desired_date),
+      desiredTime: r.desired_time == null ? undefined : String(r.desired_time),
+      subject: String(r.subject ?? "Conteúdo"),
+      description: r.description == null ? undefined : String(r.description),
+      guideline: r.guideline == null ? undefined : String(r.guideline),
+      referenceUrls: (r.reference_urls as string[] | null) ?? [],
+      urgency: (r.urgency as "normal" | "urgent") ?? "normal",
+      status: (r.status as RequestStatus) ?? "pending",
+      createdAt: String(r.created_at),
+    })),
+  };
 }

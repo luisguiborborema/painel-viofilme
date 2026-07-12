@@ -1604,6 +1604,14 @@ export async function getReportSends(): Promise<ReportSend[]> {
   return [];
 }
 
+/** Solicitações do portal (reunião/conteúdo) — visão da equipe. */
+export async function getClientRequests(): Promise<
+  import("./requests").ClientRequests
+> {
+  if (isSupabaseConfigured()) return sb.sbGetClientRequests();
+  return { meetings: [], content: [] };
+}
+
 // ── Playbooks (central de documentos) ────────────────────────────────────────
 
 import {

@@ -3,6 +3,11 @@
  * push (web) e WhatsApp (Uazapi). Cada canal é no-op se não configurado.
  */
 import { notifyClient, notifyManagement, notifyUser, type PushPayload } from "./send";
+import {
+  createNotifications,
+  notifyClientInApp,
+  notifyManagementInApp,
+} from "@/lib/notifications";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import {
   WHATSAPP_NOTIFY_NUMBERS,
@@ -30,18 +35,20 @@ async function clientPhone(clientId: string): Promise<string | null> {
   }
 }
 
-/** Cliente: push + WhatsApp (no telefone do cliente). */
+/** Cliente: push + WhatsApp (no telefone do cliente) + in-app. */
 async function toClient(clientId: string, p: PushPayload): Promise<void> {
   await notifyClient(clientId, p);
+  await notifyClientInApp(clientId, { title: p.title, body: p.body, url: p.url });
   if (isWhatsappConfigured()) {
     const phone = await clientPhone(clientId);
     if (phone) await sendWhatsappText(phone, waText(p));
   }
 }
 
-/** Equipe: push + WhatsApp (números fixos da agência). */
+/** Equipe: push + WhatsApp (números fixos da agência) + in-app. */
 async function toManagement(p: PushPayload): Promise<void> {
   await notifyManagement(p);
+  await notifyManagementInApp({ title: p.title, body: p.body, url: p.url });
   if (isWhatsappConfigured()) {
     await Promise.all(
       WHATSAPP_NOTIFY_NUMBERS.map((n) => sendWhatsappText(n, waText(p))),
@@ -60,6 +67,10 @@ async function toUsers(
       if (r.whatsapp && isWhatsappConfigured())
         await sendWhatsappText(r.whatsapp, waText(p)).catch(() => {});
     }),
+  );
+  await createNotifications(
+    recipients.map((r) => r.userId).filter((id): id is string => Boolean(id)),
+    { title: p.title, body: p.body, url: p.url },
   );
 }
 

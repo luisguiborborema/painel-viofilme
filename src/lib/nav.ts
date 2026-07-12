@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Target,
   Gauge,
+  Inbox,
   Plug,
   Receipt,
   KeyRound,
@@ -52,6 +53,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     title: "Operacional",
     items: [
       { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
+      { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
       { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
       { label: "VioFlux", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },
       {
