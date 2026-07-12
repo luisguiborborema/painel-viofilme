@@ -4,6 +4,7 @@ import { hasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { trigger } from "@/lib/push/triggers";
+import { createNotifications } from "@/lib/notifications";
 
 /** Notifica responsáveis do negócio + @menções (best-effort, não bloqueia). */
 async function notifyComment(
@@ -36,12 +37,18 @@ async function notifyComment(
       }
     }
     if (recipients.length) {
+      const dealName = String(deal.name ?? "Negócio");
+      const url = `/gerencial/crm/${leadId}`;
       await trigger.dealComment(recipients, {
-        dealName: String(deal.name ?? "Negócio"),
+        dealName,
         author: authorName,
         preview: body.slice(0, 140),
-        url: `/gerencial/crm/${leadId}`,
+        url,
       });
+      await createNotifications(
+        recipients.map((r) => r.userId).filter((id): id is string => Boolean(id)),
+        { title: `💬 Comentário — ${dealName}`, body: `${authorName}: ${body.slice(0, 140)}`, url },
+      );
     }
   } catch {
     /* best-effort */

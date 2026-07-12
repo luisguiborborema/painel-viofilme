@@ -9,6 +9,7 @@ import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/theme-provider";
+import { NotificationBell } from "./notification-bell";
 
 function initials(name: string) {
   return name
@@ -65,6 +66,8 @@ export function Topbar({
           <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
         </button>
       )}
+
+      <NotificationBell />
 
       <ThemeToggle />
 
