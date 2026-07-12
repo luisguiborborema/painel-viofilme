@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
 import { clearSession } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavGroup } from "@/lib/nav";
@@ -22,9 +22,11 @@ function initials(name: string) {
 export function Topbar({
   user,
   groups,
+  onOpenSearch,
 }: {
   user: SessionUser;
   groups: NavGroup[];
+  onOpenSearch?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -50,6 +52,19 @@ export function Topbar({
           {ROLE_LABEL[user.role]} · {user.email}
         </p>
       </div>
+
+      {onOpenSearch && (
+        <button
+          onClick={onOpenSearch}
+          className="inline-flex items-center gap-2 rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-sm text-muted hover:bg-subtle"
+          aria-label="Buscar"
+          title="Buscar (⌘K)"
+        >
+          <Search className="h-4 w-4" />
+          <span className="hidden sm:inline">Buscar</span>
+          <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
+        </button>
+      )}
 
       <ThemeToggle />
 
