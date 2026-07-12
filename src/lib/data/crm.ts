@@ -352,7 +352,10 @@ export type CrmTask = {
   dueDate?: string;
   status: "pending" | "done";
   doneAt?: string;
+  /** Responsável primário (= assignees[0]). Mantido p/ retrocompat. */
   assignee?: string;
+  /** Responsáveis da tarefa (nomes). Fallback: [assignee]. */
+  assignees?: string[];
   properties?: Record<string, unknown>;
   createdAt: string;
 };

@@ -934,13 +934,14 @@ function mapCrmTask(r: CrmLeadRow): CrmTask {
     status: (r.status as "pending" | "done") ?? "pending",
     doneAt: r.done_at == null ? undefined : String(r.done_at),
     assignee: r.assignee == null ? undefined : String(r.assignee),
+    assignees: (r.assignees as string[] | null) ?? undefined,
     properties: (r.properties as Record<string, unknown> | null) ?? {},
     createdAt: String(r.created_at),
   };
 }
 
 const CRM_TASK_COLS =
-  "id,lead_id,title,due_date,status,done_at,assignee,properties,created_at";
+  "id,lead_id,title,due_date,status,done_at,assignee,assignees,properties,created_at";
 
 function mapCrmInteraction(r: CrmLeadRow): CrmInteraction {
   return {

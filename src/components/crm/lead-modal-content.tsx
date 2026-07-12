@@ -553,7 +553,12 @@ export function LeadModalContent({
               </div>
             </>
           ) : (
-            <LeadComments leadId={lead.id} initial={comments} currentUser={currentUser} />
+            <LeadComments
+              leadId={lead.id}
+              initial={comments}
+              currentUser={currentUser}
+              team={teamMembers.map((m) => m.name)}
+            />
           )}
         </div>
       </div>

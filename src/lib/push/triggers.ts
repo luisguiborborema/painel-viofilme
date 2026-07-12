@@ -2,7 +2,7 @@
  * Gatilhos de notificação — copy + público, disparando em DOIS canais:
  * push (web) e WhatsApp (Uazapi). Cada canal é no-op se não configurado.
  */
-import { notifyClient, notifyManagement, type PushPayload } from "./send";
+import { notifyClient, notifyManagement, notifyUser, type PushPayload } from "./send";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import {
   WHATSAPP_NOTIFY_NUMBERS,
@@ -49,7 +49,33 @@ async function toManagement(p: PushPayload): Promise<void> {
   }
 }
 
+/** Notifica pessoas específicas (por user_id no push e/ou WhatsApp direto). */
+async function toUsers(
+  recipients: { userId?: string | null; whatsapp?: string | null }[],
+  p: PushPayload,
+): Promise<void> {
+  await Promise.all(
+    recipients.map(async (r) => {
+      if (r.userId) await notifyUser(r.userId, p).catch(() => {});
+      if (r.whatsapp && isWhatsappConfigured())
+        await sendWhatsappText(r.whatsapp, waText(p)).catch(() => {});
+    }),
+  );
+}
+
 export const trigger = {
+  // --- interno da EQUIPE ---------------------------------------------------
+  /** Novo comentário num negócio → notifica responsáveis e @menções. */
+  dealComment: (
+    recipients: { userId?: string | null; whatsapp?: string | null }[],
+    args: { dealName: string; author: string; preview: string; url?: string },
+  ) =>
+    toUsers(recipients, {
+      title: `💬 Comentário — ${args.dealName}`,
+      body: `${args.author}: ${args.preview}`,
+      url: args.url ?? "/gerencial/crm",
+    }),
+
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {

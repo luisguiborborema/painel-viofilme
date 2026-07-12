@@ -3,6 +3,50 @@ import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { trigger } from "@/lib/push/triggers";
+
+/** Notifica responsáveis do negócio + @menções (best-effort, não bloqueia). */
+async function notifyComment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leadId: string,
+  authorName: string,
+  body: string,
+) {
+  try {
+    const { data: deal } = await supabase
+      .from("crm_leads")
+      .select("name, owner, assignees")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (!deal) return;
+    const responsaveis = new Set<string>([
+      ...(((deal.assignees as string[] | null) ?? []) as string[]),
+      ...(deal.owner ? [String(deal.owner)] : []),
+    ]);
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, full_name, whatsapp")
+      .eq("role", "gerencial");
+    const recipients: { userId?: string | null; whatsapp?: string | null }[] = [];
+    for (const p of profs ?? []) {
+      const fn = p.full_name ? String(p.full_name) : "";
+      if (!fn || fn === authorName) continue; // não notifica o autor
+      if (responsaveis.has(fn) || body.includes(`@${fn}`)) {
+        recipients.push({ userId: String(p.id), whatsapp: p.whatsapp ? String(p.whatsapp) : null });
+      }
+    }
+    if (recipients.length) {
+      await trigger.dealComment(recipients, {
+        dealName: String(deal.name ?? "Negócio"),
+        author: authorName,
+        preview: body.slice(0, 140),
+        url: `/gerencial/crm/${leadId}`,
+      });
+    }
+  } catch {
+    /* best-effort */
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +113,7 @@ export async function POST(req: Request) {
       .select("id,created_at")
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await notifyComment(supabase, b.leadId, user.name, b.body.trim());
     return NextResponse.json({ ok: true, persisted: true, id: data.id, createdAt: data.created_at });
   }
 

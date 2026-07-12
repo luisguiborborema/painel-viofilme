@@ -7,11 +7,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "add" | "done" | "reopen";
+  action?: "add" | "done" | "reopen" | "set-assignees";
   leadId?: string;
   taskId?: string;
   title?: string;
   dueDate?: string;
+  assignees?: string[];
 };
 
 /** Cria uma tarefa (próxima ação) ou marca uma como concluída. */
@@ -36,6 +37,19 @@ export async function POST(req: Request) {
 
   const supabase = await createClient();
   const now = new Date().toISOString();
+
+  if (action === "set-assignees") {
+    if (!b.taskId || !Array.isArray(b.assignees)) {
+      return NextResponse.json({ error: "taskId/assignees ausente" }, { status: 400 });
+    }
+    const assignees = [...new Set(b.assignees.map((n) => n.trim()).filter(Boolean))];
+    const { error } = await supabase
+      .from("crm_tasks")
+      .update({ assignees, assignee: assignees[0] ?? null })
+      .eq("id", b.taskId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, assignees });
+  }
 
   if (action === "done" || action === "reopen") {
     if (!b.taskId) return NextResponse.json({ error: "taskId ausente" }, { status: 400 });

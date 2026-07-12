@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, Loader2, ListTodo, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, ListTodo, Plus, X } from "lucide-react";
 import type { CrmTask, PropertyDef } from "@/lib/data/crm";
 import { ObjectProperties } from "./object-properties";
 
@@ -34,27 +34,35 @@ export function TaskModal({
   const [title, setTitle] = useState(task.title);
   const [due, setDue] = useState(toLocal(task.dueDate));
   const [status, setStatus] = useState(task.status);
-  const [assignee, setAssignee] = useState(task.assignee ?? "");
+  const [assignees, setAssignees] = useState<string[]>(
+    task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : [],
+  );
   const [saving, setSaving] = useState(false);
 
   const taskProps = properties.filter((p) => p.objectType === "task");
 
   async function saveFields() {
     setSaving(true);
-    await fetch("/api/crm/object", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        objectType: "task",
-        id: task.id,
-        fields: {
-          title: title.trim(),
-          due_date: due ? new Date(due).toISOString() : null,
-          status,
-          assignee: assignee || null,
-        },
-      }),
-    }).catch(() => {});
+    await Promise.all([
+      fetch("/api/crm/object", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objectType: "task",
+          id: task.id,
+          fields: {
+            title: title.trim(),
+            due_date: due ? new Date(due).toISOString() : null,
+            status,
+          },
+        }),
+      }).catch(() => {}),
+      fetch("/api/crm/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-assignees", taskId: task.id, assignees }),
+      }).catch(() => {}),
+    ]);
     setSaving(false);
     router.refresh();
   }
@@ -90,20 +98,13 @@ export function TaskModal({
             <span className="mb-0.5 block text-[11px] font-medium text-muted">Título</span>
             <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-0.5 block text-[11px] font-medium text-muted">Prazo</span>
-              <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className={inputCls} />
-            </label>
-            <label className="block">
-              <span className="mb-0.5 block text-[11px] font-medium text-muted">Responsável</span>
-              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={inputCls}>
-                <option value="">— (dono do negócio)</option>
-                {team.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] font-medium text-muted">Prazo</span>
+            <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className={inputCls} />
+          </label>
+          <div>
+            <span className="mb-1 block text-[11px] font-medium text-muted">Responsáveis</span>
+            <AssigneeChips assignees={assignees} team={team} onChange={setAssignees} />
           </div>
           <div className="flex items-center justify-between">
             <button
@@ -137,6 +138,75 @@ export function TaskModal({
             />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AssigneeChips({
+  assignees,
+  team,
+  onChange,
+}: {
+  assignees: string[];
+  team: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  function toggle(n: string) {
+    onChange(assignees.includes(n) ? assignees.filter((x) => x !== n) : [...assignees, n]);
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {assignees.length === 0 && (
+        <span className="text-sm text-muted">Ninguém (dono do negócio)</span>
+      )}
+      {assignees.map((n) => (
+        <span
+          key={n}
+          className="inline-flex items-center gap-1 rounded-full bg-subtle py-0.5 pl-2.5 pr-1 text-sm text-ink"
+        >
+          {n}
+          <button
+            onClick={() => toggle(n)}
+            title="Remover"
+            className="text-muted hover:text-rose-500"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <div className="relative">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          title="Adicionar responsável"
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line text-muted hover:bg-subtle"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div className="absolute left-0 top-full z-20 mt-1 max-h-56 w-52 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-xl">
+              {team.length === 0 && (
+                <p className="px-2 py-1.5 text-xs text-muted">Sem membros na equipe.</p>
+              )}
+              {team.map((n) => {
+                const sel = assignees.includes(n);
+                return (
+                  <button
+                    key={n}
+                    onClick={() => toggle(n)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-subtle"
+                  >
+                    <span className="flex-1 text-ink">{n}</span>
+                    {sel && <Check className="h-3.5 w-3.5 text-brand-500" />}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

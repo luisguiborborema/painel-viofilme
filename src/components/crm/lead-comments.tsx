@@ -37,10 +37,12 @@ export function LeadComments({
   leadId,
   initial,
   currentUser,
+  team = [],
 }: {
   leadId: string;
   initial: CrmComment[];
   currentUser: string;
+  team?: string[];
 }) {
   const router = useRouter();
   const me = currentUser || "Você";
@@ -48,6 +50,17 @@ export function LeadComments({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const tmpSeq = useRef(0);
+
+  // Autocomplete de @menção (mostra a equipe ao digitar "@…").
+  const mentionMatch = text.match(/@([^@\n]{0,40})$/);
+  const mentionQuery = mentionMatch ? mentionMatch[1] : null;
+  const mentionSuggestions =
+    mentionQuery != null
+      ? team.filter((n) => n.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 5)
+      : [];
+  function pickMention(name: string) {
+    setText((prev) => prev.replace(/@([^@\n]{0,40})$/, `@${name} `));
+  }
 
   const roots = comments.filter((c) => !c.parentId);
   const repliesOf = (id: string) =>
@@ -135,16 +148,32 @@ export function LeadComments({
       </div>
 
       <div className="border-t border-line p-3">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitRoot();
-          }}
-          rows={2}
-          placeholder="Escreva um comentário…"
-          className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-        />
+        <div className="relative">
+          {mentionSuggestions.length > 0 && (
+            <div className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
+              {mentionSuggestions.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => pickMention(n)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-subtle"
+                >
+                  <span className="text-muted">@</span>
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitRoot();
+            }}
+            rows={2}
+            placeholder="Escreva um comentário… use @ para mencionar"
+            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        </div>
         <div className="mt-2 flex items-center justify-between">
           <p className="text-[11px] text-muted">⌘/Ctrl + Enter para enviar</p>
           <button
