@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
-import { getCSPortfolio } from "@/lib/data/cs";
 import { getHourBank } from "@/lib/data/rh";
 import { getDeliveryTasks } from "@/lib/data/operacao";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
@@ -16,12 +15,18 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Status do Asaas considerados pagos / a ignorar (não são recebíveis em aberto).
+const PAID_STATUS_SET = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
+const SKIP_STATUS_SET = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
+
 /**
  * Cron de notificações agendadas (Vercel Cron → CRON_SECRET).
  *
- * - Lembrete de reunião: real (tabela `meetings`, próximas 24h).
- * - Churn / banco de horas / tarefas: prontos, porém protegidos por
- *   NOTIFY_MOCK_ALERTS enquanto lêem dados de demonstração (evita alerta falso).
+ * Reais (payments/meetings/crm_tasks): lembrete de reunião (24h), fatura a
+ * vencer (D-3) e vencida (D+3/D+10/D+20), tarefas atrasadas do CRM e churn
+ * (clientes com fatura vencida há 10+ dias).
+ * Ainda mock (protegidos por NOTIFY_MOCK_ALERTS): banco de horas e tarefas de
+ * entrega — sem fonte real (apontamento/RH em dados de demonstração).
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -194,8 +199,6 @@ export async function GET(request: NextRequest) {
     const admin = createAdminClient();
     const now = new Date();
     const dayMs = 86_400_000;
-    const PAID = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
-    const SKIP = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
     const lo = new Date(now.getTime() - 21 * dayMs).toISOString().slice(0, 10);
     const hi = new Date(now.getTime() + 4 * dayMs).toISOString().slice(0, 10);
 
@@ -213,7 +216,7 @@ export async function GET(request: NextRequest) {
       const clientId = p.client_id as string | null;
       const due = p.due_date as string | null;
       const status = String(p.status ?? "");
-      if (!clientId || !due || PAID.has(status) || SKIP.has(status)) continue;
+      if (!clientId || !due || PAID_STATUS_SET.has(status) || SKIP_STATUS_SET.has(status)) continue;
 
       const days = Math.round((new Date(due).getTime() - now.getTime()) / dayMs);
       const amount = brl(Number(p.value ?? 0));
@@ -235,13 +238,32 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 1e) Churn real: clientes com fatura vencida há 10+ dias (payments) ------
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const admin = createAdminClient();
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 10 * 86_400_000).toISOString().slice(0, 10);
+    const { data: latePays } = await admin
+      .from("payments")
+      .select("client_id, status")
+      .not("client_id", "is", null)
+      .lte("due_date", cutoff);
+
+    const atRisk = new Set<string>();
+    for (const p of latePays ?? []) {
+      const st = String(p.status ?? "");
+      if (!PAID_STATUS_SET.has(st) && !SKIP_STATUS_SET.has(st)) {
+        atRisk.add(String(p.client_id));
+      }
+    }
+    if (atRisk.size > 0) {
+      await trigger.churnRisk(atRisk.size);
+      result.churn = atRisk.size;
+    }
+  }
+
   // 2) Alertas derivados de dados mock (protegidos por flag) --------------
   if (process.env.NOTIFY_MOCK_ALERTS === "true") {
-    const churn = getCSPortfolio().clients.filter((c) => c.atRisk).length;
-    if (churn > 0) {
-      await trigger.churnRisk(churn);
-      result.churn = churn;
-    }
     const overLimit = getHourBank().rows.filter((r) => r.tone === "danger").length;
     if (overLimit > 0) {
       await trigger.hourBankExceeded(overLimit);
