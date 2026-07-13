@@ -14,15 +14,18 @@ export async function GET() {
     return NextResponse.json({ notifications: [], unread: 0 });
   }
   const supabase = await createClient();
+  // O RLS já restringe por usuário; o filtro explícito é defesa em profundidade.
   const [{ data }, { count }] = await Promise.all([
     supabase
       .from("notifications")
       .select("id,title,body,url,read,created_at")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(30),
     supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
       .eq("read", false),
   ]);
   return NextResponse.json({ notifications: data ?? [], unread: count ?? 0 });
