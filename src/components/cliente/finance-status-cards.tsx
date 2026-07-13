@@ -29,6 +29,7 @@ export function FinanceStatusCard({
   sub,
   actionLabel,
   actionIcon: ActionIcon,
+  href,
 }: {
   accent: Accent;
   label: string;
@@ -36,20 +37,27 @@ export function FinanceStatusCard({
   sub: string;
   actionLabel: string;
   actionIcon: LucideIcon;
+  /** Quando presente, a ação vira link (ex.: página de pagamento do Asaas). */
+  href?: string | null;
 }) {
+  const btnCls = cn(
+    "mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
+    BTN[accent],
+  );
   return (
     <div className={cn("rounded-2xl border p-5", WRAP[accent])}>
       <p className={cn("text-xs font-medium", LABEL_COLOR[accent])}>{label}</p>
       <p className="mt-1 text-2xl font-bold tracking-tight text-ink">{value}</p>
       <p className="mt-0.5 text-xs text-muted">{sub}</p>
-      <button
-        className={cn(
-          "mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
-          BTN[accent],
-        )}
-      >
-        <ActionIcon className="h-4 w-4" /> {actionLabel}
-      </button>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className={btnCls}>
+          <ActionIcon className="h-4 w-4" /> {actionLabel}
+        </a>
+      ) : (
+        <button className={btnCls}>
+          <ActionIcon className="h-4 w-4" /> {actionLabel}
+        </button>
+      )}
     </div>
   );
 }

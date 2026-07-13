@@ -492,8 +492,18 @@ export async function getOrganicResults(
 // ---------------------------------------------------------------------------
 export type FinanceOverview = {
   year: number;
-  nextDue: { amount: number; dueDate: string; daysUntil: number } | null;
-  lastPayment: { amount: number; paidDate: string; method: string } | null;
+  nextDue: {
+    amount: number;
+    dueDate: string;
+    daysUntil: number;
+    invoiceUrl?: string | null;
+  } | null;
+  lastPayment: {
+    amount: number;
+    paidDate: string;
+    method: string;
+    invoiceUrl?: string | null;
+  } | null;
   plan: { name: string; activeSince: string };
   invoices: Invoice[];
   totalPaidYear: number;

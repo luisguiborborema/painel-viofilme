@@ -1,7 +1,7 @@
 import { Download } from "lucide-react";
 import type { Invoice } from "@/lib/data/types";
 import { fullDate, daysUntil } from "@/lib/datetime";
-import { formatBRL, formatNumber } from "@/lib/utils";
+import { cn, formatBRL, formatNumber } from "@/lib/utils";
 
 export function InvoicesTable({
   invoices,
@@ -31,6 +31,8 @@ export function InvoicesTable({
           <tbody>
             {invoices.map((inv) => {
               const days = daysUntil(refIso, inv.dueDate);
+              const overdue = inv.status === "open" && days < 0;
+              const absDays = Math.abs(days);
               return (
                 <tr
                   key={inv.id}
@@ -45,28 +47,59 @@ export function InvoicesTable({
                   </td>
                   <td className="px-4 py-3 text-ink">
                     {fullDate(inv.dueDate)}
-                    {inv.status === "open" && days >= 0 && (
-                      <span className="block text-xs text-amber-400">
-                        Vence em {days} {days === 1 ? "dia" : "dias"}
+                    {inv.status === "open" && (
+                      <span
+                        className={cn(
+                          "block text-xs",
+                          overdue ? "text-rose-400" : "text-amber-400",
+                        )}
+                      >
+                        {overdue
+                          ? `Vencida há ${absDays} ${absDays === 1 ? "dia" : "dias"}`
+                          : `Vence em ${days} ${days === 1 ? "dia" : "dias"}`}
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {inv.status === "open" ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
-                        Em aberto
-                      </span>
-                    ) : (
+                    {inv.status === "paid" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
                         Pago{inv.method ? ` · ${inv.method}` : ""}
+                      </span>
+                    ) : overdue ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-medium text-rose-300">
+                        Vencida
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                        Em aberto
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {inv.status === "open" ? (
-                      <button className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-400">
-                        PIX
-                      </button>
+                      inv.invoiceUrl ? (
+                        <a
+                          href={inv.invoiceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-400"
+                        >
+                          Pagar
+                        </a>
+                      ) : (
+                        <button className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-400">
+                          PIX
+                        </button>
+                      )
+                    ) : inv.invoiceUrl ? (
+                      <a
+                        href={inv.invoiceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle-strong"
+                      >
+                        <Download className="h-3.5 w-3.5" /> PDF
+                      </a>
                     ) : (
                       <button className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle-strong">
                         <Download className="h-3.5 w-3.5" /> PDF

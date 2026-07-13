@@ -816,6 +816,7 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
       status: paid ? "paid" : "open",
       method,
       paidDate: r.payment_date ?? null,
+      invoiceUrl: r.invoice_url,
     } satisfies Invoice;
   });
 
@@ -828,6 +829,7 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
         amount: nextInv.amount,
         dueDate: nextInv.dueDate,
         daysUntil: daysUntilISO(nextInv.dueDate),
+        invoiceUrl: nextInv.invoiceUrl,
       }
     : null;
 
@@ -836,18 +838,29 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
     .sort((a, b) => (b.paidDate ?? "").localeCompare(a.paidDate ?? ""));
   const last = paidList[0];
   const lastPayment = last
-    ? { amount: last.amount, paidDate: last.paidDate!, method: last.method ?? "—" }
+    ? {
+        amount: last.amount,
+        paidDate: last.paidDate!,
+        method: last.method ?? "—",
+        invoiceUrl: last.invoiceUrl,
+      }
     : null;
 
   const totalPaidYear = invoices
     .filter((i) => i.status === "paid" && (i.paidDate ?? "").startsWith(String(year)))
     .reduce((s, i) => s + i.amount, 0);
 
+  // "Ativo desde": a cobrança mais antiga com vencimento conhecido.
+  const firstDue = invoices
+    .map((i) => i.dueDate)
+    .filter(Boolean)
+    .sort()[0];
+
   return {
     year,
     nextDue,
     lastPayment,
-    plan: { name: "Plano mensal", activeSince: "—" },
+    plan: { name: "Plano mensal", activeSince: firstDue ?? "—" },
     invoices,
     totalPaidYear,
     documents: [],

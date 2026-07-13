@@ -274,6 +274,8 @@ export type Invoice = {
   status: InvoiceStatus;
   method: string | null; // "PIX"
   paidDate: string | null; // ISO date
+  /** Página hospedada do Asaas (pagar boleto/PIX ou ver comprovante). */
+  invoiceUrl?: string | null;
 };
 
 export type FinanceDocument = {

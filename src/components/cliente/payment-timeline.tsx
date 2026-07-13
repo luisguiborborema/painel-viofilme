@@ -23,12 +23,14 @@ export function PaymentTimeline({
         {invoices.map((inv) => {
           const open = inv.status === "open";
           const days = daysUntil(refIso, inv.dueDate);
+          const overdue = open && days < 0;
+          const absDays = Math.abs(days);
           return (
             <li key={inv.id} className="relative">
               <span
                 className={cn(
                   "absolute -left-[26px] top-1 h-3 w-3 rounded-full ring-4 ring-surface",
-                  open ? "bg-amber-400" : "bg-emerald-400",
+                  overdue ? "bg-rose-400" : open ? "bg-amber-400" : "bg-emerald-400",
                 )}
               />
               <div className="flex items-center justify-between">
@@ -38,8 +40,10 @@ export function PaymentTimeline({
                 </p>
               </div>
               {open ? (
-                <p className="text-xs text-amber-400">
-                  Vence em {days} {days === 1 ? "dia" : "dias"}
+                <p className={cn("text-xs", overdue ? "text-rose-400" : "text-amber-400")}>
+                  {overdue
+                    ? `Vencida há ${absDays} ${absDays === 1 ? "dia" : "dias"}`
+                    : `Vence em ${days} ${days === 1 ? "dia" : "dias"}`}
                 </p>
               ) : (
                 <p className="text-xs text-emerald-400">
