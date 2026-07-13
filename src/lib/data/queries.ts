@@ -606,6 +606,16 @@ export async function getFinance(clientId: string): Promise<FinanceOverview> {
 }
 
 // ---------------------------------------------------------------------------
+// Financeiro gerencial (a receber / inadimplência do payments real; DRE mock)
+// ---------------------------------------------------------------------------
+import { getGerFinance as gerFinanceMock, type GerFinance } from "./gerfinance";
+
+export async function getGerFinance(): Promise<GerFinance> {
+  if (isSupabaseConfigured()) return sb.sbGetGerFinance();
+  return gerFinanceMock();
+}
+
+// ---------------------------------------------------------------------------
 // Hub de acessos & ativos de marca (M6)
 // ---------------------------------------------------------------------------
 export type BrandHub = {

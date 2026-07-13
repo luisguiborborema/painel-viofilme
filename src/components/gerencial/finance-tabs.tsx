@@ -141,7 +141,7 @@ function VisaoGeral({ data }: { data: GerFinance }) {
 
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-ink">
-            Composição da receita — junho
+            Composição da receita — {data.periodLabel}
           </h2>
           <p className="text-2xl font-bold text-ink">
             MRR {data.revenue.mrrPct}%
@@ -157,7 +157,7 @@ function VisaoGeral({ data }: { data: GerFinance }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-ink">
-            Status de recebimento — junho
+            Status de recebimento — {data.periodLabel}
           </h2>
           <ul className="space-y-2.5">
             <StatusRow label="Recebido no mês" value={data.receiptStatus.received} tone="text-emerald-400" />
@@ -176,6 +176,11 @@ function VisaoGeral({ data }: { data: GerFinance }) {
             </button>
           </div>
           <ul className="space-y-2">
+            {data.critical.length === 0 && (
+              <li className="rounded-xl bg-subtle p-3 text-sm text-muted">
+                Nenhum cliente inadimplente.
+              </li>
+            )}
             {data.critical.map((c) => (
               <li
                 key={c.id}
@@ -343,7 +348,7 @@ function ContasReceber({ data }: { data: GerFinance }) {
     <Card className="p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-ink">
-          Contas a receber — junho / julho 2026
+          Contas a receber — {data.periodLabel}
         </h2>
         <div className="flex flex-wrap gap-1.5">
           {REC_TABS.map((t) => (
@@ -457,27 +462,46 @@ function ContasPagar() {
 function Inadimplencia({ data }: { data: GerFinance }) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3.5">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-300">
+      {data.delinquencyTotal > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3.5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-300">
+              <AlertTriangle className="h-[18px] w-[18px]" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-rose-100">
+                {brl0(data.delinquencyTotal)} em inadimplência — {data.critical.length}{" "}
+                {data.critical.length === 1 ? "cliente precisa" : "clientes precisam"} de intervenção
+              </p>
+              {data.critical[0] && (
+                <p className="mt-0.5 text-xs text-ink/70">
+                  {data.critical[0].name}: {data.critical[0].note} — escalonamento recomendado
+                </p>
+              )}
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 px-4 py-2 text-sm font-medium text-rose-200 hover:bg-rose-500/15">
+            Notificar equipe
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300">
             <AlertTriangle className="h-[18px] w-[18px]" />
           </span>
-          <div>
-            <p className="text-sm font-semibold text-rose-100">
-              {brl0(data.delinquencyTotal)} em inadimplência — 2 clientes precisam de intervenção
-            </p>
-            <p className="mt-0.5 text-xs text-ink/70">
-              Academia FitBody está em D+12 — escalonamento para CS recomendado imediatamente
-            </p>
-          </div>
+          <p className="text-sm font-medium text-emerald-100">
+            Nenhuma fatura vencida — carteira em dia.
+          </p>
         </div>
-        <button className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 px-4 py-2 text-sm font-medium text-rose-200 hover:bg-rose-500/15">
-          Notificar equipe
-        </button>
-      </div>
+      )}
 
       <Card className="p-5">
         <ul className="space-y-2">
+          {data.critical.length === 0 && (
+            <li className="rounded-xl bg-subtle p-3 text-sm text-muted">
+              Nenhum cliente inadimplente no momento.
+            </li>
+          )}
           {data.critical.map((c) => (
             <li
               key={c.id}
@@ -546,7 +570,7 @@ function Dre({ data }: { data: GerFinance }) {
       <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">
-            DRE gerencial — junho 2026
+            DRE gerencial — {data.periodLabel}
           </h2>
           <button className="text-xs font-medium text-brand-300 hover:text-brand-200">
             detalhar

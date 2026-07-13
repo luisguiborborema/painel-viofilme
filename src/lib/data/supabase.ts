@@ -37,6 +37,12 @@ import type {
 } from "./queries";
 import type { OrganicResults, OrganicScopeView } from "./queries";
 import type { PlaybookSector, PlaybookFormat } from "./playbooks";
+import {
+  getGerFinance as gerFinanceMock,
+  type GerFinance,
+  type Receivable,
+  type CriticalDelinquent,
+} from "./gerfinance";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -864,6 +870,190 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
     invoices,
     totalPaidYear,
     documents: [],
+  };
+}
+
+// --- financeiro gerencial (agrega payments de todos os clientes) -------------
+type GerPaymentRow = {
+  asaas_payment_id: string;
+  client_id: string | null;
+  status: string | null;
+  billing_type: string | null;
+  value: number | null;
+  due_date: string | null;
+  payment_date: string | null;
+  description: string | null;
+  clients:
+    | { name: string | null; segment: string | null }
+    | { name: string | null; segment: string | null }[]
+    | null;
+};
+
+function ddmm(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return d && m ? `${d}/${m}` : iso;
+}
+
+/**
+ * Visão financeira da agência a partir do `payments` real (a receber,
+ * inadimplência, status de recebimento, MRR e previsto). DRE, despesas,
+ * margem e fluxo de saída não têm fonte no sistema → herdam o mock.
+ */
+export async function sbGetGerFinance(): Promise<GerFinance> {
+  const base = gerFinanceMock();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payments")
+    .select(
+      "asaas_payment_id, client_id, status, billing_type, value, due_date, payment_date, description, clients(name, segment)",
+    )
+    .order("due_date", { ascending: false })
+    .limit(400);
+
+  const rows = (data ?? []) as unknown as GerPaymentRow[];
+  if (!rows.length) return base; // sem cobranças ainda → mantém o mock
+
+  const now = new Date();
+  const todayMs = now.getTime();
+  const dayMs = 86_400_000;
+  const ym = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const ymNow = ym(now);
+  const ymPrev = ym(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+
+  let received = 0;
+  let openTotal = 0;
+  let receivedMonth = 0;
+  let dueSoon = 0;
+  let overdue = 0;
+  let forecast30 = 0;
+  let mrr = 0;
+  let mrrPrev = 0;
+  let openCount = 0;
+  const overdueByClient = new Map<string, { name: string; value: number; maxDays: number }>();
+
+  const receivables: Receivable[] = rows.map((r, i) => {
+    const value = Number(r.value ?? 0);
+    const paid = PAID_STATUS.has(r.status ?? "");
+    const due = r.due_date ?? "";
+    const co = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+    const name = co?.name ?? "Cliente";
+    const segment = co?.segment ?? "—";
+    const method = r.billing_type ? (BILLING_LABEL[r.billing_type] ?? r.billing_type) : null;
+    const dueMs = due ? new Date(due).getTime() : NaN;
+    const daysDelta = Number.isNaN(dueMs) ? 0 : Math.round((dueMs - todayMs) / dayMs);
+    const overdueDays = !paid && daysDelta < 0 ? Math.abs(daysDelta) : 0;
+
+    if (paid) {
+      received += value;
+      if ((r.payment_date ?? "").startsWith(ymNow)) receivedMonth += value;
+    } else {
+      openTotal += value;
+      openCount += 1;
+      if (daysDelta < 0) {
+        overdue += value;
+        const key = r.client_id ?? name;
+        const cur = overdueByClient.get(key) ?? { name, value: 0, maxDays: 0 };
+        cur.value += value;
+        cur.maxDays = Math.max(cur.maxDays, overdueDays);
+        overdueByClient.set(key, cur);
+      } else if (daysDelta <= 7) {
+        dueSoon += value;
+      }
+      if (daysDelta >= 0 && daysDelta <= 30) forecast30 += value;
+    }
+    if (due.startsWith(ymNow)) mrr += value;
+    else if (due.startsWith(ymPrev)) mrrPrev += value;
+
+    let status: Receivable["status"];
+    let statusKey: Receivable["statusKey"];
+    let action: Receivable["action"];
+    let ruler: string;
+    if (paid) {
+      statusKey = "pago";
+      status = { label: `Pago${r.payment_date ? ` ${ddmm(r.payment_date)}` : ""}`, tone: "ok" };
+      action = "download";
+      ruler = method ?? "—";
+    } else if (overdueDays > 0) {
+      statusKey = "vencida";
+      status = { label: `Vencida ${overdueDays}d`, tone: "danger" };
+      action = overdueDays >= 10 ? "cs" : "whatsapp";
+      ruler =
+        overdueDays >= 20 ? "D+20 · CS" : overdueDays >= 10 ? "D+10 enviado" : overdueDays >= 3 ? "D+3 enviado" : "D+0";
+    } else {
+      statusKey = "avencer";
+      status = daysDelta <= 7 ? { label: `Vence em ${daysDelta}d`, tone: "warn" } : { label: "A vencer", tone: "info" };
+      action = "pix";
+      ruler = "Aguardando";
+    }
+
+    const [yy, mm] = due ? due.split("-") : ["", ""];
+    const competence = yy && mm ? `${MESES[Number(mm) - 1]?.slice(0, 3) ?? mm}/${yy.slice(2)}` : "";
+    const dueLabel = due
+      ? statusKey === "avencer" && daysDelta >= 0
+        ? `${ddmm(due)} · ${daysDelta}d`
+        : ddmm(due)
+      : "—";
+
+    return {
+      id: r.asaas_payment_id || `rec-${i}`,
+      client: name,
+      segment,
+      description: r.description ?? (competence ? `Fee mensal ${competence}` : "Cobrança"),
+      dueLabel,
+      value,
+      status,
+      ruler,
+      statusKey,
+      action,
+    } satisfies Receivable;
+  });
+
+  const critical: CriticalDelinquent[] = [...overdueByClient.values()]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+    .map((c, i) => ({
+      id: `od-${i}`,
+      name: c.name,
+      value: c.value,
+      note: `Vencida há ${c.maxDays} ${c.maxDays === 1 ? "dia" : "dias"}`,
+      action: c.maxDays >= 10 ? "cs" : "whatsapp",
+    }));
+
+  const overdueClients = overdueByClient.size;
+  const mrrDeltaVal = Math.round(mrr - mrrPrev);
+  const mrrDelta =
+    mrrPrev > 0
+      ? `${mrrDeltaVal >= 0 ? "+" : "−"}R$ ${Math.abs(mrrDeltaVal).toLocaleString("pt-BR")} vs. mês anterior`
+      : "sem base do mês anterior";
+
+  return {
+    ...base,
+    periodLabel: periodLabel(now),
+    kpis: {
+      ...base.kpis,
+      mrr: Math.round(mrr),
+      mrrDelta,
+      forecast30: Math.round(forecast30),
+      forecastNote: `${openCount} cobrança${openCount === 1 ? "" : "s"} em aberto`,
+      overdue: Math.round(overdue),
+      overdueNote: overdueClients
+        ? `${overdueClients} cliente${overdueClients === 1 ? "" : "s"} · acionar cobrança`
+        : "sem inadimplência",
+    },
+    receiptStatus: {
+      received: Math.round(receivedMonth),
+      dueSoon: Math.round(dueSoon),
+      overdue: Math.round(overdue),
+    },
+    critical,
+    delinquencyTotal: Math.round(overdue),
+    receivables,
+    receivablesTotals: {
+      count: receivables.length,
+      received: Math.round(received),
+      open: Math.round(openTotal),
+    },
   };
 }
 

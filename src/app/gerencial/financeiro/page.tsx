@@ -1,9 +1,9 @@
 import { ChevronDown, Download, Plus, Wallet } from "lucide-react";
-import { getGerFinance } from "@/lib/data/gerfinance";
+import { getGerFinance } from "@/lib/data/queries";
 import { FinanceTabs } from "@/components/gerencial/finance-tabs";
 
 export default async function GerencialFinanceiro() {
-  const data = getGerFinance();
+  const data = await getGerFinance();
 
   return (
     <div className="space-y-4">
