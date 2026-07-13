@@ -1087,6 +1087,27 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     .sort((a, b) => b.value - a.value);
   const hasExp = expenses.length > 0;
 
+  // --- projeção de caixa (3 meses: corrente + 2) -----------------------------
+  const recurringMonthly = expenses
+    .filter((e) => e.recurring)
+    .reduce((s, e) => s + e.amount, 0);
+  const cashflow = Array.from({ length: 3 }, (_, k) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + k, 1));
+    const key = ym(d);
+    const inflow = rows
+      .filter((r) => (r.due_date ?? "").startsWith(key))
+      .reduce((s, r) => s + Number(r.value ?? 0), 0);
+    // Meses futuros sem cobrança gerada → estima pelo faturamento do mês (MRR).
+    const entradas = Math.round(k > 0 && inflow === 0 ? mrr : inflow);
+    const oneOff = expenses
+      .filter((e) => !e.recurring && e.dueDate.startsWith(key))
+      .reduce((s, e) => s + e.amount, 0);
+    const saidas = Math.round(oneOff + recurringMonthly);
+    return { month: MESES[d.getUTCMonth()].slice(0, 3), entradas, saidas, saldo: entradas - saidas };
+  });
+  const c0 = cashflow[0];
+  const cashflowNote = `${c0.month} · entradas R$ ${c0.entradas.toLocaleString("pt-BR")} · saídas R$ ${c0.saidas.toLocaleString("pt-BR")} · saldo previsto R$ ${c0.saldo.toLocaleString("pt-BR")}`;
+
   return {
     ...base,
     periodLabel: periodLabel(now),
@@ -1116,9 +1137,14 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       received: Math.round(received),
       open: Math.round(openTotal),
     },
+    revenue: hasExp
+      ? { mrr: grossRevenue, projetos: 0, outros: 0, mrrPct: grossRevenue > 0 ? 100 : 0 }
+      : base.revenue,
     expenses,
     dre: hasExp ? dreReal : base.dre,
     topExpenses: topExpensesReal.length ? topExpensesReal : base.topExpenses,
+    cashflow,
+    cashflowNote,
   };
 }
 
