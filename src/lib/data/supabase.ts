@@ -39,10 +39,16 @@ import type { OrganicResults, OrganicScopeView } from "./queries";
 import type { PlaybookSector, PlaybookFormat } from "./playbooks";
 import {
   getGerFinance as gerFinanceMock,
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_LABEL,
   type GerFinance,
   type Receivable,
   type CriticalDelinquent,
+  type Expense,
+  type ExpenseCategory,
 } from "./gerfinance";
+
+const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -1027,6 +1033,60 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       ? `${mrrDeltaVal >= 0 ? "+" : "−"}R$ ${Math.abs(mrrDeltaVal).toLocaleString("pt-BR")} vs. mês anterior`
       : "sem base do mês anterior";
 
+  // --- despesas → DRE real ---------------------------------------------------
+  const { data: expData } = await supabase
+    .from("expenses")
+    .select("id, description, category, amount, due_date, paid_date, status, recurring, vendor")
+    .order("due_date", { ascending: false })
+    .limit(400);
+  const expenses: Expense[] = (expData ?? []).map((e) => {
+    const cat = (e.category as string) ?? "outros";
+    return {
+      id: String(e.id),
+      description: String(e.description ?? "Despesa"),
+      category: (EXPENSE_CATS.has(cat as ExpenseCategory) ? cat : "outros") as ExpenseCategory,
+      amount: Number(e.amount ?? 0),
+      dueDate: (e.due_date as string) ?? "",
+      paidDate: (e.paid_date as string) ?? null,
+      status: e.status === "paid" ? "paid" : "pending",
+      recurring: Boolean(e.recurring),
+      vendor: (e.vendor as string) ?? null,
+    } satisfies Expense;
+  });
+
+  const monthExp = expenses.filter((e) => e.dueDate.startsWith(ymNow));
+  const sumCat = (c: ExpenseCategory) =>
+    monthExp.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0);
+  const grossRevenue = Math.round(mrr);
+  const taxes = Math.round(sumCat("impostos"));
+  const salaries = Math.round(sumCat("salarios"));
+  const tools = Math.round(sumCat("ferramentas"));
+  const commissions = Math.round(sumCat("comissoes"));
+  const variableCosts = Math.round(sumCat("variavel") + sumCat("outros"));
+  const netRevenue = grossRevenue - taxes;
+  const netProfit = netRevenue - (salaries + tools + commissions + variableCosts);
+  const margin = grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 1000) / 10 : 0;
+  const dreReal = {
+    grossRevenue,
+    taxes,
+    taxPct: grossRevenue > 0 ? Math.round((taxes / grossRevenue) * 100) : 0,
+    netRevenue,
+    salaries,
+    tools,
+    commissions,
+    variableCosts,
+    netProfit,
+    margin,
+    metaMargin: base.dre.metaMargin,
+  };
+  const topExpensesReal = (
+    ["salarios", "ferramentas", "comissoes", "variavel", "outros"] as ExpenseCategory[]
+  )
+    .map((c) => ({ label: EXPENSE_CATEGORY_LABEL[c], value: Math.round(sumCat(c)) }))
+    .filter((e) => e.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const hasExp = expenses.length > 0;
+
   return {
     ...base,
     periodLabel: periodLabel(now),
@@ -1040,6 +1100,8 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       overdueNote: overdueClients
         ? `${overdueClients} cliente${overdueClients === 1 ? "" : "s"} · acionar cobrança`
         : "sem inadimplência",
+      margin: hasExp ? margin : base.kpis.margin,
+      marginDelta: hasExp ? `meta ${dreReal.metaMargin}%` : base.kpis.marginDelta,
     },
     receiptStatus: {
       received: Math.round(receivedMonth),
@@ -1054,6 +1116,9 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       received: Math.round(received),
       open: Math.round(openTotal),
     },
+    expenses,
+    dre: hasExp ? dreReal : base.dre,
+    topExpenses: topExpensesReal.length ? topExpensesReal : base.topExpenses,
   };
 }
 

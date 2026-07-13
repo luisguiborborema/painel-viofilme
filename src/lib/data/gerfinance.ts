@@ -26,6 +26,39 @@ export type CriticalDelinquent = {
   action: "cs" | "whatsapp";
 };
 
+export type ExpenseCategory =
+  | "salarios"
+  | "ferramentas"
+  | "comissoes"
+  | "impostos"
+  | "variavel"
+  | "outros";
+
+export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string }[] = [
+  { key: "salarios", label: "Salários & pró-labore" },
+  { key: "ferramentas", label: "Ferramentas & infraestrutura" },
+  { key: "comissoes", label: "Comissões comerciais" },
+  { key: "impostos", label: "Impostos & deduções" },
+  { key: "variavel", label: "Custos variáveis" },
+  { key: "outros", label: "Outros" },
+];
+
+export const EXPENSE_CATEGORY_LABEL = Object.fromEntries(
+  EXPENSE_CATEGORIES.map((c) => [c.key, c.label]),
+) as Record<ExpenseCategory, string>;
+
+export type Expense = {
+  id: string;
+  description: string;
+  category: ExpenseCategory;
+  amount: number;
+  dueDate: string; // ISO date
+  paidDate: string | null;
+  status: "pending" | "paid";
+  recurring: boolean;
+  vendor: string | null;
+};
+
 export type GerFinance = {
   periodLabel: string;
   kpis: {
@@ -62,6 +95,7 @@ export type GerFinance = {
   };
   topExpenses: { label: string; value: number }[];
   marginByClient: { name: string; pct: number }[];
+  expenses: Expense[];
 };
 
 export function getGerFinance(): GerFinance {
@@ -130,6 +164,13 @@ export function getGerFinance(): GerFinance {
       { name: "Rest. Sabor do Mar", pct: 48 },
       { name: "Advocacia Menezes", pct: 44 },
       { name: "Academia FitBody", pct: 29 },
+    ],
+    expenses: [
+      { id: "e1", description: "Folha de pagamento — equipe", category: "salarios", amount: 12800, dueDate: "2026-07-05", paidDate: "2026-07-05", status: "paid", recurring: true, vendor: null },
+      { id: "e2", description: "Ferramentas & infraestrutura (SaaS)", category: "ferramentas", amount: 1420, dueDate: "2026-07-10", paidDate: null, status: "pending", recurring: true, vendor: "Diversos" },
+      { id: "e3", description: "Comissões comerciais — junho", category: "comissoes", amount: 960, dueDate: "2026-07-08", paidDate: null, status: "pending", recurring: false, vendor: null },
+      { id: "e4", description: "Simples Nacional — competência jun", category: "impostos", amount: 5590, dueDate: "2026-07-20", paidDate: null, status: "pending", recurring: true, vendor: "Receita Federal" },
+      { id: "e5", description: "Custos de produção (freelas/impressão)", category: "variavel", amount: 2240, dueDate: "2026-07-15", paidDate: null, status: "pending", recurring: false, vendor: null },
     ],
   };
 }

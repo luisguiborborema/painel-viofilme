@@ -1,19 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Check,
   Download,
+  Loader2,
   Phone,
   Plus,
   Receipt,
+  RotateCcw,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { MediaMetricCard } from "@/components/cliente/media-metric-card";
 import { MultiBarChart } from "@/components/dashboard/charts";
 import { cn, formatBRL, formatNumber } from "@/lib/utils";
-import type { GerFinance, Receivable } from "@/lib/data/gerfinance";
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_LABEL,
+  type Expense,
+  type GerFinance,
+  type Receivable,
+} from "@/lib/data/gerfinance";
 
 type TabKey = "visao" | "receber" | "pagar" | "inadimplencia" | "dre";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
@@ -71,7 +83,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
 
       {tab === "visao" && <VisaoGeral data={data} />}
       {tab === "receber" && <ContasReceber data={data} />}
-      {tab === "pagar" && <ContasPagar />}
+      {tab === "pagar" && <ContasPagar data={data} />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
       {tab === "dre" && <Dre data={data} />}
     </div>
@@ -441,19 +453,299 @@ function ContasReceber({ data }: { data: GerFinance }) {
 
 /* -------------------------------- Contas a pagar --------------------------- */
 
-function ContasPagar() {
+function fmtDay(iso: string | null): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-");
+  return d ? `${d}/${m}/${y.slice(2)}` : iso;
+}
+
+async function postExpense(body: unknown): Promise<boolean> {
+  const res = await fetch("/api/gerencial/expenses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
+
+function ContasPagar({ data }: { data: GerFinance }) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const expenses = data.expenses;
+  const totalPending = expenses.filter((e) => e.status === "pending").reduce((s, e) => s + e.amount, 0);
+  const totalPaid = expenses.filter((e) => e.status === "paid").reduce((s, e) => s + e.amount, 0);
+
+  async function act(body: { action: "pay" | "unpay" | "delete"; id: string }) {
+    setBusyId(body.id);
+    await postExpense(body);
+    setBusyId(null);
+    router.refresh();
+  }
+
   return (
-    <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-subtle text-muted">
-        <Receipt className="h-6 w-6" />
-      </span>
-      <p className="text-sm text-muted">
-        Salários, ferramentas, impostos e fornecedores.
-      </p>
-      <button className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-        <Plus className="h-4 w-4" /> Lançar despesa
-      </button>
-    </Card>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-4 text-sm">
+          <span className="text-muted">
+            A pagar:{" "}
+            <span className="font-semibold text-rose-400">{brl0(totalPending)}</span>
+          </span>
+          <span className="text-muted">
+            Já pago:{" "}
+            <span className="font-semibold text-emerald-400">{brl0(totalPaid)}</span>
+          </span>
+        </div>
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        >
+          <Plus className="h-4 w-4" /> Lançar despesa
+        </button>
+      </div>
+
+      {showForm && (
+        <ExpenseForm
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {expenses.length === 0 && !showForm ? (
+        <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-subtle text-muted">
+            <Receipt className="h-6 w-6" />
+          </span>
+          <p className="text-sm text-muted">
+            Nenhuma despesa lançada. Salários, ferramentas, impostos e fornecedores
+            entram aqui e alimentam o DRE.
+          </p>
+        </Card>
+      ) : expenses.length > 0 ? (
+        <Card className="p-0">
+          <div className="overflow-x-auto rounded-2xl">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+                  <th className="px-4 py-3 font-medium">Despesa</th>
+                  <th className="px-4 py-3 font-medium">Categoria</th>
+                  <th className="px-4 py-3 font-medium">Vencimento</th>
+                  <th className="px-4 py-3 text-right font-medium">Valor</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((e) => (
+                  <tr key={e.id} className="border-b border-line last:border-0 hover:bg-subtle">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-ink">{e.description}</p>
+                      <p className="text-xs text-muted">
+                        {e.vendor ? `${e.vendor} · ` : ""}
+                        {e.recurring ? "recorrente" : "avulsa"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-muted">{EXPENSE_CATEGORY_LABEL[e.category]}</td>
+                    <td className="px-4 py-3 text-ink">{fmtDay(e.dueDate)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink">{formatBRL(e.amount)}</td>
+                    <td className="px-4 py-3">
+                      {e.status === "paid" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                          Paga{e.paidDate ? ` · ${fmtDay(e.paidDate)}` : ""}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                          A pagar
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {e.status === "pending" ? (
+                          <button
+                            onClick={() => act({ action: "pay", id: e.id })}
+                            disabled={busyId === e.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-60"
+                          >
+                            {busyId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Pagar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => act({ action: "unpay", id: e.id })}
+                            disabled={busyId === e.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:text-ink disabled:opacity-60"
+                            title="Estornar"
+                          >
+                            {busyId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => act({ action: "delete", id: e.id })}
+                          disabled={busyId === e.id}
+                          className="inline-flex items-center justify-center rounded-lg border border-line p-1.5 text-muted hover:text-rose-300 disabled:opacity-60"
+                          aria-label="Excluir despesa"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+const NEW_EXPENSE = {
+  description: "",
+  category: "outros" as Expense["category"],
+  amount: "",
+  dueDate: "",
+  vendor: "",
+  recurring: false,
+  status: "pending" as Expense["status"],
+};
+
+function ExpenseForm({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [f, setF] = useState(NEW_EXPENSE);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const amountNum = Number(f.amount.replace(",", "."));
+  const valid = f.description.trim().length > 0 && Number.isFinite(amountNum) && amountNum > 0;
+
+  async function save() {
+    if (!valid || busy) return;
+    setBusy(true);
+    setErr(null);
+    const ok = await postExpense({
+      action: "create",
+      description: f.description.trim(),
+      category: f.category,
+      amount: amountNum,
+      dueDate: f.dueDate || undefined,
+      vendor: f.vendor.trim() || undefined,
+      recurring: f.recurring,
+      status: f.status,
+    });
+    setBusy(false);
+    if (ok) onSaved();
+    else setErr("Não foi possível salvar. Tente novamente.");
+  }
+
+  const inputCls =
+    "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-ink">Nova despesa</p>
+        <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Descrição *</span>
+          <input
+            value={f.description}
+            onChange={(e) => setF({ ...f, description: e.target.value })}
+            placeholder="Ex.: Folha de pagamento — julho"
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Categoria</span>
+          <select
+            value={f.category}
+            onChange={(e) => setF({ ...f, category: e.target.value as Expense["category"] })}
+            className={inputCls}
+          >
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Valor (R$) *</span>
+          <input
+            value={f.amount}
+            onChange={(e) => setF({ ...f, amount: e.target.value })}
+            inputMode="decimal"
+            placeholder="0,00"
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Vencimento</span>
+          <input
+            type="date"
+            value={f.dueDate}
+            onChange={(e) => setF({ ...f, dueDate: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Fornecedor</span>
+          <input
+            value={f.vendor}
+            onChange={(e) => setF({ ...f, vendor: e.target.value })}
+            placeholder="Opcional"
+            className={inputCls}
+          />
+        </label>
+        <div className="flex items-center gap-4 sm:col-span-2">
+          <label className="inline-flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={f.recurring}
+              onChange={(e) => setF({ ...f, recurring: e.target.checked })}
+              className="h-4 w-4 rounded border-line"
+            />
+            Recorrente (todo mês)
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={f.status === "paid"}
+              onChange={(e) => setF({ ...f, status: e.target.checked ? "paid" : "pending" })}
+              className="h-4 w-4 rounded border-line"
+            />
+            Já paga
+          </label>
+        </div>
+      </div>
+      {err && <p className="mt-2 text-xs text-rose-400">{err}</p>}
+      <div className="mt-3 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">
+          Cancelar
+        </button>
+        <button
+          onClick={save}
+          disabled={!valid || busy}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Lançar
+        </button>
+      </div>
+    </div>
   );
 }
 
