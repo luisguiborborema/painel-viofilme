@@ -49,6 +49,7 @@ export function ReportsAutomation({ clients }: { clients: ClientOpt[] }) {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial; reload() atualiza estado internamente
     reload().finally(() => setLoading(false));
   }, []);
 

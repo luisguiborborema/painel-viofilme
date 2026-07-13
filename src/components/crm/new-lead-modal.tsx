@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Briefcase, Building2, Check, Loader2, Plus, UserPlus, X } from "lucide-react";
 import {
   DEFAULT_PIPELINE,
@@ -50,6 +50,8 @@ export function NewLeadModal({
   defaultOwner?: string;
 }) {
   const openStages = stages.filter((s) => s.kind === "open");
+  // Contador para ids temporários (modo mock, quando a API não retorna id).
+  const tmpSeq = useRef(0);
 
   // ── Empresa ────────────────────────────────────────────────────────────────
   const [companyInput, setCompanyInput] = useState("");
@@ -162,7 +164,7 @@ export function NewLeadModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "falha");
       onCreated({
-        id: json.id ?? `tmp-${Date.now()}`,
+        id: json.id ?? `tmp-${tmpSeq.current++}`,
         name: d.name.trim(),
         contactName:
           contactMode === "existing"

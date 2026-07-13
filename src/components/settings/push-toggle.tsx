@@ -27,6 +27,7 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
       !("serviceWorker" in navigator) ||
       !("PushManager" in window)
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- capacidade do browser (push) só é conhecida após montar
       setState("unsupported");
       return;
     }

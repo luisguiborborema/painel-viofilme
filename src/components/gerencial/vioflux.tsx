@@ -437,7 +437,7 @@ function PostModal({ post, onClose, onUpdate }: { post: FluxPost; onClose: () =>
 
           <p className="rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
             <Sparkles className="mr-1 inline h-3 w-3" />
-            Modo manual: o agendamento é espelho (não publica) e "Publicado" é marcado à mão. A automação liga quando a App Review da Meta passar.
+            Modo manual: o agendamento é espelho (não publica) e &quot;Publicado&quot; é marcado à mão. A automação liga quando a App Review da Meta passar.
           </p>
         </div>
       </div>

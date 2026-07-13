@@ -32,6 +32,7 @@ export function PwaProvider() {
 
   useEffect(() => {
     const ua = window.navigator.userAgent;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- detecção de plataforma (browser-only) após montar
     setIsIOS(/iPad|iPhone|iPod/.test(ua));
     setStandalone(
       window.matchMedia("(display-mode: standalone)").matches ||

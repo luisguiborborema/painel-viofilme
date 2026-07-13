@@ -46,7 +46,8 @@ export function PlaybooksApp({ sectors }: { sectors: PlaybookSector[] }) {
   function toggle(id: string) {
     setOpen((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }

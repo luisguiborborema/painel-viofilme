@@ -82,6 +82,7 @@ export function ContentApprovalModule({
 
   // Deep-link ?post= abre a pré-visualização ao montar.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link ?post= abre a prévia ao montar
     if (initialPostId) openPreviewById(initialPostId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPostId]);

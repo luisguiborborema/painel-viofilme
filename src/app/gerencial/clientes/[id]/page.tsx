@@ -52,15 +52,6 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Placeholder({ title, text }: { title: string; text: string }) {
-  return (
-    <Card className="p-8 text-center">
-      <p className="text-sm font-semibold text-ink">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted">{text}</p>
-    </Card>
-  );
-}
-
 function Row2({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3">

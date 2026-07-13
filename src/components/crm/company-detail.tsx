@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Briefcase, Mail, Phone, Star, Users } from "lucide-react";
-import { cn, formatBRL } from "@/lib/utils";
+import { formatBRL } from "@/lib/utils";
 import {
   CRM_STAGES,
   stageLabel,

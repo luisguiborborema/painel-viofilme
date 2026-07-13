@@ -61,6 +61,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- init do tema a partir do localStorage após montar (SSR-safe)
     setPreferenceState(pref);
     const r = resolve(pref);
     setTheme(r);

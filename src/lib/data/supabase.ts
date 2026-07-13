@@ -392,7 +392,6 @@ export async function sbGetMediaPerformance(
 
   // Mês atual
   const invested = sum(curAgg, "spend");
-  const clicks = sum(curAgg, "clicks");
   const conversions = sum(curAgg, "conversions");
   const leads = conversions; // sem distinção lead/compra na 1ª versão
   const cpl = leads ? round1(invested / leads) : 0;

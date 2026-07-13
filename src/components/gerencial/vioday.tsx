@@ -164,11 +164,11 @@ export function VioDay({ editorial }: { editorial: EditorialLine }) {
           <h3 className="text-sm font-semibold text-ink">2 · Captura</h3>
         </div>
         <p className="mb-3 text-xs text-muted">
-          {items.length} item(ns) — alimentados automaticamente pelos posts com direcionamento "Media Day".
+          {items.length} item(ns) — alimentados automaticamente pelos posts com direcionamento &quot;Media Day&quot;.
         </p>
         {items.length === 0 ? (
           <p className="rounded-lg bg-subtle px-3 py-6 text-center text-sm text-muted">
-            Nenhum post marcado como "Media Day" na Linha Editorial. Defina o direcionamento de arte na LE para popular aqui.
+            Nenhum post marcado como &quot;Media Day&quot; na Linha Editorial. Defina o direcionamento de arte na LE para popular aqui.
           </p>
         ) : (
           <div className="space-y-2">
@@ -196,7 +196,7 @@ export function VioDay({ editorial }: { editorial: EditorialLine }) {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted">
-          {done} item(ns) na captação. Marcar "Capturado" avança a task na LE e libera os brutos ao editor.
+          {done} item(ns) na captação. Marcar &quot;Capturado&quot; avança a task na LE e libera os brutos ao editor.
         </p>
       </Card>
     </div>

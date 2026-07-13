@@ -19,12 +19,12 @@ export function usePersistentState<T>(
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync SSR-safe pós-montagem (evita mismatch de hidratação)
       if (raw !== null) setValue(JSON.parse(raw) as T);
     } catch {
       /* ignore */
     }
     setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const update = useCallback(

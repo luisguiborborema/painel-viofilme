@@ -239,7 +239,19 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
 }
 
 // --- Visão geral (ENT01-04) --------------------------------------------------
-function Geral({ tasks, onDrill, openTask, clientColor }: {
+function Stat({ label, value, tone, onClick }: { label: string; value: number; tone?: string; onClick?: () => void }) {
+  return (
+    <Card className={cn("p-4", onClick && value > 0 && "cursor-pointer transition-shadow hover:shadow-md")}>
+      <button className="w-full text-left" onClick={onClick} disabled={!onClick || value === 0}>
+        <p className="text-xs text-muted">{label}</p>
+        <p className={cn("mt-1 text-2xl font-bold", tone ?? "text-ink")}>{value}</p>
+        {onClick && value > 0 && <p className="text-[10px] text-brand-500">ver quem</p>}
+      </button>
+    </Card>
+  );
+}
+
+function Geral({ tasks, onDrill }: {
   tasks: DeliveryTask[];
   onDrill: (d: { title: string; list: DeliveryTask[] }) => void;
 } & Shared) {
@@ -251,16 +263,6 @@ function Geral({ tasks, onDrill, openTask, clientColor }: {
   const today = tasks.filter((t) => isActionable(t) && sameDay(t.dueDate, DELIVERY_TODAY_ISO) && !t.late);
   const week = tasks.filter((t) => isActionable(t) && !t.late);
   const maxStage = Math.max(1, ...TASK_STAGES.map((s) => tasks.filter((t) => t.stage === s.key).length));
-
-  const Stat = ({ label, value, tone, onClick }: { label: string; value: number; tone?: string; onClick?: () => void }) => (
-    <Card className={cn("p-4", onClick && value > 0 && "cursor-pointer transition-shadow hover:shadow-md")} >
-      <button className="w-full text-left" onClick={onClick} disabled={!onClick || value === 0}>
-        <p className="text-xs text-muted">{label}</p>
-        <p className={cn("mt-1 text-2xl font-bold", tone ?? "text-ink")}>{value}</p>
-        {onClick && value > 0 && <p className="text-[10px] text-brand-500">ver quem</p>}
-      </button>
-    </Card>
-  );
 
   return (
     <div className="space-y-4">

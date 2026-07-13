@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { LogoHorizontal, LogoMark } from "@/components/brand/logo";
+import { LogoHorizontal } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import type { NavGroup } from "@/lib/nav";
 import type { Role } from "@/lib/auth/types";

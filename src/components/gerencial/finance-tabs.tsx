@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Download,
-  MessageSquare,
   Phone,
   Plus,
   Receipt,

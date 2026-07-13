@@ -40,10 +40,6 @@ function isoDaysAgo(days: number): string {
   return d.toISOString();
 }
 
-function isoDaysAhead(days: number): string {
-  return isoDaysAgo(-days);
-}
-
 function isoAt(daysAhead: number, hour: number, minute: number): string {
   const d = new Date(TODAY);
   d.setUTCDate(d.getUTCDate() + daysAhead);

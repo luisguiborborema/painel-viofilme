@@ -94,6 +94,7 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- rótulo do mês atual via new Date() só no cliente (SSR-safe)
     setPeriod(new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date()));
   }, []);
 
