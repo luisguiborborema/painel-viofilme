@@ -2,18 +2,18 @@ import { Download, HeartHandshake, Plus } from "lucide-react";
 import {
   getAnnouncements,
   getEmployees,
-  getHourBank,
   getHrAlerts,
   getPdiCycle,
   getReviewCycle,
 } from "@/lib/data/rh";
+import { getHourBankView } from "@/lib/data/queries";
 import { RhCultura } from "@/components/gerencial/rh-cultura";
 
-export default function GerencialRh() {
+export default async function GerencialRh() {
   const data = {
     employees: getEmployees(),
     alerts: getHrAlerts(),
-    hourBank: getHourBank(),
+    hourBank: await getHourBankView(),
     pdi: getPdiCycle(),
     review: getReviewCycle(),
     announcements: getAnnouncements(),

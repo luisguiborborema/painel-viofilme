@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
-import { getHourBank } from "@/lib/data/rh";
 import { getDeliveryTasks } from "@/lib/data/operacao";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
@@ -22,11 +21,10 @@ const SKIP_STATUS_SET = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQ
 /**
  * Cron de notificações agendadas (Vercel Cron → CRON_SECRET).
  *
- * Reais (payments/meetings/crm_tasks): lembrete de reunião (24h), fatura a
- * vencer (D-3) e vencida (D+3/D+10/D+20), tarefas atrasadas do CRM e churn
- * (clientes com fatura vencida há 10+ dias).
- * Ainda mock (protegidos por NOTIFY_MOCK_ALERTS): banco de horas e tarefas de
- * entrega — sem fonte real (apontamento/RH em dados de demonstração).
+ * Reais: lembrete de reunião (24h), fatura a vencer (D-3) e vencida
+ * (D+3/D+10/D+20), tarefas atrasadas do CRM, churn (fatura vencida 10+ dias)
+ * e banco de horas (hour_entries — colaboradores acima do limite no mês).
+ * Ainda mock (protegido por NOTIFY_MOCK_ALERTS): tarefas de entrega (M3).
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -262,13 +260,27 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2) Alertas derivados de dados mock (protegidos por flag) --------------
-  if (process.env.NOTIFY_MOCK_ALERTS === "true") {
-    const overLimit = getHourBank().rows.filter((r) => r.tone === "danger").length;
+  // 1f) Banco de horas: colaboradores acima do limite (hour_entries real) ---
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const admin = createAdminClient();
+    const now = new Date();
+    const ymNow = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const { data: he } = await admin.from("hour_entries").select("employee, hours, work_date");
+    const bal = new Map<string, number>();
+    for (const e of he ?? []) {
+      if (!String(e.work_date ?? "").startsWith(ymNow)) continue;
+      const emp = String(e.employee ?? "");
+      bal.set(emp, (bal.get(emp) ?? 0) + Number(e.hours ?? 0));
+    }
+    const overLimit = [...bal.values()].filter((v) => v > 12).length;
     if (overLimit > 0) {
       await trigger.hourBankExceeded(overLimit);
       result.hourBank = overLimit;
     }
+  }
+
+  // 2) Alertas derivados de dados mock (protegidos por flag) --------------
+  if (process.env.NOTIFY_MOCK_ALERTS === "true") {
     const lateTasks = getDeliveryTasks().filter((t) => t.late).length;
     if (lateTasks > 0) {
       await trigger.tasksDue(lateTasks);

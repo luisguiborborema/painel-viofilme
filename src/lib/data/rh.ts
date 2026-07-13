@@ -117,7 +117,26 @@ export type HourRow = {
   tone: "ok" | "warn" | "danger";
 };
 
-export function getHourBank(): { periodLabel: string; total: number; rows: HourRow[] } {
+/** Lançamento individual de horas (+extra / −compensação). */
+export type HourEntry = {
+  id: string;
+  employee: string;
+  workDate: string; // ISO date
+  hours: number;
+  note: string | null;
+};
+
+export type HourBankView = {
+  periodLabel: string;
+  total: number;
+  rows: HourRow[];
+  /** Lançamentos recentes (para a lista/edição). Vazio no mock. */
+  entries: HourEntry[];
+  /** Sugestões de nome para o formulário de lançamento. */
+  employeeNames: string[];
+};
+
+export function getHourBank(): HourBankView {
   const rows: HourRow[] = EMPLOYEES.map((e) => {
     const tone: HourRow["tone"] =
       e.contractType === "pj"
@@ -149,6 +168,8 @@ export function getHourBank(): { periodLabel: string; total: number; rows: HourR
     periodLabel: "Junho 2025",
     total: EMPLOYEES.reduce((s, e) => s + e.hourBalance, 0),
     rows,
+    entries: [],
+    employeeNames: EMPLOYEES.map((e) => e.name),
   };
 }
 

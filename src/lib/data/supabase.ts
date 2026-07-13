@@ -48,6 +48,8 @@ import {
   type ExpenseCategory,
 } from "./gerfinance";
 
+import type { HourBankView, HourEntry, HourRow } from "./rh";
+
 const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 
 const MESES = [
@@ -1145,6 +1147,66 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     topExpenses: topExpensesReal.length ? topExpensesReal : base.topExpenses,
     cashflow,
     cashflowNote,
+  };
+}
+
+// --- banco de horas (hour_entries → saldo do mês) ---------------------------
+export async function sbGetHourBank(): Promise<HourBankView> {
+  const supabase = await createClient();
+  const now = new Date();
+  const ymNow = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+
+  const [{ data: entryRows }, { data: profs }] = await Promise.all([
+    supabase
+      .from("hour_entries")
+      .select("id, employee, work_date, hours, note")
+      .order("work_date", { ascending: false })
+      .limit(200),
+    supabase.from("profiles").select("full_name").eq("role", "gerencial").order("full_name"),
+  ]);
+
+  const entries: HourEntry[] = (entryRows ?? []).map((e) => ({
+    id: String(e.id),
+    employee: String(e.employee ?? "—"),
+    workDate: (e.work_date as string) ?? "",
+    hours: Number(e.hours ?? 0),
+    note: (e.note as string) ?? null,
+  }));
+
+  // Saldo do mês corrente por colaborador (soma dos lançamentos).
+  const byEmp = new Map<string, number>();
+  for (const e of entries) {
+    if (!e.workDate.startsWith(ymNow)) continue;
+    byEmp.set(e.employee, (byEmp.get(e.employee) ?? 0) + e.hours);
+  }
+
+  const LIMIT = 8;
+  const rows: HourRow[] = [...byEmp.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, raw]) => {
+      const balance = Math.round(raw * 10) / 10;
+      const tone: HourRow["tone"] = balance > 12 ? "danger" : balance > LIMIT ? "warn" : "ok";
+      const note =
+        balance > 12
+          ? `Acima do limite (${LIMIT}h/mês)`
+          : balance > LIMIT
+            ? "Perto do limite"
+            : "Dentro do limite";
+      return { id: name, name, contractType: "clt" as const, balance, limit: LIMIT, note, tone };
+    });
+
+  const total = Math.round([...byEmp.values()].reduce((s, v) => s + v, 0) * 10) / 10;
+
+  const names = new Set<string>();
+  for (const p of profs ?? []) if (p.full_name) names.add(String(p.full_name));
+  for (const e of entries) names.add(e.employee);
+
+  return {
+    periodLabel: periodLabel(now),
+    total,
+    rows,
+    entries,
+    employeeNames: [...names].sort(),
   };
 }
 

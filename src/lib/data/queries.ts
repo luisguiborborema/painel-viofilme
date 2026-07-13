@@ -615,6 +615,14 @@ export async function getGerFinance(): Promise<GerFinance> {
   return gerFinanceMock();
 }
 
+import { getHourBank as hourBankMock, type HourBankView } from "./rh";
+
+/** Banco de horas: saldo do mês por colaborador (real via hour_entries). */
+export async function getHourBankView(): Promise<HourBankView> {
+  if (isSupabaseConfigured()) return sb.sbGetHourBank();
+  return hourBankMock();
+}
+
 // ---------------------------------------------------------------------------
 // Hub de acessos & ativos de marca (M6)
 // ---------------------------------------------------------------------------
