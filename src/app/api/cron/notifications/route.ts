@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
 
   const result: Record<string, number> = {
     meetingReminders: 0,
+    invoiceDue: 0,
+    paymentOverdue: 0,
     churn: 0,
     hourBank: 0,
     tasks: 0,
@@ -181,6 +183,54 @@ export async function GET(request: NextRequest) {
       if (teamFallback.length && WHATSAPP_NOTIFY_NUMBERS.length) {
         const message = `⏰ *Tarefas atrasadas no CRM (sem responsável com WhatsApp)*\n\n${teamFallback.join("\n\n")}`;
         for (const num of WHATSAPP_NOTIFY_NUMBERS) await sendWhatsappText(num, message);
+      }
+    }
+  }
+
+  // 1d) Financeiro: fatura a vencer (D-3) e vencida (D+3/D+10/D+20) ---------
+  // Lê o `payments` real. Dispara só nos offsets da régua para não repetir
+  // diariamente a mesma fatura (o cron roda 1x/dia).
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const admin = createAdminClient();
+    const now = new Date();
+    const dayMs = 86_400_000;
+    const PAID = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
+    const SKIP = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
+    const lo = new Date(now.getTime() - 21 * dayMs).toISOString().slice(0, 10);
+    const hi = new Date(now.getTime() + 4 * dayMs).toISOString().slice(0, 10);
+
+    const { data: pays } = await admin
+      .from("payments")
+      .select("client_id, value, due_date, status")
+      .not("client_id", "is", null)
+      .gte("due_date", lo)
+      .lte("due_date", hi);
+
+    const brl = (v: number) =>
+      Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    for (const p of pays ?? []) {
+      const clientId = p.client_id as string | null;
+      const due = p.due_date as string | null;
+      const status = String(p.status ?? "");
+      if (!clientId || !due || PAID.has(status) || SKIP.has(status)) continue;
+
+      const days = Math.round((new Date(due).getTime() - now.getTime()) / dayMs);
+      const amount = brl(Number(p.value ?? 0));
+      const dueLabel = new Date(due).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+
+      if (days === 3) {
+        await trigger.invoiceDue(clientId, amount, `em ${dueLabel}`);
+        result.invoiceDue++;
+      } else if (days < 0) {
+        const od = -days;
+        if (od === 3 || od === 10 || od === 20) {
+          await trigger.paymentOverdue(clientId, amount);
+          result.paymentOverdue++;
+        }
       }
     }
   }
