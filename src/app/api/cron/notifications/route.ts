@@ -1,15 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
 import { getDeliveryTasks } from "@/lib/data/operacao";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
-import {
-  buildUpdateMessage,
-  isDue,
-  type UpdateMetric,
-} from "@/lib/data/recurring";
+import { isDue, type UpdateMetric } from "@/lib/data/recurring";
+import { formatCompact, formatNumber } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +16,152 @@ export const dynamic = "force-dynamic";
 const PAID_STATUS_SET = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
 const SKIP_STATUS_SET = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
 
+// --- Update recorrente: métricas reais (admin, sem sessão) -------------------
+const UPDATE_LABEL: Record<UpdateMetric, string> = {
+  followers_growth: "Crescimento de seguidores",
+  reach: "Alcance",
+  engagement: "Engajamento",
+  conversions: "Conversões",
+};
+
+function dISO(nowMs: number, daysAgo: number): string {
+  return new Date(nowMs - daysAgo * 86_400_000).toISOString().slice(0, 10);
+}
+
+function pctVar(cur: number, prev: number): string {
+  if (prev <= 0) return cur > 0 ? "novo" : "—";
+  const p = Math.round(((cur - prev) / prev) * 100);
+  return `${p >= 0 ? "+" : ""}${p}%`;
+}
+
+async function sumReach(admin: SupabaseClient, clientId: string, from: string, to: string): Promise<number> {
+  const { data } = await admin
+    .from("account_metrics")
+    .select("reach")
+    .eq("client_id", clientId)
+    .gte("date", from)
+    .lt("date", to);
+  return (data ?? []).reduce((s, r) => s + Number((r as { reach?: number }).reach || 0), 0);
+}
+
+async function sumConversions(admin: SupabaseClient, clientId: string, from: string, to: string): Promise<number> {
+  const { data: camps } = await admin.from("campaigns").select("id").eq("client_id", clientId);
+  const ids = (camps ?? []).map((c) => (c as { id: string }).id);
+  if (!ids.length) return 0;
+  const { data } = await admin
+    .from("campaign_metrics")
+    .select("conversions")
+    .in("campaign_id", ids)
+    .gte("date", from)
+    .lt("date", to);
+  return (data ?? []).reduce((s, r) => s + Number((r as { conversions?: number }).conversions || 0), 0);
+}
+
+async function followerDelta(admin: SupabaseClient, clientId: string, from: string, to: string): Promise<number> {
+  const { data } = await admin
+    .from("account_metrics")
+    .select("platform, date, followers")
+    .eq("client_id", clientId)
+    .gte("date", from)
+    .lt("date", to)
+    .order("date");
+  const first = new Map<string, number>();
+  const last = new Map<string, number>();
+  for (const r of data ?? []) {
+    const row = r as { platform?: string; followers?: number };
+    const p = String(row.platform ?? "");
+    const f = Number(row.followers || 0);
+    if (!first.has(p)) first.set(p, f);
+    last.set(p, f);
+  }
+  let delta = 0;
+  for (const p of last.keys()) delta += (last.get(p) ?? 0) - (first.get(p) ?? 0);
+  return delta;
+}
+
+async function engagementRate(admin: SupabaseClient, clientId: string, from: string, to: string): Promise<number> {
+  const { data } = await admin
+    .from("content_posts")
+    .select("likes, comments, shares, saves, reach")
+    .eq("client_id", clientId)
+    .eq("status", "published")
+    .gte("published_at", from)
+    .lt("published_at", to);
+  let inter = 0;
+  let reach = 0;
+  for (const r of data ?? []) {
+    const x = r as { likes?: number; comments?: number; shares?: number; saves?: number; reach?: number };
+    inter += Number(x.likes || 0) + Number(x.comments || 0) + Number(x.shares || 0) + Number(x.saves || 0);
+    reach += Number(x.reach || 0);
+  }
+  return reach > 0 ? (inter / reach) * 100 : 0;
+}
+
+/** Valor + variação de uma métrica do update (30d vs. 30d anteriores). */
+async function realUpdateMetric(
+  admin: SupabaseClient,
+  clientId: string,
+  metric: UpdateMetric,
+): Promise<{ formatted: string; variation: string }> {
+  const now = Date.now();
+  const d0 = dISO(now, 0);
+  const d30 = dISO(now, 30);
+  const d60 = dISO(now, 60);
+
+  if (metric === "reach") {
+    const [cur, prev] = [await sumReach(admin, clientId, d30, d0), await sumReach(admin, clientId, d60, d30)];
+    return { formatted: formatCompact(cur), variation: pctVar(cur, prev) };
+  }
+  if (metric === "conversions") {
+    const [cur, prev] = [
+      await sumConversions(admin, clientId, d30, d0),
+      await sumConversions(admin, clientId, d60, d30),
+    ];
+    return { formatted: formatNumber(cur), variation: pctVar(cur, prev) };
+  }
+  if (metric === "followers_growth") {
+    const [cur, prev] = [
+      await followerDelta(admin, clientId, d30, d0),
+      await followerDelta(admin, clientId, d60, d30),
+    ];
+    return {
+      formatted: cur >= 0 ? `+${formatNumber(cur)}` : formatNumber(cur),
+      variation: pctVar(cur, prev),
+    };
+  }
+  // engagement
+  const cur = await engagementRate(admin, clientId, d30, d0);
+  const prev = await engagementRate(admin, clientId, d60, d30);
+  const pp = Math.round((cur - prev) * 10) / 10;
+  return { formatted: `${cur.toFixed(1)}%`, variation: `${pp >= 0 ? "+" : ""}${pp}pp` };
+}
+
+/** Monta a mensagem do update recorrente com métricas reais. */
+async function buildRealUpdateMessage(
+  admin: SupabaseClient,
+  clientName: string,
+  clientId: string,
+  metrics: UpdateMetric[],
+): Promise<string> {
+  const lines: string[] = [];
+  for (const m of metrics) {
+    const r = await realUpdateMetric(admin, clientId, m);
+    lines.push(`• ${UPDATE_LABEL[m]}: *${r.formatted}* (${r.variation})`);
+  }
+  return [
+    `Olá! 👋 Resumo de ${clientName} — Viofilme:`,
+    "",
+    ...lines,
+    "",
+    "Qualquer dúvida, é só chamar por aqui. 🚀",
+  ].join("\n");
+}
+
 /**
  * Cron de notificações agendadas (Vercel Cron → CRON_SECRET).
  *
- * Reais: lembrete de reunião (24h), fatura a vencer (D-3) e vencida
+ * Reais: lembrete de reunião (24h), updates recorrentes no WhatsApp (métricas
+ * da sincronização Meta, via admin), fatura a vencer (D-3) e vencida
  * (D+3/D+10/D+20), tarefas atrasadas do CRM, churn (fatura vencida 10+ dias)
  * e banco de horas (hour_entries — colaboradores acima do limite no mês).
  * Ainda mock (protegido por NOTIFY_MOCK_ALERTS): tarefas de entrega (M3).
@@ -105,7 +245,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const message = buildUpdateMessage(clientName, String(u.client_id), metrics);
+      const message = await buildRealUpdateMessage(admin, clientName, String(u.client_id), metrics);
       const sent = isWhatsappConfigured() ? await sendWhatsappText(phone, message) : false;
 
       await admin.from("recurring_update_logs").insert({
