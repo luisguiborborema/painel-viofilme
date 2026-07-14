@@ -18,6 +18,7 @@ import {
   REPORT_INTEGRATIONS,
   REPORT_ORGANIC_METRICS,
   REPORT_PAID_METRICS,
+  type ReportSummary,
 } from "@/lib/data/operacao";
 import {
   resolveReportSummary,
@@ -92,14 +93,31 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
   const [period, setPeriod] = useState("");
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [summary, setSummary] = useState<ReportSummary>(() =>
+    resolveReportSummary(clients[0]?.id ?? "seed"),
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- rótulo do mês atual via new Date() só no cliente (SSR-safe)
     setPeriod(new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date()));
   }, []);
 
+  // Resumo real do cliente selecionado (métricas da sincronização Meta).
+  useEffect(() => {
+    if (!clientId) return;
+    let alive = true;
+    fetch(`/api/reports/summary?clientId=${encodeURIComponent(clientId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.summary) setSummary(j.summary);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [clientId]);
+
   const client = clients.find((c) => c.id === clientId);
-  const summary = resolveReportSummary(clientId || "seed");
   const history = getReportHistory();
 
   const toggle = (set: Set<string>, key: string) => {

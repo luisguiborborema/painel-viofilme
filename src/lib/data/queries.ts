@@ -623,6 +623,42 @@ export async function getHourBankView(): Promise<HourBankView> {
   return hourBankMock();
 }
 
+import { resolveReportSummary } from "./reports";
+import type { ReportSummary } from "./operacao";
+
+/**
+ * Resumo do relatório do cliente para a Central de Relatórios. Real quando o
+ * Supabase está ligado (métricas da sincronização Meta); mock no modo demo.
+ * Comentários/salvamentos são estimados (o Meta não sincroniza esses campos).
+ */
+export async function getReportSummaryView(clientId: string): Promise<ReportSummary> {
+  if (!isSupabaseConfigured()) return resolveReportSummary(clientId || "seed");
+  const [media, organic] = await Promise.all([
+    getMediaPerformance(clientId),
+    getOrganicResults(clientId),
+  ]);
+  const t = organic.totals;
+  const cliques = media.campaigns.reduce((s, c) => s + c.clicks, 0);
+  return {
+    organic: {
+      seguidores: Math.round(t.followersDelta),
+      alcance: Math.round(t.reach),
+      engajamento: Math.round(t.engagement * 10) / 10,
+      impressoes: Math.round(t.impressions),
+      comentarios: Math.round(t.reach * 0.008),
+      salvamentos: Math.round(t.reach * 0.02),
+    },
+    paid: {
+      investimento: Math.round(media.invested),
+      leads: Math.round(media.leads),
+      cpl: media.cpl,
+      conversoes: Math.round(media.conversions),
+      cliques: Math.round(cliques),
+      cpa: media.cpa,
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Hub de acessos & ativos de marca (M6)
 // ---------------------------------------------------------------------------
