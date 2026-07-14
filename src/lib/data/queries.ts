@@ -624,7 +624,23 @@ export async function getHourBankView(): Promise<HourBankView> {
 }
 
 import { resolveReportSummary } from "./reports";
-import type { ReportSummary } from "./operacao";
+import {
+  getDeliveryTasks as deliveryTasksMock,
+  type DeliveryTask,
+  type ReportSummary,
+} from "./operacao";
+
+/** Tarefas do Painel de Entregas — real (delivery_tasks) ou mock. */
+export async function getDeliveryTasks(): Promise<DeliveryTask[]> {
+  if (isSupabaseConfigured()) return sb.sbGetDeliveryTasks();
+  return deliveryTasksMock();
+}
+
+/** Entregas de um cliente (por nome), real ou mock. */
+export async function getClientTasks(clientName: string): Promise<DeliveryTask[]> {
+  const all = await getDeliveryTasks();
+  return all.filter((t) => t.client === clientName);
+}
 
 /**
  * Resumo do relatório do cliente para a Central de Relatórios. Real quando o

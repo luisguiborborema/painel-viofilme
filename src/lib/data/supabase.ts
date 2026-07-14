@@ -49,8 +49,12 @@ import {
 } from "./gerfinance";
 
 import type { HourBankView, HourEntry, HourRow } from "./rh";
+import type { DeliveryTask, TaskOrigin, TaskStage, TaskType } from "./operacao";
 
 const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
+const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
+const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa"]);
+const DELIVERY_STAGES = new Set<string>(["todo", "doing", "review", "approval", "done"]);
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -1208,6 +1212,77 @@ export async function sbGetHourBank(): Promise<HourBankView> {
     entries,
     employeeNames: [...names].sort(),
   };
+}
+
+// --- entregas (delivery_tasks → Painel de Entregas) -------------------------
+type DeliveryRow = {
+  id: string;
+  title: string;
+  type: string | null;
+  origin: string | null;
+  assignee: string | null;
+  stage: string | null;
+  due_date: string | null;
+  estimate_h: number | null;
+  logged_h: number | null;
+  urgent: boolean | null;
+  clients: { name: string | null } | { name: string | null }[] | null;
+};
+
+export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("delivery_tasks")
+    .select(
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, clients(name)",
+    )
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .limit(500);
+
+  const now = new Date();
+  const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dayMs = 86_400_000;
+
+  return ((data ?? []) as unknown as DeliveryRow[]).map((r) => {
+    const co = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+    const stage = (DELIVERY_STAGES.has(r.stage ?? "") ? r.stage : "todo") as TaskStage;
+    const type = (DELIVERY_TYPES.has(r.type ?? "") ? r.type : "Arte") as TaskType;
+    const origin = (DELIVERY_ORIGINS.has(r.origin ?? "") ? r.origin : "Tarefa avulsa") as TaskOrigin;
+    const due = r.due_date ?? "";
+    const dueMs = due ? Date.parse(due) : NaN;
+    const diffDays = Number.isNaN(dueMs) ? 0 : Math.round((dueMs - todayMs) / dayMs);
+    const late = !Number.isNaN(dueMs) && diffDays < 0 && stage !== "done" && stage !== "approval";
+    const wd = Number.isNaN(dueMs) ? 1 : new Date(dueMs).getUTCDay(); // 0=Dom..6=Sáb
+    const day = Math.min(4, Math.max(0, wd - 1));
+
+    const baseLabel = !due
+      ? "Sem prazo"
+      : late
+        ? `Atrasada ${Math.abs(diffDays)}d`
+        : diffDays === 0
+          ? "Hoje"
+          : diffDays === 1
+            ? "Amanhã"
+            : new Date(dueMs).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+    return {
+      id: r.id,
+      title: r.title,
+      client: co?.name ?? "—",
+      type,
+      origin,
+      assignee: r.assignee ?? "",
+      stage,
+      dueLabel: r.urgent ? `${baseLabel} · urgente` : baseLabel,
+      late,
+      estimateH: Number(r.estimate_h ?? 0),
+      loggedH: Number(r.logged_h ?? 0),
+      day,
+      startDay: day,
+      span: 1,
+      dueDate: due ? new Date(dueMs).toISOString() : "",
+    } satisfies DeliveryTask;
+  });
 }
 
 // ── Módulo 2: CRM & Vendas ───────────────────────────────────────────────────

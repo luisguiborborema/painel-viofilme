@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
-import { getDeliveryTasks } from "@/lib/data/operacao";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import { isDue, type UpdateMetric } from "@/lib/data/recurring";
@@ -160,11 +159,11 @@ async function buildRealUpdateMessage(
 /**
  * Cron de notificações agendadas (Vercel Cron → CRON_SECRET).
  *
- * Reais: lembrete de reunião (24h), updates recorrentes no WhatsApp (métricas
- * da sincronização Meta, via admin), fatura a vencer (D-3) e vencida
- * (D+3/D+10/D+20), tarefas atrasadas do CRM, churn (fatura vencida 10+ dias)
- * e banco de horas (hour_entries — colaboradores acima do limite no mês).
- * Ainda mock (protegido por NOTIFY_MOCK_ALERTS): tarefas de entrega (M3).
+ * Todos os alertas usam dados reais: lembrete de reunião (24h), updates
+ * recorrentes no WhatsApp (métricas da sincronização Meta, via admin), fatura
+ * a vencer (D-3) e vencida (D+3/D+10/D+20), tarefas atrasadas do CRM, churn
+ * (fatura vencida 10+ dias), banco de horas (acima do limite no mês) e
+ * entregas atrasadas (delivery_tasks).
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -419,9 +418,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2) Alertas derivados de dados mock (protegidos por flag) --------------
-  if (process.env.NOTIFY_MOCK_ALERTS === "true") {
-    const lateTasks = getDeliveryTasks().filter((t) => t.late).length;
+  // 1g) Entregas atrasadas (delivery_tasks real) ---------------------------
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const admin = createAdminClient();
+    const today = new Date().toISOString().slice(0, 10);
+    const { count } = await admin
+      .from("delivery_tasks")
+      .select("id", { count: "exact", head: true })
+      .lt("due_date", today)
+      .not("stage", "in", "(done,approval)");
+    const lateTasks = count ?? 0;
     if (lateTasks > 0) {
       await trigger.tasksDue(lateTasks);
       result.tasks = lateTasks;

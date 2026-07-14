@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   Clock,
   KanbanSquare,
   LayoutDashboard,
+  Loader2,
+  Plus,
   Users,
   UserSquare2,
   X,
@@ -49,7 +52,29 @@ const ORIGINS: TaskOrigin[] = ["Linha editorial", "Projeto", "Tarefa avulsa"];
 const CLIENT_PALETTE = ["#2a63c9", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0284c7", "#be185d", "#0f766e"];
 
 const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
-const memberInitials = (id: string) => OPS_TEAM.find((m) => m.id === id)?.initials ?? "?";
+const memberInitials = (id: string) => {
+  const m = OPS_TEAM.find((x) => x.id === id);
+  if (m) return m.initials;
+  // Responsável real: iniciais a partir do próprio nome.
+  return (
+    id
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
+};
+
+async function postDelivery(body: unknown): Promise<boolean> {
+  const res = await fetch("/api/gerencial/delivery-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
 
 function sameDay(a: string, b: string) {
   const x = new Date(a), y = new Date(b);
@@ -69,8 +94,25 @@ function Avatar({ id }: { id: string }) {
   );
 }
 
-export function DeliveryPanel({ tasks: initial, meName }: { tasks: DeliveryTask[]; meName?: string }) {
+export function DeliveryPanel({
+  tasks: initial,
+  meName,
+  clients = [],
+  team = [],
+}: {
+  tasks: DeliveryTask[];
+  meName?: string;
+  clients?: { id: string; name: string }[];
+  team?: string[];
+}) {
+  const router = useRouter();
   const [items, setItems] = useState(initial);
+  // Re-sincroniza com o servidor quando a lista muda (após criar/refresh).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-seed da lista vinda do servidor
+    setItems(initial);
+  }, [initial]);
+  const [showNew, setShowNew] = useState(false);
   const [view, setView] = useState<View>("geral");
   const [mode, setMode] = useState<"meu" | "time">("time");
   const [assignee, setAssignee] = useState<string | null>(null);
@@ -106,6 +148,7 @@ export function DeliveryPanel({ tasks: initial, meName }: { tasks: DeliveryTask[
   function setStage(id: string, stage: TaskStage) {
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)));
     setSelected((s) => (s && s.id === id ? { ...s, stage } : s));
+    void postDelivery({ action: "set-stage", id, stage });
   }
 
   const shared = { openTask: setSelected, clientColor };
@@ -180,7 +223,25 @@ export function DeliveryPanel({ tasks: initial, meName }: { tasks: DeliveryTask[
         {mode === "meu" && !meId && (
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
+        <button
+          onClick={() => setShowNew((v) => !v)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Nova tarefa
+        </button>
       </div>
+
+      {showNew && (
+        <NewDeliveryTask
+          clients={clients}
+          team={team}
+          onClose={() => setShowNew(false)}
+          onCreated={() => {
+            setShowNew(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} {...shared} />}
       {view === "kanban" && <Kanban tasks={filtered} onStage={setStage} {...shared} />}
@@ -203,6 +264,181 @@ export function DeliveryPanel({ tasks: initial, meName }: { tasks: DeliveryTask[
           }}
         />
       )}
+    </div>
+  );
+}
+
+const DELIVERY_TYPES: TaskType[] = ["Arte", "Vídeo", "Copy", "Tráfego"];
+const NEW_DELIVERY = {
+  title: "",
+  clientId: "",
+  assignee: "",
+  type: "Arte" as TaskType,
+  origin: "Linha editorial" as TaskOrigin,
+  dueDate: "",
+  estimateH: "",
+  urgent: false,
+};
+
+function NewDeliveryTask({
+  clients,
+  team,
+  onClose,
+  onCreated,
+}: {
+  clients: { id: string; name: string }[];
+  team: string[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [f, setF] = useState(NEW_DELIVERY);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const valid = f.title.trim().length > 0;
+  const inputCls =
+    "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+  const lbl = "mb-0.5 block text-[11px] font-medium text-muted";
+
+  async function save() {
+    if (!valid || busy) return;
+    setBusy(true);
+    setErr(null);
+    const est = Number(f.estimateH.replace(",", "."));
+    const ok = await postDelivery({
+      action: "create",
+      title: f.title.trim(),
+      clientId: f.clientId || undefined,
+      assignee: f.assignee.trim() || undefined,
+      type: f.type,
+      origin: f.origin,
+      dueDate: f.dueDate || undefined,
+      estimateH: Number.isFinite(est) ? est : 0,
+      urgent: f.urgent,
+    });
+    setBusy(false);
+    if (ok) onCreated();
+    else setErr("Não foi possível salvar. Tente novamente.");
+  }
+
+  return (
+    <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-ink">Nova tarefa de entrega</p>
+        <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
+          <span className={lbl}>Título *</span>
+          <input
+            value={f.title}
+            onChange={(e) => setF({ ...f, title: e.target.value })}
+            placeholder="Ex.: Arte carrossel — campanha julho"
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className={lbl}>Cliente</span>
+          <select
+            value={f.clientId}
+            onChange={(e) => setF({ ...f, clientId: e.target.value })}
+            className={inputCls}
+          >
+            <option value="">—</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className={lbl}>Responsável</span>
+          <input
+            list="delivery-team"
+            value={f.assignee}
+            onChange={(e) => setF({ ...f, assignee: e.target.value })}
+            placeholder="Nome"
+            className={inputCls}
+          />
+          <datalist id="delivery-team">
+            {team.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+        </label>
+        <label className="block">
+          <span className={lbl}>Tipo</span>
+          <select
+            value={f.type}
+            onChange={(e) => setF({ ...f, type: e.target.value as TaskType })}
+            className={inputCls}
+          >
+            {DELIVERY_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className={lbl}>Origem</span>
+          <select
+            value={f.origin}
+            onChange={(e) => setF({ ...f, origin: e.target.value as TaskOrigin })}
+            className={inputCls}
+          >
+            {ORIGINS.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className={lbl}>Prazo</span>
+          <input
+            type="date"
+            value={f.dueDate}
+            onChange={(e) => setF({ ...f, dueDate: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="block">
+          <span className={lbl}>Estimativa (h)</span>
+          <input
+            value={f.estimateH}
+            onChange={(e) => setF({ ...f, estimateH: e.target.value })}
+            inputMode="decimal"
+            placeholder="0"
+            className={inputCls}
+          />
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm text-ink sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={f.urgent}
+            onChange={(e) => setF({ ...f, urgent: e.target.checked })}
+            className="h-4 w-4 rounded border-line"
+          />
+          Urgente
+        </label>
+      </div>
+      {err && <p className="mt-2 text-xs text-rose-400">{err}</p>}
+      <div className="mt-3 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">
+          Cancelar
+        </button>
+        <button
+          onClick={save}
+          disabled={!valid || busy}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Criar
+        </button>
+      </div>
     </div>
   );
 }
