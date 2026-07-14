@@ -49,7 +49,52 @@ import {
 } from "./gerfinance";
 
 import type { HourBankView, HourEntry, HourRow } from "./rh";
-import type { DeliveryTask, TaskOrigin, TaskStage, TaskType } from "./operacao";
+import {
+  servicesForPlan,
+  deliverablesForPlan,
+  responsiblesFor,
+  semaforoFrom,
+  tasksForClientName,
+  type DeliveryTask,
+  type TaskOrigin,
+  type TaskStage,
+  type TaskType,
+  type HubClientOps,
+  type HubPlan,
+  type HubStatus,
+} from "./operacao";
+import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from "./types";
+
+type HubClientRow = {
+  id: string;
+  name: string | null;
+  segment: string | null;
+  status: string | null;
+  monthly_fee: number | null;
+  created_at: string | null;
+};
+
+/** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso). */
+function clientHealth(overdueDays: number, posts30: number, lateCount: number) {
+  let s = 100;
+  if (overdueDays > 0) s -= Math.min(45, 12 + overdueDays * 1.6);
+  s -= posts30 === 0 ? 25 : posts30 < 3 ? 10 : 0;
+  s -= Math.min(20, lateCount * 7);
+  const healthScore = Math.max(0, Math.round(s));
+  return {
+    healthScore,
+    atRisk: healthScore < 55 || overdueDays >= 10,
+    healthy: healthScore >= 75 && overdueDays === 0,
+  };
+}
+function planFromFee(fee: number): HubPlan {
+  return fee >= 4500 ? "Full Service" : fee >= 3000 ? "Tráfego + Social" : "Social Pro";
+}
+function financialStatus(overdueDays: number): CSStatus {
+  if (overdueDays >= 10) return { label: `Vencida ${overdueDays}d`, tone: "danger" };
+  if (overdueDays > 0) return { label: `Vencida ${overdueDays}d`, tone: "warn" };
+  return { label: "Em dia", tone: "ok" };
+}
 
 const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
@@ -1291,6 +1336,228 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
         : [],
     } satisfies DeliveryTask;
   });
+}
+
+// --- Hub de Clientes / health (clients + payments + tasks + atividade) -------
+export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
+  const supabase = await createClient();
+  const now = new Date();
+  const dayMs = 86_400_000;
+  const todayStr = now.toISOString().slice(0, 10);
+  const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
+
+  const [clientsRes, tasks, paysRes, postsRes] = await Promise.all([
+    supabase.from("clients").select("id, name, segment, status, monthly_fee, created_at").order("name"),
+    sbGetDeliveryTasks(),
+    supabase
+      .from("payments")
+      .select("client_id, status, due_date")
+      .not("client_id", "is", null)
+      .lte("due_date", todayStr),
+    supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
+  ]);
+
+  const overdueByClient = new Map<string, number>();
+  for (const p of (paysRes.data ?? []) as {
+    client_id: string;
+    status: string | null;
+    due_date: string | null;
+  }[]) {
+    const st = String(p.status ?? "");
+    if (PAID_STATUS.has(st) || st === "REFUNDED" || st === "DELETED") continue;
+    if (!p.due_date) continue;
+    const od = Math.round((todayMs - Date.parse(p.due_date)) / dayMs);
+    if (od <= 0) continue;
+    overdueByClient.set(p.client_id, Math.max(overdueByClient.get(p.client_id) ?? 0, od));
+  }
+  const postsByClient = new Map<string, number>();
+  for (const p of (postsRes.data ?? []) as { client_id: string }[]) {
+    postsByClient.set(p.client_id, (postsByClient.get(p.client_id) ?? 0) + 1);
+  }
+
+  return ((clientsRes.data ?? []) as HubClientRow[]).map((c, idx) => {
+    const cid = String(c.id);
+    const name = c.name ?? "Cliente";
+    const fee = Number(c.monthly_fee ?? 0);
+    const t = tasksForClientName(name, tasks);
+    const overdueDays = overdueByClient.get(cid) ?? 0;
+    const posts30 = postsByClient.get(cid) ?? 0;
+    const h = clientHealth(overdueDays, posts30, t.filter((x) => x.late).length);
+    const plan = planFromFee(fee);
+    const createdMs = c.created_at ? Date.parse(c.created_at) : NaN;
+    const isNew = !Number.isNaN(createdMs) && now.getTime() - createdMs < 30 * dayMs;
+    const status: HubStatus = isNew ? "onboarding" : "ativo";
+    return {
+      id: cid,
+      name,
+      segment: c.segment ?? "—",
+      city: "—",
+      plan,
+      status,
+      atRisk: h.atRisk,
+      healthScore: h.healthScore,
+      nps: 0,
+      responsavel: "—",
+      mrr: fee,
+      onboarding: isNew
+        ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
+        : undefined,
+      squadId: "sq-1",
+      squadName: "Produção",
+      responsibles: responsiblesFor(idx),
+      services: servicesForPlan(plan),
+      deliverables: deliverablesForPlan(plan),
+      monthTotal: t.length,
+      monthDone: t.filter((x) => x.stage === "done").length,
+      monthApproval: t.filter((x) => x.stage === "approval").length,
+      leNextMonth: { status: "pendente" as const, date: "prazo 25" },
+      nextAgenda: isNew ? "Kickoff · esta semana" : "Alinhamento mensal",
+      semaforo: semaforoFrom(t),
+    } satisfies HubClientOps;
+  });
+}
+
+export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | null> {
+  const supabase = await createClient();
+  const { data: cRaw } = await supabase
+    .from("clients")
+    .select("id, name, segment, status, monthly_fee, created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!cRaw) return null;
+  const c = cRaw as HubClientRow;
+  const name = c.name ?? "Cliente";
+
+  const now = new Date();
+  const dayMs = 86_400_000;
+  const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
+
+  const [tasksAll, paysRes, postsRes, media, meetingsRes] = await Promise.all([
+    sbGetDeliveryTasks(),
+    supabase
+      .from("payments")
+      .select("status, due_date, payment_date, value")
+      .eq("client_id", id)
+      .order("due_date", { ascending: false })
+      .limit(50),
+    supabase
+      .from("content_posts")
+      .select("id")
+      .eq("status", "published")
+      .eq("client_id", id)
+      .gte("published_at", d30),
+    sbGetMediaPerformance(id),
+    supabase
+      .from("meetings")
+      .select("title, starts_at")
+      .eq("client_id", id)
+      .gte("starts_at", now.toISOString())
+      .order("starts_at")
+      .limit(1),
+  ]);
+
+  const pays = (paysRes.data ?? []) as {
+    status: string | null;
+    due_date: string | null;
+    payment_date: string | null;
+    value: number | null;
+  }[];
+  let overdueDays = 0;
+  for (const p of pays) {
+    const st = String(p.status ?? "");
+    if (PAID_STATUS.has(st) || st === "REFUNDED" || st === "DELETED") continue;
+    if (!p.due_date) continue;
+    const od = Math.round((todayMs - Date.parse(p.due_date)) / dayMs);
+    if (od > overdueDays) overdueDays = od;
+  }
+  const tasks = tasksForClientName(name, tasksAll);
+  const posts30 = (postsRes.data ?? []).length;
+  const h = clientHealth(overdueDays, posts30, tasks.filter((t) => t.late).length);
+
+  const fee = Number(c.monthly_fee ?? 0);
+  const plan = planFromFee(fee);
+  const createdMs = c.created_at ? Date.parse(c.created_at) : NaN;
+  const months = Number.isNaN(createdMs)
+    ? 1
+    : Math.max(1, Math.round((now.getTime() - createdMs) / (30 * dayMs)));
+  const clientSince = Number.isNaN(createdMs) ? "—" : new Date(createdMs).toLocaleDateString("pt-BR");
+
+  const client: CSClient = {
+    id,
+    name,
+    segment: c.segment ?? "—",
+    city: "—",
+    mrr: fee,
+    healthScore: h.healthScore,
+    nps: 0,
+    financial: financialStatus(overdueDays),
+    contract: {
+      label: c.status === "ativo" ? "Ativo" : String(c.status ?? "—"),
+      tone: c.status === "ativo" ? "ok" : "warn",
+    },
+    cs: "—",
+    lastContactDays: 0,
+    atRisk: h.atRisk,
+    healthy: h.healthy,
+    renewingSoon: false,
+  };
+
+  const timeline: CSTimelineEvent[] = pays
+    .filter((p) => p.payment_date)
+    .slice(0, 5)
+    .map((p, i) => ({
+      id: `pay-${i}`,
+      date: new Date(String(p.payment_date)).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      text: `Pagamento confirmado${p.value ? ` — R$ ${Number(p.value).toLocaleString("pt-BR")}` : ""}`,
+      kind: "payment",
+    }));
+
+  const mtg = (meetingsRes.data ?? [])[0] as { title: string | null; starts_at: string | null } | undefined;
+  const nextMeeting = mtg?.starts_at
+    ? {
+        title: String(mtg.title ?? "Reunião"),
+        whenLabel: new Date(mtg.starts_at).toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      }
+    : null;
+
+  const cplTone = (cpl: number): CSTone => (cpl <= 10 ? "ok" : cpl <= 15 ? "warn" : "danger");
+
+  return {
+    client,
+    contactName: "—",
+    contactRole: "—",
+    phone: "—",
+    email: "—",
+    clientSince,
+    plan,
+    tenure: `${months} ${months === 1 ? "mês" : "meses"}`,
+    ltv: fee * months,
+    invoicesNote: overdueDays > 0 ? `Fatura vencida ${overdueDays}d` : "Faturas em dia",
+    npsClassification: "Não medido",
+    npsLastSurvey: "—",
+    npsQuote: "NPS ainda não coletado para este cliente.",
+    timeline: timeline.length
+      ? timeline
+      : [{ id: "t0", date: clientSince, text: "Cliente cadastrado", kind: "onboarding" }],
+    nextMeeting,
+    nextContact: nextMeeting ? "Próxima reunião agendada" : "Sem reunião agendada",
+    briefing: {
+      objetivo: "—",
+      tomDeVoz: "—",
+      publico: "—",
+      concorrentes: "—",
+      restricoes: "Seguir o manual de marca e aprovar peças antes de publicar.",
+    },
+    campaigns: media.campaigns.slice(0, 4).map((cp) => ({ name: cp.name, cpl: cp.cpl, tone: cplTone(cp.cpl) })),
+    campaignsInvested: Math.round(media.invested),
+  } satisfies CSClientDetail;
 }
 
 // ── Módulo 2: CRM & Vendas ───────────────────────────────────────────────────

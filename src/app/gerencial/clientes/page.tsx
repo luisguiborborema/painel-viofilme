@@ -1,11 +1,10 @@
 import { Users } from "lucide-react";
-import { getHubClientsOps } from "@/lib/data/operacao";
+import { getHubClientsOps } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
 import { HubClientes } from "@/components/gerencial/hub-clientes";
 
 export default async function GerencialClientes() {
-  const clients = getHubClientsOps();
-  const user = await getSession();
+  const [clients, user] = await Promise.all([getHubClientsOps(), getSession()]);
 
   return (
     <div className="space-y-4">

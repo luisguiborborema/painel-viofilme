@@ -12,12 +12,15 @@ import {
   Video,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { getCSClientDetail } from "@/lib/data/cs";
-import { getClientById, getClientTasks } from "@/lib/data/queries";
+import {
+  getClientById,
+  getClientTasks,
+  getCSClientDetail,
+  getHubClientsOps,
+} from "@/lib/data/queries";
 import {
   getClientDocuments,
   getEditorialLine,
-  getHubClientsOps,
   getVioLaunch,
   RESPONSIBLE_ROLES,
   TASK_STAGES,
@@ -67,15 +70,16 @@ export default async function RaioXCliente({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const d = getCSClientDetail(id);
+  const d = await getCSClientDetail(id);
   if (!d) notFound();
 
   const c = d.client;
-  const ops = getHubClientsOps().find((x) => x.id === id);
-  const [clientTasks, portal] = await Promise.all([
+  const [hubOps, clientTasks, portal] = await Promise.all([
+    getHubClientsOps(),
     getClientTasks(c.name),
     getClientById(id),
   ]);
+  const ops = hubOps.find((x) => x.id === id);
   const config = {
     hasPaidTraffic: portal?.hasPaidTraffic ?? d.campaignsInvested > 0,
     clientType: portal?.clientType ?? ("local_business" as const),

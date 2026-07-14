@@ -85,19 +85,19 @@ export const RESPONSIBLE_ROLES: { key: ResponsibleRole; label: string }[] = [
 ];
 
 /** Serviços contratados a partir do plano. */
-function servicesForPlan(plan: HubPlan): string[] {
+export function servicesForPlan(plan: HubPlan): string[] {
   if (plan === "Full Service") return ["Tráfego", "Social", "Design", "UGC"];
   if (plan === "Tráfego + Social") return ["Tráfego", "Social"];
   return ["Social"];
 }
-function deliverablesForPlan(plan: HubPlan): string {
+export function deliverablesForPlan(plan: HubPlan): string {
   if (plan === "Full Service") return "16 posts · 6 reels · 4 criativos · UGC";
   if (plan === "Tráfego + Social") return "12 posts · 4 reels · 3 campanhas";
   return "12 posts · 4 reels";
 }
 
 /** Responsáveis por função (mock determinístico por índice). */
-function responsiblesFor(idx: number): Record<ResponsibleRole, string> {
+export function responsiblesFor(idx: number): Record<ResponsibleRole, string> {
   const socials = ["Ana Lima"];
   const perfs = ["Mariana"];
   const designers = ["Robert", "Lucas"];
@@ -118,7 +118,7 @@ function normTokens(s: string): string[] {
     .split(/\s+/)
     .filter((w) => w.length >= 4);
 }
-function tasksForClientName(name: string, tasks: DeliveryTask[]): DeliveryTask[] {
+export function tasksForClientName(name: string, tasks: DeliveryTask[]): DeliveryTask[] {
   const a = new Set(normTokens(name));
   return tasks.filter((t) => normTokens(t.client).some((w) => a.has(w)));
 }
@@ -150,7 +150,7 @@ export type HubClientOps = HubClient & {
 };
 
 /** Precedência: atraso vence; aguardando cliente é sub-info. */
-function semaforoFrom(tasks: DeliveryTask[]): HubSemaforo {
+export function semaforoFrom(tasks: DeliveryTask[]): HubSemaforo {
   const late = tasks.filter((t) => t.late).length;
   const approval = tasks.filter((t) => t.stage === "approval").length;
   const state = late > 0 ? "atrasado" : approval > 0 ? "aguardando" : "em-dia";

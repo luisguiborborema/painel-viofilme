@@ -642,6 +642,22 @@ export async function getClientTasks(clientName: string): Promise<DeliveryTask[]
   return all.filter((t) => t.client === clientName);
 }
 
+import { getHubClientsOps as hubOpsMock, type HubClientOps } from "./operacao";
+import { getCSClientDetail as csDetailMock } from "./cs";
+import type { CSClientDetail } from "./types";
+
+/** Hub de Clientes com health real (clientes + payments + tarefas + atividade). */
+export async function getHubClientsOps(): Promise<HubClientOps[]> {
+  if (isSupabaseConfigured()) return sb.sbGetHubClientsOps();
+  return hubOpsMock();
+}
+
+/** Detalhe do cliente (CS) — real quando Supabase ligado; mock no demo. */
+export async function getCSClientDetail(id: string): Promise<CSClientDetail | null> {
+  if (isSupabaseConfigured()) return sb.sbGetCSClientDetail(id);
+  return csDetailMock(id);
+}
+
 /**
  * Resumo do relatório do cliente para a Central de Relatórios. Real quando o
  * Supabase está ligado (métricas da sincronização Meta); mock no modo demo.
