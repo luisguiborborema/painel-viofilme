@@ -504,6 +504,9 @@ export type DeliveryTask = {
   startDay: number; // início (Gantt)
   span: number; // duração em dias (Gantt)
   dueDate: string; // ISO — data de entrega real (ENT09)
+  /** Detalhes persistidos (Painel real). Ausentes no mock. */
+  checklist?: { label: string; done: boolean }[];
+  comments?: { author: string; text: string }[];
 };
 
 export function getDeliveryTasks(): DeliveryTask[] {

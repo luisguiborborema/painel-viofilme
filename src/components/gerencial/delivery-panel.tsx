@@ -251,7 +251,14 @@ export function DeliveryPanel({
       {view === "cliente" && <PorCliente tasks={filtered} {...shared} />}
 
       {selected && (
-        <TaskUniversal task={selected} onClose={() => setSelected(null)} onStage={setStage} />
+        <TaskUniversal
+          task={selected}
+          onClose={() => setSelected(null)}
+          onStage={setStage}
+          team={team}
+          meName={meName}
+          onChanged={() => router.refresh()}
+        />
       )}
       {drill && (
         <DrillModal

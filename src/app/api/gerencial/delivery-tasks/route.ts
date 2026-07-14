@@ -11,7 +11,14 @@ const TYPES = new Set(["Arte", "Vídeo", "Copy", "Tráfego"]);
 const ORIGINS = new Set(["Linha editorial", "Projeto", "Tarefa avulsa"]);
 
 type Body = {
-  action?: "create" | "set-stage" | "set-assignee" | "delete";
+  action?:
+    | "create"
+    | "set-stage"
+    | "set-assignee"
+    | "log-hours"
+    | "set-checklist"
+    | "add-comment"
+    | "delete";
   id?: string;
   title?: string;
   clientId?: string;
@@ -22,6 +29,9 @@ type Body = {
   dueDate?: string;
   estimateH?: number;
   urgent?: boolean;
+  hours?: number;
+  checklist?: unknown;
+  comment?: { author?: string; text?: string };
 };
 
 /** Tarefas de entrega / produção (gerencial). */
@@ -66,6 +76,67 @@ export async function POST(req: Request) {
     const { error } = await supabase
       .from("delivery_tasks")
       .update({ assignee: b.assignee?.trim() || null, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "log-hours") {
+    const hours = Number(b.hours);
+    if (!b.id || !Number.isFinite(hours)) {
+      return NextResponse.json({ error: "id/horas inválido" }, { status: 400 });
+    }
+    const { data: cur } = await supabase
+      .from("delivery_tasks")
+      .select("logged_h")
+      .eq("id", b.id)
+      .maybeSingle();
+    const next = Math.max(0, Number(cur?.logged_h ?? 0) + hours);
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ logged_h: next, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, loggedH: next });
+  }
+
+  if (action === "set-checklist") {
+    if (!b.id || !Array.isArray(b.checklist)) {
+      return NextResponse.json({ error: "id/checklist inválido" }, { status: 400 });
+    }
+    const clean = (b.checklist as unknown[])
+      .slice(0, 50)
+      .map((x) => {
+        const it = x as { label?: unknown; done?: unknown };
+        return { label: String(it.label ?? "").slice(0, 200), done: Boolean(it.done) };
+      })
+      .filter((x) => x.label);
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ checklist: clean, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "add-comment") {
+    const text = b.comment?.text?.trim();
+    if (!b.id || !text) {
+      return NextResponse.json({ error: "id/comentário ausente" }, { status: 400 });
+    }
+    const { data: cur } = await supabase
+      .from("delivery_tasks")
+      .select("comments")
+      .eq("id", b.id)
+      .maybeSingle();
+    const list = Array.isArray(cur?.comments) ? (cur!.comments as unknown[]) : [];
+    const next = [
+      ...list,
+      { author: (b.comment?.author ?? "Equipe").slice(0, 80), text: text.slice(0, 1000) },
+    ].slice(-100);
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ comments: next, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });

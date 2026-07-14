@@ -1226,6 +1226,8 @@ type DeliveryRow = {
   estimate_h: number | null;
   logged_h: number | null;
   urgent: boolean | null;
+  checklist: unknown;
+  comments: unknown;
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -1234,7 +1236,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1281,6 +1283,12 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       startDay: day,
       span: 1,
       dueDate: due ? new Date(dueMs).toISOString() : "",
+      checklist: Array.isArray(r.checklist)
+        ? (r.checklist as { label: string; done: boolean }[])
+        : [],
+      comments: Array.isArray(r.comments)
+        ? (r.comments as { author: string; text: string }[])
+        : [],
     } satisfies DeliveryTask;
   });
 }
