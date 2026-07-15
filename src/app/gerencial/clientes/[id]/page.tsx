@@ -32,6 +32,7 @@ import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
 import { VioDay } from "@/components/gerencial/vioday";
 import { ClientTasksTab } from "@/components/gerencial/client-tasks-tab";
 import { CriativosTab } from "@/components/gerencial/criativos-tab";
+import { NpsCard } from "@/components/gerencial/nps-card";
 import { cn, formatNumber } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
 
@@ -182,6 +183,14 @@ export default async function RaioXCliente({
           </dl>
         </Card>
       </div>
+
+      <NpsCard
+        clientId={id}
+        score={d.npsClassification === "Não medido" ? null : c.nps}
+        classification={d.npsClassification}
+        lastSurvey={d.npsLastSurvey}
+        quote={d.npsQuote}
+      />
 
       <ClientConfigCard clientId={id} initial={config} />
     </div>

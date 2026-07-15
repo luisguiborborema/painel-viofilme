@@ -74,18 +74,28 @@ type HubClientRow = {
   created_at: string | null;
 };
 
-/** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso). */
-function clientHealth(overdueDays: number, posts30: number, lateCount: number) {
+/** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso + NPS). */
+function clientHealth(
+  overdueDays: number,
+  posts30: number,
+  lateCount: number,
+  nps?: number | null,
+) {
   let s = 100;
   if (overdueDays > 0) s -= Math.min(45, 12 + overdueDays * 1.6);
   s -= posts30 === 0 ? 25 : posts30 < 3 ? 10 : 0;
   s -= Math.min(20, lateCount * 7);
-  const healthScore = Math.max(0, Math.round(s));
+  if (typeof nps === "number") s -= nps <= 6 ? 20 : nps <= 8 ? 6 : 0;
+  const healthScore = Math.max(0, Math.min(100, Math.round(s)));
   return {
     healthScore,
-    atRisk: healthScore < 55 || overdueDays >= 10,
+    atRisk: healthScore < 55 || overdueDays >= 10 || (typeof nps === "number" && nps <= 6),
     healthy: healthScore >= 75 && overdueDays === 0,
   };
+}
+/** Classificação NPS padrão (0–6 detrator, 7–8 neutro, 9–10 promotor). */
+function npsClass(score: number): string {
+  return score >= 9 ? "Promotor" : score >= 7 ? "Neutro" : "Detrator";
 }
 function planFromFee(fee: number): HubPlan {
   return fee >= 4500 ? "Full Service" : fee >= 3000 ? "Tráfego + Social" : "Social Pro";
@@ -1347,7 +1357,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [clientsRes, tasks, paysRes, postsRes] = await Promise.all([
+  const [clientsRes, tasks, paysRes, postsRes, npsRes] = await Promise.all([
     supabase.from("clients").select("id, name, segment, status, monthly_fee, created_at").order("name"),
     sbGetDeliveryTasks(),
     supabase
@@ -1356,7 +1366,14 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       .not("client_id", "is", null)
       .lte("due_date", todayStr),
     supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
+    supabase.from("nps_surveys").select("client_id, score, created_at").order("created_at", { ascending: false }),
   ]);
+
+  // NPS mais recente por cliente (linhas já vêm ordenadas desc).
+  const npsByClient = new Map<string, number>();
+  for (const n of (npsRes.data ?? []) as { client_id: string; score: number }[]) {
+    if (!npsByClient.has(n.client_id)) npsByClient.set(n.client_id, Number(n.score));
+  }
 
   const overdueByClient = new Map<string, number>();
   for (const p of (paysRes.data ?? []) as {
@@ -1383,7 +1400,8 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
     const t = tasksForClientName(name, tasks);
     const overdueDays = overdueByClient.get(cid) ?? 0;
     const posts30 = postsByClient.get(cid) ?? 0;
-    const h = clientHealth(overdueDays, posts30, t.filter((x) => x.late).length);
+    const nps = npsByClient.get(cid) ?? null;
+    const h = clientHealth(overdueDays, posts30, t.filter((x) => x.late).length, nps);
     const plan = planFromFee(fee);
     const createdMs = c.created_at ? Date.parse(c.created_at) : NaN;
     const isNew = !Number.isNaN(createdMs) && now.getTime() - createdMs < 30 * dayMs;
@@ -1397,7 +1415,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       status,
       atRisk: h.atRisk,
       healthScore: h.healthScore,
-      nps: 0,
+      nps: nps ?? 0,
       responsavel: "—",
       mrr: fee,
       onboarding: isNew
@@ -1434,7 +1452,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [tasksAll, paysRes, postsRes, media, meetingsRes] = await Promise.all([
+  const [tasksAll, paysRes, postsRes, media, meetingsRes, npsRes] = await Promise.all([
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1456,6 +1474,12 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
       .gte("starts_at", now.toISOString())
       .order("starts_at")
       .limit(1),
+    supabase
+      .from("nps_surveys")
+      .select("score, comment, created_at")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   const pays = (paysRes.data ?? []) as {
@@ -1474,7 +1498,15 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
   }
   const tasks = tasksForClientName(name, tasksAll);
   const posts30 = (postsRes.data ?? []).length;
-  const h = clientHealth(overdueDays, posts30, tasks.filter((t) => t.late).length);
+
+  const npsRows = (npsRes.data ?? []) as {
+    score: number;
+    comment: string | null;
+    created_at: string | null;
+  }[];
+  const latestNps = npsRows[0] ? Number(npsRows[0].score) : null;
+
+  const h = clientHealth(overdueDays, posts30, tasks.filter((t) => t.late).length, latestNps);
 
   const fee = Number(c.monthly_fee ?? 0);
   const plan = planFromFee(fee);
@@ -1491,7 +1523,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     city: "—",
     mrr: fee,
     healthScore: h.healthScore,
-    nps: 0,
+    nps: latestNps ?? 0,
     financial: financialStatus(overdueDays),
     contract: {
       label: c.status === "ativo" ? "Ativo" : String(c.status ?? "—"),
@@ -1504,15 +1536,30 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     renewingSoon: false,
   };
 
-  const timeline: CSTimelineEvent[] = pays
+  const ddmm = (iso: string) =>
+    new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const payEvents: (CSTimelineEvent & { ts: number })[] = pays
     .filter((p) => p.payment_date)
-    .slice(0, 5)
     .map((p, i) => ({
       id: `pay-${i}`,
-      date: new Date(String(p.payment_date)).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      ts: Date.parse(String(p.payment_date)),
+      date: ddmm(String(p.payment_date)),
       text: `Pagamento confirmado${p.value ? ` — R$ ${Number(p.value).toLocaleString("pt-BR")}` : ""}`,
-      kind: "payment",
+      kind: "payment" as const,
     }));
+  const npsEvents: (CSTimelineEvent & { ts: number })[] = npsRows
+    .filter((n) => n.created_at)
+    .map((n, i) => ({
+      id: `nps-${i}`,
+      ts: Date.parse(String(n.created_at)),
+      date: ddmm(String(n.created_at)),
+      text: `NPS respondido: nota ${n.score}${n.comment ? ` — “${n.comment}”` : ""}`,
+      kind: "nps" as const,
+    }));
+  const timeline: CSTimelineEvent[] = [...npsEvents, ...payEvents]
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 8)
+    .map(({ ts: _ts, ...ev }) => ev);
 
   const mtg = (meetingsRes.data ?? [])[0] as { title: string | null; starts_at: string | null } | undefined;
   const nextMeeting = mtg?.starts_at
@@ -1540,9 +1587,17 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     tenure: `${months} ${months === 1 ? "mês" : "meses"}`,
     ltv: fee * months,
     invoicesNote: overdueDays > 0 ? `Fatura vencida ${overdueDays}d` : "Faturas em dia",
-    npsClassification: "Não medido",
-    npsLastSurvey: "—",
-    npsQuote: "NPS ainda não coletado para este cliente.",
+    npsClassification: latestNps === null ? "Não medido" : npsClass(latestNps),
+    npsLastSurvey:
+      latestNps === null || !npsRows[0]?.created_at
+        ? "—"
+        : new Date(String(npsRows[0].created_at)).toLocaleDateString("pt-BR"),
+    npsQuote:
+      latestNps === null
+        ? "NPS ainda não coletado para este cliente."
+        : npsRows[0]?.comment
+          ? `“${npsRows[0].comment}”`
+          : "Sem comentário registrado na última pesquisa.",
     timeline: timeline.length
       ? timeline
       : [{ id: "t0", date: clientSince, text: "Cliente cadastrado", kind: "onboarding" }],
