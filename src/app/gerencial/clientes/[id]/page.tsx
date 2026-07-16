@@ -33,6 +33,7 @@ import { VioDay } from "@/components/gerencial/vioday";
 import { ClientTasksTab } from "@/components/gerencial/client-tasks-tab";
 import { CriativosTab } from "@/components/gerencial/criativos-tab";
 import { NpsCard } from "@/components/gerencial/nps-card";
+import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { cn, formatNumber } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
 
@@ -190,6 +191,23 @@ export default async function RaioXCliente({
         classification={d.npsClassification}
         lastSurvey={d.npsLastSurvey}
         quote={d.npsQuote}
+      />
+
+      <ClientProfileCard
+        clientId={id}
+        initial={{
+          city: c.city,
+          csResponsavel: c.cs,
+          contactName: d.contactName,
+          contactRole: d.contactRole,
+          contactPhone: d.phone,
+          contactEmail: d.email,
+          briefObjetivo: d.briefing.objetivo,
+          briefTom: d.briefing.tomDeVoz,
+          briefPublico: d.briefing.publico,
+          briefConcorrentes: d.briefing.concorrentes,
+          briefRestricoes: d.briefing.restricoes,
+        }}
       />
 
       <ClientConfigCard clientId={id} initial={config} />

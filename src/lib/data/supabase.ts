@@ -72,7 +72,22 @@ type HubClientRow = {
   status: string | null;
   monthly_fee: number | null;
   created_at: string | null;
+  city?: string | null;
+  cs_responsavel?: string | null;
+  contact_name?: string | null;
+  contact_role?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  brief_objetivo?: string | null;
+  brief_tom?: string | null;
+  brief_publico?: string | null;
+  brief_concorrentes?: string | null;
+  brief_restricoes?: string | null;
 };
+
+const CLIENT_PROFILE_COLS =
+  "city, cs_responsavel, contact_name, contact_role, contact_phone, contact_email, brief_objetivo, brief_tom, brief_publico, brief_concorrentes, brief_restricoes";
+const dash = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 /** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso + NPS). */
 function clientHealth(
@@ -1358,7 +1373,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
   const [clientsRes, tasks, paysRes, postsRes, npsRes] = await Promise.all([
-    supabase.from("clients").select("id, name, segment, status, monthly_fee, created_at").order("name"),
+    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1410,13 +1425,13 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       id: cid,
       name,
       segment: c.segment ?? "—",
-      city: "—",
+      city: dash(c.city),
       plan,
       status,
       atRisk: h.atRisk,
       healthScore: h.healthScore,
       nps: nps ?? 0,
-      responsavel: "—",
+      responsavel: dash(c.cs_responsavel),
       mrr: fee,
       onboarding: isNew
         ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
@@ -1440,7 +1455,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
   const supabase = await createClient();
   const { data: cRaw } = await supabase
     .from("clients")
-    .select("id, name, segment, status, monthly_fee, created_at")
+    .select(`id, name, segment, status, monthly_fee, created_at, ${CLIENT_PROFILE_COLS}`)
     .eq("id", id)
     .maybeSingle();
   if (!cRaw) return null;
@@ -1520,7 +1535,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     id,
     name,
     segment: c.segment ?? "—",
-    city: "—",
+    city: dash(c.city),
     mrr: fee,
     healthScore: h.healthScore,
     nps: latestNps ?? 0,
@@ -1529,7 +1544,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
       label: c.status === "ativo" ? "Ativo" : String(c.status ?? "—"),
       tone: c.status === "ativo" ? "ok" : "warn",
     },
-    cs: "—",
+    cs: dash(c.cs_responsavel),
     lastContactDays: 0,
     atRisk: h.atRisk,
     healthy: h.healthy,
@@ -1578,10 +1593,10 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
 
   return {
     client,
-    contactName: "—",
-    contactRole: "—",
-    phone: "—",
-    email: "—",
+    contactName: dash(c.contact_name),
+    contactRole: dash(c.contact_role),
+    phone: dash(c.contact_phone),
+    email: dash(c.contact_email),
     clientSince,
     plan,
     tenure: `${months} ${months === 1 ? "mês" : "meses"}`,
@@ -1604,11 +1619,11 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     nextMeeting,
     nextContact: nextMeeting ? "Próxima reunião agendada" : "Sem reunião agendada",
     briefing: {
-      objetivo: "—",
-      tomDeVoz: "—",
-      publico: "—",
-      concorrentes: "—",
-      restricoes: "Seguir o manual de marca e aprovar peças antes de publicar.",
+      objetivo: dash(c.brief_objetivo),
+      tomDeVoz: dash(c.brief_tom),
+      publico: dash(c.brief_publico),
+      concorrentes: dash(c.brief_concorrentes),
+      restricoes: dash(c.brief_restricoes),
     },
     campaigns: media.campaigns.slice(0, 4).map((cp) => ({ name: cp.name, cpl: cp.cpl, tone: cplTone(cp.cpl) })),
     campaignsInvested: Math.round(media.invested),
