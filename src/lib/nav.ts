@@ -18,6 +18,10 @@ import {
   FileBarChart,
   HeartHandshake,
   Settings,
+  Briefcase,
+  Boxes,
+  Building2,
+  CircleUser,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -37,12 +41,15 @@ export type NavItem = {
 export type NavGroup = {
   /** Título do grupo. Ausente = sem cabeçalho (cliente). */
   title?: string;
+  /** Ícone do grupo (usado no modo recolhido como gatilho do flyout). */
+  icon?: LucideIcon;
   items: NavItem[];
 };
 
 const GERENCIAL_GROUPS: NavGroup[] = [
   {
     title: "Comercial",
+    icon: Briefcase,
     items: [
       { label: "CRM & Vendas", href: "/gerencial/crm", icon: Target, section: "crm" },
       { label: "Atendimento", href: "/gerencial/inbox", icon: MessagesSquare, section: "crm" },
@@ -51,6 +58,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
   },
   {
     title: "Operacional",
+    icon: Boxes,
     items: [
       { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
       { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
@@ -73,6 +81,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
   },
   {
     title: "Gestão",
+    icon: Building2,
     items: [
       { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
       { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
@@ -82,6 +91,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
   },
   {
     title: "Conta",
+    icon: CircleUser,
     items: [{ label: "Configurações", href: "/configuracoes", icon: Settings }],
   },
 ];

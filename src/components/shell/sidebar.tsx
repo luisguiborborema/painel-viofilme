@@ -76,10 +76,8 @@ export function Sidebar({
       <nav className={cn("flex-1 space-y-2 py-3", collapsed ? "px-2" : "px-3")}>
         {groups.map((group, gi) => {
           const hasActive = group.items.some((it) => isActive(it.href));
-          // Grupo com título vira dropdown; abre se estado != false ou contém a rota ativa.
-          const expanded =
-            !group.title || collapsed || openGroups[group.title] !== false || hasActive;
 
+          // Item no menu escuro expandido.
           const renderItem = (item: NavGroup["items"][number]) => {
             const active = isActive(item.href);
             const Icon = item.icon;
@@ -87,45 +85,102 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
-                title={collapsed ? item.label : undefined}
                 className={cn(
-                  "group relative flex items-center rounded-xl text-sm font-medium transition-colors",
-                  collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
-                  active
-                    ? "bg-white text-brand-700 shadow-sm"
-                    : "text-white/80 hover:bg-white/10 hover:text-white",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
                 )}
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && item.label}
-                {collapsed && (
-                  <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-xs font-medium text-surface shadow-lg group-hover:block">
-                    {item.label}
-                  </span>
-                )}
+                {item.label}
               </Link>
             );
           };
 
+          // Item no flyout claro (modo recolhido).
+          const renderFlyoutItem = (item: NavGroup["items"][number]) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+                  active ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" /> {item.label}
+              </Link>
+            );
+          };
+
+          // --- Modo recolhido: ícone do grupo + flyout lateral ---
+          if (collapsed) {
+            if (!group.title) {
+              // Sem título (cliente): ícones diretos com tooltip.
+              return (
+                <div key={`group-${gi}`} className="space-y-1">
+                  {group.items.map((item) => {
+                    const active = isActive(item.href);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        title={item.label}
+                        className={cn(
+                          "group relative flex items-center justify-center rounded-xl p-2.5 transition-colors",
+                          active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
+                        )}
+                      >
+                        <Icon className="h-[18px] w-[18px]" />
+                        <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-xs font-medium text-surface shadow-lg group-hover:block">
+                          {item.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              );
+            }
+            const GIcon = group.icon ?? group.items[0].icon;
+            return (
+              <div key={group.title} className="group/gr relative">
+                <button
+                  className={cn(
+                    "flex w-full items-center justify-center rounded-xl p-2.5 transition-colors",
+                    hasActive ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
+                  )}
+                >
+                  <GIcon className="h-[18px] w-[18px]" />
+                </button>
+                {/* Flyout lateral — o pl-2 faz a ponte de hover sem gap. */}
+                <div className="absolute left-full top-0 z-50 hidden pl-2 group-hover/gr:block">
+                  <div className="min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+                    <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{group.title}</p>
+                    {group.items.map(renderFlyoutItem)}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // --- Modo expandido: dropdown/accordion ---
+          const expanded = !group.title || openGroups[group.title] !== false || hasActive;
           return (
             <div key={group.title ?? `group-${gi}`} className="space-y-1">
-              {group.title &&
-                (collapsed ? (
-                  gi > 0 && <div className="mx-2 mb-1 h-px bg-white/10" />
-                ) : (
-                  <button
-                    onClick={() => toggleGroup(group.title!)}
-                    className="flex w-full items-center justify-between rounded-lg px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-white/40 transition-colors hover:text-white/70"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {group.title}
-                      {hasActive && !expanded && <span className="h-1.5 w-1.5 rounded-full bg-lime" />}
-                    </span>
-                    <ChevronDown
-                      className={cn("h-3.5 w-3.5 transition-transform", expanded ? "" : "-rotate-90")}
-                    />
-                  </button>
-                ))}
+              {group.title && (
+                <button
+                  onClick={() => group.title && toggleGroup(group.title)}
+                  className="flex w-full items-center justify-between rounded-lg px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-white/40 transition-colors hover:text-white/70"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {group.title}
+                    {hasActive && !expanded && <span className="h-1.5 w-1.5 rounded-full bg-lime" />}
+                  </span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded ? "" : "-rotate-90")} />
+                </button>
+              )}
               {expanded && <div className="space-y-1">{group.items.map(renderItem)}</div>}
             </div>
           );
