@@ -5,10 +5,10 @@ import {
   CheckCircle2,
   Circle,
   Download,
-  ExternalLink,
   FileText,
   Mail,
   Phone,
+  Plus,
   Video,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -34,7 +34,9 @@ import { ClientTasksTab } from "@/components/gerencial/client-tasks-tab";
 import { CriativosTab } from "@/components/gerencial/criativos-tab";
 import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
-import { cn, formatNumber } from "@/lib/utils";
+import { ClientQuickActions } from "@/components/gerencial/client-quick-actions";
+import { PlatformIcon } from "@/components/dashboard/platform";
+import { cn } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
 
 function initials(name: string) {
@@ -61,6 +63,39 @@ function Row2({ label, value }: { label: string; value: string }) {
     <div className="flex items-start justify-between gap-3">
       <dt className="shrink-0 text-xs font-medium text-muted">{label}</dt>
       <dd className="text-right text-ink/90">{value}</dd>
+    </div>
+  );
+}
+
+const CLIENT_TYPE_LABEL: Record<string, string> = {
+  lead_gen: "Geração de leads",
+  ecommerce: "E-commerce",
+  local_business: "Negócio local",
+};
+
+function healthTone(score: number) {
+  if (score >= 75) return "bg-emerald-500/15 text-emerald-600";
+  if (score >= 55) return "bg-amber-500/15 text-amber-600";
+  return "bg-rose-500/15 text-rose-500";
+}
+
+/** Barra de entregas do mês: verde = entregue, âmbar = aguardando cliente. */
+function EntregasBar({ done, approval, total }: { done: number; approval: number; total: number }) {
+  const t = Math.max(total, done + approval, 1);
+  const donePct = (done / t) * 100;
+  const apprPct = (approval / t) * 100;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="font-medium text-muted">Entregas do mês</span>
+        <span className="text-ink/90">
+          {done}/{total} entregues{approval > 0 ? ` · ${approval} aguard.` : ""}
+        </span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-subtle-strong">
+        <div className="h-full bg-emerald-500" style={{ width: `${donePct}%` }} />
+        <div className="h-full bg-amber-500" style={{ width: `${apprPct}%` }} />
+      </div>
     </div>
   );
 }
@@ -95,6 +130,15 @@ export default async function RaioXCliente({
   const docs = getClientDocuments(id);
   const editorial = getEditorialLine(id);
 
+  const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
+    (x) => x && x !== "—",
+  );
+  const hasPhone = d.phone !== "—";
+  const hasEmail = d.email !== "—";
+  const activeNetworks = config.activeNetworks;
+  const clientTypeLabel = CLIENT_TYPE_LABEL[config.clientType];
+  const openTaskCount = clientTasks.filter((t) => t.stage !== "done").length;
+
   // --- Aba Resumo (HUB07 — 3 camadas) ---------------------------------------
   const lateTasks = clientTasks.filter((t) => t.late);
   const approvalTasks = clientTasks.filter((t) => t.stage === "approval");
@@ -106,7 +150,7 @@ export default async function RaioXCliente({
     <div className="space-y-4">
       {/* Camada 1 — Precisa de ação agora */}
       <Card className="border-l-4 border-l-rose-400 p-5">
-        <h2 className="mb-3 text-sm font-semibold text-ink">1 · Precisa de ação agora</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Precisa de ação agora</h2>
         {lateTasks.length === 0 && approvalTasks.length === 0 ? (
           <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">Nada pendente. Cliente em dia. ✅</p>
         ) : (
@@ -143,7 +187,7 @@ export default async function RaioXCliente({
 
       {/* Camada 2 — Em andamento (funil) */}
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-ink">2 · Em andamento — funil de produção</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Em andamento — funil de produção</h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {TASK_STAGES.map((s) => {
             const n = clientTasks.filter((t) => t.stage === s.key).length;
@@ -161,11 +205,13 @@ export default async function RaioXCliente({
       {/* Camada 3 — Estratégico / referência */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">3 · Contrato &amp; responsáveis</h2>
+          <h2 className="mb-1 text-sm font-semibold text-ink">Contrato &amp; referência</h2>
+          <p className="mb-3 text-xs text-muted">
+            Serviços, entregáveis e responsáveis da conta — o status do mês fica no topo.
+          </p>
           <dl className="space-y-2.5 text-sm">
-            <Row2 label="Plano / fee" value={`${ops?.plan ?? d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
+            <Row2 label="Serviços" value={ops?.services.join(" · ") ?? ops?.plan ?? d.plan} />
             <Row2 label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
-            <Row2 label="Status do mês" value={ops ? `${ops.monthDone}/${ops.monthTotal} entregues · ${ops.monthApproval} aguardando` : "—"} />
             {ops && RESPONSIBLE_ROLES.map((r) => (
               <Row2 key={r.key} label={r.label} value={ops.responsibles[r.key]} />
             ))}
@@ -173,7 +219,7 @@ export default async function RaioXCliente({
         </Card>
 
         <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Briefing &amp; agenda</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Diretrizes da marca</h2>
           <dl className="space-y-2.5 text-sm">
             <Row2 label="Objetivo" value={d.briefing.objetivo} />
             <Row2 label="Tom de voz" value={d.briefing.tomDeVoz} />
@@ -326,7 +372,11 @@ export default async function RaioXCliente({
   const tabs: ClientTab[] = [
     { key: "resumo", label: "Resumo", content: resumo },
     { key: "metas", label: "Metas", content: <ClientGoalsCard clientId={id} /> },
-    { key: "tarefas", label: "Tarefas", content: tarefas },
+    {
+      key: "tarefas",
+      label: openTaskCount > 0 ? `Tarefas · ${openTaskCount}` : "Tarefas",
+      content: tarefas,
+    },
     {
       key: "editorial",
       label: "Linha editorial",
@@ -359,16 +409,50 @@ export default async function RaioXCliente({
               <h1 className="text-xl font-bold tracking-tight text-ink">
                 {c.name}
               </h1>
-              <p className="text-sm text-muted">
-                {c.segment} · {c.city} · {d.contactName} · {d.contactRole}
-              </p>
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="h-3.5 w-3.5" /> {d.phone}
+              {subtitleParts.length > 0 && (
+                <p className="text-sm text-muted">{subtitleParts.join(" · ")}</p>
+              )}
+              {/* Tags de contexto: tipo de negócio, redes ativas, tempo de casa, saúde */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {clientTypeLabel && (
+                  <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-muted">
+                    {clientTypeLabel}
+                  </span>
+                )}
+                {activeNetworks.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    {activeNetworks.map((n) => (
+                      <PlatformIcon key={n} platform={n} className="h-3.5 w-3.5 text-muted" />
+                    ))}
+                  </span>
+                )}
+                <span className="text-[11px] text-muted">Cliente há {d.tenure}</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    healthTone(c.healthScore),
+                  )}
+                  title="Health score (indicativo)"
+                >
+                  Saúde {c.healthScore}
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-3.5 w-3.5" /> {d.email}
-                </span>
+              </div>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
+                {hasPhone && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5" /> {d.phone}
+                  </span>
+                )}
+                {hasEmail && (
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5" /> {d.email}
+                  </span>
+                )}
+                {!hasPhone && !hasEmail && (
+                  <span className="inline-flex items-center gap-1 text-brand-500">
+                    <Plus className="h-3.5 w-3.5" /> Adicionar contato
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -396,9 +480,17 @@ export default async function RaioXCliente({
         <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4">
           {ops &&
             RESPONSIBLE_ROLES.map((r) => (
-              <div key={r.key}>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>
-                <p className="text-sm font-medium text-ink">{ops.responsibles[r.key]}</p>
+              <div key={r.key} className="flex items-center gap-2">
+                <span
+                  title={ops.responsibles[r.key]}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-subtle-strong text-[10px] font-bold text-ink"
+                >
+                  {initials(ops.responsibles[r.key])}
+                </span>
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>
+                  <p className="text-sm font-medium text-ink">{ops.responsibles[r.key]}</p>
+                </div>
               </div>
             ))}
           <div className="ml-auto">
@@ -407,27 +499,23 @@ export default async function RaioXCliente({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-4">
-          <Stat label="Plano / fee" value={`${ops?.plan ?? d.plan} · R$ ${formatNumber(c.mrr)}/mês`} />
+        <div className="mt-4 grid grid-cols-2 items-end gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-4">
+          <Stat label="Serviços" value={ops?.services.join(" · ") ?? ops?.plan ?? d.plan} />
           <Stat label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
+          {ops ? (
+            <EntregasBar done={ops.monthDone} approval={ops.monthApproval} total={ops.monthTotal} />
+          ) : (
+            <Stat label="Entregas do mês" value="—" />
+          )}
           <Stat
-            label="Status do mês"
-            value={ops ? `${ops.monthDone}/${ops.monthTotal} entregues · ${ops.monthApproval} aguard.` : "—"}
-          />
-          <Stat
-            label="LE próximo mês"
+            label="Próx. ciclo"
             value={ops ? `${ops.leNextMonth.status}${ops.leNextMonth.date ? ` · ${ops.leNextMonth.date}` : ""}` : "—"}
           />
           <Stat label="Próxima agenda" value={ops?.nextAgenda ?? "—"} />
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/cliente"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-600"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Abrir portal do cliente
-          </Link>
+        <div className="mt-4">
+          <ClientQuickActions clientId={id} whatsapp={config.whatsapp} />
         </div>
       </Card>
 
