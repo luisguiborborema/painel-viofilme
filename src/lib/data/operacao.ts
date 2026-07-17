@@ -23,6 +23,8 @@ export type HubClient = {
   nps: number;
   responsavel: string;
   mrr: number;
+  /** WhatsApp do cliente (dígitos), para ações rápidas. Ausente = sem número. */
+  whatsapp?: string | null;
   /** Progresso do VioLaunch (onboarding), quando aplicável. */
   onboarding?: { step: number; total: number; startDate: string };
 };

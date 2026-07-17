@@ -72,6 +72,7 @@ type HubClientRow = {
   status: string | null;
   monthly_fee: number | null;
   created_at: string | null;
+  whatsapp?: string | null;
   city?: string | null;
   cs_responsavel?: string | null;
   contact_name?: string | null;
@@ -1373,7 +1374,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
   const [clientsRes, tasks, paysRes, postsRes, npsRes] = await Promise.all([
-    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, ${CLIENT_PROFILE_COLS}`).order("name"),
+    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1433,6 +1434,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       nps: nps ?? 0,
       responsavel: dash(c.cs_responsavel),
       mrr: fee,
+      whatsapp: c.whatsapp ?? null,
       onboarding: isNew
         ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
         : undefined,
