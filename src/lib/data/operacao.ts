@@ -321,6 +321,13 @@ export type EditorialPost = {
   references: EditorialRef[];
   /** Estágio real da delivery task gerada (live-sync do Kanban), se houver. */
   taskStage?: TaskStage;
+  /** Campos da ficha (Task universal). */
+  tema?: string;
+  legenda?: string;
+  assignee?: string;
+  assigneeSecondary?: string;
+  priority?: "normal" | "urgente";
+  taskId?: string;
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };

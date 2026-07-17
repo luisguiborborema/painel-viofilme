@@ -2384,6 +2384,10 @@ type EditorialPostRow = {
   weekday: string | null;
   refs: unknown;
   task_id: string | null;
+  tema: string | null;
+  assignee: string | null;
+  assignee_secondary: string | null;
+  priority: string | null;
 };
 
 const dash2 = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
@@ -2427,7 +2431,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
 
   const { data: postsData } = await supabase
     .from("editorial_posts")
-    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id")
+    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority")
     .eq("line_id", line.id)
     .order("n");
 
@@ -2459,6 +2463,12 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     artDirection: (p.art_direction as ArtDirection) ?? "Banco do cliente",
     references: Array.isArray(p.refs) ? (p.refs as EditorialRef[]) : [],
     taskStage: p.task_id ? stageByTask.get(p.task_id) : undefined,
+    taskId: p.task_id ?? undefined,
+    tema: p.tema ?? undefined,
+    legenda: p.legenda ?? undefined,
+    assignee: p.assignee ?? undefined,
+    assigneeSecondary: p.assignee_secondary ?? undefined,
+    priority: p.priority === "urgente" ? "urgente" : "normal",
   }));
 
   return {

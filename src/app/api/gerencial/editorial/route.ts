@@ -22,6 +22,10 @@ type PostInput = {
   weekday?: string;
   refs?: unknown;
   taskId?: string;
+  tema?: string;
+  assignee?: string;
+  assigneeSecondary?: string;
+  priority?: string;
 };
 
 type Body = {
@@ -160,6 +164,10 @@ export async function POST(req: Request) {
       weekday: p.weekday?.trim() || null,
       refs: Array.isArray(p.refs) ? p.refs : [],
       task_id: p.taskId || null,
+      tema: p.tema ?? null,
+      assignee: p.assignee?.trim() || null,
+      assignee_secondary: p.assigneeSecondary?.trim() || null,
+      priority: p.priority === "urgente" ? "urgente" : "normal",
       updated_at: now,
     };
     if (p.id) {

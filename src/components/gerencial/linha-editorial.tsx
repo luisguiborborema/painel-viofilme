@@ -14,6 +14,12 @@ import {
   Presentation,
   Sparkles,
   Rocket,
+  Send,
+  Flag,
+  ListChecks,
+  MessageSquare,
+  CheckSquare,
+  Square,
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -21,12 +27,15 @@ import { cn } from "@/lib/utils";
 import {
   ART_DIRECTIONS,
   EDITORIAL_STAGES,
+  OPS_TEAM,
+  TASK_STAGES,
   type ArtDirection,
   type EditorialFormat,
   type EditorialLine,
   type EditorialPost,
   type EditorialRef,
   type EditorialStage,
+  type TaskStage,
 } from "@/lib/data/operacao";
 
 const FORMAT_FILTERS: ("Todos" | EditorialFormat)[] = ["Todos", "Feed", "Reels", "Stories", "Carrossel"];
@@ -203,46 +212,84 @@ function PostCard({ post, onOpen, taskStage }: { post: EditorialPost; onOpen: ()
   );
 }
 
-/** Ficha da Task/Post (Task universal) — abre ao clicar num post ou em "+ Post". */
+// Mapeia o estágio da delivery task para a fase da trilha da LE.
+const PHASE_FOR_STAGE: Record<TaskStage, number> = { todo: 2, doing: 2, review: 3, approval: 4, done: 7 };
+const DEFAULT_CHECKLIST = ["Briefing lido", "Rascunho / 1ª versão", "Revisão interna", "Aprovado pelo cliente"];
+const dtx = "/api/gerencial/delivery-tasks";
+
+/** Ficha da Task/Post (Task universal) — 2 colunas + trilha de fases. */
 function PostFicha({
   post,
   clientId,
   clientName,
   lineId,
+  narrativa,
   mode,
-  hasTask,
   onClose,
   onCreated,
   onAdd,
+  onSaved,
 }: {
   post: EditorialPost;
   clientId: string;
   clientName: string;
   lineId?: string;
+  narrativa: string;
   mode: "view" | "new";
-  hasTask: boolean;
   onClose: () => void;
   onCreated: (n: number, taskId: string) => void;
   onAdd: (p: EditorialPost) => void;
+  onSaved: (p: EditorialPost) => void;
 }) {
   const [title, setTitle] = useState(post.title);
+  const [tema, setTema] = useState(post.tema ?? "");
   const [format, setFormat] = useState<EditorialFormat>(post.format);
   const [pillar, setPillar] = useState(post.pillar);
   const [roteiro, setRoteiro] = useState(post.description);
-  const [legenda, setLegenda] = useState("");
+  const [legenda, setLegenda] = useState(post.legenda ?? "");
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
+  const [assignee, setAssignee] = useState(post.assignee ?? "");
+  const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
+  const [priority, setPriority] = useState<"normal" | "urgente">(post.priority ?? "normal");
+  const [prazo, setPrazo] = useState(post.date !== "—" ? post.date : "");
+  const [stage, setStage] = useState<TaskStage | null>(post.taskStage ?? null);
+  const [taskId, setTaskId] = useState<string | undefined>(post.taskId);
+  const [tab, setTab] = useState<"conteudo" | "checklist" | "comentarios">("conteudo");
+  const [checks, setChecks] = useState<boolean[]>(DEFAULT_CHECKLIST.map(() => false));
+  const [comments, setComments] = useState<{ author: string; text: string }[]>([]);
+  const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(hasTask);
+  const [savedTick, setSavedTick] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canonicalTitle = `[${clientName}] ${format.toUpperCase()}: ${title.trim() || "Sem título"}`;
+  const activePhase = taskId && stage ? PHASE_FOR_STAGE[stage] : mode === "new" ? 0 : 1;
+  const jsonHeaders = { "Content-Type": "application/json" };
 
-  // Persiste o post na linha editorial (quando existe uma linha real).
-  async function persistPost(taskId?: string) {
+  function currentPost(extraTaskId?: string): EditorialPost {
+    return {
+      ...post,
+      title: title.trim() || "Novo post",
+      tema,
+      format,
+      pillar: pillar.trim() || post.pillar,
+      description: roteiro,
+      legenda,
+      artDirection: art,
+      assignee,
+      assigneeSecondary: secondary,
+      priority,
+      date: prazo || post.date,
+      taskId: extraTaskId ?? taskId,
+      taskStage: stage ?? post.taskStage,
+    };
+  }
+
+  async function persistPost(extraTaskId?: string) {
     if (!lineId) return;
     await fetch("/api/gerencial/editorial", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jsonHeaders,
       body: JSON.stringify({
         action: "upsert-post",
         lineId,
@@ -255,51 +302,69 @@ function PostFicha({
           description: roteiro,
           legenda,
           artDirection: art,
-          postDate: post.date !== "—" ? post.date : undefined,
+          tema,
+          assignee,
+          assigneeSecondary: secondary,
+          priority,
+          postDate: prazo || undefined,
           weekday: post.weekday !== "—" ? post.weekday : undefined,
-          taskId,
+          taskId: extraTaskId ?? taskId,
         },
       }),
     });
   }
 
-  async function generateTask() {
+  async function saveFicha() {
     setSaving(true);
     setError(null);
-    const composed = canonicalTitle;
     try {
-      const res = await fetch("/api/gerencial/delivery-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          title: composed,
-          clientId,
-          type: FORMAT_TO_TYPE[format],
-          origin: "Linha editorial",
-          stage: "todo",
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      const id = data?.id && data.id !== "demo" ? String(data.id) : `le-${postSeq++}`;
-      if (data?.id && data.id !== "demo") {
-        const brief = [
-          art === "Media Day" && "Direcionamento: Media Day (VioDay)",
-          pillar && `Pilar: ${pillar}`,
-          roteiro.trim() && `Roteiro:\n${roteiro.trim()}`,
-          legenda.trim() && `Legenda:\n${legenda.trim()}`,
-        ].filter(Boolean).join("\n");
-        if (brief) {
-          await fetch("/api/gerencial/delivery-tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "add-comment", id, comment: { text: brief, author: "Linha editorial" } }),
-          });
-        }
+      await persistPost();
+      if (taskId && assignee) {
+        await fetch(dtx, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "set-assignee", id: taskId, assignee }) });
       }
-      await persistPost(data?.id && data.id !== "demo" ? id : undefined);
-      setDone(true);
-      onCreated(post.n, id);
+      setSavedTick(true);
+      window.setTimeout(() => setSavedTick(false), 1800);
+      onSaved(currentPost());
+    } catch {
+      setError("Falha ao salvar a ficha.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function generateTask(targetStage: TaskStage = "todo"): Promise<string | undefined> {
+    const res = await fetch(dtx, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ action: "create", title: canonicalTitle, clientId, type: FORMAT_TO_TYPE[format], origin: "Linha editorial", stage: targetStage, assignee: assignee || undefined }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const realId = data?.id && data.id !== "demo" ? String(data.id) : undefined;
+    const id = realId ?? `le-${postSeq++}`;
+    if (realId) {
+      const brief = [
+        art === "Media Day" && "Direcionamento: Media Day (VioDay)",
+        pillar && `Pilar: ${pillar}`,
+        tema.trim() && `Tema: ${tema.trim()}`,
+        roteiro.trim() && `Roteiro:\n${roteiro.trim()}`,
+        legenda.trim() && `Legenda:\n${legenda.trim()}`,
+      ].filter(Boolean).join("\n");
+      if (brief) {
+        await fetch(dtx, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "add-comment", id: realId, comment: { text: brief, author: "Linha editorial" } }) });
+      }
+    }
+    setTaskId(realId ?? id);
+    setStage(targetStage);
+    await persistPost(realId ?? id);
+    onCreated(post.n, id);
+    return realId;
+  }
+
+  async function onGenerate() {
+    setSaving(true);
+    setError(null);
+    try {
+      await generateTask("todo");
     } catch {
       setError("Falha ao gerar a task.");
     } finally {
@@ -307,26 +372,66 @@ function PostFicha({
     }
   }
 
-  async function addToLine() {
-    await persistPost();
-    onAdd({
-      ...post,
-      title: title.trim() || "Novo post",
-      format,
-      pillar: pillar.trim() || post.pillar,
-      description: roteiro,
-      artDirection: art,
-    });
+  async function changeStage(s: TaskStage) {
+    setStage(s);
+    if (taskId) {
+      await fetch(dtx, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "set-stage", id: taskId, stage: s }) });
+      onSaved({ ...currentPost(), taskStage: s });
+    }
+  }
+
+  async function enviarAprovacao() {
+    setSaving(true);
+    setError(null);
+    try {
+      if (!taskId) await generateTask("approval");
+      else await changeStage("approval");
+      setStage("approval");
+    } catch {
+      setError("Falha ao enviar para aprovação.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleCheck(i: number) {
+    const next = checks.map((v, idx) => (idx === i ? !v : v));
+    setChecks(next);
+    if (taskId) {
+      await fetch(dtx, {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ action: "set-checklist", id: taskId, checklist: DEFAULT_CHECKLIST.map((label, idx) => ({ label, done: next[idx] })) }),
+      });
+    }
+  }
+
+  async function addComment() {
+    const text = newComment.trim();
+    if (!text) return;
+    setComments((prev) => [...prev, { author: "Equipe", text }]);
+    setNewComment("");
+    if (taskId) {
+      await fetch(dtx, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "add-comment", id: taskId, comment: { text, author: "Equipe" } }) });
+    }
+  }
+
+  function addToLine() {
+    void persistPost();
+    onAdd(currentPost());
     onClose();
   }
 
+  const field = "h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400";
+  const checkDone = checks.filter(Boolean).length;
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
-      <div className="w-full max-w-3xl rounded-2xl border border-line bg-surface shadow-xl">
+      <div className="w-full max-w-4xl rounded-2xl border border-line bg-surface shadow-xl">
         <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-              {mode === "new" ? "Novo post" : "Ficha do post"}
+              {mode === "new" ? "Novo post · sugestão editável" : "Ficha do post · sugestão editável"}
             </p>
             <p className="truncate text-sm font-semibold text-ink">{canonicalTitle}</p>
           </div>
@@ -335,63 +440,183 @@ function PostFicha({
           </button>
         </div>
 
-        {/* Trilha de fases */}
+        {/* Trilha de fases (reflete o estágio real da task) */}
         <div className="no-scrollbar flex items-center gap-1 overflow-x-auto border-b border-line px-5 py-2.5">
           {POST_PHASES.map((ph, i) => (
-            <span key={ph} className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium", i === 0 ? "bg-brand-500 text-white" : "bg-subtle text-muted")}>{ph}</span>
+            <span
+              key={ph}
+              className={cn(
+                "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium",
+                i === activePhase ? "bg-brand-500 text-white" : i < activePhase ? "bg-emerald-500/15 text-emerald-600" : "bg-subtle text-muted",
+              )}
+            >
+              {i < activePhase && <Check className="h-2.5 w-2.5" />} {ph}
+            </span>
           ))}
         </div>
 
         <div className="grid grid-cols-1 gap-4 px-5 py-4 lg:grid-cols-3">
+          {/* Coluna de conteúdo */}
           <div className="space-y-3 lg:col-span-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Título / gancho</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Roteiro / copy</span>
-              <textarea value={roteiro} onChange={(e) => setRoteiro(e.target.value)} rows={5} className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 font-mono text-xs text-ink outline-none focus:border-brand-400" placeholder="Gancho, desenvolvimento, cenas, CTA…" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Legenda (publicação)</span>
-              <textarea value={legenda} onChange={(e) => setLegenda(e.target.value)} rows={2} className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400" />
-            </label>
+            <div className="flex gap-1 border-b border-line">
+              {([["conteudo", "Conteúdo", ListChecks], ["checklist", `Checklist ${checkDone}/${DEFAULT_CHECKLIST.length}`, CheckSquare], ["comentarios", "Comentários", MessageSquare]] as const).map(([k, label, Icon]) => (
+                <button key={k} onClick={() => setTab(k)} className={cn("inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium", tab === k ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink")}>
+                  <Icon className="h-3.5 w-3.5" /> {label}
+                </button>
+              ))}
+            </div>
+
+            {tab === "conteudo" && (
+              <div className="space-y-3">
+                {narrativa && narrativa !== "—" && (
+                  <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-600">Narrativa herdada</p>
+                    <p className="mt-0.5 text-xs text-ink/90">{narrativa}</p>
+                  </div>
+                )}
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Título / gancho</span>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Tema</span>
+                  <input value={tema} onChange={(e) => setTema(e.target.value)} placeholder='Ex.: Trabalho sem carteira. Formato: "Dúvida de Seguidor"' className={field} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Roteiro / copy</span>
+                  <textarea value={roteiro} onChange={(e) => setRoteiro(e.target.value)} rows={6} className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 font-mono text-xs text-ink outline-none focus:border-brand-400" placeholder="Gancho, desenvolvimento, cenas, CTA — do jeito que a equipe escreve." />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Legenda (vai na publicação)</span>
+                  <textarea value={legenda} onChange={(e) => setLegenda(e.target.value)} rows={2} className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400" />
+                </label>
+              </div>
+            )}
+
+            {tab === "checklist" && (
+              <ul className="space-y-1.5">
+                {DEFAULT_CHECKLIST.map((label, i) => (
+                  <li key={label}>
+                    <button onClick={() => toggleCheck(i)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-subtle">
+                      {checks[i] ? <CheckSquare className="h-4 w-4 text-emerald-500" /> : <Square className="h-4 w-4 text-muted" />}
+                      <span className={checks[i] ? "text-muted line-through" : "text-ink"}>{label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {tab === "comentarios" && (
+              <div className="space-y-2">
+                {comments.length === 0 ? (
+                  <p className="rounded-lg bg-subtle px-3 py-3 text-xs text-muted">Sem comentários. Histórico interno + status da aprovação no portal.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {comments.map((c, i) => (
+                      <li key={i} className="rounded-lg bg-subtle px-3 py-2 text-sm">
+                        <span className="text-[10px] font-semibold text-muted">{c.author}</span>
+                        <p className="text-ink/90">{c.text}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex gap-1.5">
+                  <input value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addComment()} placeholder="Comentar…" className="flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400" />
+                  <button onClick={addComment} className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">Add</button>
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Coluna de execução */}
           <div className="space-y-3">
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Formato</span>
-              <select value={format} onChange={(e) => setFormat(e.target.value as EditorialFormat)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm text-ink outline-none focus:border-brand-400">
-                {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+              <span className="mb-1 block text-xs font-medium text-muted">Status</span>
+              <select
+                value={stage ?? ""}
+                onChange={(e) => changeStage(e.target.value as TaskStage)}
+                disabled={!taskId}
+                className={cn(field, "px-2 disabled:opacity-60")}
+              >
+                {!taskId && <option value="">Sem task — gere a produção</option>}
+                {TASK_STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </label>
             <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Responsável principal</span>
+              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={cn(field, "px-2")}>
+                <option value="">—</option>
+                {OPS_TEAM.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Secundário (opcional)</span>
+              <select value={secondary} onChange={(e) => setSecondary(e.target.value)} className={cn(field, "px-2")}>
+                <option value="">—</option>
+                {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Prazo</span>
+                <input value={prazo} onChange={(e) => setPrazo(e.target.value)} placeholder="11/05" className={field} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Formato</span>
+                <select value={format} onChange={(e) => setFormat(e.target.value as EditorialFormat)} className={cn(field, "px-2")}>
+                  {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Pilar</span>
-              <input value={pillar} onChange={(e) => setPillar(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400" />
+              <input value={pillar} onChange={(e) => setPillar(e.target.value)} placeholder="Sem pilar" className={field} />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Direcionamento de arte</span>
-              <select value={art} onChange={(e) => setArt(e.target.value as ArtDirection)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm text-ink outline-none focus:border-brand-400">
+              <select value={art} onChange={(e) => setArt(e.target.value as ArtDirection)} className={cn(field, "px-2")}>
                 {ART_DIRECTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
+              {art === "Media Day" && <p className="mt-1 text-[10px] text-amber-600">→ entra no checklist do próximo VioDay.</p>}
             </label>
+            <div>
+              <span className="mb-1 block text-xs font-medium text-muted">Prioridade</span>
+              <div className="flex gap-1.5">
+                {(["normal", "urgente"] as const).map((p) => (
+                  <button key={p} onClick={() => setPriority(p)} className={cn("inline-flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium", priority === p ? (p === "urgente" ? "border-rose-400 bg-rose-500/10 text-rose-500" : "border-brand-400 bg-brand-500/10 text-ink") : "border-line text-muted hover:text-ink")}>
+                    <Flag className="h-3 w-3" /> {p === "urgente" ? "Urgente" : "Normal"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={enviarAprovacao}
+              disabled={saving}
+              className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+            >
+              <Send className="h-4 w-4" /> Enviar para aprovação do cliente
+            </button>
           </div>
         </div>
 
         {error && <p className="px-5 text-xs font-medium text-rose-500">{error}</p>}
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3.5">
+          {savedTick && <span className="mr-auto inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="h-3.5 w-3.5" /> Salvo</span>}
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Fechar</button>
           {mode === "new" && (
             <button onClick={addToLine} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Adicionar à LE</button>
           )}
+          <button onClick={saveFicha} disabled={saving} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-60">
+            {saving ? "Salvando…" : "Salvar ficha"}
+          </button>
           <button
-            onClick={generateTask}
-            disabled={saving || done}
+            onClick={onGenerate}
+            disabled={saving || !!taskId}
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
             <Rocket className="h-4 w-4" />
-            {done ? "Task gerada ✓" : saving ? "Gerando…" : "Gerar task de produção"}
+            {taskId ? "Em produção ✓" : saving ? "Gerando…" : "Gerar task de produção"}
           </button>
         </div>
       </div>
@@ -657,10 +882,11 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
           clientId={clientId}
           clientName={data.clientName}
           lineId={lineId}
-          hasTask={!!taskByPost[ficha.post.n]}
+          narrativa={data.narrativaCentral}
           onClose={() => setFicha(null)}
           onCreated={(n, taskId) => setTaskByPost((prev) => ({ ...prev, [n]: taskId }))}
           onAdd={(p) => setPosts((prev) => [p, ...prev])}
+          onSaved={(p) => setPosts((prev) => prev.map((x) => (x.n === p.n ? p : x)))}
         />
       )}
       {novaLE && (
