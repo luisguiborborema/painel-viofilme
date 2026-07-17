@@ -315,7 +315,7 @@ export default async function RaioXCliente({
   );
 
   // --- Aba Criativos (HUB10 — gera task) ------------------------------------
-  const criativos = <CriativosTab clientName={c.name} />;
+  const criativos = <CriativosTab clientName={c.name} clientId={id} />;
 
   // --- Aba Agenda -----------------------------------------------------------
   const interactions = d.timeline.filter(
