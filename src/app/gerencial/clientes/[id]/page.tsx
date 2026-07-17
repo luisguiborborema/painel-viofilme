@@ -35,6 +35,7 @@ import { CriativosTab } from "@/components/gerencial/criativos-tab";
 import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientQuickActions } from "@/components/gerencial/client-quick-actions";
+import { NewMeetingButton } from "@/components/gerencial/new-meeting-button";
 import { PlatformIcon } from "@/components/dashboard/platform";
 import { cn } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
@@ -255,6 +256,7 @@ export default async function RaioXCliente({
           city: c.city,
           csResponsavel: c.cs,
           contractModel: d.contractModel,
+          driveFolderUrl: d.driveFolderUrl ?? "",
           contactName: d.contactName,
           contactRole: d.contactRole,
           contactPhone: d.phone,
@@ -327,12 +329,7 @@ export default async function RaioXCliente({
       <Card className="p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Próximas reuniões</h2>
-          <button
-            title="Integração com Google Calendar será ligada em breve"
-            className="inline-flex cursor-default items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted opacity-70"
-          >
-            <Plus className="h-3.5 w-3.5" /> Agendar novo
-          </button>
+          <NewMeetingButton clientId={id} clientName={c.name} defaultAttendee={d.email} />
         </div>
         {d.nextMeeting ? (
           <div className="rounded-xl border border-line bg-subtle p-3.5">
@@ -344,12 +341,20 @@ export default async function RaioXCliente({
             </div>
             <p className="mt-1 text-sm font-medium text-ink">{d.nextMeeting.title}</p>
             <div className="mt-2.5 flex items-center gap-2">
-              <button
-                title="O link do Meet virá da integração com o Google Calendar"
-                className="inline-flex cursor-default items-center gap-1.5 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-xs font-medium text-sky-500"
-              >
-                <Video className="h-3.5 w-3.5" /> Entrar no Meet
-              </button>
+              {d.nextMeeting.joinUrl ? (
+                <a
+                  href={d.nextMeeting.joinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-xs font-medium text-sky-500 hover:bg-sky-500/20"
+                >
+                  <Video className="h-3.5 w-3.5" /> Entrar no Meet
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-subtle px-2.5 py-1.5 text-xs font-medium text-muted">
+                  <Video className="h-3.5 w-3.5" /> Sem link de Meet
+                </span>
+              )}
             </div>
           </div>
         ) : (
@@ -561,7 +566,7 @@ export default async function RaioXCliente({
         </div>
 
         <div className="mt-4">
-          <ClientQuickActions clientId={id} whatsapp={config.whatsapp} />
+          <ClientQuickActions clientId={id} whatsapp={config.whatsapp} driveUrl={d.driveFolderUrl} />
         </div>
       </Card>
 

@@ -234,7 +234,8 @@ export type CSClientDetail = {
   npsLastSurvey: string;
   npsQuote: string;
   timeline: CSTimelineEvent[];
-  nextMeeting: { title: string; whenLabel: string } | null;
+  nextMeeting: { title: string; whenLabel: string; joinUrl?: string | null } | null;
+  driveFolderUrl?: string | null;
   nextContact: string;
   briefing: {
     objetivo: string;

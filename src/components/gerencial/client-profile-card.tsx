@@ -10,6 +10,7 @@ export type ClientProfileInitial = {
   city: string;
   csResponsavel: string;
   contractModel: string;
+  driveFolderUrl: string;
   contactName: string;
   contactRole: string;
   contactPhone: string;
@@ -72,6 +73,7 @@ export function ClientProfileCard({
     city: und(initial.city),
     csResponsavel: und(initial.csResponsavel),
     contractModel: initial.contractModel === "pontual" ? "pontual" : "recorrente",
+    driveFolderUrl: und(initial.driveFolderUrl),
     contactName: und(initial.contactName),
     contactRole: und(initial.contactRole),
     contactPhone: und(initial.contactPhone),
@@ -157,6 +159,13 @@ export function ClientProfileCard({
             ))}
           </div>
         </div>
+
+        <Field
+          label="Pasta de ativos (Drive)"
+          value={f.driveFolderUrl}
+          onChange={(v) => set({ driveFolderUrl: v })}
+          placeholder="https://drive.google.com/drive/folders/…"
+        />
 
         <div className="space-y-3 border-t border-line pt-4">
           <Field label="Objetivo" value={f.briefObjetivo} onChange={(v) => set({ briefObjetivo: v })} placeholder="O que o cliente quer alcançar" textarea />

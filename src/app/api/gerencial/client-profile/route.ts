@@ -20,6 +20,7 @@ type Body = {
   briefConcorrentes?: string;
   briefRestricoes?: string;
   contractModel?: string;
+  driveFolderUrl?: string;
 };
 
 const clean = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
       brief_concorrentes: clean(b.briefConcorrentes),
       brief_restricoes: clean(b.briefRestricoes),
       contract_model: b.contractModel === "pontual" ? "pontual" : "recorrente",
+      drive_folder_url: clean(b.driveFolderUrl),
     })
     .eq("id", b.clientId);
 

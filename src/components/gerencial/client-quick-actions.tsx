@@ -10,9 +10,11 @@ import { Check, Copy, ExternalLink, FolderOpen, MessageCircle } from "lucide-rea
 export function ClientQuickActions({
   clientId,
   whatsapp,
+  driveUrl,
 }: {
   clientId: string;
   whatsapp?: string | null;
+  driveUrl?: string | null;
 }) {
   const [copied, setCopied] = useState(false);
   const wa = whatsapp?.replace(/\D/g, "");
@@ -51,13 +53,18 @@ export function ClientQuickActions({
           <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
         </a>
       )}
-      <button
-        onClick={() => undefined}
-        title="Integração de Drive será ligada em breve"
-        className={`${base} cursor-default opacity-60`}
-      >
-        <FolderOpen className="h-3.5 w-3.5" /> Drive de ativos
-      </button>
+      {driveUrl ? (
+        <a href={driveUrl} target="_blank" rel="noopener noreferrer" className={base}>
+          <FolderOpen className="h-3.5 w-3.5" /> Drive de ativos
+        </a>
+      ) : (
+        <span
+          title="Cadastre o link da pasta em Contatos & briefing"
+          className={`${base} cursor-default opacity-60`}
+        >
+          <FolderOpen className="h-3.5 w-3.5" /> Drive de ativos
+        </span>
+      )}
     </div>
   );
 }

@@ -92,10 +92,11 @@ type HubClientRow = {
   brief_concorrentes?: string | null;
   brief_restricoes?: string | null;
   contract_model?: string | null;
+  drive_folder_url?: string | null;
 };
 
 const CLIENT_PROFILE_COLS =
-  "city, cs_responsavel, contact_name, contact_role, contact_phone, contact_email, brief_objetivo, brief_tom, brief_publico, brief_concorrentes, brief_restricoes, contract_model";
+  "city, cs_responsavel, contact_name, contact_role, contact_phone, contact_email, brief_objetivo, brief_tom, brief_publico, brief_concorrentes, brief_restricoes, contract_model, drive_folder_url";
 const dash = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 /** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso + NPS). */
@@ -1494,7 +1495,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     sbGetMediaPerformance(id),
     supabase
       .from("meetings")
-      .select("title, starts_at")
+      .select("title, starts_at, join_url")
       .eq("client_id", id)
       .gte("starts_at", now.toISOString())
       .order("starts_at")
@@ -1586,7 +1587,9 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     .slice(0, 8)
     .map(({ ts: _ts, ...ev }) => ev);
 
-  const mtg = (meetingsRes.data ?? [])[0] as { title: string | null; starts_at: string | null } | undefined;
+  const mtg = (meetingsRes.data ?? [])[0] as
+    | { title: string | null; starts_at: string | null; join_url: string | null }
+    | undefined;
   const nextMeeting = mtg?.starts_at
     ? {
         title: String(mtg.title ?? "Reunião"),
@@ -1596,6 +1599,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
           hour: "2-digit",
           minute: "2-digit",
         }),
+        joinUrl: mtg.join_url,
       }
     : null;
 
@@ -1610,6 +1614,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     clientSince,
     plan,
     contractModel: c.contract_model === "pontual" ? "pontual" : "recorrente",
+    driveFolderUrl: c.drive_folder_url ?? null,
     tenure: `${months} ${months === 1 ? "mês" : "meses"}`,
     ltv: fee * months,
     invoicesNote: overdueDays > 0 ? `Fatura vencida ${overdueDays}d` : "Faturas em dia",
