@@ -288,7 +288,7 @@ export default async function RaioXCliente({
   );
 
   // --- Aba Tarefas (HUB08) --------------------------------------------------
-  const tarefas = <ClientTasksTab tasks={clientTasks} />;
+  const tarefas = <ClientTasksTab tasks={clientTasks} clientId={id} clientName={c.name} />;
 
   // --- Aba VioLaunch (HUB11 — estudo do negócio) ----------------------------
   const violaunch = (
