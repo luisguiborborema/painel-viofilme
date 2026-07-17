@@ -15,7 +15,12 @@ export type GoalMetric =
   | "cpl"
   | "roas"
   | "followers_growth"
-  | "engagement_rate";
+  | "engagement_rate"
+  | "reach"
+  | "route_clicks"
+  | "leads"
+  | "orders"
+  | "cpa";
 
 export type GoalUnit = "int" | "brl" | "x" | "pct";
 
@@ -31,7 +36,23 @@ export const GOAL_METRICS: {
   { key: "roas", label: "ROAS", unit: "x", higherBetter: true },
   { key: "followers_growth", label: "Crescimento de seguidores", unit: "int", higherBetter: true },
   { key: "engagement_rate", label: "Taxa de engajamento (%)", unit: "pct", higherBetter: true },
+  { key: "reach", label: "Alcance", unit: "int", higherBetter: true },
+  { key: "route_clicks", label: "Cliques de rota", unit: "int", higherBetter: true },
+  { key: "leads", label: "Leads", unit: "int", higherBetter: true },
+  { key: "orders", label: "Pedidos", unit: "int", higherBetter: true },
+  { key: "cpa", label: "CPA (custo por aquisição)", unit: "brl", higherBetter: false },
 ];
+
+/**
+ * Métricas de meta por tipo de negócio (formulário dinâmico — Metas do Hub).
+ * Cada cliente só enxerga o bloco do seu modelo; "revenue" é compartilhado
+ * (faturamento gerado, aberto para a equipe). Nada é removido do modelo.
+ */
+export const GOAL_METRICS_BY_TYPE: Record<ClientType, GoalMetric[]> = {
+  local_business: ["reach", "route_clicks", "engagement_rate", "revenue"],
+  lead_gen: ["leads", "cpl", "conversions", "revenue"],
+  ecommerce: ["orders", "cpa", "roas", "revenue"],
+};
 
 export function metricMeta(key: GoalMetric) {
   return GOAL_METRICS.find((m) => m.key === key)!;
@@ -234,6 +255,11 @@ function actualOf(c: GavClient, metric: GoalMetric): number {
     case "roas": return c.traffic.roas;
     case "followers_growth": return c.social.followersGrowth;
     case "engagement_rate": return c.social.engagementRate;
+    case "reach": return c.traffic.reach;
+    case "route_clicks": return c.traffic.clicks;
+    case "leads": return c.traffic.conversions;
+    case "orders": return c.traffic.conversions;
+    case "cpa": return c.traffic.cpl;
   }
 }
 

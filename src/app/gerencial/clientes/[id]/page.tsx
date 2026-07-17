@@ -405,7 +405,7 @@ export default async function RaioXCliente({
 
   const tabs: ClientTab[] = [
     { key: "resumo", label: "Resumo", content: resumo },
-    { key: "metas", label: "Metas", content: <ClientGoalsCard clientId={id} /> },
+    { key: "metas", label: "Metas", content: <ClientGoalsCard clientId={id} clientType={config.clientType} /> },
     {
       key: "tarefas",
       label: openTaskCount > 0 ? `Tarefas · ${openTaskCount}` : "Tarefas",
