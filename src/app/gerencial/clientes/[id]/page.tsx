@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Circle,
   Download,
@@ -174,9 +175,14 @@ export default async function RaioXCliente({
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-500">Atrasadas ({lateTasks.length})</p>
                 <ul className="space-y-1">
                   {lateTasks.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between rounded-lg bg-rose-500/5 px-3 py-2 text-sm">
-                      <span className="text-ink">{t.title}</span>
-                      <span className="text-xs font-medium text-rose-500">{t.dueLabel}</span>
+                    <li key={t.id} className="flex items-center justify-between gap-3 rounded-lg bg-rose-500/5 px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate text-ink">{t.title}</span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs font-medium text-rose-500">{t.dueLabel}</span>
+                        <Link href={`/gerencial/clientes/${id}?tab=tarefas`} className="inline-flex items-center gap-0.5 rounded-md bg-rose-500 px-2 py-1 text-[11px] font-semibold text-white hover:bg-rose-600">
+                          Resolver <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -187,9 +193,14 @@ export default async function RaioXCliente({
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600">Aguardando aprovação ({approvalTasks.length})</p>
                 <ul className="space-y-1">
                   {approvalTasks.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between rounded-lg bg-amber-500/5 px-3 py-2 text-sm">
-                      <span className="text-ink">{t.title}</span>
-                      <span className="text-xs font-medium text-amber-600">{t.dueLabel}</span>
+                    <li key={t.id} className="flex items-center justify-between gap-3 rounded-lg bg-amber-500/5 px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate text-ink">{t.title}</span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs font-medium text-amber-600">{t.dueLabel}</span>
+                        <Link href={`/gerencial/clientes/${id}?tab=tarefas`} className="inline-flex items-center gap-0.5 rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white hover:bg-amber-600">
+                          Resolver <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </span>
                     </li>
                   ))}
                 </ul>

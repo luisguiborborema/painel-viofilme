@@ -463,12 +463,13 @@ export type TaskStage = "todo" | "doing" | "review" | "approval" | "done";
 export type TaskType = "Arte" | "Vídeo" | "Copy" | "Tráfego";
 export type TaskOrigin = "Linha editorial" | "Projeto" | "Tarefa avulsa";
 
+// Estágios canônicos do objeto task — Kanban, LE e Resumo usam os mesmos nomes.
 export const TASK_STAGES: { key: TaskStage; label: string }[] = [
-  { key: "todo", label: "Para fazer" },
-  { key: "doing", label: "Em andamento" },
+  { key: "todo", label: "Backlog" },
+  { key: "doing", label: "Em produção" },
   { key: "review", label: "Revisão interna" },
-  { key: "approval", label: "Aprovação cliente" },
-  { key: "done", label: "Concluído" },
+  { key: "approval", label: "Aguardando cliente" },
+  { key: "done", label: "Aprovado/Publicado" },
 ];
 
 /** Capacidade compartilhada: nº de tasks/dia por pessoa (alerta de cor). */

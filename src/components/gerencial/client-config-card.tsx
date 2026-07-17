@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Settings2 } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Copy, Settings2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { PlatformIcon } from "@/components/dashboard/platform";
 import { usePersistentState } from "@/lib/use-persistent-state";
@@ -44,6 +45,7 @@ export function ClientConfigCard({
     `vio-client-config-saved-${clientId}`,
     false,
   );
+  const [linkCopied, setLinkCopied] = useState(false);
 
   function patch(p: Partial<Config>) {
     setCfg({ ...cfg, ...p });
@@ -191,12 +193,24 @@ export function ClientConfigCard({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <button
           onClick={save}
           className="rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
         >
           Salvar configuração
+        </button>
+        <button
+          onClick={() => {
+            void navigator.clipboard?.writeText(`${window.location.origin}/cliente`).then(() => {
+              setLinkCopied(true);
+              window.setTimeout(() => setLinkCopied(false), 1800);
+            });
+          }}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle"
+        >
+          {linkCopied ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+          {linkCopied ? "Link copiado" : "Copiar link do cliente"}
         </button>
         {saved && (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
