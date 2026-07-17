@@ -1478,7 +1478,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [tasksAll, paysRes, postsRes, media, meetingsRes, npsRes] = await Promise.all([
+  const [tasksAll, paysRes, postsRes, media, meetingsRes, npsRes, reqRes] = await Promise.all([
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1495,17 +1495,24 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     sbGetMediaPerformance(id),
     supabase
       .from("meetings")
-      .select("title, starts_at, join_url")
+      .select("id, title, starts_at, join_url, participants, agenda, next_steps")
       .eq("client_id", id)
-      .gte("starts_at", now.toISOString())
+      .gte("starts_at", new Date(now.getTime() - 30 * dayMs).toISOString())
       .order("starts_at")
-      .limit(1),
+      .limit(12),
     supabase
       .from("nps_surveys")
       .select("score, comment, created_at")
       .eq("client_id", id)
       .order("created_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("meeting_requests")
+      .select("id, subject, preferred_at, urgency, notes, status")
+      .eq("client_id", id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const pays = (paysRes.data ?? []) as {
@@ -1587,21 +1594,50 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     .slice(0, 8)
     .map(({ ts: _ts, ...ev }) => ev);
 
-  const mtg = (meetingsRes.data ?? [])[0] as
-    | { title: string | null; starts_at: string | null; join_url: string | null }
-    | undefined;
-  const nextMeeting = mtg?.starts_at
-    ? {
-        title: String(mtg.title ?? "Reunião"),
-        whenLabel: new Date(mtg.starts_at).toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        joinUrl: mtg.join_url,
-      }
+  const whenLabelOf = (iso: string) =>
+    new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  const agendaMeetings = ((meetingsRes.data ?? []) as {
+    id: string;
+    title: string | null;
+    starts_at: string | null;
+    join_url: string | null;
+    participants: string[] | null;
+    agenda: string | null;
+    next_steps: string | null;
+  }[])
+    .filter((m) => m.starts_at)
+    .map((m) => ({
+      id: String(m.id),
+      title: String(m.title ?? "Reunião"),
+      whenLabel: whenLabelOf(String(m.starts_at)),
+      startIso: String(m.starts_at),
+      joinUrl: m.join_url,
+      participants: Array.isArray(m.participants) ? m.participants : [],
+      agenda: m.agenda,
+      nextSteps: m.next_steps,
+      isPast: Date.parse(String(m.starts_at)) < now.getTime(),
+    }));
+
+  const firstFuture = agendaMeetings.find((m) => !m.isPast);
+  const nextMeeting = firstFuture
+    ? { title: firstFuture.title, whenLabel: firstFuture.whenLabel, joinUrl: firstFuture.joinUrl }
     : null;
+
+  const agendaRequests = ((reqRes.data ?? []) as {
+    id: string;
+    subject: string | null;
+    preferred_at: string | null;
+    urgency: string | null;
+    notes: string | null;
+  }[]).map((r) => ({
+    id: String(r.id),
+    subject: String(r.subject ?? "Solicitação"),
+    whenLabel: r.preferred_at ? whenLabelOf(String(r.preferred_at)) : "Sem horário sugerido",
+    preferredIso: r.preferred_at,
+    urgency: String(r.urgency ?? "normal"),
+    notes: r.notes,
+  }));
 
   const cplTone = (cpl: number): CSTone => (cpl <= 10 ? "ok" : cpl <= 15 ? "warn" : "danger");
 
@@ -1633,6 +1669,8 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
       ? timeline
       : [{ id: "t0", date: clientSince, text: "Cliente cadastrado", kind: "onboarding" }],
     nextMeeting,
+    agendaMeetings,
+    agendaRequests,
     nextContact: nextMeeting ? "Próxima reunião agendada" : "Sem reunião agendada",
     briefing: {
       objetivo: dash(c.brief_objetivo),

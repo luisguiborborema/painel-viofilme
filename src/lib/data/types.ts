@@ -235,6 +235,25 @@ export type CSClientDetail = {
   npsQuote: string;
   timeline: CSTimelineEvent[];
   nextMeeting: { title: string; whenLabel: string; joinUrl?: string | null } | null;
+  agendaMeetings: {
+    id: string;
+    title: string;
+    whenLabel: string;
+    startIso: string;
+    joinUrl?: string | null;
+    participants: string[];
+    agenda?: string | null;
+    nextSteps?: string | null;
+    isPast: boolean;
+  }[];
+  agendaRequests: {
+    id: string;
+    subject: string;
+    whenLabel: string;
+    preferredIso?: string | null;
+    urgency: string;
+    notes?: string | null;
+  }[];
   driveFolderUrl?: string | null;
   nextContact: string;
   briefing: {

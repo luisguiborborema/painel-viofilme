@@ -228,6 +228,31 @@ export function getCSClientDetail(id: string): CSClientDetail | null {
       title: "Alinhamento mensal de resultados",
       whenLabel: "Quinta, 26 jun · 10h00",
     },
+    agendaMeetings: [
+      {
+        id: "mtg-demo",
+        title: "Alinhamento mensal de resultados",
+        whenLabel: "26/06 · 10:00",
+        startIso: "2026-06-26T13:00:00.000Z",
+        joinUrl: "https://meet.google.com/demo",
+        participants: ["ana@viofilme.com", isRestaurante ? "pedro@sabordomar.com.br" : "contato@cliente.com.br"],
+        agenda: "Resultados do mês · próximos passos da LE",
+        nextSteps: null,
+        isPast: false,
+      },
+    ],
+    agendaRequests: isRestaurante
+      ? [
+          {
+            id: "req-demo",
+            subject: "Ajuste de campanha de fim de semana",
+            whenLabel: "Sem horário sugerido",
+            preferredIso: null,
+            urgency: "urgent",
+            notes: "Quero revisar as ofertas antes do feriado.",
+          },
+        ]
+      : [],
     nextContact: "Próximo contato programado: reunião mensal · Google Meet",
     briefing: isRestaurante ? BRIEFING_RESTAURANTE : GENERIC_BRIEFING,
     campaigns: isRestaurante
