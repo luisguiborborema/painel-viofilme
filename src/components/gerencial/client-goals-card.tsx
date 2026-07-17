@@ -28,6 +28,8 @@ export function ClientGoalsCard({
   const [periods] = useState(() => recentPeriods(new Date().toISOString(), 6));
   const [period, setPeriod] = useState(periods[0]);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [prevValues, setPrevValues] = useState<Record<string, string>>({});
+  const [lastUpdate, setLastUpdate] = useState<{ at: string; byName: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(0);
@@ -40,19 +42,40 @@ export function ClientGoalsCard({
       .filter((m): m is (typeof GOAL_METRICS)[number] => !!m);
   }, [clientType]);
 
+  // Competência anterior (YYYY-MM) para exibir a meta do mês passado.
+  const prevPeriod = useMemo(() => {
+    const [y, m] = period.split("-").map(Number);
+    if (!y || !m) return null;
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+  }, [period]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- efeito de busca: reinicia estado ao trocar cliente/período
     setLoading(true);
-    fetch(`/api/gerencial/client-goals?clientId=${clientId}&period=${period}`, { cache: "no-store" })
+    const cur = fetch(`/api/gerencial/client-goals?clientId=${clientId}&period=${period}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
         const map: Record<string, string> = {};
         for (const g of j.goals ?? []) map[g.metric] = String(g.targetValue);
         setValues(map);
+        setLastUpdate(j.lastUpdate ?? null);
       })
-      .catch(() => setValues({}))
-      .finally(() => setLoading(false));
-  }, [clientId, period]);
+      .catch(() => {
+        setValues({});
+        setLastUpdate(null);
+      });
+    const prev = prevPeriod
+      ? fetch(`/api/gerencial/client-goals?clientId=${clientId}&period=${prevPeriod}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .then((j) => {
+            const map: Record<string, string> = {};
+            for (const g of j.goals ?? []) map[g.metric] = String(g.targetValue);
+            setPrevValues(map);
+          })
+          .catch(() => setPrevValues({}))
+      : Promise.resolve(setPrevValues({}));
+    void Promise.all([cur, prev]).finally(() => setLoading(false));
+  }, [clientId, period, prevPeriod]);
 
   function set(metric: GoalMetric, v: string) {
     setValues((prev) => ({ ...prev, [metric]: v.replace(/[^\d.]/g, "") }));
@@ -133,6 +156,9 @@ export function ClientGoalsCard({
                   placeholder="—"
                   className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
                 />
+                {prevValues[m.key] && (
+                  <p className="mt-1 text-[10px] text-muted">Meta mês anterior: {prevValues[m.key]}</p>
+                )}
               </label>
             ))}
           </div>
@@ -145,6 +171,12 @@ export function ClientGoalsCard({
             Essas metas alimentam os gráficos de tendência no Portal do Cliente e o
             termômetro da Gestão à Vista.
           </p>
+          {lastUpdate && (
+            <p className="mt-1 text-[11px] text-muted">
+              Última atualização{lastUpdate.byName ? ` por ${lastUpdate.byName}` : ""} em{" "}
+              {new Date(lastUpdate.at).toLocaleDateString("pt-BR")}
+            </p>
+          )}
         </>
       )}
     </Card>
