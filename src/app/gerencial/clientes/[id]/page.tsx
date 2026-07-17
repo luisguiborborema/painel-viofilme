@@ -114,10 +114,13 @@ function EntregasBar({ done, approval, total }: { done: number; approval: number
 
 export default async function RaioXCliente({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const d = await getCSClientDetail(id);
   if (!d) notFound();
 
@@ -570,7 +573,7 @@ export default async function RaioXCliente({
         </div>
       </Card>
 
-      <ClientTabs tabs={tabs} />
+      <ClientTabs tabs={tabs} defaultKey={tab} />
     </div>
   );
 }

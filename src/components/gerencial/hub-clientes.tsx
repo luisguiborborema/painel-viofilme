@@ -20,24 +20,32 @@ import { NewClientButton } from "./new-client-modal";
 import {
   RESPONSIBLE_ROLES,
   type HubClientOps,
-  type HubSemaforo,
 } from "@/lib/data/operacao";
 
 type Scope = "meus" | "squad" | "todos";
-type EstadoFilter =
-  | "todas"
-  | "em-dia"
-  | "atrasado"
-  | "aguardando"
-  | "onboarding"
-  | "le-pendente";
 
-// "Status" operacional (o antigo "Semáforo"): reflexo do ritmo da operação.
-const STATUS: Record<HubSemaforo["state"], { label: string; chip: string; icon: typeof CheckCircle2 }> = {
+// Status operacional — 4 estados automáticos (derivados de tasks + churn + fase).
+type StatusState = "em-dia" | "atencao" | "critico" | "onboarding";
+type EstadoFilter = "todas" | StatusState | "le-pendente";
+
+const STATUS: Record<StatusState, { label: string; chip: string; icon: typeof CheckCircle2 }> = {
   "em-dia": { label: "Em dia", chip: "bg-emerald-500/15 text-emerald-600", icon: CheckCircle2 },
-  atrasado: { label: "Atenção", chip: "bg-rose-500/15 text-rose-500", icon: AlertTriangle },
-  aguardando: { label: "Aguardando cliente", chip: "bg-amber-500/15 text-amber-600", icon: Clock3 },
+  atencao: { label: "Atenção", chip: "bg-amber-500/15 text-amber-600", icon: Clock3 },
+  critico: { label: "Crítico", chip: "bg-rose-500/15 text-rose-500", icon: AlertTriangle },
+  onboarding: { label: "Onboarding", chip: "bg-slate-500/15 text-slate-500", icon: Clock3 },
 };
+
+/**
+ * Status nunca é preenchido à mão — função de tasks + churn + fase:
+ * ⚪ Onboarding (fase) · 🔴 Crítico (prazos estourados ou churn/risco) ·
+ * 🟡 Atenção (aguardando cliente / gargalo leve) · 🟢 Em dia.
+ */
+function statusOf(c: HubClientOps): StatusState {
+  if (c.status === "onboarding") return "onboarding";
+  if (c.atRisk || c.semaforo.late > 0) return "critico";
+  if (c.semaforo.approval > 0) return "atencao";
+  return "em-dia";
+}
 
 function initials(name: string) {
   return name.split(" ").filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -79,15 +87,8 @@ function RespRow({ c }: { c: HubClientOps }) {
   );
 }
 
-function StatusChip({ s, status }: { s: HubSemaforo; status: HubClientOps["status"] }) {
-  if (status === "onboarding") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/15 px-2 py-0.5 text-xs font-semibold text-slate-500">
-        <Clock3 className="h-3.5 w-3.5" /> Onboarding
-      </span>
-    );
-  }
-  const meta = STATUS[s.state];
+function StatusChip({ c }: { c: HubClientOps }) {
+  const meta = STATUS[statusOf(c)];
   const Icon = meta.icon;
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", meta.chip)}>
@@ -201,10 +202,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
       clients.filter((c) => {
         if (scope === "meus" && !isMine(c)) return false;
         if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
-        if (estado === "em-dia" && (c.status === "onboarding" || c.semaforo.state !== "em-dia")) return false;
-        if (estado === "atrasado" && c.semaforo.state !== "atrasado") return false;
-        if (estado === "aguardando" && c.semaforo.state !== "aguardando") return false;
-        if (estado === "onboarding" && c.status !== "onboarding") return false;
+        if (estado !== "todas" && estado !== "le-pendente" && statusOf(c) !== estado) return false;
         if (estado === "le-pendente" && c.leNextMonth.status !== "pendente") return false;
         if (resp && !Object.values(c.responsibles).includes(resp)) return false;
         if (plan && c.plan !== plan) return false;
@@ -254,8 +252,8 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
         <select value={estado} onChange={(e) => setEstado(e.target.value as EstadoFilter)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
           <option value="todas">Todos os status</option>
           <option value="em-dia">Em dia</option>
-          <option value="atrasado">Atenção / atraso</option>
-          <option value="aguardando">Aguardando cliente</option>
+          <option value="atencao">Atenção</option>
+          <option value="critico">Crítico</option>
           <option value="onboarding">Onboarding</option>
           <option value="le-pendente">Próx. ciclo pendente</option>
         </select>
@@ -301,7 +299,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                   <span className="text-[10px] text-muted">{c.squadName}</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <StatusChip s={c.semaforo} status={c.status} />
+                  <StatusChip c={c} />
                   <span className="text-[11px]">
                     {c.semaforo.late > 0 && <span className="text-rose-500">{c.semaforo.late} atrasada(s) </span>}
                     {c.semaforo.approval > 0 && <span className="text-amber-600">· {c.semaforo.approval} aguardando</span>}
@@ -352,9 +350,19 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                   </td>
                   <td className="px-3 py-2.5 text-muted">{c.plan}</td>
                   <td className="px-3 py-2.5"><RespRow c={c} /></td>
-                  <td className="px-3 py-2.5"><StatusChip s={c.semaforo} status={c.status} /></td>
+                  <td className="px-3 py-2.5"><StatusChip c={c} /></td>
                   <td className="px-3 py-2.5 text-right">
-                    {c.semaforo.late > 0 ? <span className="font-semibold text-rose-500">{c.semaforo.late}</span> : "—"}
+                    {c.semaforo.late > 0 ? (
+                      <Link
+                        href={`/gerencial/clientes/${c.id}?tab=tarefas`}
+                        title="Ver tarefas atrasadas do cliente"
+                        className="font-semibold text-rose-500 underline-offset-2 hover:underline"
+                      >
+                        {c.semaforo.late}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-right">{c.semaforo.approval || "—"}</td>
                   <td className="px-3 py-2.5">
