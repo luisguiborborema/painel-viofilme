@@ -30,7 +30,15 @@ const STAGE_LABEL: Record<string, string> = {
 
 let seq = 5000;
 
-export function CriativosTab({ clientName, clientId }: { clientName: string; clientId: string }) {
+export function CriativosTab({
+  clientName,
+  clientId,
+  existing = [],
+}: {
+  clientName: string;
+  clientId: string;
+  existing?: DeliveryTask[];
+}) {
   const [placement, setPlacement] = useState<(typeof PLACEMENTS)[number]>(PLACEMENTS[0]);
   const [title, setTitle] = useState("");
   const [angle, setAngle] = useState("");
@@ -41,7 +49,8 @@ export function CriativosTab({ clientName, clientId }: { clientName: string; cli
   const [assignee, setAssignee] = useState(OPS_TEAM[0]?.id ?? "");
   const [secondary, setSecondary] = useState("");
   const [due, setDue] = useState("");
-  const [tasks, setTasks] = useState<DeliveryTask[]>([]);
+  // Seed com os criativos reais já solicitados do cliente (status real do Kanban).
+  const [tasks, setTasks] = useState<DeliveryTask[]>(existing);
   const [open, setOpen] = useState<DeliveryTask | null>(null);
   const [saving, setSaving] = useState(false);
 
