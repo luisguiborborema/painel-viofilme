@@ -3,8 +3,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  CheckCircle2,
-  Circle,
   Download,
   FileText,
   Mail,
@@ -22,10 +20,11 @@ import {
 } from "@/lib/data/queries";
 import {
   getClientDocuments,
-  getVioLaunch,
   RESPONSIBLE_ROLES,
   TASK_STAGES,
 } from "@/lib/data/operacao";
+import { getVioLaunchData } from "@/lib/data/violaunch";
+import { VioLaunchPanel } from "@/components/gerencial/violaunch-panel";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
@@ -141,7 +140,6 @@ export default async function RaioXCliente({
     whatsapp: portal?.whatsapp ?? "",
   };
 
-  const vl = getVioLaunch(id);
   const docs = getClientDocuments(id);
   const editorial = await getEditorialLineView(id);
 
@@ -290,46 +288,8 @@ export default async function RaioXCliente({
   // --- Aba Tarefas (HUB08) --------------------------------------------------
   const tarefas = <ClientTasksTab tasks={clientTasks} clientId={id} clientName={c.name} />;
 
-  // --- Aba VioLaunch (HUB11 — estudo do negócio) ----------------------------
-  const violaunch = (
-    <Card className="p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">VioLaunch — estudo & implementação</h2>
-          <p className="text-xs text-muted">Não é só onboarding: é o estudo do negócio do cliente.</p>
-        </div>
-        <span className="text-sm font-medium text-muted">
-          {vl.step}/{vl.total} etapas · início {vl.startDate}
-        </span>
-      </div>
-      <div className="mb-4 h-2 overflow-hidden rounded-full bg-subtle-strong">
-        <div className="h-full rounded-full bg-brand-500" style={{ width: `${(vl.step / vl.total) * 100}%` }} />
-      </div>
-      <div className="space-y-2">
-        {vl.steps.map((s) => (
-          <details key={s.label} className="group rounded-xl border border-line" open={!s.done}>
-            <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3 py-2.5 text-sm">
-              {s.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted" />}
-              <span className={cn("flex-1 font-medium", s.done ? "text-ink" : "text-muted")}>{s.label}</span>
-              <span className="text-xs text-muted">{s.date}</span>
-            </summary>
-            <div className="space-y-2 border-t border-line px-3 py-2.5 text-sm">
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Entregas</p>
-                <p className="text-ink/90">{s.entregas}</p>
-              </div>
-              {s.notes && (
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Anotações & ajustes</p>
-                  <p className="text-ink/90">{s.notes}</p>
-                </div>
-              )}
-            </div>
-          </details>
-        ))}
-      </div>
-    </Card>
-  );
+  // --- Aba VioLaunch (HUB11 — Produto Zero) ---------------------------------
+  const violaunch = <VioLaunchPanel data={getVioLaunchData(ops?.onboarding?.startDate)} />;
 
   // --- Aba Criativos (HUB10 — gera task) ------------------------------------
   const criativos = (
