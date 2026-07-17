@@ -254,6 +254,7 @@ export default async function RaioXCliente({
         initial={{
           city: c.city,
           csResponsavel: c.cs,
+          contractModel: d.contractModel,
           contactName: d.contactName,
           contactRole: d.contactRole,
           contactPhone: d.phone,
@@ -448,6 +449,17 @@ export default async function RaioXCliente({
               )}
               {/* Tags de contexto: tipo de negócio, redes ativas, tempo de casa, saúde */}
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    d.contractModel === "pontual"
+                      ? "bg-violet-500/15 text-violet-500"
+                      : "bg-brand-500/15 text-brand-600",
+                  )}
+                  title={d.contractModel === "pontual" ? "Contrato pontual" : "Contrato recorrente"}
+                >
+                  {d.contractModel === "pontual" ? "VioProjects" : "VioDelivery"}
+                </span>
                 {clientTypeLabel && (
                   <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-muted">
                     {clientTypeLabel}

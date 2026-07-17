@@ -30,6 +30,7 @@ type Body = {
   contactPhone?: string;
   contactEmail?: string;
   csResponsavel?: string;
+  contractModel?: string;
 };
 
 /** Cadastro de novo cliente (gerencial) — origem dos dados do Hub. */
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
       status: "onboarding",
       monthly_fee: Number.isFinite(fee) && fee > 0 ? fee : null,
       client_type: clientType,
+      contract_model: b.contractModel === "pontual" ? "pontual" : "recorrente",
       has_paid_traffic: Boolean(b.hasPaidTraffic),
       whatsapp: b.whatsapp?.replace(/\D/g, "") || null,
       city: clean(b.city),

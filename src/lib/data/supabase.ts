@@ -84,10 +84,11 @@ type HubClientRow = {
   brief_publico?: string | null;
   brief_concorrentes?: string | null;
   brief_restricoes?: string | null;
+  contract_model?: string | null;
 };
 
 const CLIENT_PROFILE_COLS =
-  "city, cs_responsavel, contact_name, contact_role, contact_phone, contact_email, brief_objetivo, brief_tom, brief_publico, brief_concorrentes, brief_restricoes";
+  "city, cs_responsavel, contact_name, contact_role, contact_phone, contact_email, brief_objetivo, brief_tom, brief_publico, brief_concorrentes, brief_restricoes, contract_model";
 const dash = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 /** Health score do cliente a partir de sinais reais (financeiro + atividade + atraso + NPS). */
@@ -1601,6 +1602,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     email: dash(c.contact_email),
     clientSince,
     plan,
+    contractModel: c.contract_model === "pontual" ? "pontual" : "recorrente",
     tenure: `${months} ${months === 1 ? "mês" : "meses"}`,
     ltv: fee * months,
     invoicesNote: overdueDays > 0 ? `Fatura vencida ${overdueDays}d` : "Faturas em dia",

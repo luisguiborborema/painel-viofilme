@@ -16,6 +16,7 @@ type Form = {
   segment: string;
   city: string;
   clientType: string;
+  contractModel: string;
   monthlyFee: string;
   whatsapp: string;
   hasPaidTraffic: boolean;
@@ -30,6 +31,7 @@ const EMPTY: Form = {
   segment: "",
   city: "",
   clientType: "local_business",
+  contractModel: "recorrente",
   monthlyFee: "",
   whatsapp: "",
   hasPaidTraffic: false,
@@ -154,6 +156,28 @@ export function NewClientButton() {
                         f.clientType === t.value
                           ? "border-brand-400 bg-brand-500/10"
                           : "border-line bg-subtle hover:border-brand-300",
+                      )}
+                    >
+                      <p className="text-xs font-medium text-ink">{t.label}</p>
+                      <p className="text-[10px] text-muted">{t.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted">Modelo de contrato</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "recorrente", label: "VioDelivery", hint: "Recorrente" },
+                    { value: "pontual", label: "VioProjects", hint: "Pontual" },
+                  ].map((t) => (
+                    <button
+                      key={t.value}
+                      onClick={() => set({ contractModel: t.value })}
+                      className={cn(
+                        "rounded-xl border p-2.5 text-left transition-colors",
+                        f.contractModel === t.value ? "border-brand-400 bg-brand-500/10" : "border-line bg-subtle hover:border-brand-300",
                       )}
                     >
                       <p className="text-xs font-medium text-ink">{t.label}</p>

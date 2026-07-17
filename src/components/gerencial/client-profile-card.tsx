@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Contact } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export type ClientProfileInitial = {
   city: string;
   csResponsavel: string;
+  contractModel: string;
   contactName: string;
   contactRole: string;
   contactPhone: string;
@@ -69,6 +71,7 @@ export function ClientProfileCard({
   const [f, setF] = useState<ClientProfileInitial>({
     city: und(initial.city),
     csResponsavel: und(initial.csResponsavel),
+    contractModel: initial.contractModel === "pontual" ? "pontual" : "recorrente",
     contactName: und(initial.contactName),
     contactRole: und(initial.contactRole),
     contactPhone: und(initial.contactPhone),
@@ -130,6 +133,29 @@ export function ClientProfileCard({
           <Field label="E-mail" value={f.contactEmail} onChange={(v) => set({ contactEmail: v })} placeholder="contato@cliente.com.br" />
           <Field label="Cidade" value={f.city} onChange={(v) => set({ city: v })} placeholder="Vitória, ES" />
           <Field label="CS responsável" value={f.csResponsavel} onChange={(v) => set({ csResponsavel: v })} placeholder="Ex.: Ana Lima" />
+        </div>
+
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted">Modelo de contrato</span>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: "recorrente", label: "VioDelivery", hint: "Recorrente" },
+              { value: "pontual", label: "VioProjects", hint: "Pontual" },
+            ].map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => set({ contractModel: t.value })}
+                className={cn(
+                  "rounded-xl border p-2.5 text-left transition-colors",
+                  f.contractModel === t.value ? "border-brand-400 bg-brand-500/10" : "border-line bg-subtle hover:border-brand-300",
+                )}
+              >
+                <p className="text-xs font-medium text-ink">{t.label}</p>
+                <p className="text-[10px] text-muted">{t.hint}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3 border-t border-line pt-4">

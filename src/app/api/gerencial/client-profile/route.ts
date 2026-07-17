@@ -19,6 +19,7 @@ type Body = {
   briefPublico?: string;
   briefConcorrentes?: string;
   briefRestricoes?: string;
+  contractModel?: string;
 };
 
 const clean = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
       brief_publico: clean(b.briefPublico),
       brief_concorrentes: clean(b.briefConcorrentes),
       brief_restricoes: clean(b.briefRestricoes),
+      contract_model: b.contractModel === "pontual" ? "pontual" : "recorrente",
     })
     .eq("id", b.clientId);
 

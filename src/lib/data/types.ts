@@ -226,6 +226,7 @@ export type CSClientDetail = {
   email: string;
   clientSince: string;
   plan: string;
+  contractModel: "recorrente" | "pontual";
   tenure: string;
   ltv: number;
   invoicesNote: string;

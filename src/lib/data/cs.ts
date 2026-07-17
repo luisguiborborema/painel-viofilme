@@ -214,6 +214,7 @@ export function getCSClientDetail(id: string): CSClientDetail | null {
       : `contato@${client.id}.com.br`,
     clientSince: isRestaurante ? "09/01/2026" : "10/02/2026",
     plan: isRestaurante ? "Social Pro" : "Essencial",
+    contractModel: "recorrente",
     tenure: isRestaurante ? "5 meses" : "4 meses",
     ltv: client.mrr * 12,
     invoicesNote: client.financial.tone === "ok" ? "Faturas em dia" : client.financial.label,
