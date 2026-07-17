@@ -166,7 +166,9 @@ export function Sidebar({
           }
 
           // --- Modo expandido: dropdown/accordion ---
-          const expanded = !group.title || openGroups[group.title] !== false || hasActive;
+          // Estado 100% do usuário (default aberto). Grupo com rota ativa também
+          // pode ser recolhido — o ponto no cabeçalho sinaliza que há algo dentro.
+          const expanded = !group.title || openGroups[group.title] !== false;
           return (
             <div key={group.title ?? `group-${gi}`} className="space-y-1">
               {group.title && (
