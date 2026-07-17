@@ -319,6 +319,8 @@ export type EditorialPost = {
   assetNote: string;
   artDirection: ArtDirection;
   references: EditorialRef[];
+  /** Estágio real da delivery task gerada (live-sync do Kanban), se houver. */
+  taskStage?: TaskStage;
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };

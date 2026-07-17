@@ -2426,7 +2426,22 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     .eq("line_id", line.id)
     .order("n");
 
-  const posts: EditorialPost[] = ((postsData ?? []) as EditorialPostRow[]).map((p) => ({
+  const postRows = (postsData ?? []) as EditorialPostRow[];
+
+  // Live-sync: estágio real das delivery tasks vinculadas aos posts.
+  const taskIds = postRows.map((p) => p.task_id).filter((x): x is string => !!x);
+  const stageByTask = new Map<string, TaskStage>();
+  if (taskIds.length) {
+    const { data: tRows } = await supabase
+      .from("delivery_tasks")
+      .select("id, stage")
+      .in("id", taskIds);
+    for (const t of (tRows ?? []) as { id: string; stage: string | null }[]) {
+      stageByTask.set(t.id, (t.stage as TaskStage) ?? "todo");
+    }
+  }
+
+  const posts: EditorialPost[] = postRows.map((p) => ({
     id: p.id,
     n: Number(p.n ?? 0),
     date: p.post_date ?? "—",
@@ -2438,6 +2453,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     assetNote: "",
     artDirection: (p.art_direction as ArtDirection) ?? "Banco do cliente",
     references: Array.isArray(p.refs) ? (p.refs as EditorialRef[]) : [],
+    taskStage: p.task_id ? stageByTask.get(p.task_id) : undefined,
   }));
 
   return {

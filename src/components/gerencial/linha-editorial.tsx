@@ -54,6 +54,15 @@ const FORMAT_TO_TYPE: Record<EditorialFormat, string> = {
   Carrossel: "Arte",
 };
 
+// Estágio real da delivery task (live-sync do Kanban).
+const TASK_STAGE_LABEL: Record<string, string> = {
+  todo: "Backlog",
+  doing: "Em produção",
+  review: "Revisão interna",
+  approval: "Aguardando cliente",
+  done: "Publicado",
+};
+
 // Trilha de fases da ficha (Task universal) — display.
 const POST_PHASES = [
   "Ideia", "Briefing", "Em produção", "Revisão interna",
@@ -159,7 +168,7 @@ function PostCard({ post, onOpen, taskStage }: { post: EditorialPost; onOpen: ()
         )}
         {taskStage && (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
-            <Rocket className="h-3 w-3" /> Em produção
+            <Rocket className="h-3 w-3" /> {TASK_STAGE_LABEL[taskStage] ?? "Em produção"}
           </span>
         )}
       </div>
@@ -631,7 +640,12 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((p) => (
-            <PostCard key={p.n} post={p} taskStage={taskByPost[p.n]} onOpen={() => setFicha({ post: p, mode: "view" })} />
+            <PostCard
+              key={p.n}
+              post={p}
+              taskStage={p.taskStage ?? (taskByPost[p.n] ? "todo" : undefined)}
+              onOpen={() => setFicha({ post: p, mode: "view" })}
+            />
           ))}
         </div>
       </div>
