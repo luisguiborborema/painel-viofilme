@@ -12,11 +12,11 @@ import {
   List,
   MessageCircle,
   MoreVertical,
-  Plus,
   Search,
 } from "lucide-react";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
+import { NewClientButton } from "./new-client-modal";
 import {
   RESPONSIBLE_ROLES,
   type HubClientOps,
@@ -246,9 +246,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
             <List className="h-4 w-4" />
           </button>
         </div>
-        <button className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">
-          <Plus className="h-4 w-4" /> Novo cliente
-        </button>
+        <NewClientButton />
       </div>
 
       {/* Filtros operacionais (HUB03) */}
