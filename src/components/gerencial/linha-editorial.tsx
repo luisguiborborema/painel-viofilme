@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check,
   Clapperboard,
@@ -198,6 +199,7 @@ function PostFicha({
   post,
   clientId,
   clientName,
+  lineId,
   mode,
   hasTask,
   onClose,
@@ -207,6 +209,7 @@ function PostFicha({
   post: EditorialPost;
   clientId: string;
   clientName: string;
+  lineId?: string;
   mode: "view" | "new";
   hasTask: boolean;
   onClose: () => void;
@@ -224,6 +227,32 @@ function PostFicha({
   const [error, setError] = useState<string | null>(null);
 
   const canonicalTitle = `[${clientName}] ${format.toUpperCase()}: ${title.trim() || "Sem título"}`;
+
+  // Persiste o post na linha editorial (quando existe uma linha real).
+  async function persistPost(taskId?: string) {
+    if (!lineId) return;
+    await fetch("/api/gerencial/editorial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "upsert-post",
+        lineId,
+        post: {
+          id: post.id,
+          n: post.n,
+          title: title.trim(),
+          format,
+          pillar,
+          description: roteiro,
+          legenda,
+          artDirection: art,
+          postDate: post.date !== "—" ? post.date : undefined,
+          weekday: post.weekday !== "—" ? post.weekday : undefined,
+          taskId,
+        },
+      }),
+    });
+  }
 
   async function generateTask() {
     setSaving(true);
@@ -259,6 +288,7 @@ function PostFicha({
           });
         }
       }
+      await persistPost(data?.id && data.id !== "demo" ? id : undefined);
       setDone(true);
       onCreated(post.n, id);
     } catch {
@@ -268,7 +298,8 @@ function PostFicha({
     }
   }
 
-  function addToLine() {
+  async function addToLine() {
+    await persistPost();
     onAdd({
       ...post,
       title: title.trim() || "Novo post",
@@ -360,10 +391,54 @@ function PostFicha({
 }
 
 /** Modal "Criar LE" — ponto de partida (branco / duplicar do mês anterior). */
-function NovaLEModal({ data, onClose }: { data: EditorialLine; onClose: () => void }) {
-  const [mode, setMode] = useState<"branco" | "duplicar">("duplicar");
+function NovaLEModal({
+  data,
+  clientId,
+  onClose,
+  onDone,
+}: {
+  data: EditorialLine;
+  clientId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [mode, setMode] = useState<"branco" | "duplicar">(data.id ? "duplicar" : "branco");
   const [month, setMonth] = useState("");
   const [objetivo, setObjetivo] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function create() {
+    if (!month.trim()) {
+      setError("Informe o mês da nova LE.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/gerencial/editorial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create-line",
+          clientId,
+          month: month.trim(),
+          objetivo: objetivo.trim() || undefined,
+          duplicateFromId: mode === "duplicar" ? data.id : undefined,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j?.error ?? "Falha ao criar a LE.");
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Falha de rede ao criar a LE.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
@@ -381,8 +456,12 @@ function NovaLEModal({ data, onClose }: { data: EditorialLine; onClose: () => vo
               <p className="text-sm font-medium text-ink">Começar em branco</p>
               <p className="text-[11px] text-muted">Folha limpa.</p>
             </button>
-            <button onClick={() => setMode("duplicar")} className={cn("rounded-xl border p-3 text-left transition-colors", mode === "duplicar" ? "border-brand-400 bg-brand-500/10" : "border-line bg-subtle hover:border-brand-300")}>
-              <p className="text-sm font-medium text-ink">Duplicar {data.month}</p>
+            <button
+              onClick={() => data.id && setMode("duplicar")}
+              disabled={!data.id}
+              className={cn("rounded-xl border p-3 text-left transition-colors disabled:opacity-50", mode === "duplicar" ? "border-brand-400 bg-brand-500/10" : "border-line bg-subtle hover:border-brand-300")}
+            >
+              <p className="text-sm font-medium text-ink">Duplicar {data.id ? data.month : "(sem LE prévia)"}</p>
               <p className="text-[11px] text-muted">Traz pilares e estrutura do mês anterior.</p>
             </button>
           </div>
@@ -394,14 +473,12 @@ function NovaLEModal({ data, onClose }: { data: EditorialLine; onClose: () => vo
             <span className="mb-1 block text-xs font-medium text-muted">Objetivo / foco do mês</span>
             <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={2} placeholder="Ex.: encher reservas de ter–qui" className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400" />
           </label>
-          <p className="rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
-            A persistência da LE (salvar a linha e seus posts entre sessões) é o próximo passo estrutural — precisa das tabelas de linha editorial. Por ora este é o ponto de partida da produção.
-          </p>
+          {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Cancelar</button>
-          <button onClick={onClose} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">
-            <Plus className="h-4 w-4" /> Começar
+          <button onClick={create} disabled={saving} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+            <Plus className="h-4 w-4" /> {saving ? "Criando…" : "Criar LE"}
           </button>
         </div>
       </div>
@@ -425,6 +502,8 @@ function emptyPost(): EditorialPost {
 }
 
 export function LinhaEditorial({ data, clientId }: { data: EditorialLine; clientId: string }) {
+  const router = useRouter();
+  const lineId = data.id;
   const [filter, setFilter] = useState<"Todos" | EditorialFormat>("Todos");
   const [moodGeral, setMoodGeral] = useState<EditorialRef[]>(data.moodboardGeral);
   const [showHistory, setShowHistory] = useState(false);
@@ -433,6 +512,17 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
   const [ficha, setFicha] = useState<{ post: EditorialPost; mode: "view" | "new" } | null>(null);
   const [novaLE, setNovaLE] = useState(false);
   const [taskByPost, setTaskByPost] = useState<Record<number, string>>({});
+
+  function changeStage(s: EditorialStage) {
+    setStage(s);
+    if (lineId) {
+      void fetch("/api/gerencial/editorial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-stage", id: lineId, stage: s }),
+      });
+    }
+  }
 
   const currentStageIdx = EDITORIAL_STAGES.findIndex((s) => s.key === stage);
   const shown = filter === "Todos" ? posts : posts.filter((p) => p.format === filter);
@@ -481,7 +571,7 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
           return (
             <div key={s.key} className="flex items-center">
               <button
-                onClick={() => setStage(s.key)}
+                onClick={() => changeStage(s.key)}
                 title="Definir estágio da LE"
                 className={cn("flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors", active ? "bg-brand-500 text-white" : isDone ? "bg-emerald-500/15 text-emerald-600" : "bg-surface text-muted hover:text-ink")}
               >
@@ -552,13 +642,24 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
           mode={ficha.mode}
           clientId={clientId}
           clientName={data.clientName}
+          lineId={lineId}
           hasTask={!!taskByPost[ficha.post.n]}
           onClose={() => setFicha(null)}
           onCreated={(n, taskId) => setTaskByPost((prev) => ({ ...prev, [n]: taskId }))}
           onAdd={(p) => setPosts((prev) => [p, ...prev])}
         />
       )}
-      {novaLE && <NovaLEModal data={data} onClose={() => setNovaLE(false)} />}
+      {novaLE && (
+        <NovaLEModal
+          data={data}
+          clientId={clientId}
+          onClose={() => setNovaLE(false)}
+          onDone={() => {
+            setNovaLE(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

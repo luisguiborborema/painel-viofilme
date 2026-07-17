@@ -16,11 +16,11 @@ import {
   getClientById,
   getClientTasks,
   getCSClientDetail,
+  getEditorialLineView,
   getHubClientsOps,
 } from "@/lib/data/queries";
 import {
   getClientDocuments,
-  getEditorialLine,
   getVioLaunch,
   RESPONSIBLE_ROLES,
   TASK_STAGES,
@@ -138,7 +138,7 @@ export default async function RaioXCliente({
 
   const vl = getVioLaunch(id);
   const docs = getClientDocuments(id);
-  const editorial = getEditorialLine(id);
+  const editorial = await getEditorialLineView(id);
 
   const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
     (x) => x && x !== "—",

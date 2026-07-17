@@ -642,9 +642,20 @@ export async function getClientTasks(clientName: string): Promise<DeliveryTask[]
   return all.filter((t) => t.client === clientName);
 }
 
-import { getHubClientsOps as hubOpsMock, type HubClientOps } from "./operacao";
+import {
+  getHubClientsOps as hubOpsMock,
+  getEditorialLine as editorialLineMock,
+  type HubClientOps,
+  type EditorialLine,
+} from "./operacao";
 import { getCSClientDetail as csDetailMock } from "./cs";
 import type { CSClientDetail } from "./types";
+
+/** Linha editorial do cliente — persistida (editorial_lines) ou mock demo. */
+export async function getEditorialLineView(clientId: string): Promise<EditorialLine> {
+  if (isSupabaseConfigured()) return sb.sbGetEditorialLine(clientId);
+  return editorialLineMock(clientId);
+}
 
 /** Hub de Clientes com health real (clientes + payments + tarefas + atividade). */
 export async function getHubClientsOps(): Promise<HubClientOps[]> {

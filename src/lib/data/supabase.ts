@@ -62,6 +62,13 @@ import {
   type HubClientOps,
   type HubPlan,
   type HubStatus,
+  type EditorialLine,
+  type EditorialPost,
+  type EditorialFormat,
+  type EditorialStage,
+  type EditorialRef,
+  type EditorialPillar,
+  type ArtDirection,
 } from "./operacao";
 import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from "./types";
 
@@ -2343,5 +2350,112 @@ export async function sbGetClientRequests(): Promise<ClientRequests> {
       status: (r.status as RequestStatus) ?? "pending",
       createdAt: String(r.created_at),
     })),
+  };
+}
+
+// --- Linha Editorial (persistida) -------------------------------------------
+
+type EditorialLineRow = {
+  id: string;
+  month: string | null;
+  stage: string | null;
+  objetivo: string | null;
+  narrativa_central: string | null;
+  tensao_narrativa: string | null;
+  datas_comemorativas: string | null;
+  pillars: unknown;
+  moodboard: unknown;
+};
+type EditorialPostRow = {
+  id: string;
+  n: number | null;
+  title: string | null;
+  format: string | null;
+  pillar: string | null;
+  description: string | null;
+  legenda: string | null;
+  art_direction: string | null;
+  post_date: string | null;
+  weekday: string | null;
+  refs: unknown;
+  task_id: string | null;
+};
+
+const dash2 = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
+
+/** Linha editorial mais recente do cliente + posts (ou scaffold vazio). */
+export async function sbGetEditorialLine(clientId: string): Promise<EditorialLine> {
+  const supabase = await createClient();
+
+  const [clientRes, linesRes] = await Promise.all([
+    supabase.from("clients").select("name").eq("id", clientId).maybeSingle(),
+    supabase
+      .from("editorial_lines")
+      .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const clientName = (clientRes.data as { name: string | null } | null)?.name ?? "Cliente";
+  const lines = (linesRes.data ?? []) as EditorialLineRow[];
+  const line = lines[0];
+
+  if (!line) {
+    return {
+      clientName,
+      month: periodLabel(),
+      createdBy: "—",
+      stage: "ideacao",
+      frequency: "Sem posts ainda",
+      networks: "Instagram · Facebook",
+      responsibles: "—",
+      approvalMeeting: "—",
+      datasComemorativas: "—",
+      narrativaCentral: "—",
+      tensaoNarrativa: "—",
+      moodboardGeral: [],
+      pillars: [],
+      posts: [],
+      history: [],
+    };
+  }
+
+  const { data: postsData } = await supabase
+    .from("editorial_posts")
+    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id")
+    .eq("line_id", line.id)
+    .order("n");
+
+  const posts: EditorialPost[] = ((postsData ?? []) as EditorialPostRow[]).map((p) => ({
+    id: p.id,
+    n: Number(p.n ?? 0),
+    date: p.post_date ?? "—",
+    weekday: p.weekday ?? "—",
+    title: p.title ?? "",
+    format: (p.format as EditorialFormat) ?? "Feed",
+    pillar: p.pillar ?? "",
+    description: p.description ?? "",
+    assetNote: "",
+    artDirection: (p.art_direction as ArtDirection) ?? "Banco do cliente",
+    references: Array.isArray(p.refs) ? (p.refs as EditorialRef[]) : [],
+  }));
+
+  return {
+    id: line.id,
+    clientName,
+    month: line.month ?? periodLabel(),
+    createdBy: "Equipe",
+    stage: (line.stage as EditorialStage) ?? "ideacao",
+    frequency: `${posts.length} posts no mês`,
+    networks: "Instagram · Facebook",
+    responsibles: "—",
+    approvalMeeting: "—",
+    datasComemorativas: dash2(line.datas_comemorativas),
+    narrativaCentral: dash2(line.narrativa_central),
+    tensaoNarrativa: dash2(line.tensao_narrativa),
+    moodboardGeral: Array.isArray(line.moodboard) ? (line.moodboard as EditorialRef[]) : [],
+    pillars: Array.isArray(line.pillars) ? (line.pillars as EditorialPillar[]) : [],
+    posts,
+    history: lines.slice(1).map((l) => ({ id: l.id, month: l.month ?? "—" })),
   };
 }

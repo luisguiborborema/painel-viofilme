@@ -308,6 +308,7 @@ export type EditorialRef = {
 };
 
 export type EditorialPost = {
+  id?: string;
   n: number;
   date: string; // "01/07"
   weekday: string; // "seg"
@@ -323,6 +324,7 @@ export type EditorialPost = {
 export type EditorialPillar = { name: string; posts: number; color: string };
 
 export type EditorialLine = {
+  id?: string;
   clientName: string;
   month: string;
   createdBy: string;
