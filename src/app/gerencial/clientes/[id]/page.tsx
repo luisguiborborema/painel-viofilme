@@ -73,6 +73,16 @@ const CLIENT_TYPE_LABEL: Record<string, string> = {
   local_business: "Negócio local",
 };
 
+/** Tipologia da reunião derivada do título (Kickoff / VioLaunch / Media Day / Alinhamento). */
+function meetingTag(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes("kickoff") || t.includes("kick-off")) return "Kickoff";
+  if (t.includes("violaunch") || t.includes("onboarding")) return "VioLaunch";
+  if (t.includes("media day") || t.includes("mediaday") || t.includes("vioday")) return "Media Day";
+  if (t.includes("resultado") || t.includes("mensal") || t.includes("alinhamento")) return "Alinhamento mensal";
+  return "Reunião";
+}
+
 function healthTone(score: number) {
   if (score >= 75) return "bg-emerald-500/15 text-emerald-600";
   if (score >= 55) return "bg-amber-500/15 text-amber-600";
@@ -308,40 +318,64 @@ export default async function RaioXCliente({
   const criativos = <CriativosTab clientName={c.name} />;
 
   // --- Aba Agenda -----------------------------------------------------------
+  const interactions = d.timeline.filter(
+    (ev) => ev.kind === "meeting" || ev.kind === "nps",
+  );
   const agenda = (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Próximas reuniões</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Próximas reuniões</h2>
+          <button
+            title="Integração com Google Calendar será ligada em breve"
+            className="inline-flex cursor-default items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted opacity-70"
+          >
+            <Plus className="h-3.5 w-3.5" /> Agendar novo
+          </button>
+        </div>
         {d.nextMeeting ? (
-          <div className="rounded-xl bg-subtle p-3">
-            <p className="text-xs font-medium text-emerald-300">
-              {d.nextMeeting.whenLabel}
-            </p>
-            <p className="mt-0.5 text-sm font-medium text-ink">
-              {d.nextMeeting.title}
-            </p>
-            <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-sky-400">
-              <Video className="h-3.5 w-3.5" /> Google Meet
-            </span>
+          <div className="rounded-xl border border-line bg-subtle p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-emerald-500">{d.nextMeeting.whenLabel}</p>
+              <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-500">
+                {meetingTag(d.nextMeeting.title)}
+              </span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-ink">{d.nextMeeting.title}</p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                title="O link do Meet virá da integração com o Google Calendar"
+                className="inline-flex cursor-default items-center gap-1.5 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-xs font-medium text-sky-500"
+              >
+                <Video className="h-3.5 w-3.5" /> Entrar no Meet
+              </button>
+            </div>
           </div>
         ) : (
-          <p className="text-sm text-muted">Nenhuma reunião agendada.</p>
+          <div className="rounded-xl border border-dashed border-line p-4 text-center">
+            <p className="text-sm text-muted">
+              A agenda está livre. Agende o próximo touchpoint com o cliente.
+            </p>
+          </div>
         )}
-        <p className="mt-3 text-xs text-muted">{d.nextContact}</p>
       </Card>
       <Card className="p-5">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Histórico</h2>
-        <ol className="relative ml-1 space-y-3 border-l border-line pl-5">
-          {d.timeline
-            .filter((ev) => ev.kind === "meeting" || ev.kind === "onboarding")
-            .map((ev) => (
+        <h2 className="mb-3 text-sm font-semibold text-ink">Histórico de interações</h2>
+        {interactions.length > 0 ? (
+          <ol className="relative ml-1 space-y-3 border-l border-line pl-5">
+            {interactions.map((ev) => (
               <li key={ev.id} className="relative">
                 <span className="absolute -left-[26px] top-0.5 h-3 w-3 rounded-full bg-brand-500/30" />
                 <p className="text-sm text-ink/90">{ev.text}</p>
                 <p className="text-xs text-muted">{ev.date}</p>
               </li>
             ))}
-        </ol>
+          </ol>
+        ) : (
+          <p className="text-sm text-muted">
+            Sem reuniões ou pesquisas registradas ainda.
+          </p>
+        )}
       </Card>
     </div>
   );
