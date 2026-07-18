@@ -5,9 +5,9 @@ import {
   BellRing,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Plus,
-
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import {
   WEEKDAYS,
   buildUpdateMessage,
   metricLabel,
+  parseRecurrence,
   recurrenceLabel,
   type RecurringUpdate,
   type UpdateMetric,
@@ -216,6 +217,8 @@ function UpdatesList({
   loading: boolean;
   onChange: () => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   async function toggle(u: RecurringUpdate) {
     await fetch("/api/gerencial/recurring-updates", {
       method: "POST",
@@ -246,50 +249,157 @@ function UpdatesList({
         </p>
       ) : (
         <ul className="divide-y divide-line">
-          {updates.map((u) => (
-            <li key={u.id} className="flex items-start justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-ink">{u.clientName ?? "Cliente"}</p>
-                <p className="text-xs text-muted">
-                  {u.metrics.map(metricLabel).join(", ")} · {recurrenceLabel(u.recurrence)}
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      u.status === "active" ? "bg-emerald-500/15 text-emerald-600" : "bg-subtle text-muted",
-                    )}
-                  >
-                    {u.status === "active" ? "Ativo" : "Pausado"}
-                  </span>
-                  {u.lastSentAt && (
-                    <span className="text-[10px] text-muted">
-                      último: {dayMonth(u.lastSentAt)} {clockLabel(u.lastSentAt)}
+          {updates.map((u) =>
+            editingId === u.id ? (
+              <li key={u.id} className="py-3">
+                <UpdateEditor
+                  update={u}
+                  onCancel={() => setEditingId(null)}
+                  onSaved={() => {
+                    setEditingId(null);
+                    onChange();
+                  }}
+                />
+              </li>
+            ) : (
+              <li key={u.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{u.clientName ?? "Cliente"}</p>
+                  <p className="text-xs text-muted">
+                    {u.metrics.map(metricLabel).join(", ")} · {recurrenceLabel(u.recurrence)}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        u.status === "active" ? "bg-emerald-500/15 text-emerald-600" : "bg-subtle text-muted",
+                      )}
+                    >
+                      {u.status === "active" ? "Ativo" : "Pausado"}
                     </span>
-                  )}
+                    {u.lastSentAt && (
+                      <span className="text-[10px] text-muted">
+                        último: {dayMonth(u.lastSentAt)} {clockLabel(u.lastSentAt)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  onClick={() => toggle(u)}
-                  title={u.status === "active" ? "Pausar" : "Ativar"}
-                  className="rounded-lg p-1.5 text-muted hover:bg-subtle"
-                >
-                  {u.status === "active" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={() => remove(u)}
-                  title="Remover"
-                  className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </li>
-          ))}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => setEditingId(u.id)}
+                    title="Editar"
+                    className="rounded-lg p-1.5 text-muted hover:bg-subtle"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => toggle(u)}
+                    title={u.status === "active" ? "Pausar" : "Ativar"}
+                    className="rounded-lg p-1.5 text-muted hover:bg-subtle"
+                  >
+                    {u.status === "active" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => remove(u)}
+                    title="Remover"
+                    className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            ),
+          )}
         </ul>
       )}
     </Card>
+  );
+}
+
+// ── Editor inline de um update ───────────────────────────────────────────────
+
+function UpdateEditor({
+  update,
+  onSaved,
+  onCancel,
+}: {
+  update: RecurringUpdate;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const parsed = parseRecurrence(update.recurrence);
+  const [metrics, setMetrics] = useState<UpdateMetric[]>(update.metrics);
+  const [kind, setKind] = useState<"daily" | "weekly" | "monthly">(parsed.kind);
+  const [weekday, setWeekday] = useState(parsed.kind === "weekly" ? parsed.value : 3);
+  const [monthday, setMonthday] = useState(parsed.kind === "monthly" ? parsed.value : 1);
+  const [busy, setBusy] = useState(false);
+
+  const recurrence =
+    kind === "daily" ? "daily" : kind === "weekly" ? `weekly:${weekday}` : `monthly:${monthday}`;
+
+  function toggleMetric(m: UpdateMetric) {
+    setMetrics((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  }
+
+  async function save() {
+    if (metrics.length === 0 || busy) return;
+    setBusy(true);
+    try {
+      await fetch("/api/gerencial/recurring-updates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id: update.id, metrics, recurrence }),
+      });
+      onSaved();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-brand-200 bg-brand-50/30 p-3">
+      <p className="mb-2 text-xs font-semibold text-ink">Editar update · {update.clientName ?? "Cliente"}</p>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {UPDATE_METRICS.map((m) => {
+          const on = metrics.includes(m.key);
+          return (
+            <button
+              key={m.key}
+              onClick={() => toggleMetric(m.key)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                on ? "border-brand-400 bg-brand-50 text-brand-700" : "border-line text-muted hover:bg-subtle",
+              )}
+            >
+              {m.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mb-2 flex flex-wrap gap-2">
+        <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+          <option value="daily">Diário</option>
+          <option value="weekly">Semanal</option>
+          <option value="monthly">Mensal</option>
+        </select>
+        {kind === "weekly" && (
+          <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+            {WEEKDAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+        )}
+        {kind === "monthly" && (
+          <select value={monthday} onChange={(e) => setMonthday(Number(e.target.value))} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>Dia {d}</option>)}
+          </select>
+        )}
+      </div>
+      <div className="flex gap-1.5">
+        <button onClick={save} disabled={busy || metrics.length === 0} className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Salvar
+        </button>
+        <button onClick={onCancel} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle">Cancelar</button>
+      </div>
+    </div>
   );
 }
 
