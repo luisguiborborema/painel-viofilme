@@ -324,6 +324,7 @@ export type EditorialPost = {
   /** Campos da ficha (Task universal). */
   tema?: string;
   legenda?: string;
+  notes?: string;
   assignee?: string;
   assigneeSecondary?: string;
   priority?: "normal" | "urgente";

@@ -26,6 +26,7 @@ type PostInput = {
   assignee?: string;
   assigneeSecondary?: string;
   priority?: string;
+  notes?: string;
 };
 
 type Body = {
@@ -168,6 +169,7 @@ export async function POST(req: Request) {
       assignee: p.assignee?.trim() || null,
       assignee_secondary: p.assigneeSecondary?.trim() || null,
       priority: p.priority === "urgente" ? "urgente" : "normal",
+      notes: p.notes ?? null,
       updated_at: now,
     };
     if (p.id) {
