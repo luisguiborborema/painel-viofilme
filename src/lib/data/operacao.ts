@@ -337,6 +337,7 @@ export type EditorialLine = {
   id?: string;
   clientName: string;
   month: string;
+  objetivo?: string;
   createdBy: string;
   stage: EditorialStage;
   frequency: string;

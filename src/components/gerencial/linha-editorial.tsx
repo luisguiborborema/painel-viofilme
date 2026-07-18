@@ -721,6 +721,153 @@ function NovaLEModal({
   );
 }
 
+const PILLAR_COLORS = ["#f59e0b", "#34d399", "#38bdf8", "#a855f7", "#fb7185", "#22d3ee"];
+const und = (s?: string) => (s && s !== "—" ? s : "");
+
+/** Cabeçalho estratégico editável (Criar LE — Tela 1). Persiste via set-header. */
+function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: string }) {
+  const [objetivo, setObjetivo] = useState(und(data.objetivo));
+  const [narrativa, setNarrativa] = useState(und(data.narrativaCentral));
+  const [tensao, setTensao] = useState(und(data.tensaoNarrativa));
+  const [datas, setDatas] = useState<string[]>(
+    und(data.datasComemorativas) ? data.datasComemorativas.split(" · ").filter(Boolean) : [],
+  );
+  const [pillars, setPillars] = useState<EditorialPillar[]>(data.pillars);
+  const [moodboard, setMoodboard] = useState<EditorialRef[]>(data.moodboardGeral);
+  const [newDate, setNewDate] = useState("");
+  const [newPillar, setNewPillar] = useState("");
+  const [savedTick, setSavedTick] = useState(false);
+
+  async function save(patch: Record<string, unknown>) {
+    if (!lineId) return;
+    await fetch("/api/gerencial/editorial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-header", id: lineId, ...patch }),
+    });
+    setSavedTick(true);
+    window.setTimeout(() => setSavedTick(false), 1500);
+  }
+
+  function ia(bloco: string) {
+    alert(
+      `IA · ${bloco} — em breve. Vai usar o contexto real do cliente (segmento, briefing, LEs anteriores e resultados dos posts) via Edge Function.`,
+    );
+  }
+
+  function addDate() {
+    const v = newDate.trim();
+    if (!v) return;
+    const next = [...datas, v];
+    setDatas(next);
+    setNewDate("");
+    void save({ datasComemorativas: next.join(" · ") });
+  }
+  function removeDate(i: number) {
+    const next = datas.filter((_, idx) => idx !== i);
+    setDatas(next);
+    void save({ datasComemorativas: next.join(" · ") });
+  }
+  function addPillar() {
+    const v = newPillar.trim();
+    if (!v) return;
+    const p: EditorialPillar = { name: v, posts: 0, color: PILLAR_COLORS[pillars.length % PILLAR_COLORS.length] };
+    const next = [...pillars, p];
+    setPillars(next);
+    setNewPillar("");
+    void save({ pillars: next });
+  }
+  function removePillar(name: string) {
+    const next = pillars.filter((p) => p.name !== name);
+    setPillars(next);
+    void save({ pillars: next });
+  }
+
+  const iaBtn = "inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 hover:bg-violet-100";
+  const ta = "w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <div className="rounded-2xl border border-brand-200 bg-brand-50/30 p-1">
+      <div className="flex items-center justify-between px-4 pt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600">Cabeçalho estratégico · a tese do mês</p>
+        {savedTick && <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600"><Check className="h-3 w-3" /> salvo</span>}
+      </div>
+      <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3">
+        <Card className="space-y-3 p-4 lg:col-span-2">
+          {/* Objetivo / foco do mês */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Objetivo / foco do mês</span>
+              <button onClick={() => ia("Gerar ideias")} className={iaBtn}>✨ Sugerir</button>
+            </div>
+            <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} onBlur={() => save({ objetivo })} rows={2} placeholder="Ex.: encher reservas de ter–qui · lançar o novo cardápio" className={ta} />
+          </div>
+          {/* Narrativa central */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Narrativa central</span>
+              <button onClick={() => ia("Sugerir narrativa")} className={iaBtn}>✨ Sugerir narrativa</button>
+            </div>
+            <textarea value={narrativa} onChange={(e) => setNarrativa(e.target.value)} onBlur={() => save({ narrativaCentral: narrativa })} rows={2} placeholder="A mensagem-mãe do mês." className={ta} />
+          </div>
+          {/* Tensão narrativa */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Tensão narrativa</span>
+              <button onClick={() => ia("Sugerir tensão")} className={iaBtn}>✨ Sugerir tensão</button>
+            </div>
+            <textarea value={tensao} onChange={(e) => setTensao(e.target.value)} onBlur={() => save({ tensaoNarrativa: tensao })} rows={2} placeholder="O conflito/ângulo que sustenta a narrativa." className={ta} />
+          </div>
+          {/* Datas comemorativas — chips */}
+          <div className="border-t border-line pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Datas comemorativas</span>
+              <button onClick={() => ia("Buscar datas")} className={iaBtn}>✨ Buscar datas</button>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {datas.map((d, i) => (
+                <span key={`${d}-${i}`} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">
+                  {d}
+                  <button onClick={() => removeDate(i)} className="text-muted hover:text-rose-500"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+              <input value={newDate} onChange={(e) => setNewDate(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addDate()} placeholder="+ data" className="w-28 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-ink outline-none focus:border-brand-400" />
+            </div>
+          </div>
+          {/* Pilares — chips */}
+          <div className="border-t border-line pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Pilares de conteúdo</span>
+              <button onClick={() => ia("Sugerir pilares")} className={iaBtn}>✨ Sugerir pilares</button>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {pillars.map((p) => (
+                <span key={p.name} className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} /> {p.name}{p.posts ? ` · ${p.posts}` : ""}
+                  <button onClick={() => removePillar(p.name)} className="text-muted hover:text-rose-500"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+              <input value={newPillar} onChange={(e) => setNewPillar(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addPillar()} placeholder="+ pilar" className="w-28 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-ink outline-none focus:border-brand-400" />
+            </div>
+          </div>
+          <div className="border-t border-line pt-3 text-xs text-muted">
+            <Field label="Frequência" value={data.frequency} />
+            <Field label="Redes" value={data.networks} />
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold text-ink">Moodboard & referências</p>
+            <button onClick={() => ia("Gerar moodboard")} className={iaBtn}>✨ Gerar</button>
+          </div>
+          <Moodboard refs={moodboard} onAdd={(r) => { const next = [...moodboard, r]; setMoodboard(next); void save({ moodboard: next }); }} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 function emptyPost(): EditorialPost {
   return {
     n: postSeq++,
@@ -740,7 +887,6 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
   const router = useRouter();
   const lineId = data.id;
   const [filter, setFilter] = useState<"Todos" | EditorialFormat>("Todos");
-  const [moodGeral, setMoodGeral] = useState<EditorialRef[]>(data.moodboardGeral);
   const [showHistory, setShowHistory] = useState(false);
   const [stage, setStage] = useState<EditorialStage>(data.stage);
   const [posts, setPosts] = useState<EditorialPost[]>(data.posts);
@@ -818,40 +964,8 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
         })}
       </div>
 
-      {/* ── Nível 1: Cabeçalho estratégico (macro) ── */}
-      <div className="rounded-2xl border border-brand-200 bg-brand-50/30 p-1">
-        <p className="px-4 pt-2 text-[11px] font-semibold uppercase tracking-wide text-brand-600">Cabeçalho estratégico (macro)</p>
-        <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3">
-          <Card className="p-4 lg:col-span-2">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <StratField label="Datas comemorativas" value={data.datasComemorativas} />
-              <StratField label="Reunião de aprovação" value={data.approvalMeeting} />
-              <StratField label="Narrativa central" value={data.narrativaCentral} />
-              <StratField label="Tensão narrativa" value={data.tensaoNarrativa} />
-            </div>
-            <div className="mt-3 border-t border-line pt-3">
-              <p className="mb-2 text-xs font-semibold text-ink">Pilares de conteúdo</p>
-              <div className="flex flex-wrap gap-2">
-                {data.pillars.map((p) => (
-                  <span key={p.name} className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} /> {p.name} · {p.posts}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="mt-3 border-t border-line pt-3 text-xs text-muted">
-              <Field label="Frequência" value={data.frequency} />
-              <Field label="Redes" value={data.networks} />
-              <Field label="Responsáveis" value={data.responsibles} />
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <p className="mb-2 text-xs font-semibold text-ink">Moodboard geral</p>
-            <Moodboard refs={moodGeral} onAdd={(r) => setMoodGeral((p) => [...p, r])} />
-          </Card>
-        </div>
-      </div>
+      {/* ── Nível 1: Cabeçalho estratégico editável (Criar LE) ── */}
+      <StrategicHeader data={data} lineId={lineId} />
 
       {/* ── Nível 2: Posts individuais (micro) ── */}
       <div>
@@ -907,11 +1021,3 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
   );
 }
 
-function StratField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className="text-sm text-ink">{value}</p>
-    </div>
-  );
-}

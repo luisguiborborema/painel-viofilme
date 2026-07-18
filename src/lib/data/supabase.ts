@@ -2525,6 +2525,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     id: line.id,
     clientName,
     month: line.month ?? periodLabel(),
+    objetivo: line.objetivo ?? "",
     createdBy: "Equipe",
     stage: (line.stage as EditorialStage) ?? "ideacao",
     frequency: `${posts.length} posts no mês`,
