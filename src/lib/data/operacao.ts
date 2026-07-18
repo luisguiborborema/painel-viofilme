@@ -265,19 +265,17 @@ export function getClientCreatives(_clientId: string): ClientCreative[] {
 
 // --- Linha Editorial (V1c) ---------------------------------------------------
 export type EditorialStage =
-  | "ideacao"
-  | "pautas"
-  | "aprovacao"
-  | "tarefas"
-  | "producao"
+  | "rascunho"
+  | "em_producao"
+  | "aprovacao_interna"
+  | "ativa"
   | "concluida";
 
 export const EDITORIAL_STAGES: { key: EditorialStage; label: string }[] = [
-  { key: "ideacao", label: "Ideação" },
-  { key: "pautas", label: "Pautas definidas" },
-  { key: "aprovacao", label: "Aprovação cliente" },
-  { key: "tarefas", label: "Geração de tarefas" },
-  { key: "producao", label: "Em produção" },
+  { key: "rascunho", label: "Rascunho" },
+  { key: "em_producao", label: "Em produção" },
+  { key: "aprovacao_interna", label: "Aprovação interna" },
+  { key: "ativa", label: "Ativa" },
   { key: "concluida", label: "Concluída" },
 ];
 
@@ -340,6 +338,8 @@ export type EditorialLine = {
   clientName: string;
   month: string;
   objetivo?: string;
+  builtBy?: string;
+  internallyApprovedBy?: string;
   createdBy: string;
   stage: EditorialStage;
   frequency: string;
@@ -583,7 +583,7 @@ export function getEditorialLine(clientId: string): EditorialLine {
     clientName: client?.name ?? "Cliente",
     month: "Julho / 2025",
     createdBy: "Ana Lima · Social Media",
-    stage: "aprovacao",
+    stage: "ativa",
     frequency: "5 posts/semana · 22 ativos",
     networks: "Instagram · Facebook",
     responsibles: "Ana Lima (SM) + Robert (Design)",

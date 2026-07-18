@@ -136,6 +136,7 @@ const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
 const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
 const DELIVERY_STAGES = new Set<string>(["todo", "doing", "review", "approval", "done"]);
+const EDITORIAL_STAGE_SET = new Set<string>(["rascunho", "em_producao", "aprovacao_interna", "ativa", "concluida"]);
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -2419,6 +2420,8 @@ type EditorialLineRow = {
   datas_comemorativas: string | null;
   pillars: unknown;
   moodboard: unknown;
+  built_by: string | null;
+  internally_approved_by: string | null;
 };
 type EditorialPostRow = {
   id: string;
@@ -2450,7 +2453,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     supabase.from("clients").select("name").eq("id", clientId).maybeSingle(),
     supabase
       .from("editorial_lines")
-      .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard")
+      .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false }),
   ]);
@@ -2464,7 +2467,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
       clientName,
       month: periodLabel(),
       createdBy: "—",
-      stage: "ideacao",
+      stage: "rascunho",
       frequency: "Sem posts ainda",
       networks: "Instagram · Facebook",
       responsibles: "—",
@@ -2527,8 +2530,10 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     clientName,
     month: line.month ?? periodLabel(),
     objetivo: line.objetivo ?? "",
-    createdBy: "Equipe",
-    stage: (line.stage as EditorialStage) ?? "ideacao",
+    builtBy: line.built_by ?? undefined,
+    internallyApprovedBy: line.internally_approved_by ?? undefined,
+    createdBy: line.built_by ?? "Equipe",
+    stage: (EDITORIAL_STAGE_SET.has(line.stage ?? "") ? line.stage : "rascunho") as EditorialStage,
     frequency: `${posts.length} posts no mês`,
     networks: "Instagram · Facebook",
     responsibles: "—",

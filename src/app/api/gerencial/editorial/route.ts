@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STAGES = new Set(["ideacao", "pautas", "aprovacao", "tarefas", "producao", "concluida"]);
+const STAGES = new Set(["rascunho", "em_producao", "aprovacao_interna", "ativa", "concluida"]);
 const FORMATS = new Set(["Feed", "Reels", "Stories", "Carrossel"]);
 
 type PostInput = {
@@ -30,7 +30,7 @@ type PostInput = {
 };
 
 type Body = {
-  action?: "create-line" | "set-stage" | "set-header" | "upsert-post" | "delete-post";
+  action?: "create-line" | "set-stage" | "set-header" | "internal-approve" | "upsert-post" | "delete-post";
   id?: string;
   lineId?: string;
   clientId?: string;
@@ -82,9 +82,10 @@ export async function POST(req: Request) {
       .insert({
         client_id: b.clientId,
         month: b.month.trim(),
-        stage: "ideacao",
+        stage: "rascunho",
         objetivo: b.objetivo?.trim() || null,
         pillars,
+        built_by: user.name,
         created_by: user.id,
       })
       .select("id")
@@ -124,6 +125,21 @@ export async function POST(req: Request) {
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "internal-approve") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("editorial_lines")
+      .update({
+        internally_approved_by: user.name,
+        internally_approved_at: now,
+        stage: "ativa",
+        updated_at: now,
+      })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, approvedBy: user.name });
   }
 
   if (action === "set-header") {
