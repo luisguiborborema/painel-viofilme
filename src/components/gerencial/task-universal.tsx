@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { CheckCircle2, Circle, Clock, CornerDownRight, MessageSquare, Paperclip, Plus, Send, SmilePlus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, Circle, Clock, CornerDownRight, History, MessageSquare, Paperclip, Plus, Send, SmilePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DELIVERY_PRIORITIES,
@@ -9,11 +9,14 @@ import {
   REACTION_EMOJIS,
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
+  type DeliveryFormField,
   type DeliveryPriority,
   type DeliveryTask,
   type TaskComment,
   type TaskStage,
 } from "@/lib/data/operacao";
+
+const stageLabel = (k: string) => TASK_STAGES.find((s) => s.key === k)?.label ?? k;
 
 const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
 
@@ -76,6 +79,28 @@ export function TaskUniversal({
   const [uploading, setUploading] = useState(false);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<{ from_status: string | null; to_status: string; changed_at: string }[]>([]);
+  const [fields, setFields] = useState<DeliveryFormField[]>([]);
+  const [custom, setCustom] = useState<Record<string, unknown>>(() => task.customFields ?? {});
+
+  useEffect(() => {
+    let alive = true;
+    void fetch(`/api/gerencial/delivery-tasks?history=${task.id}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (alive) setHistory(j.history ?? []); })
+      .catch(() => {});
+    void fetch("/api/gerencial/delivery-fields", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (alive) setFields(j.fields ?? []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [task.id]);
+
+  function saveCustom(next: Record<string, unknown>) {
+    setCustom(next);
+    void postDelivery({ action: "set-custom", id: task.id, customFields: next });
+  }
+  const setField = (key: string, value: unknown) => saveCustom({ ...custom, [key]: value });
 
   const author = meName || "Você";
   const primary = assignees[0] ?? "";
@@ -250,6 +275,40 @@ export function TaskUniversal({
             <D label="Tipo" value={`${task.type} · ${TASK_TYPE_DURATIONS[task.type]}min`} />
           </div>
 
+          {/* Campos personalizados (por board) */}
+          {fields.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {fields.map((f) => {
+                const v = custom[f.fieldKey];
+                const inputCls = "mt-0.5 w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400";
+                return (
+                  <div key={f.id} className={f.fieldType === "textarea" ? "col-span-2" : ""}>
+                    <p className="text-xs text-muted">{f.label}{f.required && " *"}</p>
+                    {f.fieldType === "textarea" ? (
+                      <textarea value={String(v ?? "")} onChange={(e) => setField(f.fieldKey, e.target.value)} rows={2} className={cn(inputCls, "resize-y")} />
+                    ) : f.fieldType === "select" ? (
+                      <select value={String(v ?? "")} onChange={(e) => setField(f.fieldKey, e.target.value)} className={inputCls}>
+                        <option value="">—</option>
+                        {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    ) : f.fieldType === "checkbox" ? (
+                      <button onClick={() => setField(f.fieldKey, !v)} className={cn("mt-1 flex items-center gap-1.5 text-sm", v ? "text-emerald-600" : "text-muted")}>
+                        {v ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />} {v ? "Sim" : "Não"}
+                      </button>
+                    ) : (
+                      <input
+                        type={f.fieldType === "number" ? "number" : f.fieldType === "date" ? "date" : "text"}
+                        value={String(v ?? "")}
+                        onChange={(e) => setField(f.fieldKey, e.target.value)}
+                        className={inputCls}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Mover estágio */}
           <div>
             <p className="mb-1 text-xs font-medium text-muted">Estágio</p>
@@ -317,6 +376,30 @@ export function TaskUniversal({
               </button>
             </div>
           </div>
+
+          {/* Histórico de etapa (cycle time) */}
+          {history.length > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted">
+                <History className="h-3.5 w-3.5" /> Histórico de etapa
+              </div>
+              <ol className="relative ml-1 space-y-1.5 border-l border-line pl-4">
+                {history.map((h, i) => (
+                  <li key={i} className="relative text-xs">
+                    <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-brand-500/40" />
+                    <span className="text-ink/90">
+                      {h.from_status ? `${stageLabel(h.from_status)} → ` : ""}
+                      <span className="font-medium">{stageLabel(h.to_status)}</span>
+                    </span>
+                    <span className="ml-1.5 text-muted">
+                      {new Date(h.changed_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}{" "}
+                      {new Date(h.changed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {/* Comentários & atividade */}
           <div>

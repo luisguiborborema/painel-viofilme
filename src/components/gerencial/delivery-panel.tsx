@@ -8,13 +8,16 @@ import {
   KanbanSquare,
   LayoutDashboard,
   Loader2,
+  Pause,
   Plus,
+  Settings2,
   Users,
   UserSquare2,
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { TaskUniversal } from "./task-universal";
+import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { cn } from "@/lib/utils";
 import {
   DELIVERY_CAPACITY_PER_DAY as CAP,
@@ -114,6 +117,7 @@ export function DeliveryPanel({
     setItems(initial);
   }, [initial]);
   const [showNew, setShowNew] = useState(false);
+  const [showFields, setShowFields] = useState(false);
   const [view, setView] = useState<View>("geral");
   const [mode, setMode] = useState<"meu" | "time">("time");
   const [assignee, setAssignee] = useState<string | null>(null);
@@ -225,12 +229,19 @@ export function DeliveryPanel({
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
         <button
+          onClick={() => setShowFields(true)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          <Settings2 className="h-3.5 w-3.5" /> Campos
+        </button>
+        <button
           onClick={() => setShowNew((v) => !v)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
         >
           <Plus className="h-4 w-4" /> Nova tarefa
         </button>
       </div>
+      {showFields && <DeliveryFieldsManager onClose={() => setShowFields(false)} />}
 
       {showNew && (
         <NewDeliveryTask
@@ -460,6 +471,12 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
   draggable?: boolean;
   onDragStart?: () => void;
 }) {
+  const [staleDays, setStaleDays] = useState(0);
+  useEffect(() => {
+    const ref = t.movedAt ? Date.parse(t.movedAt) : NaN;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- calcula "dias parada" só no cliente (evita Date.now no render)
+    if (!Number.isNaN(ref)) setStaleDays(Math.floor((Date.now() - ref) / 86_400_000));
+  }, [t.movedAt]);
   return (
     <div
       draggable={draggable}
@@ -478,7 +495,11 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
           if (!p || (t.priority !== "alta" && t.priority !== "urgente")) return null;
           return <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", p.chip)}><span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}</span>;
         })()}
+        {t.stage !== "done" && staleDays >= 5 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"><Pause className="h-2.5 w-2.5" /> parada {staleDays}d</span>
+        )}
       </div>
+      {t.requester && <p className="mt-1 text-[10px] text-muted">Pedido por {t.requester}</p>}
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
         <span className="flex -space-x-1.5">
           {(t.assignees?.length ? t.assignees : [t.assignee]).filter(Boolean).slice(0, 3).map((a) => (

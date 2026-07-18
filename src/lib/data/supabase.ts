@@ -1314,6 +1314,8 @@ type DeliveryRow = {
   priority: string | null;
   assignees: string[] | null;
   requester: string | null;
+  moved_at: string | null;
+  custom_fields: unknown;
   campaign_goal: string | null;
   content_format: string | null;
   clients: { name: string | null } | { name: string | null }[] | null;
@@ -1324,7 +1326,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, campaign_goal, content_format, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, moved_at, custom_fields, campaign_goal, content_format, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1380,6 +1382,8 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       priority,
       assignees: Array.isArray(r.assignees) && r.assignees.length ? r.assignees : r.assignee ? [r.assignee] : [],
       requester: r.requester ?? undefined,
+      movedAt: r.moved_at ?? undefined,
+      customFields: (r.custom_fields && typeof r.custom_fields === "object" ? r.custom_fields : {}) as Record<string, unknown>,
       campaignGoal: (r.campaign_goal as DeliveryTask["campaignGoal"]) ?? undefined,
       contentFormat: (r.content_format as DeliveryTask["contentFormat"]) ?? undefined,
     } satisfies DeliveryTask;

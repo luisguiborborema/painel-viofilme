@@ -25,6 +25,7 @@ type Body = {
     | "set-checklist"
     | "add-comment"
     | "react-comment"
+    | "set-custom"
     | "delete";
   id?: string;
   title?: string;
@@ -49,6 +50,7 @@ type Body = {
   };
   commentId?: string;
   emoji?: string;
+  customFields?: Record<string, unknown>;
   campaignGoal?: string;
   contentFormat?: string;
 };
@@ -65,6 +67,25 @@ type RawComment = {
 
 function cryptoId(): string {
   return `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Histórico de etapa de uma tarefa (cycle time). GET ?history=<taskId> */
+export async function GET(req: Request) {
+  const user = await getSession();
+  if (!user || user.role !== "gerencial") {
+    return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  }
+  const taskId = new URL(req.url).searchParams.get("history");
+  if (!taskId) return NextResponse.json({ history: [] });
+  if (!isSupabaseConfigured()) return NextResponse.json({ history: [] });
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("delivery_task_status_history")
+    .select("from_status, to_status, changed_at")
+    .eq("task_id", taskId)
+    .order("changed_at", { ascending: true })
+    .limit(100);
+  return NextResponse.json({ history: data ?? [] });
 }
 
 /** Tarefas de entrega / produção (gerencial). */
@@ -166,6 +187,18 @@ export async function POST(req: Request) {
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true, loggedH: next });
+  }
+
+  if (action === "set-custom") {
+    if (!b.id || typeof b.customFields !== "object" || b.customFields === null) {
+      return NextResponse.json({ error: "id/campos inválidos" }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ custom_fields: b.customFields, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
   }
 
   if (action === "set-checklist") {

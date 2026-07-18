@@ -486,6 +486,28 @@ export type TaskComment = {
 
 export const REACTION_EMOJIS = ["👍", "❤️", "🎉", "🔥", "👀"];
 
+/** Campos personalizados por board (Fase 3). */
+export type DeliveryFieldType = "text" | "textarea" | "number" | "select" | "date" | "checkbox" | "url";
+export type DeliveryFormField = {
+  id: string;
+  fieldKey: string;
+  label: string;
+  fieldType: DeliveryFieldType;
+  options: { value: string; label: string }[];
+  required: boolean;
+  position: number;
+  active: boolean;
+};
+export const DELIVERY_FIELD_TYPES: { key: DeliveryFieldType; label: string }[] = [
+  { key: "text", label: "Texto" },
+  { key: "textarea", label: "Texto longo" },
+  { key: "number", label: "Número" },
+  { key: "select", label: "Seleção" },
+  { key: "date", label: "Data" },
+  { key: "checkbox", label: "Sim/Não" },
+  { key: "url", label: "Link" },
+];
+
 export const DELIVERY_PRIORITIES: { key: DeliveryPriority; label: string; chip: string; dot: string }[] = [
   { key: "baixa", label: "Baixa", chip: "bg-subtle text-muted", dot: "bg-slate-400" },
   { key: "media", label: "Média", chip: "bg-sky-500/15 text-sky-500", dot: "bg-sky-500" },
@@ -551,6 +573,8 @@ export type DeliveryTask = {
   priority?: DeliveryPriority;
   assignees?: string[];
   requester?: string;
+  movedAt?: string;
+  customFields?: Record<string, unknown>;
   /** Criativo de performance (HUB10). */
   campaignGoal?: CampaignGoal;
   contentFormat?: EditorialFormat;
