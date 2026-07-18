@@ -15,7 +15,10 @@ type Body = {
   durationMin?: number;
   attendees?: string[];
   addMeet?: boolean;
+  type?: string;
 };
+
+const MEETING_TYPES = new Set(["kickoff", "monthly", "violaunch", "media_day", "outro"]);
 
 /**
  * Cria uma reunião no Google Calendar (com Meet) e registra em `meetings`,
@@ -69,6 +72,7 @@ export async function POST(req: Request) {
       starts_at: start.toISOString(),
       join_url: joinUrl,
       participants: attendees,
+      type: b.type && MEETING_TYPES.has(b.type) ? b.type : "outro",
     });
   }
 

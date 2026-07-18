@@ -242,8 +242,11 @@ export type CSClientDetail = {
     startIso: string;
     joinUrl?: string | null;
     participants: string[];
+    type?: string | null;
     agenda?: string | null;
+    agendaShared: boolean;
     nextSteps?: string | null;
+    notesShared: boolean;
     isPast: boolean;
   }[];
   agendaRequests: {

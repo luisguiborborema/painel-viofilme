@@ -12,7 +12,17 @@ import type { CSClientDetail, CSTimelineEvent } from "@/lib/data/types";
 type Meeting = CSClientDetail["agendaMeetings"][number];
 type Request = CSClientDetail["agendaRequests"][number];
 
-function meetingTag(title: string): string {
+const TYPE_TAG: Record<string, string> = {
+  kickoff: "Kickoff",
+  monthly: "Alinhamento mensal",
+  violaunch: "VioLaunch",
+  media_day: "Media Day",
+  outro: "Reunião",
+};
+
+// Tag: usa o tipo armazenado (vínculo real) e cai no derivado do título como fallback.
+function meetingTag(title: string, type?: string | null): string {
+  if (type && TYPE_TAG[type]) return TYPE_TAG[type];
   const t = title.toLowerCase();
   if (t.includes("kickoff") || t.includes("kick-off")) return "Kickoff";
   if (t.includes("violaunch") || t.includes("onboarding")) return "VioLaunch";
@@ -37,6 +47,7 @@ function NotesEditor({ meeting }: { meeting: Meeting }) {
   const isAta = meeting.isPast;
   const [open, setOpen] = useState(false);
   const [text, setText] = useState((isAta ? meeting.nextSteps : meeting.agenda) ?? "");
+  const [shared, setShared] = useState(isAta ? meeting.notesShared : meeting.agendaShared);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -48,6 +59,7 @@ function NotesEditor({ meeting }: { meeting: Meeting }) {
         body: JSON.stringify({
           action: "set-notes",
           meetingId: meeting.id,
+          shared,
           ...(isAta ? { nextSteps: text } : { agenda: text }),
         }),
       });
@@ -67,6 +79,7 @@ function NotesEditor({ meeting }: { meeting: Meeting }) {
         <div className="mb-1 rounded-lg bg-subtle px-2.5 py-1.5 text-[11px] text-ink/90">
           <span className="font-semibold text-muted">{isAta ? "Ata: " : "Pauta: "}</span>
           {current}
+          {shared && <span className="ml-1.5 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">no Portal</span>}
         </div>
       )}
       {open ? (
@@ -78,6 +91,10 @@ function NotesEditor({ meeting }: { meeting: Meeting }) {
             placeholder={isAta ? "Decisões e próximos passos…" : "Tópicos em bullets…"}
             className="w-full resize-none rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
           />
+          <label className="flex items-center gap-1.5 text-[11px] text-ink/90">
+            <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="h-3.5 w-3.5 accent-brand-600" />
+            Compartilhar com o cliente no Portal
+          </label>
           <div className="flex gap-1.5">
             <button onClick={save} disabled={saving} className="rounded-lg bg-brand-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
               {saving ? "Salvando…" : "Salvar"}
@@ -95,7 +112,7 @@ function NotesEditor({ meeting }: { meeting: Meeting }) {
 }
 
 function MeetingCard({ m }: { m: Meeting }) {
-  const tag = meetingTag(m.title);
+  const tag = meetingTag(m.title, m.type);
   return (
     <div className={cn("rounded-xl border p-3.5", m.isPast ? "border-line bg-subtle/40" : "border-line bg-subtle")}>
       <div className="flex items-center justify-between gap-2">
@@ -279,7 +296,7 @@ export function AgendaTab({
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-line p-4 text-center">
-              <p className="text-sm text-muted">A agenda está livre. Agende o próximo touchpoint com o cliente.</p>
+              <p className="text-sm text-muted">Agenda livre. Que tal marcar a próxima reunião com o cliente?</p>
             </div>
           )}
         </Card>

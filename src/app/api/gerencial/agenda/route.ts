@@ -19,6 +19,7 @@ type Body = {
   addMeet?: boolean;
   agenda?: string;
   nextSteps?: string;
+  shared?: boolean;
 };
 
 /** Ações da Agenda do cliente (gerencial): aprovar solicitação, pauta/ata. */
@@ -48,8 +49,14 @@ export async function POST(req: Request) {
   if (action === "set-notes") {
     if (!b.meetingId) return NextResponse.json({ error: "meetingId ausente" }, { status: 400 });
     const patch: Record<string, unknown> = {};
-    if (b.agenda !== undefined) patch.agenda = b.agenda.trim() || null;
-    if (b.nextSteps !== undefined) patch.next_steps = b.nextSteps.trim() || null;
+    if (b.agenda !== undefined) {
+      patch.agenda = b.agenda.trim() || null;
+      if (b.shared !== undefined) patch.agenda_shared = !!b.shared;
+    }
+    if (b.nextSteps !== undefined) {
+      patch.next_steps = b.nextSteps.trim() || null;
+      if (b.shared !== undefined) patch.next_steps_shared = !!b.shared;
+    }
     const { error } = await supabase.from("meetings").update(patch).eq("id", b.meetingId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });

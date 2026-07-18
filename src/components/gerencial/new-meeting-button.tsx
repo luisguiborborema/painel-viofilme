@@ -20,6 +20,7 @@ export function NewMeetingButton({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState("30");
+  const [type, setType] = useState("monthly");
   const [attendee, setAttendee] = useState(defaultAttendee && defaultAttendee !== "—" ? defaultAttendee : "");
   const [addMeet, setAddMeet] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,6 +45,7 @@ export function NewMeetingButton({
           durationMin: Number(duration) || 30,
           attendees: attendee.trim() ? [attendee.trim()] : [],
           addMeet,
+          type,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -86,6 +88,16 @@ export function NewMeetingButton({
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-muted">Título</span>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Tipo</span>
+                <select value={type} onChange={(e) => setType(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm text-ink outline-none focus:border-brand-400">
+                  <option value="kickoff">Kickoff</option>
+                  <option value="monthly">Alinhamento mensal</option>
+                  <option value="violaunch">VioLaunch</option>
+                  <option value="media_day">Media Day</option>
+                  <option value="outro">Outro</option>
+                </select>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <label className="col-span-1 block">

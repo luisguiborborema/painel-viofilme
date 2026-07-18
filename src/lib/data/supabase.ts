@@ -1495,7 +1495,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     sbGetMediaPerformance(id),
     supabase
       .from("meetings")
-      .select("id, title, starts_at, join_url, participants, agenda, next_steps")
+      .select("id, title, starts_at, join_url, participants, agenda, next_steps, type, agenda_shared, next_steps_shared")
       .eq("client_id", id)
       .gte("starts_at", new Date(now.getTime() - 30 * dayMs).toISOString())
       .order("starts_at")
@@ -1605,6 +1605,9 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     participants: string[] | null;
     agenda: string | null;
     next_steps: string | null;
+    type: string | null;
+    agenda_shared: boolean | null;
+    next_steps_shared: boolean | null;
   }[])
     .filter((m) => m.starts_at)
     .map((m) => ({
@@ -1614,8 +1617,11 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
       startIso: String(m.starts_at),
       joinUrl: m.join_url,
       participants: Array.isArray(m.participants) ? m.participants : [],
+      type: m.type,
       agenda: m.agenda,
+      agendaShared: !!m.agenda_shared,
       nextSteps: m.next_steps,
+      notesShared: !!m.next_steps_shared,
       isPast: Date.parse(String(m.starts_at)) < now.getTime(),
     }));
 
