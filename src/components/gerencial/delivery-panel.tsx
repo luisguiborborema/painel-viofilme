@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { AvatarStack } from "@/components/ui/avatar";
 import { TaskUniversal } from "./task-universal";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { cn } from "@/lib/utils";
@@ -464,6 +465,14 @@ function NewDeliveryTask({
 
 type Shared = { openTask: (t: DeliveryTask) => void; clientColor: (c: string) => string };
 
+function taskCardBorder(t: DeliveryTask, staleDays: number): string {
+  if (t.stage !== "done" && staleDays >= 5) return "border-l-rose-500";
+  if (t.stage === "done") return "border-l-emerald-500";
+  if (t.priority === "urgente") return "border-l-rose-400";
+  if (t.priority === "alta") return "border-l-amber-400";
+  return "border-l-brand-400";
+}
+
 function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
   t: DeliveryTask;
   openTask: (t: DeliveryTask) => void;
@@ -477,37 +486,45 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- calcula "dias parada" só no cliente (evita Date.now no render)
     if (!Number.isNaN(ref)) setStaleDays(Math.floor((Date.now() - ref) / 86_400_000));
   }, [t.movedAt]);
+
+  const names = (t.assignees?.length ? t.assignees : [t.assignee]).filter(Boolean).map(memberName);
+  const prio = DELIVERY_PRIORITIES.find((x) => x.key === (t.priority ?? "media"));
+
   return (
     <div
       draggable={draggable}
       onDragStart={onDragStart}
       onClick={() => openTask(t)}
-      className="cursor-pointer rounded-xl border border-l-4 border-line bg-surface p-3 hover:shadow-sm"
-      style={{ borderLeftColor: clientColor(t.client) }}
+      className={cn(
+        "group relative cursor-pointer rounded-xl border border-l-4 border-line bg-surface p-3 shadow-sm transition-shadow hover:shadow-md",
+        taskCardBorder(t, staleDays),
+      )}
     >
-      <p className="text-[11px] text-muted">{t.client}</p>
-      <p className="mt-0.5 text-sm font-medium text-ink">{t.title}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">{t.title}</p>
+        {names.length > 0 && <AvatarStack names={names} />}
+      </div>
+      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: clientColor(t.client) }} />
+        {t.client}
+      </p>
+      {t.requester && <p className="mt-0.5 text-[11px] text-muted">Pedido por {t.requester}</p>}
+
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {prio && (
+          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", prio.chip)}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", prio.dot)} /> {prio.label}
+          </span>
+        )}
         <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR[t.type])}>{t.type}</span>
-        <span className="text-[10px] text-muted">{TASK_TYPE_DURATIONS[t.type]}min</span>
-        {(() => {
-          const p = DELIVERY_PRIORITIES.find((x) => x.key === (t.priority ?? "media"));
-          if (!p || (t.priority !== "alta" && t.priority !== "urgente")) return null;
-          return <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", p.chip)}><span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}</span>;
-        })()}
         {t.stage !== "done" && staleDays >= 5 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"><Pause className="h-2.5 w-2.5" /> parada {staleDays}d</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
+            <Pause className="h-2.5 w-2.5" /> parada {staleDays}d
+          </span>
         )}
       </div>
-      {t.requester && <p className="mt-1 text-[10px] text-muted">Pedido por {t.requester}</p>}
-      <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-        <span className="flex -space-x-1.5">
-          {(t.assignees?.length ? t.assignees : [t.assignee]).filter(Boolean).slice(0, 3).map((a) => (
-            <Avatar key={a} id={a} />
-          ))}
-        </span>
-        <span className={cn("text-[11px] font-medium", t.late ? "text-rose-500" : "text-muted")}>{t.dueLabel}</span>
-      </div>
+
+      <p className={cn("mt-2 text-[11px]", t.late ? "font-semibold text-rose-500" : "text-muted")}>{t.dueLabel}</p>
     </div>
   );
 }
