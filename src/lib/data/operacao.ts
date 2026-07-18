@@ -283,6 +283,8 @@ export const EDITORIAL_STAGES: { key: EditorialStage; label: string }[] = [
 
 export type EditorialFormat = "Feed" | "Reels" | "Stories" | "Carrossel";
 
+export type ClientDeliverable = { format: EditorialFormat; monthlyQty: number };
+
 /** Direcionamento de arte (HUB09.3) — a escolha dispara consequências. */
 export type ArtDirection =
   | "Media Day"

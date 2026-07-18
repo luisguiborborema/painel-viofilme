@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import {
   getClientById,
   getClientTasks,
+  getClientDeliverables,
   getCSClientDetail,
   getEditorialLineView,
   getHubClientsOps,
@@ -130,7 +131,10 @@ export default async function RaioXCliente({
   };
 
   const docs = getClientDocuments(id);
-  const editorial = await getEditorialLineView(id);
+  const [editorial, deliverables] = await Promise.all([
+    getEditorialLineView(id),
+    getClientDeliverables(id),
+  ]);
 
   const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
     (x) => x && x !== "—",
@@ -338,7 +342,7 @@ export default async function RaioXCliente({
     {
       key: "editorial",
       label: "Linha editorial",
-      content: <LinhaEditorial data={editorial} clientId={id} />,
+      content: <LinhaEditorial data={editorial} clientId={id} deliverables={deliverables} />,
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },

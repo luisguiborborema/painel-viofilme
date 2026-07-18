@@ -657,6 +657,12 @@ export async function getEditorialLineView(clientId: string): Promise<EditorialL
   return editorialLineMock(clientId);
 }
 
+/** Entregáveis do contrato por formato (slots da Criar LE). */
+export async function getClientDeliverables(clientId: string) {
+  if (isSupabaseConfigured()) return sb.sbGetClientDeliverables(clientId);
+  return [];
+}
+
 /** Hub de Clientes com health real (clientes + payments + tarefas + atividade). */
 export async function getHubClientsOps(): Promise<HubClientOps[]> {
   if (isSupabaseConfigured()) return sb.sbGetHubClientsOps();

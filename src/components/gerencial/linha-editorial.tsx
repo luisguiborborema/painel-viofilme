@@ -34,6 +34,7 @@ import {
   type EditorialRef,
   type EditorialStage,
   type TaskStage,
+  type ClientDeliverable,
 } from "@/lib/data/operacao";
 
 const FORMAT_FILTERS: ("Todos" | EditorialFormat)[] = ["Todos", "Feed", "Reels", "Stories", "Carrossel"];
@@ -868,6 +869,79 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
   );
 }
 
+const SLOT_FORMATS: EditorialFormat[] = ["Reels", "Feed", "Stories", "Carrossel"];
+
+/** Slots do contrato (Criar LE 1.5): progresso por formato · desvio sinaliza, não bloqueia. */
+function ContractSlots({
+  clientId,
+  deliverables,
+  posts,
+}: {
+  clientId: string;
+  deliverables: ClientDeliverable[];
+  posts: EditorialPost[];
+}) {
+  const [qty, setQty] = useState<Record<string, number>>(() => {
+    const m: Record<string, number> = {};
+    for (const d of deliverables) m[d.format] = d.monthlyQty;
+    return m;
+  });
+  const [editing, setEditing] = useState(false);
+
+  async function save(format: EditorialFormat, value: number) {
+    setQty((p) => ({ ...p, [format]: value }));
+    await fetch("/api/gerencial/client-deliverables", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, format, monthlyQty: value }),
+    });
+  }
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600">Slots do contrato</p>
+        <button onClick={() => setEditing((v) => !v)} className="text-[11px] font-medium text-muted hover:text-ink">
+          {editing ? "Concluir" : "Editar entregáveis"}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {SLOT_FORMATS.map((f) => {
+          const done = posts.filter((p) => p.format === f).length;
+          const contract = qty[f] ?? 0;
+          const pct = contract > 0 ? Math.min(100, (done / contract) * 100) : done > 0 ? 100 : 0;
+          const over = contract > 0 && done > contract;
+          const complete = contract > 0 && done >= contract && !over;
+          const bar = over ? "bg-amber-500" : complete ? "bg-emerald-500" : "bg-subtle-strong";
+          const desvio = contract === 0 ? "sem contrato" : over ? `${done - contract} além` : done < contract ? `faltam ${contract - done}` : "completo";
+          return (
+            <div key={f}>
+              <div className="mb-1 flex items-center justify-between text-xs">
+                <span className="font-medium text-ink">{f}</span>
+                {editing ? (
+                  <input
+                    type="number"
+                    min={0}
+                    value={contract}
+                    onChange={(e) => save(f, Math.max(0, Number(e.target.value) || 0))}
+                    className="h-6 w-12 rounded border border-line bg-surface px-1 text-right text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                ) : (
+                  <span className="text-muted">{done}/{contract || "—"}</span>
+                )}
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-subtle-strong">
+                <div className={cn("h-full rounded-full", bar)} style={{ width: `${pct}%` }} />
+              </div>
+              <p className={cn("mt-0.5 text-[10px]", over ? "text-amber-600" : complete ? "text-emerald-600" : "text-muted")}>{desvio}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function emptyPost(): EditorialPost {
   return {
     n: postSeq++,
@@ -883,7 +957,15 @@ function emptyPost(): EditorialPost {
   };
 }
 
-export function LinhaEditorial({ data, clientId }: { data: EditorialLine; clientId: string }) {
+export function LinhaEditorial({
+  data,
+  clientId,
+  deliverables = [],
+}: {
+  data: EditorialLine;
+  clientId: string;
+  deliverables?: ClientDeliverable[];
+}) {
   const router = useRouter();
   const lineId = data.id;
   const [filter, setFilter] = useState<"Todos" | EditorialFormat>("Todos");
@@ -966,6 +1048,9 @@ export function LinhaEditorial({ data, clientId }: { data: EditorialLine; client
 
       {/* ── Nível 1: Cabeçalho estratégico editável (Criar LE) ── */}
       <StrategicHeader data={data} lineId={lineId} />
+
+      {/* ── Nível 1.5: Slots do contrato ── */}
+      <ContractSlots clientId={clientId} deliverables={deliverables} posts={posts} />
 
       {/* ── Nível 2: Posts individuais (micro) ── */}
       <div>

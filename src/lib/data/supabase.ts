@@ -69,6 +69,7 @@ import {
   type EditorialRef,
   type EditorialPillar,
   type ArtDirection,
+  type ClientDeliverable,
 } from "./operacao";
 import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from "./types";
 
@@ -2540,4 +2541,17 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     posts,
     history: lines.slice(1).map((l) => ({ id: l.id, month: l.month ?? "—" })),
   };
+}
+
+// --- Entregáveis do contrato (slots da Criar LE) ----------------------------
+export async function sbGetClientDeliverables(clientId: string): Promise<ClientDeliverable[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_deliverables")
+    .select("format, monthly_qty")
+    .eq("client_id", clientId);
+  return ((data ?? []) as { format: string; monthly_qty: number | null }[]).map((d) => ({
+    format: d.format as ClientDeliverable["format"],
+    monthlyQty: Number(d.monthly_qty ?? 0),
+  }));
 }
