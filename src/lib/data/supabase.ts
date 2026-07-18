@@ -1310,6 +1310,9 @@ type DeliveryRow = {
   urgent: boolean | null;
   checklist: unknown;
   comments: unknown;
+  priority: string | null;
+  assignees: string[] | null;
+  requester: string | null;
   campaign_goal: string | null;
   content_format: string | null;
   clients: { name: string | null } | { name: string | null }[] | null;
@@ -1320,7 +1323,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, campaign_goal, content_format, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, campaign_goal, content_format, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1334,6 +1337,8 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
     const stage = (DELIVERY_STAGES.has(r.stage ?? "") ? r.stage : "todo") as TaskStage;
     const type = (DELIVERY_TYPES.has(r.type ?? "") ? r.type : "Arte") as TaskType;
     const origin = (DELIVERY_ORIGINS.has(r.origin ?? "") ? r.origin : "Tarefa avulsa") as TaskOrigin;
+    const priority = (["baixa", "media", "alta", "urgente"].includes(r.priority ?? "") ? r.priority : "media") as DeliveryTask["priority"];
+    const isUrgent = !!r.urgent || priority === "urgente";
     const due = r.due_date ?? "";
     const dueMs = due ? Date.parse(due) : NaN;
     const diffDays = Number.isNaN(dueMs) ? 0 : Math.round((dueMs - todayMs) / dayMs);
@@ -1359,7 +1364,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       origin,
       assignee: r.assignee ?? "",
       stage,
-      dueLabel: r.urgent ? `${baseLabel} · urgente` : baseLabel,
+      dueLabel: isUrgent ? `${baseLabel} · urgente` : baseLabel,
       late,
       estimateH: Number(r.estimate_h ?? 0),
       loggedH: Number(r.logged_h ?? 0),
@@ -1373,6 +1378,9 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       comments: Array.isArray(r.comments)
         ? (r.comments as { author: string; text: string }[])
         : [],
+      priority,
+      assignees: Array.isArray(r.assignees) && r.assignees.length ? r.assignees : r.assignee ? [r.assignee] : [],
+      requester: r.requester ?? undefined,
       campaignGoal: (r.campaign_goal as DeliveryTask["campaignGoal"]) ?? undefined,
       contentFormat: (r.content_format as DeliveryTask["contentFormat"]) ?? undefined,
     } satisfies DeliveryTask;

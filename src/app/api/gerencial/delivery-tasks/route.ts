@@ -11,12 +11,16 @@ const TYPES = new Set(["Arte", "Vídeo", "Copy", "Tráfego"]);
 const ORIGINS = new Set(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
 const GOALS = new Set(["conversao", "trafego", "alcance", "reconhecimento"]);
 const CONTENT_FORMATS = new Set(["Reels", "Feed", "Stories", "Carrossel"]);
+const PRIORITIES = new Set(["baixa", "media", "alta", "urgente"]);
 
 type Body = {
   action?:
     | "create"
     | "set-stage"
     | "set-assignee"
+    | "set-assignees"
+    | "set-priority"
+    | "set-requester"
     | "log-hours"
     | "set-checklist"
     | "add-comment"
@@ -27,6 +31,9 @@ type Body = {
   type?: string;
   origin?: string;
   assignee?: string;
+  assignees?: string[];
+  requester?: string;
+  priority?: string;
   stage?: string;
   dueDate?: string;
   estimateH?: number;
@@ -80,6 +87,41 @@ export async function POST(req: Request) {
     const { error } = await supabase
       .from("delivery_tasks")
       .update({ assignee: b.assignee?.trim() || null, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "set-assignees") {
+    if (!b.id || !Array.isArray(b.assignees)) {
+      return NextResponse.json({ error: "id/responsáveis inválido" }, { status: 400 });
+    }
+    const list = b.assignees.map((a) => String(a).trim()).filter(Boolean).slice(0, 10);
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ assignees: list, assignee: list[0] ?? null, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "set-priority") {
+    if (!b.id || !b.priority || !PRIORITIES.has(b.priority)) {
+      return NextResponse.json({ error: "id/prioridade inválida" }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ priority: b.priority, urgent: b.priority === "urgente", updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "set-requester") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ requester: b.requester?.trim() || null, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
@@ -160,7 +202,10 @@ export async function POST(req: Request) {
       stage: b.stage && STAGES.has(b.stage) ? b.stage : "todo",
       due_date: b.dueDate || null,
       estimate_h: Number.isFinite(Number(b.estimateH)) ? Number(b.estimateH) : 0,
-      urgent: Boolean(b.urgent),
+      urgent: Boolean(b.urgent) || b.priority === "urgente",
+      priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
+      assignees: Array.isArray(b.assignees) && b.assignees.length ? b.assignees.map((a) => String(a).trim()).filter(Boolean) : b.assignee?.trim() ? [b.assignee.trim()] : [],
+      requester: b.requester?.trim() || null,
       campaign_goal: b.campaignGoal && GOALS.has(b.campaignGoal) ? b.campaignGoal : null,
       content_format: b.contentFormat && CONTENT_FORMATS.has(b.contentFormat) ? b.contentFormat : null,
       created_by: user.id,

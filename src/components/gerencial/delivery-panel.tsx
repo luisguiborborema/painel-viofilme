@@ -23,6 +23,7 @@ import {
   OPS_TEAM,
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
+  DELIVERY_PRIORITIES,
   WEEKDAYS,
   type DeliveryTask,
   type TaskOrigin,
@@ -472,9 +473,18 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR[t.type])}>{t.type}</span>
         <span className="text-[10px] text-muted">{TASK_TYPE_DURATIONS[t.type]}min</span>
+        {(() => {
+          const p = DELIVERY_PRIORITIES.find((x) => x.key === (t.priority ?? "media"));
+          if (!p || (t.priority !== "alta" && t.priority !== "urgente")) return null;
+          return <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", p.chip)}><span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}</span>;
+        })()}
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-        <Avatar id={t.assignee} />
+        <span className="flex -space-x-1.5">
+          {(t.assignees?.length ? t.assignees : [t.assignee]).filter(Boolean).slice(0, 3).map((a) => (
+            <Avatar key={a} id={a} />
+          ))}
+        </span>
         <span className={cn("text-[11px] font-medium", t.late ? "text-rose-500" : "text-muted")}>{t.dueLabel}</span>
       </div>
     </div>

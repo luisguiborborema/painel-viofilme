@@ -4,9 +4,11 @@ import { useState } from "react";
 import { CheckCircle2, Circle, Clock, MessageSquare, Plus, Send, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  DELIVERY_PRIORITIES,
   OPS_TEAM,
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
+  type DeliveryPriority,
   type DeliveryTask,
   type TaskStage,
 } from "@/lib/data/operacao";
@@ -42,19 +44,23 @@ export function TaskUniversal({
   task,
   onClose,
   onStage,
-  team = [],
   meName,
   onChanged,
 }: {
   task: DeliveryTask;
   onClose: () => void;
   onStage?: (id: string, stage: TaskStage) => void;
+  /** @deprecated multi-responsável agora usa OPS_TEAM direto. */
   team?: string[];
   meName?: string;
   onChanged?: () => void;
 }) {
   const [stage, setStage] = useState<TaskStage>(task.stage);
-  const [assignee, setAssignee] = useState<string>(task.assignee);
+  const [assignees, setAssignees] = useState<string[]>(
+    task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : [],
+  );
+  const [priority, setPriority] = useState<DeliveryPriority>(task.priority ?? "media");
+  const [requester, setRequester] = useState<string>(task.requester ?? "");
   const [logged, setLogged] = useState<number>(task.loggedH);
   const [addH, setAddH] = useState("");
   const [checklist, setChecklist] = useState<CheckItem[]>(() =>
@@ -65,11 +71,25 @@ export function TaskUniversal({
   const [comment, setComment] = useState("");
 
   const author = meName || "Você";
-  const assignOptions = [...new Set([assignee, ...team].filter(Boolean))];
+  const primary = assignees[0] ?? "";
 
   function changeStage(s: TaskStage) {
     setStage(s);
     onStage?.(task.id, s);
+  }
+
+  function toggleAssignee(id: string) {
+    const next = assignees.includes(id) ? assignees.filter((x) => x !== id) : [...assignees, id];
+    setAssignees(next);
+    void postDelivery({ action: "set-assignees", id: task.id, assignees: next }).then(() => onChanged?.());
+  }
+  function changePriority(p: DeliveryPriority) {
+    setPriority(p);
+    void postDelivery({ action: "set-priority", id: task.id, priority: p });
+  }
+  function changeRequester(r: string) {
+    setRequester(r);
+    void postDelivery({ action: "set-requester", id: task.id, requester: r });
   }
 
   function persistChecklist(next: CheckItem[]) {
@@ -102,11 +122,6 @@ export function TaskUniversal({
     await postDelivery({ action: "log-hours", id: task.id, hours: h });
   }
 
-  function reassign(next: string) {
-    setAssignee(next);
-    void postDelivery({ action: "set-assignee", id: task.id, assignee: next }).then(() => onChanged?.());
-  }
-
   const doneCount = checklist.filter((c) => c.done).length;
 
   return (
@@ -123,25 +138,60 @@ export function TaskUniversal({
         </div>
 
         <div className="space-y-4 overflow-y-auto p-5">
+          {/* Responsáveis (multi) */}
+          <div>
+            <p className="mb-1 text-xs text-muted">Responsáveis {primary && <span className="text-[10px]">· principal: {memberName(primary)}</span>}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {OPS_TEAM.map((m) => {
+                const on = assignees.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => toggleAssignee(m.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                      on ? "border-brand-400 bg-brand-500/10 text-ink" : "border-line text-muted hover:text-ink",
+                    )}
+                  >
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-subtle-strong text-[8px] font-bold text-ink">{m.initials}</span>
+                    {m.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Detalhes */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-muted">Responsável</p>
-              {team.length ? (
-                <select
-                  value={assignee}
-                  onChange={(e) => reassign(e.target.value)}
-                  className="mt-0.5 w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm font-medium text-ink outline-none focus:border-brand-400"
-                >
-                  {assignOptions.map((a) => (
-                    <option key={a} value={a}>
-                      {memberName(a)}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="font-medium text-ink">{memberName(assignee)}</p>
-              )}
+              <p className="mb-1 text-xs text-muted">Prioridade</p>
+              <div className="flex flex-wrap gap-1">
+                {DELIVERY_PRIORITIES.map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => changePriority(p.key)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold",
+                      priority === p.key ? p.chip : "text-muted hover:text-ink",
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-xs text-muted">Solicitante</p>
+              <select
+                value={requester}
+                onChange={(e) => changeRequester(e.target.value)}
+                className="w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400"
+              >
+                <option value="">—</option>
+                {OPS_TEAM.map((m) => (
+                  <option key={m.id} value={m.name}>{m.name}</option>
+                ))}
+              </select>
             </div>
             <D label="Prazo" value={task.dueLabel} tone={task.late ? "text-rose-500" : undefined} />
             <D label="Origem" value={task.origin} />
@@ -196,7 +246,7 @@ export function TaskUniversal({
               <Clock className="h-3.5 w-3.5" /> Time tracking
             </div>
             <p className="text-xs text-muted">
-              {memberName(assignee)}: {logged}h registradas de {task.estimateH}h estimadas.
+              {memberName(primary)}: {logged}h registradas de {task.estimateH}h estimadas.
             </p>
             <div className="mt-2 flex gap-1.5">
               <input

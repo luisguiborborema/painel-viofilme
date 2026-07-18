@@ -471,6 +471,14 @@ export const OPS_TEAM: OpsMember[] = [
 ];
 
 export type TaskStage = "todo" | "doing" | "review" | "approval" | "done";
+export type DeliveryPriority = "baixa" | "media" | "alta" | "urgente";
+
+export const DELIVERY_PRIORITIES: { key: DeliveryPriority; label: string; chip: string; dot: string }[] = [
+  { key: "baixa", label: "Baixa", chip: "bg-subtle text-muted", dot: "bg-slate-400" },
+  { key: "media", label: "Média", chip: "bg-sky-500/15 text-sky-500", dot: "bg-sky-500" },
+  { key: "alta", label: "Alta", chip: "bg-orange-500/15 text-orange-600", dot: "bg-orange-500" },
+  { key: "urgente", label: "Urgente", chip: "bg-rose-500/15 text-rose-500", dot: "bg-rose-500" },
+];
 export type TaskType = "Arte" | "Vídeo" | "Copy" | "Tráfego";
 export type TaskOrigin = "Linha editorial" | "Projeto" | "Tarefa avulsa" | "Performance";
 export type CampaignGoal = "conversao" | "trafego" | "alcance" | "reconhecimento";
@@ -526,6 +534,10 @@ export type DeliveryTask = {
   /** Detalhes persistidos (Painel real). Ausentes no mock. */
   checklist?: { label: string; done: boolean }[];
   comments?: { author: string; text: string }[];
+  /** Card v2 (modelo Sprints). */
+  priority?: DeliveryPriority;
+  assignees?: string[];
+  requester?: string;
   /** Criativo de performance (HUB10). */
   campaignGoal?: CampaignGoal;
   contentFormat?: EditorialFormat;
