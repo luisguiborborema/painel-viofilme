@@ -24,6 +24,7 @@ type Body = {
     | "log-hours"
     | "set-checklist"
     | "add-comment"
+    | "react-comment"
     | "delete";
   id?: string;
   title?: string;
@@ -40,10 +41,31 @@ type Body = {
   urgent?: boolean;
   hours?: number;
   checklist?: unknown;
-  comment?: { author?: string; text?: string };
+  comment?: {
+    author?: string;
+    text?: string;
+    parentId?: string;
+    attachments?: { name?: string; url?: string }[];
+  };
+  commentId?: string;
+  emoji?: string;
   campaignGoal?: string;
   contentFormat?: string;
 };
+
+type RawComment = {
+  id?: string;
+  author?: string;
+  text?: string;
+  parentId?: string;
+  reactions?: Record<string, string[]>;
+  attachments?: { name: string; url: string }[];
+  createdAt?: string;
+};
+
+function cryptoId(): string {
+  return `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
 
 /** Tarefas de entrega / produção (gerencial). */
 export async function POST(req: Request) {
@@ -176,10 +198,51 @@ export async function POST(req: Request) {
       .eq("id", b.id)
       .maybeSingle();
     const list = Array.isArray(cur?.comments) ? (cur!.comments as unknown[]) : [];
-    const next = [
-      ...list,
-      { author: (b.comment?.author ?? "Equipe").slice(0, 80), text: text.slice(0, 1000) },
-    ].slice(-100);
+    const atts = Array.isArray(b.comment?.attachments)
+      ? b.comment.attachments
+          .filter((a) => a && typeof a.url === "string")
+          .slice(0, 8)
+          .map((a) => ({ name: String(a.name ?? "arquivo").slice(0, 120), url: String(a.url) }))
+      : [];
+    const entry = {
+      id: cryptoId(),
+      author: (b.comment?.author ?? "Equipe").slice(0, 80),
+      text: text.slice(0, 2000),
+      parentId: b.comment?.parentId || undefined,
+      reactions: {},
+      attachments: atts,
+      createdAt: now,
+    };
+    const next = [...list, entry].slice(-200);
+    const { error } = await supabase
+      .from("delivery_tasks")
+      .update({ comments: next, updated_at: now })
+      .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, id: entry.id });
+  }
+
+  if (action === "react-comment") {
+    if (!b.id || !b.commentId || !b.emoji) {
+      return NextResponse.json({ error: "dados da reação ausentes" }, { status: 400 });
+    }
+    const who = (b.comment?.author ?? user.name ?? "Equipe").slice(0, 80);
+    const { data: cur } = await supabase
+      .from("delivery_tasks")
+      .select("comments")
+      .eq("id", b.id)
+      .maybeSingle();
+    const list = Array.isArray(cur?.comments) ? (cur!.comments as RawComment[]) : [];
+    const next = list.map((c) => {
+      if (c.id !== b.commentId) return c;
+      const reactions = { ...(c.reactions ?? {}) };
+      const arr = new Set(reactions[b.emoji!] ?? []);
+      if (arr.has(who)) arr.delete(who);
+      else arr.add(who);
+      if (arr.size) reactions[b.emoji!] = [...arr];
+      else delete reactions[b.emoji!];
+      return { ...c, reactions };
+    });
     const { error } = await supabase
       .from("delivery_tasks")
       .update({ comments: next, updated_at: now })

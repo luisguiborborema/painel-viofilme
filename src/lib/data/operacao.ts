@@ -473,6 +473,19 @@ export const OPS_TEAM: OpsMember[] = [
 export type TaskStage = "todo" | "doing" | "review" | "approval" | "done";
 export type DeliveryPriority = "baixa" | "media" | "alta" | "urgente";
 
+/** Comentário rico (Fase 2): threads (1 nível), reações e anexos. */
+export type TaskComment = {
+  id?: string;
+  author: string;
+  text: string;
+  parentId?: string;
+  reactions?: Record<string, string[]>; // emoji -> autores
+  attachments?: { name: string; url: string }[];
+  createdAt?: string;
+};
+
+export const REACTION_EMOJIS = ["👍", "❤️", "🎉", "🔥", "👀"];
+
 export const DELIVERY_PRIORITIES: { key: DeliveryPriority; label: string; chip: string; dot: string }[] = [
   { key: "baixa", label: "Baixa", chip: "bg-subtle text-muted", dot: "bg-slate-400" },
   { key: "media", label: "Média", chip: "bg-sky-500/15 text-sky-500", dot: "bg-sky-500" },
@@ -533,7 +546,7 @@ export type DeliveryTask = {
   dueDate: string; // ISO — data de entrega real (ENT09)
   /** Detalhes persistidos (Painel real). Ausentes no mock. */
   checklist?: { label: string; done: boolean }[];
-  comments?: { author: string; text: string }[];
+  comments?: TaskComment[];
   /** Card v2 (modelo Sprints). */
   priority?: DeliveryPriority;
   assignees?: string[];

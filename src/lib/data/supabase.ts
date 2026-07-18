@@ -70,6 +70,7 @@ import {
   type EditorialPillar,
   type ArtDirection,
   type ClientDeliverable,
+  type TaskComment,
 } from "./operacao";
 import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from "./types";
 
@@ -1375,9 +1376,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       checklist: Array.isArray(r.checklist)
         ? (r.checklist as { label: string; done: boolean }[])
         : [],
-      comments: Array.isArray(r.comments)
-        ? (r.comments as { author: string; text: string }[])
-        : [],
+      comments: Array.isArray(r.comments) ? (r.comments as TaskComment[]) : [],
       priority,
       assignees: Array.isArray(r.assignees) && r.assignees.length ? r.assignees : r.assignee ? [r.assignee] : [],
       requester: r.requester ?? undefined,

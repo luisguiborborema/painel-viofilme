@@ -1,22 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, Circle, Clock, MessageSquare, Plus, Send, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { CheckCircle2, Circle, Clock, CornerDownRight, MessageSquare, Paperclip, Plus, Send, SmilePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DELIVERY_PRIORITIES,
   OPS_TEAM,
+  REACTION_EMOJIS,
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
   type DeliveryPriority,
   type DeliveryTask,
+  type TaskComment,
   type TaskStage,
 } from "@/lib/data/operacao";
 
 const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
 
 type CheckItem = { label: string; done: boolean };
-type Comment = { author: string; text: string };
+let tmpSeq = 0;
 
 function defaultChecklist(stage: TaskStage): CheckItem[] {
   return [
@@ -67,8 +69,13 @@ export function TaskUniversal({
     task.checklist?.length ? task.checklist : defaultChecklist(task.stage),
   );
   const [newItem, setNewItem] = useState("");
-  const [comments, setComments] = useState<Comment[]>(() => task.comments ?? []);
+  const [comments, setComments] = useState<TaskComment[]>(() => task.comments ?? []);
   const [comment, setComment] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [pendingAtts, setPendingAtts] = useState<{ name: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const author = meName || "Você";
   const primary = assignees[0] ?? "";
@@ -108,10 +115,55 @@ export function TaskUniversal({
 
   function addComment() {
     const text = comment.trim();
-    if (!text) return;
-    setComments((p) => [...p, { author, text }]);
+    if (!text && pendingAtts.length === 0) return;
+    const entry: TaskComment = {
+      id: `tmp-${tmpSeq++}`,
+      author,
+      text,
+      parentId: replyTo ?? undefined,
+      reactions: {},
+      attachments: pendingAtts,
+      createdAt: new Date().toISOString(),
+    };
+    setComments((p) => [...p, entry]);
+    void postDelivery({
+      action: "add-comment",
+      id: task.id,
+      comment: { author, text, parentId: replyTo ?? undefined, attachments: pendingAtts },
+    });
     setComment("");
-    void postDelivery({ action: "add-comment", id: task.id, comment: { author, text } });
+    setReplyTo(null);
+    setPendingAtts([]);
+  }
+
+  function toggleReact(commentId: string, emoji: string) {
+    setPickerFor(null);
+    setComments((prev) =>
+      prev.map((c) => {
+        if (c.id !== commentId) return c;
+        const reactions = { ...(c.reactions ?? {}) };
+        const set = new Set(reactions[emoji] ?? []);
+        if (set.has(author)) set.delete(author);
+        else set.add(author);
+        if (set.size) reactions[emoji] = [...set];
+        else delete reactions[emoji];
+        return { ...c, reactions };
+      }),
+    );
+    void postDelivery({ action: "react-comment", id: task.id, commentId, emoji, comment: { author } });
+  }
+
+  async function onPickFile(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/gerencial/task-upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) setPendingAtts((p) => [...p, { name: data.name, url: data.url }]);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function logHours() {
@@ -266,29 +318,72 @@ export function TaskUniversal({
             </div>
           </div>
 
-          {/* Comentários */}
+          {/* Comentários & atividade */}
           <div>
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted">
-              <MessageSquare className="h-3.5 w-3.5" /> Comentários internos
+              <MessageSquare className="h-3.5 w-3.5" /> Comentários & atividade
             </div>
             <div className="space-y-2">
-              {comments.length === 0 && (
+              {comments.filter((c) => !c.parentId).length === 0 && (
                 <p className="rounded-lg bg-canvas px-3 py-2 text-xs text-muted">Sem comentários ainda.</p>
               )}
-              {comments.map((c, i) => (
-                <div key={i} className="rounded-lg bg-canvas px-3 py-2">
-                  <p className="text-[11px] font-semibold text-ink">{c.author}</p>
-                  <p className="text-sm text-ink/90">{c.text}</p>
-                </div>
-              ))}
+              {comments
+                .filter((c) => !c.parentId)
+                .map((c) => (
+                  <div key={c.id}>
+                    <CommentItem c={c} author={author} onReact={toggleReact} onReply={() => setReplyTo(c.id ?? null)} pickerFor={pickerFor} setPickerFor={setPickerFor} />
+                    {comments
+                      .filter((r) => r.parentId === c.id)
+                      .map((r) => (
+                        <div key={r.id} className="ml-5 mt-1.5 border-l-2 border-line pl-2">
+                          <CommentItem c={r} author={author} onReact={toggleReact} pickerFor={pickerFor} setPickerFor={setPickerFor} />
+                        </div>
+                      ))}
+                  </div>
+                ))}
             </div>
+
+            {replyTo && (
+              <p className="mt-2 flex items-center gap-1 text-[11px] text-muted">
+                <CornerDownRight className="h-3 w-3" /> Respondendo…
+                <button onClick={() => setReplyTo(null)} className="text-brand-500 hover:underline">cancelar</button>
+              </p>
+            )}
+            {pendingAtts.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {pendingAtts.map((a, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 rounded-lg bg-subtle px-2 py-1 text-[11px] text-ink">
+                    <Paperclip className="h-3 w-3" /> {a.name}
+                    <button onClick={() => setPendingAtts((p) => p.filter((_, j) => j !== i))} className="text-muted hover:text-rose-500"><X className="h-3 w-3" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="mt-2 flex gap-1.5">
               <input
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addComment()}
-                placeholder="Comentar…"
+                placeholder={replyTo ? "Responder…" : "Comentar…"}
                 className="flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                title="Anexar arquivo"
+                className="rounded-lg border border-line px-2.5 py-1.5 text-muted hover:bg-subtle disabled:opacity-60"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onPickFile(f);
+                  e.target.value = "";
+                }}
               />
               <button onClick={addComment} className="rounded-lg bg-ink px-2.5 py-1.5 text-surface"><Send className="h-4 w-4" /></button>
             </div>
@@ -299,6 +394,65 @@ export function TaskUniversal({
         <div className="flex items-center justify-end gap-2 border-t border-line p-4">
           <button onClick={onClose} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Fechar</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CommentItem({
+  c,
+  author,
+  onReact,
+  onReply,
+  pickerFor,
+  setPickerFor,
+}: {
+  c: TaskComment;
+  author: string;
+  onReact: (commentId: string, emoji: string) => void;
+  onReply?: () => void;
+  pickerFor: string | null;
+  setPickerFor: (v: string | null) => void;
+}) {
+  const id = c.id ?? "";
+  const reactionEntries = Object.entries(c.reactions ?? {}).filter(([, arr]) => arr.length);
+  return (
+    <div className="rounded-lg bg-canvas px-3 py-2">
+      <p className="text-[11px] font-semibold text-ink">{c.author}</p>
+      {c.text && <p className="whitespace-pre-wrap text-sm text-ink/90">{c.text}</p>}
+      {c.attachments && c.attachments.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {c.attachments.map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-brand-600 hover:bg-subtle">
+              <Paperclip className="h-3 w-3" /> {a.name}
+            </a>
+          ))}
+        </div>
+      )}
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {reactionEntries.map(([emoji, arr]) => (
+          <button
+            key={emoji}
+            onClick={() => onReact(id, emoji)}
+            title={arr.join(", ")}
+            className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px]", arr.includes(author) ? "bg-brand-500/15 text-brand-600" : "bg-subtle text-muted hover:text-ink")}
+          >
+            {emoji} {arr.length}
+          </button>
+        ))}
+        <div className="relative">
+          <button onClick={() => setPickerFor(pickerFor === id ? null : id)} className="rounded-full p-0.5 text-muted hover:text-ink">
+            <SmilePlus className="h-3.5 w-3.5" />
+          </button>
+          {pickerFor === id && (
+            <div className="absolute z-10 mt-1 flex gap-0.5 rounded-lg border border-line bg-surface p-1 shadow-lg">
+              {REACTION_EMOJIS.map((e) => (
+                <button key={e} onClick={() => onReact(id, e)} className="rounded px-1 text-sm hover:bg-subtle">{e}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        {onReply && <button onClick={onReply} className="ml-1 text-[11px] font-medium text-muted hover:text-ink">Responder</button>}
       </div>
     </div>
   );
