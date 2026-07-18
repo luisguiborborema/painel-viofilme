@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { getEditorialLine } from "@/lib/data/operacao";
+import { getEditorialLineView } from "@/lib/data/queries";
 import { buildEditorialPdf } from "@/lib/reports/le-pdf";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     return new Response("não autorizado", { status: 401 });
   }
   const clientId = req.nextUrl.searchParams.get("clientId") ?? "";
-  const le = getEditorialLine(clientId);
+  const le = await getEditorialLineView(clientId);
   const bytes = await buildEditorialPdf(le);
   const name = `LE-${le.clientName.normalize("NFD").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`;
 

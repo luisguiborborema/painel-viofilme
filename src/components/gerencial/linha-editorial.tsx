@@ -1039,12 +1039,14 @@ export function LinhaEditorial({
           <a href={`/api/le/pdf?clientId=${clientId}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
             <FileDown className="h-4 w-4" /> Exportar PDF
           </a>
-          <button
-            onClick={() => alert("Doc A (apresentação visual) — template em construção. O botão já entrega os dados da LE quando o template ficar pronto.")}
+          <a
+            href={`/gerencial/clientes/${clientId}/le/apresentar`}
+            target="_blank"
+            rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600"
           >
             <Presentation className="h-4 w-4" /> Apresentar ao cliente
-          </button>
+          </a>
         </div>
       </div>
 
