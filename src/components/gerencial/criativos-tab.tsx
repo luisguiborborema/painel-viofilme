@@ -1,33 +1,48 @@
 "use client";
 
 import { useState } from "react";
-import { ImagePlus, Link2, Megaphone, Plus, Zap } from "lucide-react";
+import { Clapperboard, ImagePlus, Link2, Megaphone, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
+  ART_DIRECTIONS,
   DELIVERY_TODAY_ISO,
   OPS_TEAM,
+  type ArtDirection,
+  type CampaignGoal,
   type DeliveryTask,
+  type EditorialFormat,
 } from "@/lib/data/operacao";
 import { TaskUniversal } from "./task-universal";
 
-// Posicionamentos de tráfego (não formatos orgânicos): um criativo de
-// performance nasce para um posicionamento de anúncio.
-const PLACEMENTS = [
-  "Meta Ads · 1:1",
-  "Meta Ads · 9:16",
-  "Google · Display/Discovery",
-  "TikTok Ads",
-] as const;
+// Objetivo de campanha (CP01.1) — a decisão mais importante, em cards coloridos.
+const GOALS: { key: CampaignGoal; label: string; hint: string; card: string; chip: string }[] = [
+  { key: "conversao", label: "Conversão", hint: "Vendas / leads", card: "border-emerald-400 bg-emerald-500/10", chip: "bg-emerald-500/15 text-emerald-600" },
+  { key: "trafego", label: "Tráfego", hint: "Site / perfil", card: "border-sky-400 bg-sky-500/10", chip: "bg-sky-500/15 text-sky-500" },
+  { key: "alcance", label: "Alcance", hint: "Mais gente", card: "border-violet-400 bg-violet-500/10", chip: "bg-violet-500/15 text-violet-500" },
+  { key: "reconhecimento", label: "Reconhecimento", hint: "Marca na memória", card: "border-amber-400 bg-amber-500/10", chip: "bg-amber-500/15 text-amber-600" },
+];
+const GOAL_META = Object.fromEntries(GOALS.map((g) => [g.key, g]));
+
+const FORMATS: EditorialFormat[] = ["Reels", "Feed", "Stories", "Carrossel"];
 
 const STAGE_LABEL: Record<string, string> = {
   todo: "Backlog",
   doing: "Em produção",
   review: "Revisão interna",
   approval: "Aguardando cliente",
-  done: "Publicado",
+  done: "Pronto",
+};
+const STAGE_CHIP: Record<string, string> = {
+  todo: "bg-subtle text-muted",
+  doing: "bg-sky-500/15 text-sky-500",
+  review: "bg-violet-500/15 text-violet-500",
+  approval: "bg-amber-500/15 text-amber-600",
+  done: "bg-emerald-500/15 text-emerald-600",
 };
 
+const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
 let seq = 5000;
 
 export function CriativosTab({
@@ -39,48 +54,45 @@ export function CriativosTab({
   clientId: string;
   existing?: DeliveryTask[];
 }) {
-  const [placement, setPlacement] = useState<(typeof PLACEMENTS)[number]>(PLACEMENTS[0]);
+  const [goal, setGoal] = useState<CampaignGoal | "">("");
+  const [format, setFormat] = useState<EditorialFormat | "">("");
   const [title, setTitle] = useState("");
-  const [angle, setAngle] = useState("");
-  const [copy, setCopy] = useState("");
-  const [cta, setCta] = useState("");
+  const [roteiro, setRoteiro] = useState("");
+  const [art, setArt] = useState<ArtDirection>("Banco do cliente");
   const [refUrl, setRefUrl] = useState("");
-  const [urgent, setUrgent] = useState(false);
   const [assignee, setAssignee] = useState(OPS_TEAM[0]?.id ?? "");
   const [secondary, setSecondary] = useState("");
   const [due, setDue] = useState("");
-  // Seed com os criativos reais já solicitados do cliente (status real do Kanban).
   const [tasks, setTasks] = useState<DeliveryTask[]>(existing);
   const [open, setOpen] = useState<DeliveryTask | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const canGenerate = !!goal && !!format && !!title.trim();
+  const field = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
 
   function briefingText() {
     const secName = OPS_TEAM.find((m) => m.id === secondary)?.name;
     return [
       "**Briefing de criativo (performance)**",
-      `Posicionamento: ${placement}`,
-      `Urgência: ${urgent ? "Escala / alta prioridade" : "Normal"}`,
-      angle.trim() && `Ângulo da oferta / dor: ${angle.trim()}`,
-      copy.trim() && `Copy principal (texto na arte): ${copy.trim()}`,
-      cta.trim() && `CTA: ${cta.trim()}`,
-      refUrl.trim() && `Referência: ${refUrl.trim()}`,
+      goal && `Objetivo de campanha: ${GOAL_META[goal]?.label}`,
+      `Formato: ${format}`,
+      roteiro.trim() && `Instruções / roteiro:\n${roteiro.trim()}`,
+      `Direcionamento de arte: ${art}`,
+      refUrl.trim() && `Referência / moodboard: ${refUrl.trim()}`,
       secName && `Secundário: ${secName}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    ].filter(Boolean).join("\n");
   }
 
   async function create() {
-    if (!title.trim()) return;
+    if (!canGenerate) return;
     setSaving(true);
-    const composedTitle = `Criativo ${placement} — ${title.trim()}`;
-    const type = placement.includes("9:16") ? "Vídeo" : "Arte";
+    const type = format === "Reels" ? "Vídeo" : "Arte";
     const optimistic: DeliveryTask = {
       id: `cr-${seq++}`,
-      title: composedTitle,
+      title: title.trim(),
       client: clientName,
       type,
-      origin: "Projeto",
+      origin: "Performance",
       assignee,
       stage: "todo",
       dueLabel: due.trim() ? `Prazo: ${due.trim()}` : "A definir",
@@ -92,6 +104,8 @@ export function CriativosTab({
       span: 1,
       dueDate: DELIVERY_TODAY_ISO,
       comments: [],
+      campaignGoal: goal || undefined,
+      contentFormat: format || undefined,
     };
     try {
       const res = await fetch("/api/gerencial/delivery-tasks", {
@@ -99,92 +113,110 @@ export function CriativosTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create",
-          title: composedTitle,
+          title: title.trim(),
           clientId,
           type,
-          origin: "Projeto",
+          origin: "Performance",
           assignee,
           stage: "todo",
+          campaignGoal: goal,
+          contentFormat: format,
         }),
       });
       const data = await res.json().catch(() => ({}));
       const realId = data?.id && data.id !== "demo" ? String(data.id) : null;
       if (realId) {
         optimistic.id = realId;
-        // Briefing tático vai como primeiro comentário da task.
         await fetch("/api/gerencial/delivery-tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "add-comment",
-            id: realId,
-            comment: { text: briefingText(), author: "Tráfego" },
-          }),
+          body: JSON.stringify({ action: "add-comment", id: realId, comment: { text: briefingText(), author: "Tráfego" } }),
         });
       }
     } catch {
-      // demo/offline: segue com o card otimista local
+      /* demo/offline: card otimista local */
     } finally {
       setSaving(false);
     }
     setTasks((p) => [optimistic, ...p]);
+    setGoal("");
+    setFormat("");
     setTitle("");
-    setAngle("");
-    setCopy("");
-    setCta("");
+    setRoteiro("");
     setRefUrl("");
     setDue("");
     setSecondary("");
-    setUrgent(false);
   }
 
-  const field = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
-
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+      {/* Esquerda · formulário de solicitação */}
       <Card className="p-5">
         <div className="mb-1 flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-brand-600" />
           <h2 className="text-sm font-semibold text-ink">Solicitar criativo de performance</h2>
         </div>
-        <p className="mb-3 text-xs text-muted">
-          O gestor de tráfego pede o criativo — a tela gera a <strong>task de produção</strong> no Painel de Entregas.
+        <p className="mb-4 text-xs text-muted">
+          O gestor de tráfego pede o criativo — a tela gera a <strong>task de produção</strong> (entra na LE do mês como <code>performance</code>).
         </p>
 
-        <label className="mb-1 block text-xs font-medium text-muted">Posicionamento / plataforma</label>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {PLACEMENTS.map((p) => (
-            <button key={p} onClick={() => setPlacement(p)} className={cn("rounded-full px-3 py-1 text-xs font-medium", placement === p ? "bg-brand-600 text-white" : "border border-line text-muted hover:text-ink")}>{p}</button>
+        {/* 1. Objetivo de campanha */}
+        <label className="mb-1.5 block text-xs font-medium text-muted">Objetivo de campanha</label>
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {GOALS.map((g) => (
+            <button
+              key={g.key}
+              onClick={() => setGoal(g.key)}
+              className={cn(
+                "rounded-xl border p-2.5 text-left transition-colors",
+                goal === g.key ? g.card : "border-line bg-subtle hover:border-brand-300",
+              )}
+            >
+              <p className="text-xs font-semibold text-ink">{g.label}</p>
+              <p className="text-[10px] text-muted">{g.hint}</p>
+            </button>
           ))}
         </div>
 
+        {/* 2. Formato */}
+        <label className="mb-1.5 block text-xs font-medium text-muted">Formato</label>
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {FORMATS.map((f) => (
+            <button key={f} onClick={() => setFormat(f)} className={cn("rounded-full px-3 py-1 text-xs font-medium", format === f ? "bg-brand-600 text-white" : "border border-line text-muted hover:text-ink")}>{f}</button>
+          ))}
+        </div>
+
+        {/* 3. Título / tema */}
         <label className="mb-1 block text-xs font-medium text-muted">Título / tema</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Oferta relâmpago fim de semana" className={cn(field, "mb-3")} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Oferta relâmpago fim de semana" className={cn(field, "mb-4")} />
 
-        {/* Briefing tático em blocos (criativo é mais curto/tático que roteiro orgânico) */}
-        <label className="mb-1 block text-xs font-medium text-muted">Ângulo da oferta / dor a explorar</label>
-        <textarea value={angle} onChange={(e) => setAngle(e.target.value)} rows={2} placeholder="Qual dor/oferta o anúncio ataca" className={cn(field, "mb-3 resize-none")} />
+        {/* 4. Instruções / roteiro (campo livre) */}
+        <label className="mb-1 block text-xs font-medium text-muted">Instruções / roteiro</label>
+        <textarea value={roteiro} onChange={(e) => setRoteiro(e.target.value)} rows={4} placeholder="Gancho, ângulo, CTA — como no briefing da task." className={cn(field, "mb-4 resize-y")} />
 
-        <label className="mb-1 block text-xs font-medium text-muted">Copy principal (texto na arte)</label>
-        <textarea value={copy} onChange={(e) => setCopy(e.target.value)} rows={2} placeholder="O texto que aparece na peça" className={cn(field, "mb-3 resize-none")} />
-
-        <div className="mb-3 grid grid-cols-2 gap-2">
+        {/* 5. Direção de arte + referência */}
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted">CTA</label>
-            <input value={cta} onChange={(e) => setCta(e.target.value)} placeholder="Ex.: Peça agora" className={field} />
+            <label className="mb-1 block text-xs font-medium text-muted">Direcionamento de arte</label>
+            <select value={art} onChange={(e) => setArt(e.target.value as ArtDirection)} className={field}>
+              {ART_DIRECTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            {art === "Media Day" && (
+              <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-600">
+                <Clapperboard className="h-3 w-3" /> → entra no próximo VioDay
+              </p>
+            )}
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted">Prazo</label>
-            <input value={due} onChange={(e) => setDue(e.target.value)} placeholder="ex.: 28/06" className={field} />
+            <label className="mb-1 block text-xs font-medium text-muted">
+              <span className="inline-flex items-center gap-1"><Link2 className="h-3.5 w-3.5" /> Referência / moodboard</span>
+            </label>
+            <input value={refUrl} onChange={(e) => setRefUrl(e.target.value)} placeholder="Cole um link (Meta Ads Library, TikTok…)" className={field} />
           </div>
         </div>
 
-        <label className="mb-1 block text-xs font-medium text-muted">
-          <span className="inline-flex items-center gap-1"><Link2 className="h-3.5 w-3.5" /> URL de referência (biblioteca de anúncios)</span>
-        </label>
-        <input value={refUrl} onChange={(e) => setRefUrl(e.target.value)} placeholder="Cole um link do Meta Ads Library ou TikTok Creative Center" className={cn(field, "mb-3")} />
-
-        <div className="mb-3 grid grid-cols-2 gap-2">
+        {/* 6. Responsável + prazo */}
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Responsável principal</label>
             <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field}>
@@ -192,33 +224,25 @@ export function CriativosTab({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted">Secundário (opcional)</label>
+            <label className="mb-1 block text-xs font-medium text-muted">Secundário</label>
             <select value={secondary} onChange={(e) => setSecondary(e.target.value)} className={field}>
               <option value="">—</option>
               {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Prazo</label>
+            <input value={due} onChange={(e) => setDue(e.target.value)} placeholder="ex.: 28/06" className={field} />
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setUrgent((v) => !v)}
-          className={cn(
-            "mb-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-            urgent ? "border-rose-400 bg-rose-500/10 text-rose-500" : "border-line text-muted hover:text-ink",
-          )}
-        >
-          <Zap className="h-3.5 w-3.5" /> {urgent ? "Escala / alta prioridade" : "Prioridade normal"}
+        <button onClick={create} disabled={!canGenerate || saving} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+          <Plus className="h-4 w-4" /> {saving ? "Gerando…" : "Gerar task de produção"}
         </button>
-
-        <div>
-          <button onClick={create} disabled={!title.trim() || saving} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-            <Plus className="h-4 w-4" /> {saving ? "Gerando…" : "Gerar task de produção"}
-          </button>
-          <p className="mt-2 text-[11px] text-muted">O criativo vira uma task no Painel de Entregas (origem Projeto).</p>
-        </div>
+        <p className="mt-2 text-[11px] text-muted">Cria a task no Painel de Entregas e marca o criativo como <code>performance</code> na LE do mês.</p>
       </Card>
 
+      {/* Direita · acompanhamento */}
       <Card className="p-5">
         <h2 className="mb-3 text-sm font-semibold text-ink">Criativos solicitados</h2>
         {tasks.length === 0 ? (
@@ -227,20 +251,32 @@ export function CriativosTab({
             <p className="text-sm">Nenhum criativo solicitado ainda.</p>
           </div>
         ) : (
-          <ul className="divide-y divide-line">
-            {tasks.map((t) => (
-              <li key={t.id}>
-                <button onClick={() => setOpen(t)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-subtle">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-ink">{t.title}</span>
-                    <span className="text-xs text-muted">{t.dueLabel}</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-subtle px-2 py-0.5 text-[10px] font-semibold text-muted">
-                    {STAGE_LABEL[t.stage] ?? "Backlog"}
-                  </span>
-                </button>
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {tasks.map((t) => {
+              const g = t.campaignGoal ? GOAL_META[t.campaignGoal] : null;
+              return (
+                <li key={t.id}>
+                  <button onClick={() => setOpen(t)} className="w-full rounded-xl border border-line p-3 text-left hover:bg-subtle">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-ink">{t.title}</span>
+                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", STAGE_CHIP[t.stage] ?? STAGE_CHIP.todo)}>
+                        {STAGE_LABEL[t.stage] ?? "Backlog"}
+                      </span>
+                    </div>
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      {t.contentFormat && <span className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">{t.contentFormat}</span>}
+                      {g && <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", g.chip)}>{g.label}</span>}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+                        <Avatar name={memberName(t.assignee)} size={20} /> {memberName(t.assignee)}
+                      </span>
+                      <span className="text-[11px] text-muted">{t.dueLabel}</span>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 
 const STAGES = new Set(["todo", "doing", "review", "approval", "done"]);
 const TYPES = new Set(["Arte", "Vídeo", "Copy", "Tráfego"]);
-const ORIGINS = new Set(["Linha editorial", "Projeto", "Tarefa avulsa"]);
+const ORIGINS = new Set(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
+const GOALS = new Set(["conversao", "trafego", "alcance", "reconhecimento"]);
+const CONTENT_FORMATS = new Set(["Reels", "Feed", "Stories", "Carrossel"]);
 
 type Body = {
   action?:
@@ -32,6 +34,8 @@ type Body = {
   hours?: number;
   checklist?: unknown;
   comment?: { author?: string; text?: string };
+  campaignGoal?: string;
+  contentFormat?: string;
 };
 
 /** Tarefas de entrega / produção (gerencial). */
@@ -157,6 +161,8 @@ export async function POST(req: Request) {
       due_date: b.dueDate || null,
       estimate_h: Number.isFinite(Number(b.estimateH)) ? Number(b.estimateH) : 0,
       urgent: Boolean(b.urgent),
+      campaign_goal: b.campaignGoal && GOALS.has(b.campaignGoal) ? b.campaignGoal : null,
+      content_format: b.contentFormat && CONTENT_FORMATS.has(b.contentFormat) ? b.contentFormat : null,
       created_by: user.id,
     })
     .select("id")

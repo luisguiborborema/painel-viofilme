@@ -469,7 +469,8 @@ export const OPS_TEAM: OpsMember[] = [
 
 export type TaskStage = "todo" | "doing" | "review" | "approval" | "done";
 export type TaskType = "Arte" | "Vídeo" | "Copy" | "Tráfego";
-export type TaskOrigin = "Linha editorial" | "Projeto" | "Tarefa avulsa";
+export type TaskOrigin = "Linha editorial" | "Projeto" | "Tarefa avulsa" | "Performance";
+export type CampaignGoal = "conversao" | "trafego" | "alcance" | "reconhecimento";
 
 // Estágios canônicos do objeto task — Kanban, LE e Resumo usam os mesmos nomes.
 export const TASK_STAGES: { key: TaskStage; label: string }[] = [
@@ -522,6 +523,9 @@ export type DeliveryTask = {
   /** Detalhes persistidos (Painel real). Ausentes no mock. */
   checklist?: { label: string; done: boolean }[];
   comments?: { author: string; text: string }[];
+  /** Criativo de performance (HUB10). */
+  campaignGoal?: CampaignGoal;
+  contentFormat?: EditorialFormat;
 };
 
 export function getDeliveryTasks(): DeliveryTask[] {

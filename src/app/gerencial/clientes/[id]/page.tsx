@@ -285,7 +285,7 @@ export default async function RaioXCliente({
     <CriativosTab
       clientName={c.name}
       clientId={id}
-      existing={clientTasks.filter((t) => t.title.startsWith("Criativo "))}
+      existing={clientTasks.filter((t) => t.origin === "Performance")}
     />
   );
 

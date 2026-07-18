@@ -133,7 +133,7 @@ function financialStatus(overdueDays: number): CSStatus {
 
 const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
-const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa"]);
+const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
 const DELIVERY_STAGES = new Set<string>(["todo", "doing", "review", "approval", "done"]);
 
 const MESES = [
@@ -1308,6 +1308,8 @@ type DeliveryRow = {
   urgent: boolean | null;
   checklist: unknown;
   comments: unknown;
+  campaign_goal: string | null;
+  content_format: string | null;
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -1316,7 +1318,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, campaign_goal, content_format, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1369,6 +1371,8 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       comments: Array.isArray(r.comments)
         ? (r.comments as { author: string; text: string }[])
         : [],
+      campaignGoal: (r.campaign_goal as DeliveryTask["campaignGoal"]) ?? undefined,
+      contentFormat: (r.content_format as DeliveryTask["contentFormat"]) ?? undefined,
     } satisfies DeliveryTask;
   });
 }
