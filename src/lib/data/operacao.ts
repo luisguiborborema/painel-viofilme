@@ -274,6 +274,8 @@ export type MediaDaySession = {
   equipment: string;
   notes: string;
   status: MediaDayStatus;
+  /** Pós/entrega — estado global do dia (VD03). */
+  postStatus: FootageStatus;
 };
 
 /** Estado persistido de um item de captura (vinculado a um post da LE). */

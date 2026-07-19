@@ -2644,7 +2644,7 @@ export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
   const [sessRes, itemsRes] = await Promise.all([
     supabase
       .from("mediaday_sessions")
-      .select("scheduled_label, location, team, equipment, notes, status")
+      .select("scheduled_label, location, team, equipment, notes, status, post_status")
       .eq("client_id", clientId)
       .maybeSingle(),
     supabase
@@ -2660,6 +2660,7 @@ export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
     equipment: string | null;
     notes: string | null;
     status: string | null;
+    post_status: string | null;
   } | null;
 
   const session: MediaDaySession | null = s
@@ -2670,6 +2671,7 @@ export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
         equipment: s.equipment ?? "",
         notes: s.notes ?? "",
         status: (s.status as MediaDaySession["status"]) ?? "planning",
+        postStatus: (s.post_status as MediaDaySession["postStatus"]) ?? "awaiting",
       }
     : null;
 

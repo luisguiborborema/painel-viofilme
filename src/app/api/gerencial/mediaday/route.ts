@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 }
 
 type Body = {
-  action?: "save-plan" | "set-capture" | "add-raw" | "set-footage";
+  action?: "save-plan" | "set-capture" | "add-raw" | "set-post-status";
   clientId?: string;
   postId?: string;
   taskId?: string;
@@ -75,6 +75,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
+  // Pós/entrega (Fase 3) — estado GLOBAL do dia (VD03), na sessão.
+  if (b.action === "set-post-status") {
+    if (!b.status || !FOOTAGE.has(b.status)) {
+      return NextResponse.json({ error: "status de pós inválido" }, { status: 400 });
+    }
+    const { error } = await supabase.from("mediaday_sessions").upsert(
+      { client_id: b.clientId, post_status: b.status, updated_at: now },
+      { onConflict: "client_id" },
+    );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
   // Daqui pra baixo tudo mexe num item (por post da LE).
   if (!b.postId) return NextResponse.json({ error: "postId ausente" }, { status: 400 });
 
@@ -115,7 +128,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true, taskAdvanced });
   }
 
-  // Brutos (Fase 3) — anexa link e marca material como entregue.
+  // Brutos — anexa link ao item (galeria liberada ao editor no "capturado").
   if (b.action === "add-raw") {
     if (!b.url?.trim()) return NextResponse.json({ error: "url ausente" }, { status: 400 });
     const { data: row } = await supabase
@@ -134,32 +147,12 @@ export async function POST(req: Request) {
         post_id: b.postId,
         task_id: b.taskId ?? null,
         raw_assets: next,
-        footage_status: "raw_delivered",
         updated_at: now,
       },
       { onConflict: "client_id,post_id" },
     );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true, rawAssets: next });
-  }
-
-  // Progressão de pós-produção (brutos → edição → final).
-  if (b.action === "set-footage") {
-    if (!b.status || !FOOTAGE.has(b.status)) {
-      return NextResponse.json({ error: "status de pós inválido" }, { status: 400 });
-    }
-    const { error } = await supabase.from("mediaday_items").upsert(
-      {
-        client_id: b.clientId,
-        post_id: b.postId,
-        task_id: b.taskId ?? null,
-        footage_status: b.status,
-        updated_at: now,
-      },
-      { onConflict: "client_id,post_id" },
-    );
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, persisted: true });
   }
 
   return NextResponse.json({ error: "ação desconhecida" }, { status: 400 });
