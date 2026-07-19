@@ -235,6 +235,25 @@ export function getVioLaunch(clientId: string) {
 // --- Documentos do cliente ---------------------------------------------------
 export type ClientDoc = { id: string; title: string; meta: string; kind: string };
 
+export type ClientDocument = {
+  id: string;
+  title: string;
+  url: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  kind: string; // contrato|briefing|marca|relatorio|outro
+  createdAt?: string;
+};
+
+export const DOCUMENT_KINDS: { key: string; label: string }[] = [
+  { key: "contrato", label: "Contrato" },
+  { key: "briefing", label: "Briefing" },
+  { key: "marca", label: "Manual de marca" },
+  { key: "relatorio", label: "Relatório" },
+  { key: "outro", label: "Outro" },
+];
+
 export function getClientDocuments(_clientId: string): ClientDoc[] {
   return [
     { id: "d1", title: "Contrato de prestação de serviços", meta: "PDF · 340 KB", kind: "contrato" },

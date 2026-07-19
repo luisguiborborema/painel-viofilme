@@ -663,6 +663,12 @@ export async function getClientDeliverables(clientId: string) {
   return [];
 }
 
+/** Documentos do cliente (arquivos) — reais quando Supabase ligado; [] no demo. */
+export async function getClientDocumentsView(clientId: string) {
+  if (isSupabaseConfigured()) return sb.sbGetClientDocuments(clientId);
+  return [];
+}
+
 /** Hub de Clientes com health real (clientes + payments + tarefas + atividade). */
 export async function getHubClientsOps(): Promise<HubClientOps[]> {
   if (isSupabaseConfigured()) return sb.sbGetHubClientsOps();

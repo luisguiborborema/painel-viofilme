@@ -3,8 +3,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  Download,
-  FileText,
   Mail,
   Phone,
   Plus,
@@ -14,12 +12,12 @@ import {
   getClientById,
   getClientTasks,
   getClientDeliverables,
+  getClientDocumentsView,
   getCSClientDetail,
   getEditorialLineView,
   getHubClientsOps,
 } from "@/lib/data/queries";
 import {
-  getClientDocuments,
   RESPONSIBLE_ROLES,
   TASK_STAGES,
 } from "@/lib/data/operacao";
@@ -36,6 +34,7 @@ import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientQuickActions } from "@/components/gerencial/client-quick-actions";
 import { AgendaTab } from "@/components/gerencial/agenda-tab";
+import { ClientDocumentsTab } from "@/components/gerencial/client-documents-tab";
 import { PlatformIcon } from "@/components/dashboard/platform";
 import { cn } from "@/lib/utils";
 import type { Platform } from "@/lib/data/types";
@@ -130,10 +129,10 @@ export default async function RaioXCliente({
     whatsapp: portal?.whatsapp ?? "",
   };
 
-  const docs = getClientDocuments(id);
-  const [editorial, deliverables] = await Promise.all([
+  const [editorial, deliverables, clientDocs] = await Promise.all([
     getEditorialLineView(id),
     getClientDeliverables(id),
+    getClientDocumentsView(id),
   ]);
 
   const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
@@ -309,27 +308,7 @@ export default async function RaioXCliente({
   );
 
   // --- Aba Documentos -------------------------------------------------------
-  const documentos = (
-    <Card className="p-5">
-      <h2 className="mb-3 text-sm font-semibold text-ink">Documentos</h2>
-      <ul className="divide-y divide-line">
-        {docs.map((doc) => (
-          <li key={doc.id} className="flex items-center gap-3 py-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-subtle text-muted">
-              <FileText className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-ink">{doc.title}</p>
-              <p className="text-xs text-muted">{doc.meta}</p>
-            </div>
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle">
-              <Download className="h-3.5 w-3.5" /> Baixar
-            </button>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
+  const documentos = <ClientDocumentsTab clientId={id} initial={clientDocs} />;
 
   const tabs: ClientTab[] = [
     { key: "resumo", label: "Resumo", content: resumo },
