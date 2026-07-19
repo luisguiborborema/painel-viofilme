@@ -6,13 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const PRIORITIES = new Set(["baixa", "media", "alta", "urgente"]);
+
 type Body = {
-  action?: "add" | "done" | "reopen" | "set-assignees";
+  action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority";
   leadId?: string;
   taskId?: string;
   title?: string;
   dueDate?: string;
   assignees?: string[];
+  priority?: string;
 };
 
 /** Cria uma tarefa (próxima ação) ou marca uma como concluída. */
@@ -62,13 +65,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
+  if (action === "set-priority") {
+    if (!b.taskId || !b.priority || !PRIORITIES.has(b.priority)) {
+      return NextResponse.json({ error: "taskId/prioridade inválida" }, { status: 400 });
+    }
+    const { error } = await supabase.from("crm_tasks").update({ priority: b.priority }).eq("id", b.taskId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
   // add
   if (!b.leadId || !b.title?.trim()) {
     return NextResponse.json({ error: "leadId/title ausente" }, { status: 400 });
   }
   const { data, error } = await supabase
     .from("crm_tasks")
-    .insert({ lead_id: b.leadId, title: b.title.trim(), due_date: b.dueDate ?? null })
+    .insert({
+      lead_id: b.leadId,
+      title: b.title.trim(),
+      due_date: b.dueDate ?? null,
+      priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
+    })
     .select("id")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

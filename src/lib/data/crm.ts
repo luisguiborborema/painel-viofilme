@@ -362,6 +362,7 @@ export type CrmTask = {
   dueDate?: string;
   status: "pending" | "done";
   doneAt?: string;
+  priority?: LeadPriority;
   /** Responsável primário (= assignees[0]). Mantido p/ retrocompat. */
   assignee?: string;
   /** Responsáveis da tarefa (nomes). Fallback: [assignee]. */

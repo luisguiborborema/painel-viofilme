@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { CalendarClock, Check, Loader2, Plus, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
-import type { PropertyDef, TaskItem } from "@/lib/data/crm";
+import { LEAD_PRIORITIES, type LeadPriority, type PropertyDef, type TaskItem } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
 import { TaskModal } from "./task-modal";
@@ -198,6 +198,7 @@ export function CrmTasks({
                       {t.dealName}
                     </Link>
                   </div>
+                  <TaskPriorityChip taskId={t.id} priority={t.priority} />
                   {assigneesOf(t).length > 0 && (
                     <AvatarStack names={assigneesOf(t)} team={teamMembers} size={22} />
                   )}
@@ -335,5 +336,35 @@ function NewTask({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Chip de prioridade da tarefa — clique cicla os 4 níveis e persiste. */
+function TaskPriorityChip({ taskId, priority }: { taskId: string; priority?: LeadPriority }) {
+  const [value, setValue] = useState<LeadPriority>(priority ?? "media");
+  const meta = LEAD_PRIORITIES.find((p) => p.key === value) ?? LEAD_PRIORITIES[1];
+  function cycle(e: React.MouseEvent) {
+    e.stopPropagation();
+    const idx = LEAD_PRIORITIES.findIndex((p) => p.key === value);
+    const next = LEAD_PRIORITIES[(idx + 1) % LEAD_PRIORITIES.length].key;
+    setValue(next);
+    void fetch("/api/crm/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-priority", taskId, priority: next }),
+    });
+  }
+  return (
+    <button
+      onClick={cycle}
+      title={`Prioridade: ${meta.label} (clique para mudar)`}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+        value === "alta" || value === "urgente" ? meta.chip : "text-muted hover:bg-subtle",
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
+      {(value === "alta" || value === "urgente") && meta.label}
+    </button>
   );
 }

@@ -1787,6 +1787,7 @@ function mapCrmTask(r: CrmLeadRow): CrmTask {
     dueDate: r.due_date == null ? undefined : String(r.due_date),
     status: (r.status as "pending" | "done") ?? "pending",
     doneAt: r.done_at == null ? undefined : String(r.done_at),
+    priority: (["baixa", "media", "alta", "urgente"].includes(String(r.priority ?? "")) ? r.priority : "media") as CrmTask["priority"],
     assignee: r.assignee == null ? undefined : String(r.assignee),
     assignees: (r.assignees as string[] | null) ?? undefined,
     properties: (r.properties as Record<string, unknown> | null) ?? {},
@@ -1795,7 +1796,7 @@ function mapCrmTask(r: CrmLeadRow): CrmTask {
 }
 
 const CRM_TASK_COLS =
-  "id,lead_id,title,due_date,status,done_at,assignee,assignees,properties,created_at";
+  "id,lead_id,title,due_date,status,done_at,priority,assignee,assignees,properties,created_at";
 
 function mapCrmInteraction(r: CrmLeadRow): CrmInteraction {
   return {
