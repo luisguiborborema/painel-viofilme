@@ -796,8 +796,26 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
       void save({ datasComemorativas: next.join(" · ") });
     });
   }
-  function iaSoon(bloco: string) {
-    alert(`IA · ${bloco} — este bloco é visual e não tem geração de texto. Objetivo, narrativa, tensão, pilares e datas já geram por IA.`);
+  async function suggestMoodboard() {
+    setIaBusy("moodboard");
+    try {
+      const res = await fetch("/api/gerencial/le-moodboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok && j.url) {
+        const ref: EditorialRef = { id: `ai-${Date.now()}`, kind: "image", url: j.url, label: "Moodboard IA" };
+        const next = [...moodboard, ref];
+        setMoodboard(next);
+        void save({ moodboard: next });
+      } else {
+        alert(j.reason ?? "Geração de moodboard indisponível.");
+      }
+    } finally {
+      setIaBusy(null);
+    }
   }
 
   function addDate() {
@@ -904,7 +922,7 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold text-ink">Moodboard & referências</p>
-            <button onClick={() => iaSoon("Gerar moodboard")} className={iaBtn}>✨ Gerar</button>
+            <button onClick={suggestMoodboard} disabled={iaBusy === "moodboard"} className={iaBtn}>{iaBusy === "moodboard" ? "✨ Gerando…" : "✨ Gerar"}</button>
           </div>
           <Moodboard refs={moodboard} onAdd={(r) => { const next = [...moodboard, r]; setMoodboard(next); void save({ moodboard: next }); }} />
         </Card>
