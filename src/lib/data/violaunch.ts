@@ -7,7 +7,8 @@
 
 export type VLStatus = "concluido" | "andamento" | "proximo" | "bloqueado";
 export type VLResourceKind = "copiar" | "abrir" | "anexar";
-export type VLResource = { kind: VLResourceKind; label: string };
+/** ref = copy (texto p/ clipboard) quando kind='copiar', ou URL p/ abrir/anexar. */
+export type VLResource = { kind: VLResourceKind; label: string; ref?: string };
 export type VLConnection = "vioday" | "le" | "agenda";
 
 export type VLStep = {
@@ -63,7 +64,7 @@ const ph = (n: number, label: string, owner: string): VLStep => ({
   placeholder: true,
 });
 
-const WEEKS: VLWeek[] = [
+export const VIOLAUNCH_WEEKS: VLWeek[] = [
   {
     n: 1,
     title: "Fundação",
@@ -189,7 +190,7 @@ const WEEKS: VLWeek[] = [
   },
 ];
 
-const ROADMAP: VLBlock[] = [
+export const VIOLAUNCH_ROADMAP: VLBlock[] = [
   { id: "B1", label: "Diagnóstico & Posicionamento", pct: 100 },
   { id: "B2", label: "Persona & Jornada", pct: 80 },
   { id: "B3", label: "Narrativa & Pilares", pct: 40 },
@@ -199,17 +200,28 @@ const ROADMAP: VLBlock[] = [
   { id: "B7", label: "Metas & KPIs", pct: 0 },
 ];
 
-export function getVioLaunchData(startDate = "01/07"): VioLaunchData {
-  const steps = WEEKS.flatMap((w) => w.steps);
+/** Monta a VioLaunchData a partir de weeks/roadmap (template no mock, DB no real). */
+export function buildVioLaunchData(
+  weeks: VLWeek[],
+  roadmap: VLBlock[],
+  opts: { scope?: "completo" | "reduzido"; startDate?: string } = {},
+): VioLaunchData {
+  const steps = weeks.flatMap((w) => w.steps);
   const stepDone = steps.filter((s) => s.status === "concluido").length;
-  const roadmapPct = Math.round(ROADMAP.reduce((a, b) => a + b.pct, 0) / ROADMAP.length);
+  const roadmapPct = roadmap.length
+    ? Math.round(roadmap.reduce((a, b) => a + b.pct, 0) / roadmap.length)
+    : 0;
   return {
-    scope: "completo",
+    scope: opts.scope ?? "completo",
     stepDone,
     total: steps.length,
-    startDate,
-    weeks: WEEKS,
-    roadmap: ROADMAP,
+    startDate: opts.startDate ?? "01/07",
+    weeks,
+    roadmap,
     roadmapPct,
   };
+}
+
+export function getVioLaunchData(startDate = "01/07"): VioLaunchData {
+  return buildVioLaunchData(VIOLAUNCH_WEEKS, VIOLAUNCH_ROADMAP, { startDate });
 }

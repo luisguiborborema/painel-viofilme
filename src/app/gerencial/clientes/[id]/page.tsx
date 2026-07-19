@@ -14,6 +14,7 @@ import {
   getClientDeliverables,
   getClientDocumentsView,
   getMediaDayView,
+  getVioLaunchView,
   getCSClientDetail,
   getEditorialLineView,
   getHubClientsOps,
@@ -22,7 +23,6 @@ import {
   RESPONSIBLE_ROLES,
   TASK_STAGES,
 } from "@/lib/data/operacao";
-import { getVioLaunchData } from "@/lib/data/violaunch";
 import { VioLaunchPanel } from "@/components/gerencial/violaunch-panel";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
@@ -138,11 +138,12 @@ export default async function RaioXCliente({
     whatsapp: portal?.whatsapp ?? "",
   };
 
-  const [editorial, deliverables, clientDocs, mediaDay] = await Promise.all([
+  const [editorial, deliverables, clientDocs, mediaDay, violaunchData] = await Promise.all([
     getEditorialLineView(id),
     getClientDeliverables(id),
     getClientDocumentsView(id),
     getMediaDayView(id),
+    getVioLaunchView(id, ops?.onboarding?.startDate),
   ]);
 
   const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
@@ -291,7 +292,7 @@ export default async function RaioXCliente({
   const tarefas = <ClientTasksTab tasks={clientTasks} clientId={id} clientName={c.name} />;
 
   // --- Aba VioLaunch (HUB11 — Produto Zero) ---------------------------------
-  const violaunch = <VioLaunchPanel data={getVioLaunchData(ops?.onboarding?.startDate)} />;
+  const violaunch = <VioLaunchPanel clientId={id} data={violaunchData} />;
 
   // --- Aba Criativos (HUB10 — gera task) ------------------------------------
   const criativos = (

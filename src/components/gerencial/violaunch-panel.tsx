@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -20,7 +21,9 @@ import {
   type VioLaunchData,
   type VLGate,
   type VLResource,
+  type VLStatus,
   type VLStep,
+  type VLWeek,
 } from "@/lib/data/violaunch";
 
 const GATE_STATE: Record<VLGate["state"], { label: string; chip: string; icon: typeof Lock }> = {
@@ -36,23 +39,56 @@ const CONNECTION = {
   agenda: { label: "Agenda", icon: CalendarDays, chip: "bg-sky-500/15 text-sky-500" },
 } as const;
 
+const STEP_STATUSES: VLStatus[] = ["proximo", "andamento", "concluido", "bloqueado"];
+const GATE_STATES: VLGate["state"][] = ["bloqueado", "validando", "liberado"];
+
+async function persist(body: Record<string, unknown>) {
+  await fetch("/api/gerencial/violaunch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+}
+
 function ResourceButton({ r }: { r: VLResource }) {
   const Icon = RES_ICON[r.kind];
   const verb = r.kind === "copiar" ? "Copiar" : r.kind === "abrir" ? "Abrir" : "Anexar";
+  const [copied, setCopied] = useState(false);
+  const has = !!r.ref;
+
+  function act() {
+    if (r.kind === "copiar") {
+      void navigator.clipboard?.writeText(r.ref || r.label);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } else if (has) {
+      window.open(r.ref, "_blank", "noopener");
+    }
+  }
+
   return (
     <button
-      onClick={() => {
-        if (r.kind === "copiar") void navigator.clipboard?.writeText(r.label);
-      }}
-      title="Recurso do manual — conteúdo real liga depois"
-      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+      onClick={act}
+      title={has ? undefined : "Recurso do manual — conteúdo real liga depois"}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
+        has ? "border-line text-ink hover:bg-subtle" : "border-dashed border-line text-muted hover:bg-subtle",
+      )}
     >
-      <Icon className="h-3.5 w-3.5 text-muted" /> {verb} · {r.label}
+      <Icon className="h-3.5 w-3.5 text-muted" /> {copied ? "Copiado!" : `${verb} · ${r.label}`}
     </button>
   );
 }
 
-function StepItem({ step }: { step: VLStep }) {
+function StepItem({
+  step,
+  onStatus,
+  onToggleAction,
+}: {
+  step: VLStep;
+  onStatus: (n: number, status: VLStatus) => void;
+  onToggleAction: (n: number, actionIndex: number, done: boolean) => void;
+}) {
   const st = VL_STATUS[step.status];
   const conn = step.connection ? CONNECTION[step.connection] : null;
   return (
@@ -81,47 +117,69 @@ function StepItem({ step }: { step: VLStep }) {
       </summary>
 
       <div className="space-y-3 border-t border-line px-3 py-3">
-        {step.placeholder ? (
+        {step.placeholder && step.acoes.length === 0 ? (
           <p className="rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
             Sub-passos deste passo virão do manual (VioLaunch). Estrutura pronta para receber ações, recursos e SLA.
           </p>
         ) : (
           <>
-            <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Ações</p>
-              <ul className="space-y-1">
-                {step.acoes.map((a) => (
-                  <li key={a.label} className="flex items-center gap-2 text-sm">
-                    {a.done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 text-muted" />}
-                    <span className={a.done ? "text-muted line-through" : "text-ink/90"}>{a.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {step.acoes.length > 0 && (
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Ações</p>
+                <ul className="space-y-1">
+                  {step.acoes.map((a, i) => (
+                    <li key={i}>
+                      <button
+                        onClick={() => onToggleAction(step.n, i, !a.done)}
+                        className="flex w-full items-center gap-2 text-left text-sm"
+                      >
+                        {a.done ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 shrink-0 text-muted" />}
+                        <span className={a.done ? "text-muted line-through" : "text-ink/90"}>{a.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {step.recursos.length > 0 && (
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Recursos</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {step.recursos.map((r) => <ResourceButton key={r.label} r={r} />)}
+                  {step.recursos.map((r, i) => <ResourceButton key={i} r={r} />)}
                 </div>
               </div>
             )}
           </>
         )}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] text-muted">SLA: {step.sla}</p>
-          {step.statusTag && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-              <Clock3 className="h-3 w-3" /> {step.statusTag}
-            </span>
-          )}
+          <label className="flex items-center gap-1.5 text-[11px] text-muted">
+            Status
+            <select
+              value={step.status}
+              onChange={(e) => onStatus(step.n, e.target.value as VLStatus)}
+              className="rounded-lg border border-line bg-surface px-2 py-1 text-[11px] text-ink outline-none focus:border-brand-400"
+            >
+              {STEP_STATUSES.map((s) => <option key={s} value={s}>{VL_STATUS[s].label}</option>)}
+            </select>
+          </label>
         </div>
       </div>
     </details>
   );
 }
 
-function GateRow({ gate }: { gate: VLGate }) {
+function GateRow({
+  gate,
+  gateNumber,
+  onStatus,
+  onToggleItem,
+}: {
+  gate: VLGate;
+  gateNumber: number;
+  onStatus: (gateNumber: number, state: VLGate["state"]) => void;
+  onToggleItem: (gateNumber: number, itemIndex: number, done: boolean) => void;
+}) {
   const meta = GATE_STATE[gate.state];
   return (
     <details className="rounded-xl border border-dashed border-line bg-subtle/50">
@@ -133,20 +191,74 @@ function GateRow({ gate }: { gate: VLGate }) {
       <div className="border-t border-line px-3 py-2.5">
         <p className="mb-2 text-[11px] italic text-muted">{gate.rule}</p>
         <ul className="space-y-1">
-          {gate.checklist.map((c) => (
-            <li key={c.label} className="flex items-center gap-2 text-xs">
-              {c.done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 text-muted" />}
-              <span className={c.done ? "text-muted" : "text-ink/90"}>{c.label}</span>
+          {gate.checklist.map((c, i) => (
+            <li key={i}>
+              <button onClick={() => onToggleItem(gateNumber, i, !c.done)} className="flex w-full items-center gap-2 text-left text-xs">
+                {c.done ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 shrink-0 text-muted" />}
+                <span className={c.done ? "text-muted" : "text-ink/90"}>{c.label}</span>
+              </button>
             </li>
           ))}
         </ul>
+        <label className="mt-2 flex items-center gap-1.5 text-[11px] text-muted">
+          Trava
+          <select
+            value={gate.state}
+            onChange={(e) => onStatus(gateNumber, e.target.value as VLGate["state"])}
+            className="rounded-lg border border-line bg-surface px-2 py-1 text-[11px] text-ink outline-none focus:border-brand-400"
+          >
+            {GATE_STATES.map((s) => <option key={s} value={s}>{GATE_STATE[s].label}</option>)}
+          </select>
+        </label>
       </div>
     </details>
   );
 }
 
-export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
-  const pct = Math.round((data.stepDone / data.total) * 100);
+export function VioLaunchPanel({ clientId, data }: { clientId: string; data: VioLaunchData }) {
+  const [weeks, setWeeks] = useState<VLWeek[]>(data.weeks);
+  const [roadmap, setRoadmap] = useState(data.roadmap);
+  const [scope, setScope] = useState(data.scope);
+
+  const allSteps = weeks.flatMap((w) => w.steps);
+  const stepDone = allSteps.filter((s) => s.status === "concluido").length;
+  const total = allSteps.length;
+  const pct = total ? Math.round((stepDone / total) * 100) : 0;
+  const roadmapPct = roadmap.length ? Math.round(roadmap.reduce((a, b) => a + b.pct, 0) / roadmap.length) : 0;
+
+  function setStepStatus(n: number, status: VLStatus) {
+    setWeeks((prev) => prev.map((w) => ({ ...w, steps: w.steps.map((s) => (s.n === n ? { ...s, status } : s)) })));
+    void persist({ action: "set-step-status", clientId, stepNumber: n, status });
+  }
+  function toggleAction(n: number, actionIndex: number, done: boolean) {
+    setWeeks((prev) => prev.map((w) => ({
+      ...w,
+      steps: w.steps.map((s) => (s.n === n ? { ...s, acoes: s.acoes.map((a, i) => (i === actionIndex ? { ...a, done } : a)) } : s)),
+    })));
+    void persist({ action: "toggle-action", clientId, stepNumber: n, actionIndex, done });
+  }
+  function setGateStatus(gateNumber: number, state: VLGate["state"]) {
+    setWeeks((prev) => prev.map((w) => (w.n === gateNumber ? { ...w, gate: { ...w.gate, state } } : w)));
+    void persist({ action: "set-gate-status", clientId, gateNumber, status: state });
+  }
+  function toggleGateItem(gateNumber: number, itemIndex: number, done: boolean) {
+    setWeeks((prev) => prev.map((w) => (
+      w.n === gateNumber
+        ? { ...w, gate: { ...w.gate, checklist: w.gate.checklist.map((c, i) => (i === itemIndex ? { ...c, done } : c)) } }
+        : w
+    )));
+    void persist({ action: "toggle-gate-item", clientId, gateNumber, itemIndex, done });
+  }
+  function setBlockProgress(id: string, value: number) {
+    const p = Math.max(0, Math.min(100, Math.round(value) || 0));
+    setRoadmap((prev) => prev.map((b) => (b.id === id ? { ...b, pct: p } : b)));
+    void persist({ action: "set-block-progress", clientId, blockCode: id, progress: p });
+  }
+  function toggleScope() {
+    const next = scope === "completo" ? "reduzido" : "completo";
+    setScope(next);
+    void persist({ action: "set-scope", clientId, scope: next });
+  }
 
   return (
     <div className="space-y-4">
@@ -161,10 +273,11 @@ export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
               <h2 className="flex items-center gap-2 text-base font-bold text-ink">
                 VioLaunch™
                 <button
-                  onClick={() => alert("Alternar Escopo Completo / Reduzido — em construção. O escopo reduzido remove B5 (template) e B6.")}
+                  onClick={toggleScope}
+                  title="Escopo Reduzido remove B5 (template) e B6 — lógica de blocos liga depois."
                   className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-600 hover:bg-brand-500/20"
                 >
-                  Escopo {data.scope === "completo" ? "Completo" : "Reduzido"}
+                  Escopo {scope === "completo" ? "Completo" : "Reduzido"}
                 </button>
               </h2>
               <p className="text-xs text-muted">Produto Zero · consultoria de implementação · início {data.startDate}</p>
@@ -180,7 +293,7 @@ export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="font-medium text-muted">Progresso geral</span>
-            <span className="text-ink/90">{data.stepDone}/{data.total} passos</span>
+            <span className="text-ink/90">{stepDone}/{total} passos</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-subtle-strong">
             <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
@@ -191,12 +304,14 @@ export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Jornada (esquerda) */}
         <div className="space-y-4 lg:col-span-2">
-          {data.weeks.map((w) => (
+          {weeks.map((w) => (
             <Card key={w.n} className="p-4">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-brand-600">Semana {w.n} · {w.title}</p>
               <div className="space-y-2">
-                {w.steps.map((s) => <StepItem key={s.n} step={s} />)}
-                <GateRow gate={w.gate} />
+                {w.steps.map((s) => (
+                  <StepItem key={s.n} step={s} onStatus={setStepStatus} onToggleAction={toggleAction} />
+                ))}
+                <GateRow gate={w.gate} gateNumber={w.n} onStatus={setGateStatus} onToggleItem={toggleGateItem} />
               </div>
             </Card>
           ))}
@@ -207,14 +322,21 @@ export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
           <Card className="p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink">Roadmap · 7 blocos</h3>
-              <span className="text-xs font-medium text-muted">{data.roadmapPct}%</span>
+              <span className="text-xs font-medium text-muted">{roadmapPct}%</span>
             </div>
             <div className="space-y-2.5">
-              {data.roadmap.map((b) => (
+              {roadmap.map((b) => (
                 <div key={b.id}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="text-ink/90"><span className="font-bold text-muted">{b.id}</span> · {b.label}</span>
-                    <span className="text-muted">{b.pct}%</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={b.pct}
+                      onChange={(e) => setBlockProgress(b.id, Number(e.target.value))}
+                      className="w-14 rounded border border-line bg-surface px-1.5 py-0.5 text-right text-[11px] text-ink outline-none focus:border-brand-400"
+                    />
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-subtle-strong">
                     <div className={cn("h-full rounded-full", b.pct >= 100 ? "bg-emerald-500" : "bg-brand-500")} style={{ width: `${b.pct}%` }} />
@@ -222,6 +344,12 @@ export function VioLaunchPanel({ data }: { data: VioLaunchData }) {
                 </div>
               ))}
             </div>
+            <button
+              onClick={() => alert("Editor do Roadmap — em construção (conteúdo dos 7 blocos: 60% Playbook de Nicho + 40% personalizado).")}
+              className="mt-3 w-full rounded-lg border border-dashed border-line py-2 text-xs font-medium text-muted hover:bg-subtle"
+            >
+              Abrir editor do Roadmap
+            </button>
           </Card>
 
           <Card className="p-4">

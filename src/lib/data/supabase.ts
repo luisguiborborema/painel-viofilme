@@ -51,6 +51,17 @@ import {
 import type { HourBankView, HourEntry, HourRow } from "./rh";
 import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
+  VIOLAUNCH_WEEKS,
+  VIOLAUNCH_ROADMAP,
+  buildVioLaunchData,
+  type VioLaunchData,
+  type VLWeek,
+  type VLStep,
+  type VLGate,
+  type VLBlock,
+  type VLResource,
+} from "./violaunch";
+import {
   servicesForPlan,
   deliverablesForPlan,
   responsiblesFor,
@@ -2746,5 +2757,143 @@ export async function sbGetVioFluxPosts(clientId?: string): Promise<FluxPost[]> 
       mediaUrl: r.media_url ?? undefined,
       clientComment: r.client_comment ?? undefined,
     } satisfies FluxPost;
+  });
+}
+
+// --- VioLaunch (HUB11) — projeto persistido por cliente ----------------------
+type VLStepRow = {
+  id: string; step_number: number; week_title: string | null; name: string;
+  responsible: string | null; due_date: string | null; status: string;
+  status_tag: string | null; connection: string | null; placeholder: boolean; sla: string | null;
+};
+type VLSubRow = { step_id: string; kind: string; content: string; done: boolean; resource_type: string | null; resource_ref: string | null; sort: number };
+type VLGateRow = { gate_number: number; name: string; status: string; rule: string | null; items: unknown };
+type VLBlockRow = { block_code: string; name: string; progress: number; sort: number };
+
+async function seedVioLaunch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clientId: string,
+  startDate: string,
+): Promise<string | null> {
+  const { data: proj, error } = await supabase
+    .from("violaunch_projects")
+    .insert({ client_id: clientId, scope: "completo", start_date: startDate })
+    .select("id")
+    .single();
+  if (error || !proj) return null;
+  const projectId = proj.id as string;
+
+  const stepRows = VIOLAUNCH_WEEKS.flatMap((w) =>
+    w.steps.map((s) => ({
+      project_id: projectId, step_number: s.n, week_title: w.title, name: s.label,
+      responsible: s.owner, due_date: s.date, status: s.status, status_tag: s.statusTag ?? null,
+      connection: s.connection ?? null, placeholder: !!s.placeholder, sla: s.sla,
+    })),
+  );
+  const { data: insertedSteps } = await supabase
+    .from("violaunch_steps")
+    .insert(stepRows)
+    .select("id, step_number");
+  const idByStep = new Map<number, string>();
+  for (const r of (insertedSteps ?? []) as { id: string; step_number: number }[]) idByStep.set(r.step_number, r.id);
+
+  const subRows = VIOLAUNCH_WEEKS.flatMap((w) =>
+    w.steps.flatMap((s) => {
+      const stepId = idByStep.get(s.n);
+      if (!stepId) return [];
+      const acoes = s.acoes.map((a, i) => ({ step_id: stepId, kind: "action", content: a.label, done: a.done, resource_type: null, resource_ref: null, sort: i }));
+      const recursos = s.recursos.map((r, i) => ({ step_id: stepId, kind: "resource", content: r.label, done: false, resource_type: r.kind, resource_ref: r.ref ?? null, sort: 100 + i }));
+      return [...acoes, ...recursos];
+    }),
+  );
+  if (subRows.length) await supabase.from("violaunch_substeps").insert(subRows);
+
+  const gateRows = VIOLAUNCH_WEEKS.map((w) => ({
+    project_id: projectId, gate_number: w.n, name: w.gate.label, status: w.gate.state,
+    rule: w.gate.rule, items: w.gate.checklist,
+  }));
+  await supabase.from("violaunch_gates").insert(gateRows);
+
+  const blockRows = VIOLAUNCH_ROADMAP.map((b, i) => ({
+    project_id: projectId, block_code: b.id, name: b.label, composition: null, progress: b.pct, sort: i,
+  }));
+  await supabase.from("roadmap_blocks").insert(blockRows);
+
+  return projectId;
+}
+
+export async function sbGetVioLaunch(clientId: string, startDate = "01/07"): Promise<VioLaunchData> {
+  const supabase = await createClient();
+  let { data: proj } = await supabase
+    .from("violaunch_projects")
+    .select("id, scope, start_date")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (!proj) {
+    const projectId = await seedVioLaunch(supabase, clientId, startDate);
+    if (!projectId) return buildVioLaunchData(VIOLAUNCH_WEEKS, VIOLAUNCH_ROADMAP, { startDate });
+    proj = { id: projectId, scope: "completo", start_date: startDate };
+  }
+  const projectId = (proj as { id: string }).id;
+
+  const [stepsRes, gatesRes, blocksRes] = await Promise.all([
+    supabase.from("violaunch_steps").select("*").eq("project_id", projectId).order("step_number"),
+    supabase.from("violaunch_gates").select("gate_number, name, status, rule, items").eq("project_id", projectId).order("gate_number"),
+    supabase.from("roadmap_blocks").select("block_code, name, progress, sort").eq("project_id", projectId).order("sort"),
+  ]);
+  const steps = (stepsRes.data ?? []) as VLStepRow[];
+  const stepIds = steps.map((s) => s.id);
+  const subsByStep = new Map<string, VLSubRow[]>();
+  if (stepIds.length) {
+    const { data: subs } = await supabase
+      .from("violaunch_substeps")
+      .select("step_id, kind, content, done, resource_type, resource_ref, sort")
+      .in("step_id", stepIds)
+      .order("sort");
+    for (const s of (subs ?? []) as VLSubRow[]) {
+      if (!subsByStep.has(s.step_id)) subsByStep.set(s.step_id, []);
+      subsByStep.get(s.step_id)!.push(s);
+    }
+  }
+
+  const gateByNum = new Map<number, VLGateRow>();
+  for (const g of (gatesRes.data ?? []) as VLGateRow[]) gateByNum.set(g.gate_number, g);
+
+  const toStep = (r: VLStepRow): VLStep => {
+    const subs = subsByStep.get(r.id) ?? [];
+    return {
+      n: r.step_number,
+      label: r.name,
+      owner: r.responsible ?? "—",
+      date: r.due_date ?? "a definir",
+      status: r.status as VLStep["status"],
+      statusTag: r.status_tag ?? undefined,
+      acoes: subs.filter((s) => s.kind === "action").map((s) => ({ label: s.content, done: s.done })),
+      recursos: subs.filter((s) => s.kind === "resource").map((s) => ({ kind: (s.resource_type as VLResource["kind"]) ?? "abrir", label: s.content, ref: s.resource_ref ?? undefined })),
+      sla: r.sla ?? "",
+      connection: (r.connection as VLStep["connection"]) ?? undefined,
+      placeholder: r.placeholder || undefined,
+    };
+  };
+
+  const weeks: VLWeek[] = VIOLAUNCH_WEEKS.map((tpl) => {
+    const g = gateByNum.get(tpl.n);
+    const gate: VLGate = g
+      ? { label: g.name, state: g.status as VLGate["state"], rule: g.rule ?? "", checklist: Array.isArray(g.items) ? (g.items as VLGate["checklist"]) : [] }
+      : tpl.gate;
+    return {
+      n: tpl.n,
+      title: tpl.title,
+      steps: steps.filter((s) => Math.ceil(s.step_number / 3) === tpl.n).map(toStep),
+      gate,
+    };
+  });
+
+  const roadmap: VLBlock[] = ((blocksRes.data ?? []) as VLBlockRow[]).map((b) => ({ id: b.block_code, label: b.name, pct: Number(b.progress ?? 0) }));
+
+  return buildVioLaunchData(weeks, roadmap.length ? roadmap : VIOLAUNCH_ROADMAP, {
+    scope: ((proj as { scope?: string }).scope as "completo" | "reduzido") ?? "completo",
+    startDate: (proj as { start_date?: string }).start_date ?? startDate,
   });
 }

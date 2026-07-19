@@ -625,6 +625,7 @@ export async function getHourBankView(): Promise<HourBankView> {
 
 import { resolveReportSummary } from "./reports";
 import { FLUX_POSTS, type FluxPost } from "./flux";
+import { getVioLaunchData, type VioLaunchData } from "./violaunch";
 import {
   getDeliveryTasks as deliveryTasksMock,
   DELIVERY_CONFIG_FALLBACK,
@@ -661,6 +662,12 @@ export async function getVioFluxPosts(): Promise<FluxPost[]> {
 export async function getVioFluxForClient(clientId: string): Promise<FluxPost[]> {
   if (isSupabaseConfigured()) return sb.sbGetVioFluxPosts(clientId);
   return FLUX_POSTS.filter((p) => p.clientId === clientId);
+}
+
+/** VioLaunch (HUB11) — projeto por cliente, real (persistido) ou mock. */
+export async function getVioLaunchView(clientId: string, startDate = "01/07"): Promise<VioLaunchData> {
+  if (isSupabaseConfigured()) return sb.sbGetVioLaunch(clientId, startDate);
+  return getVioLaunchData(startDate);
 }
 
 import {
