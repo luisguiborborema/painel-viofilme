@@ -789,7 +789,8 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
   }
   function suggestDatas() {
     void askIA("datas", (t) => {
-      const found = t.split("\n").map((l) => l.replace(/^[-*\d.\s]+/, "").trim()).filter(Boolean);
+      // Só remove marcadores de lista (- * •); NÃO os dígitos, senão come o dia (01/11).
+      const found = t.split("\n").map((l) => l.replace(/^[-*•\s]+/, "").trim()).filter(Boolean);
       const next = [...datas];
       for (const d of found) if (!next.includes(d)) next.push(d);
       setDatas(next);

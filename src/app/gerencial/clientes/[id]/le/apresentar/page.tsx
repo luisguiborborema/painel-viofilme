@@ -37,12 +37,16 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const le = await getEditorialLineView(id);
 
-  const total = le.posts.length;
-  const reels = countFormat(le.posts, "Reels");
-  const carros = countFormat(le.posts, "Carrossel");
-  const estaticos = countFormat(le.posts, "Feed");
-  const stories = countFormat(le.posts, "Stories");
-  const weeks = intoWeeks(le.posts);
+  // Apresenta só o conteúdo aprovado = tudo que NÃO é rascunho (exclui Backlog/todo
+  // e posts sem task vinculada). Substitui o template pelos posts já em fluxo.
+  const posts = le.posts.filter((p) => p.taskStage && p.taskStage !== "todo");
+
+  const total = posts.length;
+  const reels = countFormat(posts, "Reels");
+  const carros = countFormat(posts, "Carrossel");
+  const estaticos = countFormat(posts, "Feed");
+  const stories = countFormat(posts, "Stories");
+  const weeks = intoWeeks(posts);
 
   return (
     <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
@@ -68,6 +72,11 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
             <h1 className="text-6xl font-black leading-none tracking-tight text-brand-600">LINHA<br />EDITORIAL</h1>
             <p className="mt-3 text-2xl font-semibold text-slate-800">{le.month}</p>
             {le.objetivo && le.objetivo !== "—" && <p className="mt-2 max-w-2xl text-lg text-slate-600">{le.objetivo}</p>}
+            {total === 0 && (
+              <p className="mt-3 max-w-2xl rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800 print:hidden">
+                Nenhum post aprovado ainda — avance os posts do rascunho no Kanban para incluí-los nesta apresentação.
+              </p>
+            )}
             <div className="mt-5 flex flex-wrap gap-2 text-sm font-bold">
               <span className="rounded bg-brand-600 px-3 py-1 text-white">4 SEMANAS</span>
               <span className="rounded bg-lime-300 px-3 py-1 text-slate-900">{total} POSTS</span>
