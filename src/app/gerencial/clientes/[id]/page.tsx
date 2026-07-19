@@ -13,6 +13,7 @@ import {
   getClientTasks,
   getClientDeliverables,
   getClientDocumentsView,
+  getMediaDayView,
   getCSClientDetail,
   getEditorialLineView,
   getHubClientsOps,
@@ -129,10 +130,11 @@ export default async function RaioXCliente({
     whatsapp: portal?.whatsapp ?? "",
   };
 
-  const [editorial, deliverables, clientDocs] = await Promise.all([
+  const [editorial, deliverables, clientDocs, mediaDay] = await Promise.all([
     getEditorialLineView(id),
     getClientDeliverables(id),
     getClientDocumentsView(id),
+    getMediaDayView(id),
   ]);
 
   const subtitleParts = [c.segment, c.city, d.contactName, d.contactRole].filter(
@@ -325,7 +327,7 @@ export default async function RaioXCliente({
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },
-    { key: "vioday", label: "VioDay", content: <VioDay editorial={editorial} /> },
+    { key: "vioday", label: "VioDay", content: <VioDay clientId={id} editorial={editorial} initial={mediaDay} /> },
     { key: "agenda", label: "Agenda", content: agenda },
     { key: "documentos", label: "Documentos", content: documentos },
   ];

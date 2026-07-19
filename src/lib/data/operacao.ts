@@ -235,6 +235,41 @@ export function getVioLaunch(clientId: string) {
 // --- Documentos do cliente ---------------------------------------------------
 export type ClientDoc = { id: string; title: string; meta: string; kind: string };
 
+// --- VioDay / Media Day (HUB12) ---------------------------------------------
+export type CaptureStatus = "pending" | "done" | "reshoot";
+export type FootageStatus = "awaiting" | "raw_delivered" | "editing" | "final";
+export type MediaDayStatus = "planning" | "ready" | "shot" | "delivered";
+
+export type MediaDaySession = {
+  scheduledLabel: string;
+  location: string;
+  team: string;
+  equipment: string;
+  notes: string;
+  status: MediaDayStatus;
+};
+
+/** Estado persistido de um item de captura (vinculado a um post da LE). */
+export type MediaDayItemState = {
+  postId: string;
+  taskId?: string;
+  captureStatus: CaptureStatus;
+  footageStatus: FootageStatus;
+  rawAssets: string[];
+};
+
+export type MediaDayView = {
+  session: MediaDaySession | null;
+  items: MediaDayItemState[];
+};
+
+export const FOOTAGE_STAGES: { key: FootageStatus; label: string }[] = [
+  { key: "awaiting", label: "Aguardando captação" },
+  { key: "raw_delivered", label: "Brutos entregues" },
+  { key: "editing", label: "Em edição" },
+  { key: "final", label: "Entregue final" },
+];
+
 export type ClientDocument = {
   id: string;
   title: string;

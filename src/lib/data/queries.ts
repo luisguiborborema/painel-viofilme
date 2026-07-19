@@ -647,6 +647,7 @@ import {
   getEditorialLine as editorialLineMock,
   type HubClientOps,
   type EditorialLine,
+  type MediaDayView,
 } from "./operacao";
 import { getCSClientDetail as csDetailMock } from "./cs";
 import type { CSClientDetail } from "./types";
@@ -667,6 +668,12 @@ export async function getClientDeliverables(clientId: string) {
 export async function getClientDocumentsView(clientId: string) {
   if (isSupabaseConfigured()) return sb.sbGetClientDocuments(clientId);
   return [];
+}
+
+/** VioDay / Media Day (HUB12) — sessão + estado dos itens de captura por cliente. */
+export async function getMediaDayView(clientId: string): Promise<MediaDayView> {
+  if (isSupabaseConfigured()) return sb.sbGetMediaDay(clientId);
+  return { session: null, items: [] };
 }
 
 /** Hub de Clientes com health real (clientes + payments + tarefas + atividade). */

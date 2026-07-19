@@ -71,6 +71,11 @@ import {
   type ArtDirection,
   type ClientDeliverable,
   type ClientDocument,
+  type MediaDayView,
+  type MediaDaySession,
+  type MediaDayItemState,
+  type CaptureStatus,
+  type FootageStatus,
   type TaskComment,
 } from "./operacao";
 import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from "./types";
@@ -2602,4 +2607,57 @@ export async function sbGetClientDocuments(clientId: string): Promise<ClientDocu
     kind: d.kind ?? "outro",
     createdAt: d.created_at ?? undefined,
   }));
+}
+
+export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
+  const supabase = await createClient();
+  const [sessRes, itemsRes] = await Promise.all([
+    supabase
+      .from("mediaday_sessions")
+      .select("scheduled_label, location, team, equipment, notes, status")
+      .eq("client_id", clientId)
+      .maybeSingle(),
+    supabase
+      .from("mediaday_items")
+      .select("post_id, task_id, capture_status, footage_status, raw_assets")
+      .eq("client_id", clientId),
+  ]);
+
+  const s = sessRes.data as {
+    scheduled_label: string | null;
+    location: string | null;
+    team: string | null;
+    equipment: string | null;
+    notes: string | null;
+    status: string | null;
+  } | null;
+
+  const session: MediaDaySession | null = s
+    ? {
+        scheduledLabel: s.scheduled_label ?? "",
+        location: s.location ?? "",
+        team: s.team ?? "",
+        equipment: s.equipment ?? "",
+        notes: s.notes ?? "",
+        status: (s.status as MediaDaySession["status"]) ?? "planning",
+      }
+    : null;
+
+  const items: MediaDayItemState[] = ((itemsRes.data ?? []) as {
+    post_id: string | null;
+    task_id: string | null;
+    capture_status: string | null;
+    footage_status: string | null;
+    raw_assets: unknown;
+  }[])
+    .filter((i) => !!i.post_id)
+    .map((i) => ({
+      postId: i.post_id as string,
+      taskId: i.task_id ?? undefined,
+      captureStatus: (i.capture_status as CaptureStatus) ?? "pending",
+      footageStatus: (i.footage_status as FootageStatus) ?? "awaiting",
+      rawAssets: Array.isArray(i.raw_assets) ? (i.raw_assets as string[]) : [],
+    }));
+
+  return { session, items };
 }
