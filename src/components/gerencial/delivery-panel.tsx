@@ -222,6 +222,15 @@ export function DeliveryPanel({
   const [origin, setOrigin] = useState<TaskOrigin | null>(null);
   const [client, setClient] = useState<string | null>(null);
   const [selected, setSelected] = useState<DeliveryTask | null>(null);
+  // Deep-link: abre a task de ?task=<id> ao montar (o "Copiar link" da ficha).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (!id) return;
+    const t = initial.find((x) => x.id === id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- abre a task do deep-link uma vez
+    if (t) setSelected(t);
+  }, [initial]);
   const [drill, setDrill] = useState<{ title: string; list: DeliveryTask[] } | null>(null);
 
   const meId = useMemo(() => {
