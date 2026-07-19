@@ -450,7 +450,25 @@ function PostModal({ post, onClose, onUpdate }: { post: FluxPost; onClose: () =>
   const [when, setWhen] = useState("");
   const [comment, setComment] = useState("");
   const [asking, setAsking] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const st = stateMeta(post.state);
+
+  // Publicação automática (FLX04.3) — cai no modo manual enquanto a API estiver desligada.
+  async function publishViaApi() {
+    setPublishing(true);
+    try {
+      const res = await fetch("/api/gerencial/vioflux-publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: post.id }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok) onUpdate(post.id, { state: "publicado" });
+      else alert(j.reason ?? "Publicação automática desligada — marque como publicado manualmente.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -511,10 +529,14 @@ function PostModal({ post, onClose, onUpdate }: { post: FluxPost; onClose: () =>
                   <button onClick={() => when && onUpdate(post.id, { state: "agendado", scheduledAt: new Date(when).toISOString(), date: new Date(when).toISOString() })} className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white">Agendar</button>
                 </div>
                 <button onClick={() => onUpdate(post.id, { state: "publicado" })} className="w-full rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Marcar como publicado</button>
+                <button onClick={publishViaApi} disabled={publishing} className="w-full rounded-xl border border-brand-300 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60">{publishing ? "Publicando…" : "Publicar via API (beta)"}</button>
               </>
             )}
             {post.state === "agendado" && (
-              <button onClick={() => onUpdate(post.id, { state: "publicado" })} className="w-full rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Marcar como publicado</button>
+              <>
+                <button onClick={() => onUpdate(post.id, { state: "publicado" })} className="w-full rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Marcar como publicado</button>
+                <button onClick={publishViaApi} disabled={publishing} className="w-full rounded-xl border border-brand-300 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60">{publishing ? "Publicando…" : "Publicar via API (beta)"}</button>
+              </>
             )}
             {post.state === "publicado" && (
               <p className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600"><CheckCircle2 className="h-4 w-4" /> Publicado — task fechada. Métricas serão lidas pela integração Meta.</p>

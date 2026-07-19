@@ -726,7 +726,7 @@ const PILLAR_COLORS = ["#f59e0b", "#34d399", "#38bdf8", "#a855f7", "#fb7185", "#
 const und = (s?: string) => (s && s !== "—" ? s : "");
 
 /** Cabeçalho estratégico editável (Criar LE — Tela 1). Persiste via set-header. */
-function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: string }) {
+function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; lineId?: string; clientId: string }) {
   const [objetivo, setObjetivo] = useState(und(data.objetivo));
   const [narrativa, setNarrativa] = useState(und(data.narrativaCentral));
   const [tensao, setTensao] = useState(und(data.tensaoNarrativa));
@@ -738,6 +738,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
   const [newDate, setNewDate] = useState("");
   const [newPillar, setNewPillar] = useState("");
   const [savedTick, setSavedTick] = useState(false);
+  const [iaBusy, setIaBusy] = useState<string | null>(null);
 
   async function save(patch: Record<string, unknown>) {
     if (!lineId) return;
@@ -750,10 +751,43 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
     window.setTimeout(() => setSavedTick(false), 1500);
   }
 
-  function ia(bloco: string) {
-    alert(
-      `IA · ${bloco} — em breve. Vai usar o contexto real do cliente (segmento, briefing, LEs anteriores e resultados dos posts) via Edge Function.`,
-    );
+  /** Chama a IA (Edge Function le-ai-suggest) e aplica a sugestão. */
+  async function askIA(kind: "narrativa" | "tensao" | "pilares" | "temas", apply: (text: string) => void) {
+    setIaBusy(kind);
+    try {
+      const res = await fetch("/api/gerencial/le-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, clientId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok && j.suggestion) {
+        apply(String(j.suggestion).trim());
+      } else {
+        alert(j.reason ?? "IA da Linha Editorial ainda não configurada (defina ANTHROPIC_API_KEY e LE_AI_ENABLED).");
+      }
+    } finally {
+      setIaBusy(null);
+    }
+  }
+
+  function suggestNarrativa() { void askIA("narrativa", (t) => { setNarrativa(t); void save({ narrativaCentral: t }); }); }
+  function suggestTensao() { void askIA("tensao", (t) => { setTensao(t); void save({ tensaoNarrativa: t }); }); }
+  function suggestPilares() {
+    void askIA("pilares", (t) => {
+      const names = t.split("\n").map((l) => l.replace(/^[-*\d.\s]+/, "").trim()).filter(Boolean).slice(0, 6);
+      const next = [...pillars];
+      for (const name of names) {
+        if (!next.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+          next.push({ name, posts: 0, color: PILLAR_COLORS[next.length % PILLAR_COLORS.length] });
+        }
+      }
+      setPillars(next);
+      void save({ pillars: next });
+    });
+  }
+  function iaSoon(bloco: string) {
+    alert(`IA · ${bloco} — este bloco ainda não tem geração por IA. Narrativa, tensão e pilares já usam a Edge Function.`);
   }
 
   function addDate() {
@@ -799,7 +833,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Objetivo / foco do mês</span>
-              <button onClick={() => ia("Gerar ideias")} className={iaBtn}>✨ Sugerir</button>
+              <button onClick={() => iaSoon("Gerar ideias")} className={iaBtn}>✨ Sugerir</button>
             </div>
             <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} onBlur={() => save({ objetivo })} rows={2} placeholder="Ex.: encher reservas de ter–qui · lançar o novo cardápio" className={ta} />
           </div>
@@ -807,7 +841,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Narrativa central</span>
-              <button onClick={() => ia("Sugerir narrativa")} className={iaBtn}>✨ Sugerir narrativa</button>
+              <button onClick={suggestNarrativa} disabled={iaBusy === "narrativa"} className={iaBtn}>{iaBusy === "narrativa" ? "✨ Gerando…" : "✨ Sugerir narrativa"}</button>
             </div>
             <textarea value={narrativa} onChange={(e) => setNarrativa(e.target.value)} onBlur={() => save({ narrativaCentral: narrativa })} rows={2} placeholder="A mensagem-mãe do mês." className={ta} />
           </div>
@@ -815,7 +849,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Tensão narrativa</span>
-              <button onClick={() => ia("Sugerir tensão")} className={iaBtn}>✨ Sugerir tensão</button>
+              <button onClick={suggestTensao} disabled={iaBusy === "tensao"} className={iaBtn}>{iaBusy === "tensao" ? "✨ Gerando…" : "✨ Sugerir tensão"}</button>
             </div>
             <textarea value={tensao} onChange={(e) => setTensao(e.target.value)} onBlur={() => save({ tensaoNarrativa: tensao })} rows={2} placeholder="O conflito/ângulo que sustenta a narrativa." className={ta} />
           </div>
@@ -823,7 +857,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
           <div className="border-t border-line pt-3">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Datas comemorativas</span>
-              <button onClick={() => ia("Buscar datas")} className={iaBtn}>✨ Buscar datas</button>
+              <button onClick={() => iaSoon("Buscar datas")} className={iaBtn}>✨ Buscar datas</button>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {datas.map((d, i) => (
@@ -839,7 +873,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
           <div className="border-t border-line pt-3">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Pilares de conteúdo</span>
-              <button onClick={() => ia("Sugerir pilares")} className={iaBtn}>✨ Sugerir pilares</button>
+              <button onClick={suggestPilares} disabled={iaBusy === "pilares"} className={iaBtn}>{iaBusy === "pilares" ? "✨ Gerando…" : "✨ Sugerir pilares"}</button>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {pillars.map((p) => (
@@ -860,7 +894,7 @@ function StrategicHeader({ data, lineId }: { data: EditorialLine; lineId?: strin
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold text-ink">Moodboard & referências</p>
-            <button onClick={() => ia("Gerar moodboard")} className={iaBtn}>✨ Gerar</button>
+            <button onClick={() => iaSoon("Gerar moodboard")} className={iaBtn}>✨ Gerar</button>
           </div>
           <Moodboard refs={moodboard} onAdd={(r) => { const next = [...moodboard, r]; setMoodboard(next); void save({ moodboard: next }); }} />
         </Card>
@@ -1071,7 +1105,7 @@ export function LinhaEditorial({
       </div>
 
       {/* ── Nível 1: Cabeçalho estratégico editável (Criar LE) ── */}
-      <StrategicHeader data={data} lineId={lineId} />
+      <StrategicHeader data={data} lineId={lineId} clientId={clientId} />
 
       {/* ── Nível 1.5: Slots do contrato ── */}
       <ContractSlots clientId={clientId} deliverables={deliverables} posts={posts} />
