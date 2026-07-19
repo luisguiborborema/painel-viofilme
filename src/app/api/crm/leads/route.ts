@@ -136,7 +136,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "update" | "move" | "delete" | "change-pipeline" | "set-assignees";
+  action?: "create" | "update" | "move" | "delete" | "change-pipeline" | "set-assignees" | "set-priority";
   id?: string;
   assignees?: string[];
   stage?: string;
@@ -152,6 +152,7 @@ type Body = {
   mediaBudget?: number;
   plan?: string;
   probability?: number;
+  priority?: string;
   source?: string;
   owner?: string;
   bant?: Record<string, string>;
@@ -206,6 +207,18 @@ export async function POST(req: Request) {
       .eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true, assignees, owner: assignees[0] ?? null });
+  }
+
+  if (action === "set-priority") {
+    if (!body.id || !["baixa", "media", "alta", "urgente"].includes(String(body.priority ?? ""))) {
+      return NextResponse.json({ error: "id/prioridade inválida" }, { status: 400 });
+    }
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({ priority: body.priority, updated_at: now })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
   }
 
   if (action === "change-pipeline") {
@@ -321,6 +334,7 @@ export async function POST(req: Request) {
     media_budget: body.mediaBudget ?? 0,
     plan: body.plan ?? null,
     probability: body.probability ?? 0,
+    priority: ["baixa", "media", "alta", "urgente"].includes(String(body.priority ?? "")) ? body.priority : "media",
     source: body.source ?? null,
     owner: body.owner ?? user.name,
     bant: body.bant ?? {},

@@ -31,8 +31,10 @@ import {
   type Bant,
   type Company,
   type Contact,
+  LEAD_PRIORITIES,
   type CrmInteraction,
   type CrmLead,
+  type LeadPriority,
   type CrmTask,
   type Pipeline,
   type PropertyDef,
@@ -291,6 +293,7 @@ export function LeadDetail({
           <Card title="Principal">
             <Row label="Valor mensal" value={formatBRL(lead.monthlyValue)} strong />
             <OwnerRow dealId={lead.id} owner={lead.owner} team={team} />
+            <PriorityRow dealId={lead.id} priority={lead.priority} />
             {pipelines.length > 1 && (
               <div className="flex items-center justify-between py-1.5 text-sm">
                 <span className="text-muted">Pipeline</span>
@@ -960,6 +963,32 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
     <div className="flex items-center justify-between py-1.5 text-sm">
       <span className="text-muted">{label}</span>
       <span className={cn("text-ink", strong && "text-base font-bold")}>{value}</span>
+    </div>
+  );
+}
+
+function PriorityRow({ dealId, priority }: { dealId: string; priority?: LeadPriority }) {
+  const [value, setValue] = useState<LeadPriority>(priority ?? "media");
+  async function change(next: LeadPriority) {
+    setValue(next);
+    await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-priority", id: dealId, priority: next }),
+    }).catch(() => {});
+  }
+  return (
+    <div className="flex items-center justify-between py-1.5 text-sm">
+      <span className="text-muted">Prioridade</span>
+      <select
+        value={value}
+        onChange={(e) => change(e.target.value as LeadPriority)}
+        className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400"
+      >
+        {LEAD_PRIORITIES.map((p) => (
+          <option key={p.key} value={p.key}>{p.label}</option>
+        ))}
+      </select>
     </div>
   );
 }

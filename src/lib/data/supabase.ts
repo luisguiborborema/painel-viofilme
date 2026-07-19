@@ -1736,7 +1736,7 @@ import type {
 } from "./crm";
 
 const CRM_LEAD_COLS =
-  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
 
 type CrmLeadRow = Record<string, unknown>;
 
@@ -1755,6 +1755,7 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
     mediaBudget: n("media_budget"),
     plan: s("plan"),
     probability: n("probability"),
+    priority: (["baixa", "media", "alta", "urgente"].includes(String(r.priority ?? "")) ? r.priority : "media") as CrmLead["priority"],
     source: s("source"),
     owner: s("owner"),
     assignees: (r.assignees as string[] | null) ?? undefined,

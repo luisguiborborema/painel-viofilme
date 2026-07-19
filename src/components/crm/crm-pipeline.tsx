@@ -10,6 +10,7 @@ import {
   toCard,
   scoreDeal,
   SCORE_TIERS,
+  LEAD_PRIORITIES,
   unmetStageRequirements,
   type Company,
   type Contact,
@@ -126,6 +127,15 @@ function LeadCard({
         <span className="text-xs font-normal text-muted">/mês</span>
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {(() => {
+          const p = LEAD_PRIORITIES.find((x) => x.key === (card.priority ?? "media"));
+          if (!p || (card.priority !== "alta" && card.priority !== "urgente")) return null;
+          return (
+            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", p.chip)}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}
+            </span>
+          );
+        })()}
         {(() => {
           const sc = scoreDeal(card, new Date().toISOString());
           const meta = SCORE_TIERS[sc.tier];

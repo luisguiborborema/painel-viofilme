@@ -32,6 +32,14 @@ export type Bant = {
   timing?: string;
 };
 
+export type LeadPriority = "baixa" | "media" | "alta" | "urgente";
+export const LEAD_PRIORITIES: { key: LeadPriority; label: string; chip: string; dot: string }[] = [
+  { key: "baixa", label: "Baixa", chip: "bg-subtle text-muted", dot: "bg-slate-400" },
+  { key: "media", label: "Média", chip: "bg-sky-500/15 text-sky-500", dot: "bg-sky-500" },
+  { key: "alta", label: "Alta", chip: "bg-orange-500/15 text-orange-600", dot: "bg-orange-500" },
+  { key: "urgente", label: "Urgente", chip: "bg-rose-500/15 text-rose-500", dot: "bg-rose-500" },
+];
+
 export type CrmLead = {
   id: string;
   name: string;
@@ -44,6 +52,7 @@ export type CrmLead = {
   mediaBudget: number;
   plan?: string;
   probability: number; // 0..100
+  priority?: LeadPriority;
   source?: string;
   /** Responsável primário (nome). Governa RLS/rodízio; = assignees[0]. */
   owner?: string;
