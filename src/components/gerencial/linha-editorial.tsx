@@ -764,7 +764,7 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
       if (j.ok && j.suggestion) {
         apply(String(j.suggestion).trim());
       } else {
-        alert(j.reason ?? "IA da Linha Editorial ainda não configurada (defina ANTHROPIC_API_KEY e LE_AI_ENABLED).");
+        alert(j.reason ?? "IA da Linha Editorial ainda não configurada (defina OPENAI_API_KEY).");
       }
     } finally {
       setIaBusy(null);

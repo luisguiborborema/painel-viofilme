@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { getSession } from "@/lib/auth/session";
-import { isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+
 const KINDS = new Set(["narrativa", "tensao", "pilares", "temas"]);
+
+const INSTRUCTION: Record<string, string> = {
+  narrativa: "Proponha UMA narrativa central de conteúdo para o mês — curta (1–2 frases), específica e acionável. Responda só com a narrativa, sem título nem aspas.",
+  tensao: "Descreva a tensão narrativa (o conflito/desejo do público que sustenta o mês) em 1–2 frases. Responda só com o texto.",
+  pilares: "Liste 4 pilares de conteúdo, um por linha, no formato 'Nome do pilar'. Sem numeração, sem descrição, só o nome de cada pilar por linha.",
+  temas: "Sugira 6 temas de post alinhados ao briefing, um por linha, curtos. Sem numeração.",
+};
 
 type Body = { kind?: string; clientId?: string; extra?: string };
 
-/** Proxy p/ a Edge Function le-ai-suggest — monta o briefing real do cliente. */
+/** Sugestões da Linha Editorial via OpenAI (chave no servidor). */
 export async function POST(req: Request) {
   const user = await getSession();
   if (!user || user.role !== "gerencial") {
@@ -26,13 +36,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "kind inválido" }, { status: 400 });
   }
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ ok: false, enabled: false, reason: "IA indisponível no modo demo." });
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ ok: false, enabled: false, reason: "OPENAI_API_KEY não configurada." });
   }
 
-  // Briefing real do cliente (quando houver) para dar contexto à sugestão.
+  // Briefing real do cliente (quando houver) para dar contexto.
   let clientBrief = "";
-  if (b.clientId) {
+  if (b.clientId && isSupabaseConfigured()) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("clients")
@@ -55,20 +65,25 @@ export async function POST(req: Request) {
     }
   }
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/le-ai-suggest`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ kind: b.kind, clientBrief, extra: b.extra ?? "" }),
-  }).catch(() => null);
+  const prompt = `${INSTRUCTION[b.kind]}\n\nBriefing do cliente:\n${clientBrief || "(sem briefing)"}\n${b.extra ?? ""}`;
 
-  if (!res) {
-    return NextResponse.json({ ok: false, enabled: false, reason: "Falha ao contatar a IA." });
+  try {
+    const client = new OpenAI();
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      max_tokens: 500,
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: "Você é estrategista de conteúdo de uma agência. Responda em português, direto, sem preâmbulo." },
+        { role: "user", content: prompt },
+      ],
+    });
+    const suggestion = completion.choices[0]?.message?.content?.trim() ?? "";
+    if (!suggestion) {
+      return NextResponse.json({ ok: false, reason: "A IA não retornou sugestão." });
+    }
+    return NextResponse.json({ ok: true, kind: b.kind, suggestion });
+  } catch (e) {
+    return NextResponse.json({ ok: false, reason: e instanceof Error ? e.message : "Falha na IA." }, { status: 502 });
   }
-  const data = await res.json().catch(() => ({}));
-  // Repassa inclusive o 501 "desligada" — o front trata graciosamente.
-  return NextResponse.json(data, { status: res.ok ? 200 : res.status });
 }
