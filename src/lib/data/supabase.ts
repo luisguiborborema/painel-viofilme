@@ -1868,6 +1868,7 @@ function mapCrmComment(r: Record<string, unknown>): CrmComment {
     authorId: r.author_id ? String(r.author_id) : null,
     body: String(r.body ?? ""),
     reactions: (r.reactions as Record<string, string[]> | null) ?? {},
+    attachments: Array.isArray(r.attachments) ? (r.attachments as { name: string; url: string }[]) : [],
     edited: Boolean(r.edited),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
@@ -1889,7 +1890,7 @@ export async function sbGetCrmComments(leadId: string): Promise<CrmComment[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("crm_comments")
-    .select("id,lead_id,parent_id,author,author_id,body,reactions,edited,created_at,updated_at")
+    .select("id,lead_id,parent_id,author,author_id,body,reactions,attachments,edited,created_at,updated_at")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: true });
   return (data ?? []).map(mapCrmComment);

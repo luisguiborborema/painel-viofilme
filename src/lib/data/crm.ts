@@ -349,6 +349,7 @@ export type CrmComment = {
   authorId?: string | null;
   body: string;
   reactions: CrmCommentReactions;
+  attachments?: { name: string; url: string }[];
   edited: boolean;
   createdAt: string;
   updatedAt: string;

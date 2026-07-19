@@ -59,6 +59,7 @@ type Body = {
   parentId?: string | null;
   body?: string;
   emoji?: string;
+  attachments?: { name?: string; url?: string }[];
 };
 
 /** Comentários internos de um negócio: criar, editar, excluir, responder, reagir. */
@@ -99,7 +100,10 @@ export async function POST(req: Request) {
   }
 
   if (action === "create") {
-    if (!b.leadId || !b.body?.trim()) {
+    const atts = Array.isArray(b.attachments)
+      ? b.attachments.filter((a) => a && typeof a.url === "string").slice(0, 8).map((a) => ({ name: String(a.name ?? "arquivo").slice(0, 120), url: String(a.url) }))
+      : [];
+    if (!b.leadId || (!b.body?.trim() && atts.length === 0)) {
       return NextResponse.json({ error: "leadId/body ausente" }, { status: 400 });
     }
     const { data, error } = await supabase
@@ -109,12 +113,13 @@ export async function POST(req: Request) {
         parent_id: b.parentId ?? null,
         author: user.name,
         author_id: user.id,
-        body: b.body.trim(),
+        body: b.body?.trim() ?? "",
+        attachments: atts,
       })
       .select("id,created_at")
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    await notifyComment(supabase, b.leadId, user.name, b.body.trim());
+    await notifyComment(supabase, b.leadId, user.name, b.body?.trim() || "(anexo)");
     return NextResponse.json({ ok: true, persisted: true, id: data.id, createdAt: data.created_at });
   }
 
