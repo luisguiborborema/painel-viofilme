@@ -50,14 +50,22 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
     <div>
       <p className="text-xs text-muted">{label}</p>
-      <p className="text-sm font-semibold text-ink">{value}</p>
+      <p className={cn("text-sm font-semibold text-ink", valueClass)}>{value}</p>
     </div>
   );
 }
+
+// HUB06.1 — cor da "Próx. ciclo" na head conforme o prazo aperta.
+const LE_HEAD_TONE: Record<string, string> = {
+  ok: "text-emerald-600",
+  neutral: "text-ink",
+  warn: "text-amber-600",
+  late: "text-rose-500",
+};
 
 function Row2({ label, value }: { label: string; value: string }) {
   return (
@@ -464,6 +472,7 @@ export default async function RaioXCliente({
           <Stat
             label="Próx. ciclo"
             value={ops ? `${ops.leNextMonth.status}${ops.leNextMonth.date ? ` · ${ops.leNextMonth.date}` : ""}` : "—"}
+            valueClass={ops ? LE_HEAD_TONE[ops.leNextMonth.tone] : undefined}
           />
           <Stat label="Próxima agenda" value={ops?.nextAgenda ?? "—"} />
         </div>

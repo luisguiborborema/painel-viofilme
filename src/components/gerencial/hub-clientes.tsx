@@ -20,9 +20,27 @@ import { NewClientButton } from "./new-client-modal";
 import {
   RESPONSIBLE_ROLES,
   type HubClientOps,
+  type LeNextMonth,
+  type LeTone,
 } from "@/lib/data/operacao";
 
 type Scope = "meus" | "squad" | "todos";
+
+// HUB06.1 — "LE próximo mês" muda de cor conforme o prazo aperta.
+const LE_TONE: Record<LeTone, string> = {
+  ok: "text-emerald-600",
+  neutral: "text-muted",
+  warn: "text-amber-600",
+  late: "text-rose-500 font-semibold",
+};
+function LeCiclo({ le }: { le: LeNextMonth }) {
+  const label = le.status === "montada" ? "montado" : le.tone === "late" ? "vencido" : "pendente";
+  return (
+    <span className={LE_TONE[le.tone]} title={le.date}>
+      {label}
+    </span>
+  );
+}
 
 // Status operacional — 4 estados automáticos (derivados de tasks + churn + fase).
 type StatusState = "em-dia" | "atencao" | "critico" | "onboarding";
@@ -306,10 +324,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] text-muted">
-                  Próx. ciclo:{" "}
-                  <span className={c.leNextMonth.status === "montada" ? "text-emerald-600" : "text-amber-600"}>
-                    {c.leNextMonth.status === "montada" ? "montado" : "pendente"}
-                  </span>{" "}· {c.nextAgenda}
+                  Próx. ciclo: <LeCiclo le={c.leNextMonth} /> · {c.nextAgenda}
                 </p>
               </div>
               <div className="pointer-events-auto absolute right-3 top-3 z-10">
@@ -324,7 +339,8 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
                 <th className="px-3 py-2.5">Cliente</th>
-                <th className="px-3 py-2.5">Serviços</th>
+                <th className="px-3 py-2.5">Plano</th>
+                <th className="px-3 py-2.5">Squad</th>
                 <th className="px-3 py-2.5">Responsáveis</th>
                 <th className="px-3 py-2.5">Status</th>
                 <th className="px-3 py-2.5 text-right">Atrasadas</th>
@@ -342,13 +358,12 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                       <ClientAvatar name={c.name} idx={i} size="sm" />
                       <div className="min-w-0">
                         <Link href={`/gerencial/clientes/${c.id}`} className="font-medium text-ink hover:text-brand-600">{c.name}</Link>
-                        <p className="text-[10px] text-muted">
-                          {c.segment !== "—" ? c.segment : c.squadName}
-                        </p>
+                        {c.segment !== "—" && <p className="text-[10px] text-muted">{c.segment}</p>}
                       </div>
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-muted">{c.plan}</td>
+                  <td className="px-3 py-2.5 text-muted">{c.squadName}</td>
                   <td className="px-3 py-2.5"><RespRow c={c} /></td>
                   <td className="px-3 py-2.5"><StatusChip c={c} /></td>
                   <td className="px-3 py-2.5 text-right">
@@ -365,11 +380,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right">{c.semaforo.approval || "—"}</td>
-                  <td className="px-3 py-2.5">
-                    <span className={c.leNextMonth.status === "montada" ? "text-emerald-600" : "text-amber-600"}>
-                      {c.leNextMonth.status === "montada" ? "montado" : "pendente"}
-                    </span>
-                  </td>
+                  <td className="px-3 py-2.5"><LeCiclo le={c.leNextMonth} /></td>
                   <td className="px-3 py-2.5 text-muted">{c.nextAgenda}</td>
                   <td className="px-3 py-2.5 text-right">
                     <ClientActions c={c} />

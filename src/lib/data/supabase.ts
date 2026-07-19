@@ -54,6 +54,8 @@ import {
   deliverablesForPlan,
   responsiblesFor,
   semaforoFrom,
+  leToneFrom,
+  LE_DEADLINE_DAY,
   tasksForClientName,
   type DeliveryTask,
   type TaskOrigin,
@@ -101,6 +103,8 @@ type HubClientRow = {
   brief_restricoes?: string | null;
   contract_model?: string | null;
   drive_folder_url?: string | null;
+  squad_id?: string | null;
+  squads?: { name: string | null } | { name: string | null }[] | null;
 };
 
 const CLIENT_PROFILE_COLS =
@@ -1406,7 +1410,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
   const [clientsRes, tasks, paysRes, postsRes, npsRes] = await Promise.all([
-    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, ${CLIENT_PROFILE_COLS}`).order("name"),
+    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1470,15 +1474,20 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       onboarding: isNew
         ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
         : undefined,
-      squadId: "sq-1",
-      squadName: "Produção",
+      squadId: c.squad_id ?? "sq-1",
+      squadName:
+        (Array.isArray(c.squads) ? c.squads[0]?.name : c.squads?.name) ?? "Produção",
       responsibles: responsiblesFor(idx),
       services: servicesForPlan(plan),
       deliverables: deliverablesForPlan(plan),
       monthTotal: t.length,
       monthDone: t.filter((x) => x.stage === "done").length,
       monthApproval: t.filter((x) => x.stage === "approval").length,
-      leNextMonth: { status: "pendente" as const, date: "prazo 25" },
+      leNextMonth: {
+        status: "pendente" as const,
+        date: `prazo ${LE_DEADLINE_DAY}`,
+        tone: leToneFrom("pendente", now.getDate()),
+      },
       nextAgenda: isNew ? "Kickoff · esta semana" : "Alinhamento mensal",
       semaforo: semaforoFrom(t),
     } satisfies HubClientOps;

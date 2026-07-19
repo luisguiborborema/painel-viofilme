@@ -137,6 +137,29 @@ export type HubSemaforo = {
 };
 export type HubResponsibles = Record<ResponsibleRole, string>;
 
+/**
+ * "LE do próximo mês" (HUB06.1). `tone` já vem calculado (o servidor conhece a
+ * data de hoje) para o card mudar de cor conforme o prazo aperta:
+ * ok=montada · neutral=pendente longe · warn=pendente perto · late=vencida.
+ */
+export type LeTone = "ok" | "neutral" | "warn" | "late";
+export type LeNextMonth = {
+  status: "montada" | "pendente";
+  date?: string;
+  tone: LeTone;
+};
+
+/** Dia do mês (convenção da agência) em que a LE do mês seguinte deve estar montada. */
+export const LE_DEADLINE_DAY = 25;
+
+/** Calcula o tom da "LE próximo mês" a partir do status e do dia de hoje. */
+export function leToneFrom(status: "montada" | "pendente", dayOfMonth: number): LeTone {
+  if (status === "montada") return "ok";
+  if (dayOfMonth > LE_DEADLINE_DAY) return "late";
+  if (dayOfMonth >= LE_DEADLINE_DAY - 3) return "warn";
+  return "neutral";
+}
+
 export type HubClientOps = HubClient & {
   squadId: string;
   squadName: string;
@@ -146,7 +169,7 @@ export type HubClientOps = HubClient & {
   monthTotal: number;
   monthDone: number;
   monthApproval: number;
-  leNextMonth: { status: "montada" | "pendente"; date?: string };
+  leNextMonth: LeNextMonth;
   nextAgenda?: string;
   semaforo: HubSemaforo;
 };
@@ -161,11 +184,13 @@ export function semaforoFrom(tasks: DeliveryTask[]): HubSemaforo {
 
 export function getHubClientsOps(): HubClientOps[] {
   const tasks = getDeliveryTasks();
+  const today = new Date().getDate();
   return getHubClients().map((c, idx) => {
     const t = tasksForClientName(c.name, tasks);
     const monthDone = t.filter((x) => x.stage === "done").length;
     const monthApproval = t.filter((x) => x.stage === "approval").length;
     const leMounted = idx % 3 !== 0; // mock: maioria montada
+    const leStatus = leMounted ? "montada" : "pendente";
     return {
       ...c,
       squadId: "sq-1",
@@ -176,9 +201,11 @@ export function getHubClientsOps(): HubClientOps[] {
       monthTotal: t.length,
       monthDone,
       monthApproval,
-      leNextMonth: leMounted
-        ? { status: "montada", date: "até 25/07" }
-        : { status: "pendente", date: "prazo 25/07" },
+      leNextMonth: {
+        status: leStatus,
+        date: leMounted ? `até ${LE_DEADLINE_DAY}` : `prazo ${LE_DEADLINE_DAY}`,
+        tone: leToneFrom(leStatus, today),
+      },
       nextAgenda: c.onboarding ? "Kickoff · esta semana" : "Alinhamento mensal · 26/06 10h",
       semaforo: semaforoFrom(t),
     };
