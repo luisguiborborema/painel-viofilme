@@ -9,13 +9,15 @@ export const dynamic = "force-dynamic";
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-const KINDS = new Set(["narrativa", "tensao", "pilares", "temas"]);
+const KINDS = new Set(["objetivo", "narrativa", "tensao", "pilares", "temas", "datas"]);
 
 const INSTRUCTION: Record<string, string> = {
+  objetivo: "Proponha o objetivo/foco do mês em 1 frase curta e acionável (ex.: 'encher reservas de ter–qui · lançar o novo cardápio'). Responda só com a frase.",
   narrativa: "Proponha UMA narrativa central de conteúdo para o mês — curta (1–2 frases), específica e acionável. Responda só com a narrativa, sem título nem aspas.",
   tensao: "Descreva a tensão narrativa (o conflito/desejo do público que sustenta o mês) em 1–2 frases. Responda só com o texto.",
   pilares: "Liste 4 pilares de conteúdo, um por linha, no formato 'Nome do pilar'. Sem numeração, sem descrição, só o nome de cada pilar por linha.",
   temas: "Sugira 6 temas de post alinhados ao briefing, um por linha, curtos. Sem numeração.",
+  datas: "Liste as datas comemorativas relevantes para o segmento neste mês, uma por linha no formato 'DD/MM — Nome'. Só datas que fazem sentido para o negócio. Sem numeração.",
 };
 
 type Body = { kind?: string; clientId?: string; extra?: string };

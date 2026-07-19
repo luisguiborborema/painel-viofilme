@@ -751,8 +751,8 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
     window.setTimeout(() => setSavedTick(false), 1500);
   }
 
-  /** Chama a IA (Edge Function le-ai-suggest) e aplica a sugestão. */
-  async function askIA(kind: "narrativa" | "tensao" | "pilares" | "temas", apply: (text: string) => void) {
+  /** Chama a IA (OpenAI, via /api/gerencial/le-ai) e aplica a sugestão. */
+  async function askIA(kind: "objetivo" | "narrativa" | "tensao" | "pilares" | "temas" | "datas", apply: (text: string) => void) {
     setIaBusy(kind);
     try {
       const res = await fetch("/api/gerencial/le-ai", {
@@ -771,6 +771,7 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
     }
   }
 
+  function suggestObjetivo() { void askIA("objetivo", (t) => { setObjetivo(t); void save({ objetivo: t }); }); }
   function suggestNarrativa() { void askIA("narrativa", (t) => { setNarrativa(t); void save({ narrativaCentral: t }); }); }
   function suggestTensao() { void askIA("tensao", (t) => { setTensao(t); void save({ tensaoNarrativa: t }); }); }
   function suggestPilares() {
@@ -786,8 +787,17 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
       void save({ pillars: next });
     });
   }
+  function suggestDatas() {
+    void askIA("datas", (t) => {
+      const found = t.split("\n").map((l) => l.replace(/^[-*\d.\s]+/, "").trim()).filter(Boolean);
+      const next = [...datas];
+      for (const d of found) if (!next.includes(d)) next.push(d);
+      setDatas(next);
+      void save({ datasComemorativas: next.join(" · ") });
+    });
+  }
   function iaSoon(bloco: string) {
-    alert(`IA · ${bloco} — este bloco ainda não tem geração por IA. Narrativa, tensão e pilares já usam a Edge Function.`);
+    alert(`IA · ${bloco} — este bloco é visual e não tem geração de texto. Objetivo, narrativa, tensão, pilares e datas já geram por IA.`);
   }
 
   function addDate() {
@@ -833,7 +843,7 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Objetivo / foco do mês</span>
-              <button onClick={() => iaSoon("Gerar ideias")} className={iaBtn}>✨ Sugerir</button>
+              <button onClick={suggestObjetivo} disabled={iaBusy === "objetivo"} className={iaBtn}>{iaBusy === "objetivo" ? "✨ Gerando…" : "✨ Sugerir"}</button>
             </div>
             <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} onBlur={() => save({ objetivo })} rows={2} placeholder="Ex.: encher reservas de ter–qui · lançar o novo cardápio" className={ta} />
           </div>
@@ -857,7 +867,7 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
           <div className="border-t border-line pt-3">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Datas comemorativas</span>
-              <button onClick={() => iaSoon("Buscar datas")} className={iaBtn}>✨ Buscar datas</button>
+              <button onClick={suggestDatas} disabled={iaBusy === "datas"} className={iaBtn}>{iaBusy === "datas" ? "✨ Buscando…" : "✨ Buscar datas"}</button>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {datas.map((d, i) => (
