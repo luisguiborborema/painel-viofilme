@@ -11,6 +11,7 @@ import {
   Pause,
   Plus,
   Settings2,
+  SlidersHorizontal,
   Users,
   UserSquare2,
   X,
@@ -21,14 +22,14 @@ import { TaskUniversal } from "./task-universal";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { cn } from "@/lib/utils";
 import {
-  DELIVERY_CAPACITY_PER_DAY as CAP,
+  DELIVERY_CONFIG_FALLBACK,
   DELIVERY_TODAY_ISO,
   DELIVERY_TODAY_IDX,
   OPS_TEAM,
   TASK_STAGES,
-  TASK_TYPE_DURATIONS,
   DELIVERY_PRIORITIES,
   WEEKDAYS,
+  type DeliveryConfig,
   type DeliveryTask,
   type TaskOrigin,
   type TaskStage,
@@ -81,13 +82,105 @@ async function postDelivery(body: unknown): Promise<boolean> {
   return Boolean(res?.ok);
 }
 
+async function postConfig(body: unknown): Promise<boolean> {
+  const res = await fetch("/api/gerencial/delivery-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
+
+// Editor de capacidade (ENT12) + durações por tipo (ENT10). Persiste na config.
+function DeliveryConfigModal({
+  config,
+  onClose,
+  onChange,
+}: {
+  config: DeliveryConfig;
+  onClose: () => void;
+  onChange: (c: DeliveryConfig) => void;
+}) {
+  const [cap, setCap] = useState(config.capacityPerDay);
+  const [durations, setDurations] = useState<Record<string, number>>(config.typeDurations);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const next: DeliveryConfig = { capacityPerDay: cap, typeDurations: durations };
+    await postConfig({ action: "set-capacity", capacityPerDay: cap });
+    for (const [type, minutes] of Object.entries(durations)) {
+      await postConfig({ action: "set-duration", type, minutes });
+    }
+    onChange(next);
+    setSaving(false);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink">Capacidade & durações</h3>
+          <button onClick={onClose} className="text-muted hover:text-ink"><X className="h-4 w-4" /></button>
+        </div>
+
+        <label className="mb-4 block">
+          <span className="mb-1 block text-xs font-medium text-muted">Capacidade — tasks/dia por pessoa (ENT12)</span>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={cap}
+            onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+            className="w-28 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+          <span className="ml-2 text-xs text-muted">alerta: âmbar em {cap + 1}, vermelho em {cap + 2}+</span>
+        </label>
+
+        <p className="mb-1 text-xs font-medium text-muted">Duração padrão por tipo — min (ENT10, Timeline)</p>
+        <div className="space-y-2">
+          {Object.entries(durations).map(([type, min]) => (
+            <div key={type} className="flex items-center gap-3">
+              <span className="w-20 text-sm text-ink">{type}</span>
+              <input
+                type="number"
+                min={5}
+                max={600}
+                step={5}
+                value={min}
+                onChange={(e) =>
+                  setDurations((d) => ({ ...d, [type]: Math.max(5, Math.min(600, Number(e.target.value) || 5)) }))
+                }
+                className="w-24 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+              />
+              <span className="text-xs text-muted">min</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-subtle">Cancelar</button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function sameDay(a: string, b: string) {
   const x = new Date(a), y = new Date(b);
   return x.getUTCFullYear() === y.getUTCFullYear() && x.getUTCMonth() === y.getUTCMonth() && x.getUTCDate() === y.getUTCDate();
 }
-function capTone(count: number): "ok" | "warn" | "over" {
-  if (count <= CAP) return "ok";
-  if (count === CAP + 1) return "warn";
+function capTone(count: number, cap: number): "ok" | "warn" | "over" {
+  if (count <= cap) return "ok";
+  if (count === cap + 1) return "warn";
   return "over";
 }
 
@@ -104,14 +197,18 @@ export function DeliveryPanel({
   meName,
   clients = [],
   team = [],
+  config: initialConfig = DELIVERY_CONFIG_FALLBACK,
 }: {
   tasks: DeliveryTask[];
   meName?: string;
   clients?: { id: string; name: string }[];
   team?: string[];
+  config?: DeliveryConfig;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
+  const [config, setConfig] = useState<DeliveryConfig>(initialConfig);
+  const [showConfig, setShowConfig] = useState(false);
   // Re-sincroniza com o servidor quando a lista muda (após criar/refresh).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- re-seed da lista vinda do servidor
@@ -230,8 +327,14 @@ export function DeliveryPanel({
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
         <button
-          onClick={() => setShowFields(true)}
+          onClick={() => setShowConfig(true)}
           className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Capacidade
+        </button>
+        <button
+          onClick={() => setShowFields(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
         >
           <Settings2 className="h-3.5 w-3.5" /> Campos
         </button>
@@ -243,6 +346,13 @@ export function DeliveryPanel({
         </button>
       </div>
       {showFields && <DeliveryFieldsManager onClose={() => setShowFields(false)} />}
+      {showConfig && (
+        <DeliveryConfigModal
+          config={config}
+          onClose={() => setShowConfig(false)}
+          onChange={setConfig}
+        />
+      )}
 
       {showNew && (
         <NewDeliveryTask
@@ -256,11 +366,11 @@ export function DeliveryPanel({
         />
       )}
 
-      {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} {...shared} />}
+      {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} {...shared} />}
       {view === "kanban" && <Kanban tasks={filtered} onStage={setStage} {...shared} />}
       {view === "calendario" && <Calendario tasks={filtered} {...shared} />}
-      {view === "timeline" && <Timeline tasks={filtered} {...shared} />}
-      {view === "workload" && <Workload tasks={filtered} onDrill={setDrill} />}
+      {view === "timeline" && <Timeline tasks={filtered} durations={config.typeDurations} {...shared} />}
+      {view === "workload" && <Workload tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} />}
       {view === "cliente" && <PorCliente tasks={filtered} {...shared} />}
 
       {selected && (
@@ -542,9 +652,10 @@ function Stat({ label, value, tone, onClick }: { label: string; value: number; t
   );
 }
 
-function Geral({ tasks, onDrill }: {
+function Geral({ tasks, onDrill, cap }: {
   tasks: DeliveryTask[];
   onDrill: (d: { title: string; list: DeliveryTask[] }) => void;
+  cap: number;
 } & Shared) {
   const open = tasks.filter((t) => t.stage !== "done");
   const doing = tasks.filter((t) => t.stage === "doing").length;
@@ -592,12 +703,12 @@ function Geral({ tasks, onDrill }: {
 
         <Card className="p-5">
           <h3 className="mb-1 text-sm font-semibold text-ink">Carga da equipe</h3>
-          <p className="mb-3 text-xs text-muted">Em nº de tasks. Alerta pela capacidade ({CAP}/dia).</p>
+          <p className="mb-3 text-xs text-muted">Em nº de tasks. Alerta pela capacidade ({cap}/dia).</p>
           <div className="space-y-2.5">
             {OPS_TEAM.map((m) => {
               const mine = tasks.filter((t) => t.assignee === m.id && t.stage !== "done");
               const peak = Math.max(0, ...WEEKDAYS.map((_, d) => mine.filter((t) => t.day === d).length));
-              const tone = capTone(peak);
+              const tone = capTone(peak, cap);
               const maxCount = Math.max(1, ...OPS_TEAM.map((mm) => tasks.filter((t) => t.assignee === mm.id && t.stage !== "done").length));
               return (
                 <button
@@ -764,7 +875,7 @@ function Calendario({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } 
 }
 
 // --- Linha do tempo (ENT10-11) — agenda por membro, blocos por duração -------
-function Timeline({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } & Shared) {
+function Timeline({ tasks, openTask, clientColor, durations }: { tasks: DeliveryTask[]; durations: Record<string, number> } & Shared) {
   const [dayIdx, setDayIdx] = useState(DELIVERY_TODAY_IDX);
   const START = 9, END = 19; // 9h–19h
   const totalMin = (END - START) * 60;
@@ -801,7 +912,7 @@ function Timeline({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } & 
                   </div>
                   <div className="relative h-9 rounded-lg bg-subtle">
                     {dayTasks.map((t) => {
-                      const dur = TASK_TYPE_DURATIONS[t.type];
+                      const dur = t.durationMin ?? durations[t.type] ?? 60;
                       const left = (cursor / totalMin) * 100;
                       const width = Math.min(100 - left, (dur / totalMin) * 100);
                       cursor += dur;
@@ -829,7 +940,7 @@ function Timeline({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } & 
 }
 
 // --- Workload (ENT12-13) — nº de tasks, capacidade compartilhada -------------
-function Workload({ tasks, onDrill }: { tasks: DeliveryTask[]; onDrill: (d: { title: string; list: DeliveryTask[] }) => void }) {
+function Workload({ tasks, onDrill, cap }: { tasks: DeliveryTask[]; onDrill: (d: { title: string; list: DeliveryTask[] }) => void; cap: number }) {
   return (
     <Card className="overflow-x-auto p-4">
       <div className="min-w-[640px]">
@@ -850,7 +961,7 @@ function Workload({ tasks, onDrill }: { tasks: DeliveryTask[]; onDrill: (d: { ti
               {WEEKDAYS.map((_, d) => {
                 const list = tasks.filter((t) => t.assignee === m.id && t.day === d && t.stage !== "done");
                 const n = list.length;
-                const tone = n === 0 ? "bg-subtle text-muted" : capTone(n) === "over" ? "bg-rose-500/25 text-rose-500" : capTone(n) === "warn" ? "bg-amber-500/25 text-amber-600" : "bg-emerald-500/20 text-emerald-600";
+                const tone = n === 0 ? "bg-subtle text-muted" : capTone(n, cap) === "over" ? "bg-rose-500/25 text-rose-500" : capTone(n, cap) === "warn" ? "bg-amber-500/25 text-amber-600" : "bg-emerald-500/20 text-emerald-600";
                 return (
                   <button key={d} onClick={() => n && onDrill({ title: `${m.name} · ${WEEKDAYS[d]}`, list })}
                     className={cn("flex h-9 items-center justify-center rounded-md text-xs font-semibold", tone)}>
@@ -861,7 +972,7 @@ function Workload({ tasks, onDrill }: { tasks: DeliveryTask[]; onDrill: (d: { ti
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted">Capacidade: {CAP} tasks/dia por pessoa. Verde ≤{CAP}, âmbar {CAP + 1}, vermelho {CAP + 2}+. Clique numa célula para ver as tarefas.</p>
+        <p className="mt-3 text-xs text-muted">Capacidade: {cap} tasks/dia por pessoa. Verde ≤{cap}, âmbar {cap + 1}, vermelho {cap + 2}+. Clique numa célula para ver as tarefas.</p>
       </div>
     </Card>
   );

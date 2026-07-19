@@ -1,14 +1,15 @@
 import { ListChecks } from "lucide-react";
-import { getDeliveryTasks, getClients, getAttendants } from "@/lib/data/queries";
+import { getDeliveryTasks, getClients, getAttendants, getDeliveryConfig } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
 import { DeliveryPanel } from "@/components/gerencial/delivery-panel";
 
 export default async function GerencialEntregas() {
-  const [tasks, clients, team, user] = await Promise.all([
+  const [tasks, clients, team, user, config] = await Promise.all([
     getDeliveryTasks(),
     getClients(),
     getAttendants(),
     getSession(),
+    getDeliveryConfig(),
   ]);
   const clientOpts = clients.map((c) => ({ id: c.id, name: c.name }));
   const teamNames = team.map((t) => t.name);
@@ -34,6 +35,7 @@ export default async function GerencialEntregas() {
         meName={user?.name}
         clients={clientOpts}
         team={teamNames}
+        config={config}
       />
     </div>
   );

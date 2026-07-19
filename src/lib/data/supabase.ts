@@ -73,6 +73,8 @@ import {
   type ArtDirection,
   type ClientDeliverable,
   type ClientDocument,
+  type DeliveryConfig,
+  DELIVERY_CONFIG_FALLBACK,
   type MediaDayView,
   type MediaDaySession,
   type MediaDayItemState,
@@ -1328,6 +1330,7 @@ type DeliveryRow = {
   custom_fields: unknown;
   campaign_goal: string | null;
   content_format: string | null;
+  duration_min: number | null;
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -1336,7 +1339,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, moved_at, custom_fields, campaign_goal, content_format, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, moved_at, custom_fields, campaign_goal, content_format, duration_min, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1396,8 +1399,26 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       customFields: (r.custom_fields && typeof r.custom_fields === "object" ? r.custom_fields : {}) as Record<string, unknown>,
       campaignGoal: (r.campaign_goal as DeliveryTask["campaignGoal"]) ?? undefined,
       contentFormat: (r.content_format as DeliveryTask["contentFormat"]) ?? undefined,
+      durationMin: r.duration_min != null ? Number(r.duration_min) : undefined,
     } satisfies DeliveryTask;
   });
+}
+
+export async function sbGetDeliveryConfig(): Promise<DeliveryConfig> {
+  const supabase = await createClient();
+  const [typesRes, setRes] = await Promise.all([
+    supabase.from("task_types").select("name, default_duration_min").order("sort"),
+    supabase.from("delivery_settings").select("capacity_per_day").eq("id", 1).maybeSingle(),
+  ]);
+  const typeDurations: Record<string, number> = { ...DELIVERY_CONFIG_FALLBACK.typeDurations };
+  for (const t of (typesRes.data ?? []) as { name: string; default_duration_min: number | null }[]) {
+    typeDurations[t.name] = Number(t.default_duration_min ?? 60);
+  }
+  const capacityPerDay = Number(
+    (setRes.data as { capacity_per_day: number | null } | null)?.capacity_per_day ??
+      DELIVERY_CONFIG_FALLBACK.capacityPerDay,
+  );
+  return { capacityPerDay, typeDurations };
 }
 
 // --- Hub de Clientes / health (clients + payments + tasks + atividade) -------

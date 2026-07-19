@@ -611,12 +611,26 @@ export const TASK_STAGES: { key: TaskStage; label: string }[] = [
 /** Capacidade compartilhada: nº de tasks/dia por pessoa (alerta de cor). */
 export const DELIVERY_CAPACITY_PER_DAY = 4;
 
-/** Duração padrão por tipo de task (min) — base da Timeline (ENT10). */
+/** Duração padrão por tipo de task (min) — base da Timeline (ENT10). Fallback. */
 export const TASK_TYPE_DURATIONS: Record<TaskType, number> = {
   Arte: 90,
   Vídeo: 180,
   Copy: 45,
   Tráfego: 60,
+};
+
+/**
+ * Config do Painel de Entregas (ENT10/ENT12). Real quando Supabase ligado
+ * (task_types + delivery_settings); cai nas constantes acima no mock.
+ */
+export type DeliveryConfig = {
+  capacityPerDay: number;
+  typeDurations: Record<string, number>;
+};
+
+export const DELIVERY_CONFIG_FALLBACK: DeliveryConfig = {
+  capacityPerDay: DELIVERY_CAPACITY_PER_DAY,
+  typeDurations: { ...TASK_TYPE_DURATIONS },
 };
 
 /** Data de entrega (ISO) a partir do índice do dia (0=Seg da semana atual). */
@@ -656,6 +670,8 @@ export type DeliveryTask = {
   requester?: string;
   movedAt?: string;
   customFields?: Record<string, unknown>;
+  /** Override de duração (min) da Timeline; herda do tipo quando ausente (ENT10). */
+  durationMin?: number;
   /** Criativo de performance (HUB10). */
   campaignGoal?: CampaignGoal;
   contentFormat?: EditorialFormat;

@@ -626,6 +626,8 @@ export async function getHourBankView(): Promise<HourBankView> {
 import { resolveReportSummary } from "./reports";
 import {
   getDeliveryTasks as deliveryTasksMock,
+  DELIVERY_CONFIG_FALLBACK,
+  type DeliveryConfig,
   type DeliveryTask,
   type ReportSummary,
 } from "./operacao";
@@ -640,6 +642,12 @@ export async function getDeliveryTasks(): Promise<DeliveryTask[]> {
 export async function getClientTasks(clientName: string): Promise<DeliveryTask[]> {
   const all = await getDeliveryTasks();
   return all.filter((t) => t.client === clientName);
+}
+
+/** Config do Painel de Entregas (ENT10/ENT12) — real ou constantes fallback. */
+export async function getDeliveryConfig(): Promise<DeliveryConfig> {
+  if (isSupabaseConfigured()) return sb.sbGetDeliveryConfig();
+  return DELIVERY_CONFIG_FALLBACK;
 }
 
 import {
