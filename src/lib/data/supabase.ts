@@ -49,6 +49,7 @@ import {
 } from "./gerfinance";
 
 import type { HourBankView, HourEntry, HourRow } from "./rh";
+import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
   servicesForPlan,
   deliverablesForPlan,
@@ -2692,4 +2693,54 @@ export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
     }));
 
   return { session, items };
+}
+
+// --- VioFlux (FLX01) — visão de publicação sobre vioflux_posts ---------------
+export async function sbGetVioFluxPosts(): Promise<FluxPost[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("vioflux_posts")
+    .select(
+      "id, client_id, task_id, editorial_post_id, title, caption, format, networks, state, scheduled_at, media_note, client_comment, created_at, clients(name)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const NETS = new Set(["instagram", "facebook"]);
+  const STATES = new Set(["rascunho", "aguardando", "aprovado", "ajuste", "agendado", "publicado", "falha"]);
+
+  return ((data ?? []) as unknown as {
+    id: string;
+    client_id: string;
+    task_id: string | null;
+    editorial_post_id: string | null;
+    title: string | null;
+    caption: string | null;
+    format: string | null;
+    networks: string[] | null;
+    state: string | null;
+    scheduled_at: string | null;
+    media_note: string | null;
+    client_comment: string | null;
+    created_at: string | null;
+    clients: { name: string | null } | { name: string | null }[] | null;
+  }[]).map((r) => {
+    const co = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+    const networks = (Array.isArray(r.networks) ? r.networks : []).filter((n) => NETS.has(n)) as FluxNetwork[];
+    return {
+      id: r.id,
+      taskId: r.task_id ?? r.editorial_post_id ?? r.id,
+      clientId: r.client_id,
+      client: co?.name ?? "—",
+      title: r.title ?? "",
+      caption: r.caption ?? "",
+      format: (r.format as FluxPost["format"]) ?? "Feed",
+      networks: networks.length ? networks : ["instagram"],
+      state: (STATES.has(r.state ?? "") ? r.state : "rascunho") as FluxState,
+      date: r.scheduled_at ?? r.created_at ?? new Date().toISOString(),
+      scheduledAt: r.scheduled_at ?? undefined,
+      mediaNote: r.media_note ?? "Mídia anexada",
+      clientComment: r.client_comment ?? undefined,
+    } satisfies FluxPost;
+  });
 }

@@ -41,6 +41,26 @@ const VIEWS: { key: View; label: string; icon: typeof LayoutDashboard }[] = [
 const NET_ICON: Record<FluxNetwork, typeof Camera> = { instagram: Camera, facebook: Globe };
 let seq = 9000;
 
+async function postVioflux(body: Record<string, unknown>) {
+  const res = await fetch("/api/gerencial/vioflux", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  return res?.ok ? res.json().catch(() => ({})) : null;
+}
+
+// Traduz um patch de estado do ciclo (FLX04.2) na ação de API correspondente.
+function persistPatch(id: string, patch: Partial<FluxPost>) {
+  if (patch.state === "ajuste") {
+    void postVioflux({ action: "request-change", id, comment: patch.clientComment ?? "" });
+  } else if (patch.state === "agendado" && patch.scheduledAt) {
+    void postVioflux({ action: "schedule", id, scheduledAt: patch.scheduledAt });
+  } else if (patch.state) {
+    void postVioflux({ action: "set-state", id, state: patch.state });
+  }
+}
+
 function NetIcons({ nets }: { nets: FluxNetwork[] }) {
   return (
     <span className="flex items-center gap-1">
@@ -52,8 +72,16 @@ function NetIcons({ nets }: { nets: FluxNetwork[] }) {
   );
 }
 
-export function VioFlux({ clients, myClientIds }: { clients: ClientOpt[]; myClientIds: string[] }) {
-  const [posts, setPosts] = useState<FluxPost[]>(FLUX_POSTS);
+export function VioFlux({
+  clients,
+  myClientIds,
+  initialPosts = FLUX_POSTS,
+}: {
+  clients: ClientOpt[];
+  myClientIds: string[];
+  initialPosts?: FluxPost[];
+}) {
+  const [posts, setPosts] = useState<FluxPost[]>(initialPosts);
   const [view, setView] = useState<View>("dashboard");
   const [scope, setScope] = useState<Scope>("squad");
   const [clientId, setClientId] = useState<string>("");
@@ -67,6 +95,7 @@ export function VioFlux({ clients, myClientIds }: { clients: ClientOpt[]; myClie
   function update(id: string, patch: Partial<FluxPost>) {
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     setSelected((s) => (s && s.id === id ? { ...s, ...patch } : s));
+    persistPatch(id, patch);
   }
 
   return (
@@ -100,8 +129,27 @@ export function VioFlux({ clients, myClientIds }: { clients: ClientOpt[]; myClie
       {view === "dashboard" && <Dashboard posts={visible} onOpen={setSelected} />}
       {view === "calendario" && <Calendario posts={visible} onOpen={setSelected} />}
       {view === "posts" && <Board posts={visible} onOpen={setSelected} />}
-      {view === "aprovacao" && <GrupoAprovacao posts={visible} onSend={(ids) => setPosts((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, state: "aguardando" } : p)))} />}
-      {view === "criar" && <Criar clients={clients} defaultClient={clientId} onCreate={(p) => { setPosts((prev) => [p, ...prev]); setView("posts"); }} />}
+      {view === "aprovacao" && (
+        <GrupoAprovacao
+          posts={visible}
+          onSend={(ids) => {
+            setPosts((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, state: "aguardando" } : p)));
+            ids.forEach((id) => void postVioflux({ action: "set-state", id, state: "aguardando" }));
+          }}
+        />
+      )}
+      {view === "criar" && (
+        <Criar
+          clients={clients}
+          defaultClient={clientId}
+          onCreate={async (p, extra) => {
+            const res = await postVioflux({ action: "create", ...extra });
+            const id = (res && (res as { id?: string }).id) || p.id;
+            setPosts((prev) => [{ ...p, id }, ...prev]);
+            setView("posts");
+          }}
+        />
+      )}
 
       {selected && <PostModal post={selected} onClose={() => setSelected(null)} onUpdate={update} />}
     </div>
@@ -307,7 +355,7 @@ function GrupoAprovacao({ posts, onSend }: { posts: FluxPost[]; onSend: (ids: st
 
 // --- Criar post --------------------------------------------------------------
 const FORMATS: EditorialFormat[] = ["Feed", "Reels", "Stories", "Carrossel"];
-function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; defaultClient: string; onCreate: (p: FluxPost) => void }) {
+function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; defaultClient: string; onCreate: (p: FluxPost, extra: Record<string, unknown>) => void }) {
   const [clientId, setClientId] = useState(defaultClient || clients[0]?.id || "");
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
@@ -322,12 +370,15 @@ function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; def
     const client = clients.find((c) => c.id === clientId)?.name ?? "Cliente";
     const state: FluxState = dest === "aprovacao" ? "aguardando" : dest === "agendar" ? "agendado" : "publicado";
     const nowIso = new Date().toISOString();
-    onCreate({
-      id: `fx-${seq++}`, taskId: `new-${seq}`, clientId, client, title: title.trim(), caption: caption.trim(),
-      format, networks: nets, state, date: when ? new Date(when).toISOString() : nowIso,
-      scheduledAt: dest !== "aprovacao" && when ? new Date(when).toISOString() : undefined,
-      mediaNote: "Mídia anexada",
-    });
+    const scheduledAt = dest !== "aprovacao" && when ? new Date(when).toISOString() : undefined;
+    onCreate(
+      {
+        id: `fx-${seq++}`, taskId: `new-${seq}`, clientId, client, title: title.trim(), caption: caption.trim(),
+        format, networks: nets, state, date: when ? new Date(when).toISOString() : nowIso,
+        scheduledAt, mediaNote: "Mídia anexada",
+      },
+      { clientId, title: title.trim(), caption: caption.trim(), format, networks: nets, state, scheduledAt },
+    );
   }
 
   const inputCls = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";

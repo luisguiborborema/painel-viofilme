@@ -1,11 +1,14 @@
 import { PageHeader } from "@/components/dashboard/page-header";
-import { getHubClientsOps } from "@/lib/data/operacao";
+import { getHubClientsOps, getVioFluxPosts } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
 import { VioFlux } from "@/components/gerencial/vioflux";
 
 export default async function GerencialConteudo() {
-  const ops = getHubClientsOps();
-  const user = await getSession();
+  const [ops, posts, user] = await Promise.all([
+    getHubClientsOps(),
+    getVioFluxPosts(),
+    getSession(),
+  ]);
   const meFirst = user?.name?.split(" ")[0].toLowerCase();
 
   const clients = ops.map((c) => ({ id: c.id, name: c.name }));
@@ -21,7 +24,7 @@ export default async function GerencialConteudo() {
         title="VioFlux"
         subtitle="O passa-pratos — do conteúdo pronto à aprovação do cliente e às redes."
       />
-      <VioFlux clients={clients} myClientIds={myClientIds} />
+      <VioFlux clients={clients} myClientIds={myClientIds} initialPosts={posts} />
     </div>
   );
 }

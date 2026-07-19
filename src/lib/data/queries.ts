@@ -624,6 +624,7 @@ export async function getHourBankView(): Promise<HourBankView> {
 }
 
 import { resolveReportSummary } from "./reports";
+import { FLUX_POSTS, type FluxPost } from "./flux";
 import {
   getDeliveryTasks as deliveryTasksMock,
   DELIVERY_CONFIG_FALLBACK,
@@ -648,6 +649,12 @@ export async function getClientTasks(clientName: string): Promise<DeliveryTask[]
 export async function getDeliveryConfig(): Promise<DeliveryConfig> {
   if (isSupabaseConfigured()) return sb.sbGetDeliveryConfig();
   return DELIVERY_CONFIG_FALLBACK;
+}
+
+/** VioFlux (FLX01) — posts de publicação, reais (vioflux_posts) ou mock. */
+export async function getVioFluxPosts(): Promise<FluxPost[]> {
+  if (isSupabaseConfigured()) return sb.sbGetVioFluxPosts();
+  return FLUX_POSTS;
 }
 
 import {
