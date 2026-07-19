@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   Camera,
   Globe,
+  ImagePlus,
   LayoutDashboard,
+  Loader2,
   Plus,
   Send,
   Sparkles,
@@ -363,8 +365,24 @@ function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; def
   const [nets, setNets] = useState<FluxNetwork[]>(["instagram"]);
   const [dest, setDest] = useState<"aprovacao" | "agendar" | "publicar">("aprovacao");
   const [when, setWhen] = useState("");
+  const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
 
   function toggleNet(n: FluxNetwork) { setNets((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n])); }
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/gerencial/task-upload", { method: "POST", body: form }).catch(() => null);
+    if (res?.ok) {
+      const j = await res.json();
+      if (j.url) setMediaUrl(j.url);
+    }
+    setUploading(false);
+  }
+
   function submit() {
     if (!title.trim() || !clientId) return;
     const client = clients.find((c) => c.id === clientId)?.name ?? "Cliente";
@@ -375,9 +393,9 @@ function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; def
       {
         id: `fx-${seq++}`, taskId: `new-${seq}`, clientId, client, title: title.trim(), caption: caption.trim(),
         format, networks: nets, state, date: when ? new Date(when).toISOString() : nowIso,
-        scheduledAt, mediaNote: "Mídia anexada",
+        scheduledAt, mediaNote: mediaUrl ? "Mídia anexada" : "Sem mídia", mediaUrl: mediaUrl || undefined,
       },
-      { clientId, title: title.trim(), caption: caption.trim(), format, networks: nets, state, scheduledAt },
+      { clientId, title: title.trim(), caption: caption.trim(), format, networks: nets, state, scheduledAt, mediaUrl: mediaUrl || undefined },
     );
   }
 
@@ -385,7 +403,20 @@ function Criar({ clients, defaultClient, onCreate }: { clients: ClientOpt[]; def
   return (
     <Card className="max-w-xl space-y-3 p-5">
       <h3 className="text-sm font-semibold text-ink">Criar post</h3>
-      <div className="rounded-lg border border-dashed border-line py-8 text-center text-xs text-muted">Área de mídia (upload) — anexe imagem/vídeo</div>
+      {/* Área de mídia — upload real (bucket público, pré-requisito de publicação IG) */}
+      <div className="rounded-lg border border-dashed border-line p-4 text-center">
+        {mediaUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={mediaUrl} alt="Prévia" className="mx-auto max-h-48 rounded-lg object-contain" />
+        ) : (
+          <p className="mb-2 text-xs text-muted">Anexe imagem/vídeo do post</p>
+        )}
+        <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle">
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+          {mediaUrl ? "Trocar mídia" : "Anexar mídia"}
+          <input type="file" accept="image/*,video/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        </label>
+      </div>
       <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
       </select>
@@ -438,6 +469,10 @@ function PostModal({ post, onClose, onUpdate }: { post: FluxPost; onClose: () =>
             <span className="text-muted">{post.format}</span>
             <NetIcons nets={post.networks} />
           </div>
+          {post.mediaUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.mediaUrl} alt={post.title} className="max-h-56 w-full rounded-lg object-contain" />
+          )}
           <p className="rounded-lg bg-canvas p-3 text-sm text-ink/90">{post.caption}</p>
           <p className="text-xs text-muted">Mídia: {post.mediaNote}</p>
           {post.scheduledAt && <p className="text-xs text-sky-500">Agendado (espelho): {dayMonth(post.scheduledAt)} {clockLabel(post.scheduledAt)}</p>}
@@ -455,7 +490,7 @@ function PostModal({ post, onClose, onUpdate }: { post: FluxPost; onClose: () =>
             )}
             {post.state === "aguardando" && (
               <>
-                <p className="text-[11px] text-muted">Simular resposta do cliente (no real, ele responde no Portal):</p>
+                <p className="text-[11px] text-muted">O cliente responde no Portal. Se preciso, registre a resposta manualmente:</p>
                 <div className="flex gap-2">
                   <button onClick={() => onUpdate(post.id, { state: "aprovado" })} className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Aprovar</button>
                   <button onClick={() => setAsking((a) => !a)} className="flex-1 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">Pedir ajuste</button>

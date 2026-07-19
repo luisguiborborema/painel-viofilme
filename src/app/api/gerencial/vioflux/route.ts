@@ -21,6 +21,7 @@ type Body = {
   scheduledAt?: string;
   comment?: string;
   taskId?: string;
+  mediaUrl?: string;
 };
 
 /** Ciclo manual do VioFlux (FLX04.2), persistido sobre vioflux_posts. */
@@ -57,7 +58,8 @@ export async function POST(req: Request) {
         networks: networks.length ? networks : ["instagram"],
         state,
         scheduled_at: b.scheduledAt ?? null,
-        media_note: "Mídia anexada",
+        media_note: b.mediaUrl ? "Mídia anexada" : "Sem mídia",
+        media_url: b.mediaUrl ?? null,
         created_by: user.id,
       })
       .select("id")

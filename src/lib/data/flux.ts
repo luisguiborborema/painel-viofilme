@@ -46,6 +46,7 @@ export type FluxPost = {
   date: string; // ISO — data planejada / no calendário
   scheduledAt?: string; // ISO — espelho do que o time combinou (não publica)
   mediaNote: string;
+  mediaUrl?: string; // mídia anexada (bucket público) — pré-requisito de publicação IG
   clientComment?: string;
 };
 

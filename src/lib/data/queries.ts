@@ -657,6 +657,12 @@ export async function getVioFluxPosts(): Promise<FluxPost[]> {
   return FLUX_POSTS;
 }
 
+/** VioFlux por cliente (Portal FLX05) — posts do cliente para aprovação. */
+export async function getVioFluxForClient(clientId: string): Promise<FluxPost[]> {
+  if (isSupabaseConfigured()) return sb.sbGetVioFluxPosts(clientId);
+  return FLUX_POSTS.filter((p) => p.clientId === clientId);
+}
+
 import {
   getHubClientsOps as hubOpsMock,
   getEditorialLine as editorialLineMock,

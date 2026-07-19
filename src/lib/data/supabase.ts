@@ -2696,15 +2696,17 @@ export async function sbGetMediaDay(clientId: string): Promise<MediaDayView> {
 }
 
 // --- VioFlux (FLX01) — visão de publicação sobre vioflux_posts ---------------
-export async function sbGetVioFluxPosts(): Promise<FluxPost[]> {
+export async function sbGetVioFluxPosts(clientId?: string): Promise<FluxPost[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  let q = supabase
     .from("vioflux_posts")
     .select(
-      "id, client_id, task_id, editorial_post_id, title, caption, format, networks, state, scheduled_at, media_note, client_comment, created_at, clients(name)",
+      "id, client_id, task_id, editorial_post_id, title, caption, format, networks, state, scheduled_at, media_note, media_url, client_comment, created_at, clients(name)",
     )
     .order("created_at", { ascending: false })
     .limit(500);
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data } = await q;
 
   const NETS = new Set(["instagram", "facebook"]);
   const STATES = new Set(["rascunho", "aguardando", "aprovado", "ajuste", "agendado", "publicado", "falha"]);
@@ -2721,6 +2723,7 @@ export async function sbGetVioFluxPosts(): Promise<FluxPost[]> {
     state: string | null;
     scheduled_at: string | null;
     media_note: string | null;
+    media_url: string | null;
     client_comment: string | null;
     created_at: string | null;
     clients: { name: string | null } | { name: string | null }[] | null;
@@ -2740,6 +2743,7 @@ export async function sbGetVioFluxPosts(): Promise<FluxPost[]> {
       date: r.scheduled_at ?? r.created_at ?? new Date().toISOString(),
       scheduledAt: r.scheduled_at ?? undefined,
       mediaNote: r.media_note ?? "Mídia anexada",
+      mediaUrl: r.media_url ?? undefined,
       clientComment: r.client_comment ?? undefined,
     } satisfies FluxPost;
   });

@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
-import { getClientById, getContent } from "@/lib/data/queries";
+import { getClientById, getContent, getVioFluxForClient } from "@/lib/data/queries";
 import { REFERENCE_DATE } from "@/lib/data/mock";
 import { ContentApprovalModule } from "@/components/cliente/content-approval-module";
+import { VioFluxApproval } from "@/components/cliente/vioflux-approval";
 
 export default async function ClienteConteudo({
   searchParams,
@@ -19,16 +20,22 @@ export default async function ClienteConteudo({
   }
 
   const { post } = await searchParams;
-  const posts = await getContent(user.clientId);
-  const client = await getClientById(user.clientId);
+  const [posts, client, fluxPosts] = await Promise.all([
+    getContent(user.clientId),
+    getClientById(user.clientId),
+    getVioFluxForClient(user.clientId),
+  ]);
 
   return (
-    <ContentApprovalModule
-      posts={posts}
-      periodLabel="Junho 2026"
-      refIso={REFERENCE_DATE.toISOString()}
-      handle={client?.instagramUsername ?? "cliente"}
-      initialPostId={post}
-    />
+    <>
+      <VioFluxApproval posts={fluxPosts} />
+      <ContentApprovalModule
+        posts={posts}
+        periodLabel="Junho 2026"
+        refIso={REFERENCE_DATE.toISOString()}
+        handle={client?.instagramUsername ?? "cliente"}
+        initialPostId={post}
+      />
+    </>
   );
 }
