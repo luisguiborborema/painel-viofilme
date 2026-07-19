@@ -10,7 +10,7 @@ const STEP_STATUS = new Set(["concluido", "andamento", "proximo", "bloqueado"]);
 const GATE_STATUS = new Set(["liberado", "validando", "bloqueado"]);
 
 type Body = {
-  action?: "set-step-status" | "toggle-action" | "set-gate-status" | "toggle-gate-item" | "set-block-progress" | "set-scope";
+  action?: "set-step-status" | "toggle-action" | "set-gate-status" | "toggle-gate-item" | "set-block-progress" | "set-block-content" | "set-scope";
   clientId?: string;
   stepNumber?: number;
   actionIndex?: number;
@@ -20,6 +20,7 @@ type Body = {
   status?: string;
   blockCode?: string;
   progress?: number;
+  content?: string;
   scope?: string;
 };
 
@@ -112,6 +113,17 @@ export async function POST(req: Request) {
     const pct = Math.max(0, Math.min(100, Math.round(Number(b.progress) || 0)));
     const { error } = await supabase
       .from("roadmap_blocks").update({ progress: pct }).eq("project_id", pid).eq("block_code", b.blockCode);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (b.action === "set-block-content") {
+    if (!b.blockCode) return NextResponse.json({ error: "bloco ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("roadmap_blocks")
+      .update({ content: { text: b.content ?? "" } })
+      .eq("project_id", pid)
+      .eq("block_code", b.blockCode);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }

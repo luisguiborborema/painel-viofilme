@@ -1442,7 +1442,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [clientsRes, tasks, paysRes, postsRes, npsRes] = await Promise.all([
+  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes] = await Promise.all([
     supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
@@ -1452,7 +1452,27 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       .lte("due_date", todayStr),
     supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
     supabase.from("nps_surveys").select("client_id, score, created_at").order("created_at", { ascending: false }),
+    supabase.from("editorial_lines").select("client_id, month, stage"),
   ]);
+
+  // HUB06.1 — "LE do próximo mês" montada? Existe editorial_line do mês seguinte
+  // fora do estágio de rascunho. Casa o mês por texto ("Julho 2026"/"Julho/2026").
+  const nextMonthKey = now.getUTCFullYear() * 12 + now.getUTCMonth() + 1;
+  const monthKeyOfLabel = (label: string): number | null => {
+    const parts = String(label).replace("/", " ").trim().split(/\s+/);
+    if (parts.length < 2) return null;
+    const mi = MESES.findIndex((m) => m.toLowerCase() === parts[0].toLowerCase());
+    const yr = Number(parts[1]);
+    if (mi < 0 || Number.isNaN(yr)) return null;
+    return yr * 12 + mi;
+  };
+  const leMountedByClient = new Set<string>();
+  for (const l of (leRes.data ?? []) as { client_id: string; month: string | null; stage: string | null }[]) {
+    if (!l.month) continue;
+    if (monthKeyOfLabel(l.month) !== nextMonthKey) continue;
+    const stage = String(l.stage ?? "");
+    if (stage && stage !== "rascunho" && stage !== "ideacao") leMountedByClient.add(l.client_id);
+  }
 
   // NPS mais recente por cliente (linhas já vêm ordenadas desc).
   const npsByClient = new Map<string, number>();
@@ -1516,11 +1536,15 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       monthTotal: t.length,
       monthDone: t.filter((x) => x.stage === "done").length,
       monthApproval: t.filter((x) => x.stage === "approval").length,
-      leNextMonth: {
-        status: "pendente" as const,
-        date: `prazo ${LE_DEADLINE_DAY}`,
-        tone: leToneFrom("pendente", now.getDate()),
-      },
+      leNextMonth: (() => {
+        const mounted = leMountedByClient.has(cid);
+        const st = mounted ? ("montada" as const) : ("pendente" as const);
+        return {
+          status: st,
+          date: mounted ? `montada · ${LE_DEADLINE_DAY}` : `prazo ${LE_DEADLINE_DAY}`,
+          tone: leToneFrom(st, now.getDate()),
+        };
+      })(),
       nextAgenda: isNew ? "Kickoff · esta semana" : "Alinhamento mensal",
       semaforo: semaforoFrom(t),
     } satisfies HubClientOps;
@@ -2768,7 +2792,7 @@ type VLStepRow = {
 };
 type VLSubRow = { step_id: string; kind: string; content: string; done: boolean; resource_type: string | null; resource_ref: string | null; sort: number };
 type VLGateRow = { gate_number: number; name: string; status: string; rule: string | null; items: unknown };
-type VLBlockRow = { block_code: string; name: string; progress: number; sort: number };
+type VLBlockRow = { block_code: string; name: string; progress: number; sort: number; content: unknown };
 
 async function seedVioLaunch(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -2840,7 +2864,7 @@ export async function sbGetVioLaunch(clientId: string, startDate = "01/07"): Pro
   const [stepsRes, gatesRes, blocksRes] = await Promise.all([
     supabase.from("violaunch_steps").select("*").eq("project_id", projectId).order("step_number"),
     supabase.from("violaunch_gates").select("gate_number, name, status, rule, items").eq("project_id", projectId).order("gate_number"),
-    supabase.from("roadmap_blocks").select("block_code, name, progress, sort").eq("project_id", projectId).order("sort"),
+    supabase.from("roadmap_blocks").select("block_code, name, progress, sort, content").eq("project_id", projectId).order("sort"),
   ]);
   const steps = (stepsRes.data ?? []) as VLStepRow[];
   const stepIds = steps.map((s) => s.id);
@@ -2890,7 +2914,12 @@ export async function sbGetVioLaunch(clientId: string, startDate = "01/07"): Pro
     };
   });
 
-  const roadmap: VLBlock[] = ((blocksRes.data ?? []) as VLBlockRow[]).map((b) => ({ id: b.block_code, label: b.name, pct: Number(b.progress ?? 0) }));
+  const roadmap: VLBlock[] = ((blocksRes.data ?? []) as VLBlockRow[]).map((b) => ({
+    id: b.block_code,
+    label: b.name,
+    pct: Number(b.progress ?? 0),
+    content: (b.content && typeof b.content === "object" && "text" in b.content ? String((b.content as { text?: string }).text ?? "") : "") || undefined,
+  }));
 
   return buildVioLaunchData(weeks, roadmap.length ? roadmap : VIOLAUNCH_ROADMAP, {
     scope: ((proj as { scope?: string }).scope as "completo" | "reduzido") ?? "completo",

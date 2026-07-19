@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Edge Functions rodam em Deno, fora do projeto Next.
+    "supabase/functions/**",
   ]),
   // Respeita a convenção de prefixo "_" para itens intencionalmente não usados.
   {

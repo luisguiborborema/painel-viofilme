@@ -33,7 +33,7 @@ export type VLGate = {
 };
 
 export type VLWeek = { n: number; title: string; steps: VLStep[]; gate: VLGate };
-export type VLBlock = { id: string; label: string; pct: number };
+export type VLBlock = { id: string; label: string; pct: number; content?: string };
 
 export type VioLaunchData = {
   scope: "completo" | "reduzido";

@@ -13,12 +13,14 @@ import {
   Lock,
   Paperclip,
   Rocket,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   VL_STATUS,
   type VioLaunchData,
+  type VLBlock,
   type VLGate,
   type VLResource,
   type VLStatus,
@@ -215,16 +217,25 @@ function GateRow({
   );
 }
 
+// Escopo Reduzido (VL): remove B6 e trata B5 como template (não conta no %).
+function applyScope(roadmap: VLBlock[], scope: "completo" | "reduzido"): { visible: VLBlock[]; note: Record<string, string> } {
+  if (scope !== "reduzido") return { visible: roadmap, note: {} };
+  const visible = roadmap.filter((b) => b.id !== "B6").map((b) => (b.id === "B5" ? { ...b, label: `${b.label} · template` } : b));
+  return { visible, note: { B5: "template", B6: "removido" } };
+}
+
 export function VioLaunchPanel({ clientId, data }: { clientId: string; data: VioLaunchData }) {
   const [weeks, setWeeks] = useState<VLWeek[]>(data.weeks);
   const [roadmap, setRoadmap] = useState(data.roadmap);
   const [scope, setScope] = useState(data.scope);
+  const [editorOpen, setEditorOpen] = useState(false);
 
+  const { visible: visibleRoadmap } = applyScope(roadmap, scope);
   const allSteps = weeks.flatMap((w) => w.steps);
   const stepDone = allSteps.filter((s) => s.status === "concluido").length;
   const total = allSteps.length;
   const pct = total ? Math.round((stepDone / total) * 100) : 0;
-  const roadmapPct = roadmap.length ? Math.round(roadmap.reduce((a, b) => a + b.pct, 0) / roadmap.length) : 0;
+  const roadmapPct = visibleRoadmap.length ? Math.round(visibleRoadmap.reduce((a, b) => a + b.pct, 0) / visibleRoadmap.length) : 0;
 
   function setStepStatus(n: number, status: VLStatus) {
     setWeeks((prev) => prev.map((w) => ({ ...w, steps: w.steps.map((s) => (s.n === n ? { ...s, status } : s)) })));
@@ -253,6 +264,10 @@ export function VioLaunchPanel({ clientId, data }: { clientId: string; data: Vio
     const p = Math.max(0, Math.min(100, Math.round(value) || 0));
     setRoadmap((prev) => prev.map((b) => (b.id === id ? { ...b, pct: p } : b)));
     void persist({ action: "set-block-progress", clientId, blockCode: id, progress: p });
+  }
+  function setBlockContent(id: string, content: string) {
+    setRoadmap((prev) => prev.map((b) => (b.id === id ? { ...b, content } : b)));
+    void persist({ action: "set-block-content", clientId, blockCode: id, content });
   }
   function toggleScope() {
     const next = scope === "completo" ? "reduzido" : "completo";
@@ -284,7 +299,7 @@ export function VioLaunchPanel({ clientId, data }: { clientId: string; data: Vio
             </div>
           </div>
           <button
-            onClick={() => alert("Editor do Roadmap — em construção. É onde o conteúdo dos 7 blocos será produzido (60% Playbook de Nicho + 40% personalizado).")}
+            onClick={() => setEditorOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-subtle"
           >
             <FileEdit className="h-4 w-4" /> Editor do Roadmap
@@ -325,7 +340,7 @@ export function VioLaunchPanel({ clientId, data }: { clientId: string; data: Vio
               <span className="text-xs font-medium text-muted">{roadmapPct}%</span>
             </div>
             <div className="space-y-2.5">
-              {roadmap.map((b) => (
+              {visibleRoadmap.map((b) => (
                 <div key={b.id}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="text-ink/90"><span className="font-bold text-muted">{b.id}</span> · {b.label}</span>
@@ -345,7 +360,7 @@ export function VioLaunchPanel({ clientId, data }: { clientId: string; data: Vio
               ))}
             </div>
             <button
-              onClick={() => alert("Editor do Roadmap — em construção (conteúdo dos 7 blocos: 60% Playbook de Nicho + 40% personalizado).")}
+              onClick={() => setEditorOpen(true)}
               className="mt-3 w-full rounded-lg border border-dashed border-line py-2 text-xs font-medium text-muted hover:bg-subtle"
             >
               Abrir editor do Roadmap
@@ -360,6 +375,81 @@ export function VioLaunchPanel({ clientId, data }: { clientId: string; data: Vio
               <li className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-sky-500" /> Onboarding · Kickoff · Launch → Agenda</li>
             </ul>
           </Card>
+        </div>
+      </div>
+
+      {editorOpen && (
+        <RoadmapEditor blocks={visibleRoadmap} onSave={setBlockContent} onClose={() => setEditorOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// Editor do conteúdo dos blocos do Roadmap (VL04) — persiste content por bloco.
+function RoadmapEditor({
+  blocks,
+  onSave,
+  onClose,
+}: {
+  blocks: VLBlock[];
+  onSave: (id: string, content: string) => void;
+  onClose: () => void;
+}) {
+  const [active, setActive] = useState(blocks[0]?.id ?? "");
+  const current = blocks.find((b) => b.id === active) ?? blocks[0];
+  const [text, setText] = useState(current?.content ?? "");
+  const [saved, setSaved] = useState(false);
+
+  function pick(id: string) {
+    setActive(id);
+    setText(blocks.find((b) => b.id === id)?.content ?? "");
+    setSaved(false);
+  }
+  function save() {
+    if (!current) return;
+    onSave(current.id, text);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Editor do Roadmap</h3>
+            <p className="text-[11px] text-muted">Conteúdo dos 7 blocos · 60% Playbook de Nicho + 40% personalizado</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <div className="w-40 shrink-0 overflow-y-auto border-r border-line p-2">
+            {blocks.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => pick(b.id)}
+                className={cn("mb-1 w-full rounded-lg px-2.5 py-2 text-left text-xs", b.id === active ? "bg-brand-500/10 font-semibold text-brand-600" : "text-ink hover:bg-subtle")}
+              >
+                <span className="font-bold text-muted">{b.id}</span> · {b.label}
+                <span className="block text-[10px] text-muted">{b.pct}%</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col p-4">
+            <textarea
+              value={text}
+              onChange={(e) => { setText(e.target.value); setSaved(false); }}
+              placeholder={`Conteúdo do bloco ${current?.id ?? ""}… (texto/markdown)`}
+              className="min-h-[280px] flex-1 resize-none rounded-lg border border-line bg-canvas p-3 text-sm text-ink outline-none focus:border-brand-400"
+            />
+            <div className="mt-3 flex items-center justify-end gap-2">
+              {saved && <span className="text-xs text-emerald-600">Salvo</span>}
+              <button onClick={save} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700">
+                Salvar bloco
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
