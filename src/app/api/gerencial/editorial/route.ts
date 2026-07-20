@@ -40,6 +40,7 @@ type Body = {
   lineId?: string;
   clientId?: string;
   month?: string;
+  referenceMonth?: string;
   stage?: string;
   duplicateFromId?: string;
   objetivo?: string;
@@ -72,6 +73,17 @@ export async function POST(req: Request) {
     if (!b.clientId || !b.month?.trim()) {
       return NextResponse.json({ error: "clientId/mês obrigatórios" }, { status: 400 });
     }
+    const refMonth = /^\d{4}-\d{2}$/.test(b.referenceMonth ?? "") ? b.referenceMonth! : null;
+    // A2: bloqueia LE duplicada do mesmo mês (quando estruturado).
+    if (refMonth) {
+      const { data: dup } = await supabase
+        .from("editorial_lines")
+        .select("id")
+        .eq("client_id", b.clientId)
+        .eq("reference_month", refMonth)
+        .maybeSingle();
+      if (dup) return NextResponse.json({ error: "Já existe uma LE para este mês." }, { status: 409 });
+    }
     let pillars: unknown = Array.isArray(b.pillars) ? b.pillars : [];
     // Duplicar: herda pilares (e depois posts) da linha de origem.
     if (b.duplicateFromId) {
@@ -87,6 +99,7 @@ export async function POST(req: Request) {
       .insert({
         client_id: b.clientId,
         month: b.month.trim(),
+        reference_month: refMonth,
         stage: "rascunho",
         objetivo: b.objetivo?.trim() || null,
         pillars,

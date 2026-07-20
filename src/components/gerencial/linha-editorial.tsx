@@ -800,14 +800,18 @@ function NovaLEModal({
   onDone: () => void;
 }) {
   const [mode, setMode] = useState<"branco" | "duplicar">(data.id ? "duplicar" : "branco");
-  const [month, setMonth] = useState("");
+  const [monthNum, setMonthNum] = useState("");
+  const [yearNum, setYearNum] = useState("");
   const [objetivo, setObjetivo] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const referenceMonth = monthNum && yearNum ? `${yearNum}-${monthNum}` : "";
+  const monthLabel = referenceMonth ? `${MESES_LE[Number(monthNum) - 1]} ${yearNum}` : "";
+
   async function create() {
-    if (!month.trim()) {
-      setError("Informe o mês da nova LE.");
+    if (!referenceMonth) {
+      setError("Selecione o mês e o ano da nova LE.");
       return;
     }
     setSaving(true);
@@ -819,7 +823,8 @@ function NovaLEModal({
         body: JSON.stringify({
           action: "create-line",
           clientId,
-          month: month.trim(),
+          month: monthLabel,
+          referenceMonth,
           objetivo: objetivo.trim() || undefined,
           duplicateFromId: mode === "duplicar" ? data.id : undefined,
         }),
@@ -862,10 +867,20 @@ function NovaLEModal({
               <p className="text-[11px] text-muted">Traz pilares e estrutura do mês anterior.</p>
             </button>
           </div>
-          <label className="block">
+          <div>
             <span className="mb-1 block text-xs font-medium text-muted">Mês da nova LE</span>
-            <input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="Ex.: Agosto/2026" className="h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400" />
-          </label>
+            <div className="flex items-center gap-2">
+              <select value={monthNum} onChange={(e) => setMonthNum(e.target.value)} className="h-10 flex-1 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400">
+                <option value="">Mês…</option>
+                {MESES_LE.map((m, i) => <option key={m} value={String(i + 1).padStart(2, "0")}>{m}</option>)}
+              </select>
+              <select value={yearNum} onChange={(e) => setYearNum(e.target.value)} className="h-10 w-28 rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand-400">
+                <option value="">Ano…</option>
+                {LE_YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+              </select>
+            </div>
+            {referenceMonth && <p className="mt-1 text-[11px] text-muted">Gravado como <span className="font-mono font-semibold text-ink">{referenceMonth}</span> · {monthLabel}</p>}
+          </div>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted">Objetivo / foco do mês</span>
             <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={2} placeholder="Ex.: encher reservas de ter–qui" className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400" />
@@ -885,6 +900,11 @@ function NovaLEModal({
 
 const PILLAR_COLORS = ["#f59e0b", "#34d399", "#38bdf8", "#a855f7", "#fb7185", "#22d3ee"];
 const und = (s?: string) => (s && s !== "—" ? s : "");
+
+// Seletor de mês/ano da LE (A2). Ano calculado uma vez no carregamento do módulo.
+const MESES_LE = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const LE_BASE_YEAR = new Date().getUTCFullYear();
+const LE_YEARS = [LE_BASE_YEAR - 1, LE_BASE_YEAR, LE_BASE_YEAR + 1, LE_BASE_YEAR + 2];
 
 function ReadField({ label, value }: { label: string; value?: string }) {
   return (
