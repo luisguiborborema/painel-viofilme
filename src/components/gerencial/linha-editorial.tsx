@@ -49,13 +49,6 @@ const FORMAT_COLOR: Record<EditorialFormat, string> = {
 };
 const FORMATS: EditorialFormat[] = ["Feed", "Reels", "Stories", "Carrossel"];
 
-const ART_CONSEQUENCE: Record<ArtDirection, string> = {
-  "Media Day": "→ entra no checklist do próximo Media Day (VioDay).",
-  "Banco do cliente": "→ puxa do Hub de ativos de marca.",
-  "Imagem da internet": "→ instrução registrada no briefing do designer.",
-  "Motion design": "→ instrução registrada no briefing do designer.",
-  Outro: "→ instrução registrada no briefing do designer.",
-};
 
 // Post → task de produção: formato orgânico vira tipo de entrega.
 const FORMAT_TO_TYPE: Record<EditorialFormat, string> = {
@@ -150,64 +143,45 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PostCard({ post, onOpen, taskStage }: { post: EditorialPost; onOpen: () => void; taskStage?: string }) {
-  const [art, setArt] = useState<ArtDirection>(post.artDirection);
-  const [refs, setRefs] = useState<EditorialRef[]>(post.references);
-  const [openMood, setOpenMood] = useState(false);
-
+/** Card resumido (B1): denso e de altura uniforme — o roteiro vive só na ficha. */
+function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPost; onOpen: () => void; taskStage?: string; pillarColor?: string }) {
+  const responsavel = post.assignee ? (OPS_TEAM.find((m) => m.id === post.assignee)?.name ?? post.assignee) : null;
   return (
-    <Card className="flex flex-col p-4">
+    <button onClick={onOpen} className="flex h-full flex-col rounded-2xl border border-line bg-surface p-3.5 text-left transition-shadow hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-xs font-bold text-ink">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[11px] font-bold text-ink">
           {String(post.n).padStart(2, "0")}
         </span>
-        <span className="text-xs text-muted">{post.date} ({post.weekday})</span>
+        <span className="text-[11px] text-muted">{post.date}{post.weekday && post.weekday !== "—" ? ` (${post.weekday})` : ""}</span>
       </div>
-      <button onClick={onOpen} className="text-left text-sm font-medium text-ink hover:text-brand-600">
-        {post.title}
-      </button>
+      <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-ink">{post.title}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", FORMAT_COLOR[post.format])}>{post.format}</span>
-        <span className="rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">{post.pillar}</span>
-        {art === "Media Day" && (
+        {post.pillar && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">
+            {pillarColor && <span className="h-2 w-2 rounded-full" style={{ background: pillarColor }} />} {post.pillar}
+          </span>
+        )}
+        {post.commemorativeDate && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-500">🎉 {post.commemorativeDate}</span>
+        )}
+        {post.artDirection === "Media Day" && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
             <Clapperboard className="h-3 w-3" /> VioDay
           </span>
         )}
-        {taskStage && (
+      </div>
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-2.5">
+        {taskStage ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
             <Rocket className="h-3 w-3" /> {TASK_STAGE_LABEL[taskStage] ?? "Em produção"}
           </span>
+        ) : (
+          <span className="text-[10px] text-muted">Rascunho</span>
         )}
+        <span className="truncate text-[11px] text-muted">{responsavel ?? "—"}</span>
       </div>
-      <p className="mt-2 flex-1 text-xs text-muted">{post.description}</p>
-
-      {/* Direcionamento de arte */}
-      <div className="mt-3 border-t border-line pt-2.5">
-        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted">Direcionamento de arte</label>
-        <select
-          value={art}
-          onChange={(e) => setArt(e.target.value as ArtDirection)}
-          className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
-        >
-          {ART_DIRECTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <p className="mt-1 text-[10px] text-muted">{ART_CONSEQUENCE[art]}</p>
-      </div>
-
-      {/* Moodboard do post */}
-      <div className="mt-2 flex items-center justify-between">
-        <button onClick={() => setOpenMood((o) => !o)} className="text-[11px] font-medium text-brand-500 hover:text-brand-600">
-          {openMood ? "Ocultar" : "Referências"} ({refs.length})
-        </button>
-        <button onClick={onOpen} className="text-[11px] font-medium text-muted hover:text-ink">Abrir ficha →</button>
-      </div>
-      {openMood && (
-        <div className="mt-2">
-          <Moodboard refs={refs} onAdd={(r) => setRefs((p) => [...p, r])} compact />
-        </div>
-      )}
-    </Card>
+    </button>
   );
 }
 
@@ -1308,7 +1282,7 @@ export function LinhaEditorial({
   const shown = filter === "Todos" ? posts : posts.filter((p) => p.format === filter);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -1413,6 +1387,7 @@ export function LinhaEditorial({
               key={p.n}
               post={p}
               taskStage={p.taskStage ?? (taskByPost[p.n] ? "todo" : undefined)}
+              pillarColor={data.pillars.find((pl) => pl.name === p.pillar)?.color}
               onOpen={() => setFicha({ post: p, mode: "view" })}
             />
           ))}
