@@ -886,6 +886,78 @@ function NovaLEModal({
 const PILLAR_COLORS = ["#f59e0b", "#34d399", "#38bdf8", "#a855f7", "#fb7185", "#22d3ee"];
 const und = (s?: string) => (s && s !== "—" ? s : "");
 
+function ReadField({ label, value }: { label: string; value?: string }) {
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
+      {und(value) ? (
+        <p className="whitespace-pre-wrap text-sm text-ink/90">{value}</p>
+      ) : (
+        <p className="text-sm italic text-muted">— não definido</p>
+      )}
+    </div>
+  );
+}
+
+/** Cabeçalho estratégico READ-ONLY (A1/A5): a tela principal é documento, não formulário. */
+function StrategicHeaderView({ data }: { data: EditorialLine }) {
+  const datas = und(data.datasComemorativas) ? data.datasComemorativas.split(" · ").filter(Boolean) : [];
+  return (
+    <div className="rounded-2xl border border-brand-200 bg-brand-50/30">
+      <div className="border-b border-brand-100 px-4 py-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-600">Cabeçalho estratégico · a tese do mês</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <ReadField label="Objetivo / foco do mês" value={data.objetivo} />
+          <ReadField label="Narrativa central" value={data.narrativaCentral} />
+          <ReadField label="Tensão narrativa" value={data.tensaoNarrativa} />
+          <div className="border-t border-line pt-3">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Datas comemorativas</p>
+            {datas.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {datas.map((d, i) => <span key={i} className="rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">{d}</span>)}
+              </div>
+            ) : <p className="text-sm italic text-muted">— não definido</p>}
+          </div>
+          <div className="border-t border-line pt-3">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Pilares de conteúdo</p>
+            {data.pillars.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {data.pillars.map((p) => (
+                  <span key={p.name} className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} /> {p.name}{p.posts ? ` · ${p.posts}` : ""}
+                  </span>
+                ))}
+              </div>
+            ) : <p className="text-sm italic text-muted">— não definido</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3 border-t border-line pt-3 text-xs">
+            <div><span className="text-muted">Frequência: </span><span className="font-medium text-ink">{data.frequency}</span></div>
+            <div><span className="text-muted">Redes: </span><span className="font-medium text-ink">{data.networks}</span></div>
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-semibold text-ink">Moodboard & referências</p>
+          {data.moodboardGeral.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {data.moodboardGeral.map((r) =>
+                r.url ? (
+                  <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-subtle px-2 py-1 text-[11px] text-ink hover:bg-subtle-strong">
+                    {r.label || r.kind}
+                  </a>
+                ) : (
+                  <span key={r.id} className="inline-flex items-center gap-1 rounded-lg bg-subtle px-2 py-1 text-[11px] text-muted">{r.label || r.kind}</span>
+                ),
+              )}
+            </div>
+          ) : <p className="text-sm italic text-muted">— não definido</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Cabeçalho estratégico editável (Criar LE — Tela 1). Persiste via set-header. */
 function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; lineId?: string; clientId: string }) {
   const [objetivo, setObjetivo] = useState(und(data.objetivo));
@@ -1198,6 +1270,7 @@ export function LinhaEditorial({
   const [posts, setPosts] = useState<EditorialPost[]>(data.posts);
   const [ficha, setFicha] = useState<{ post: EditorialPost; mode: "view" | "new" } | null>(null);
   const [novaLE, setNovaLE] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [taskByPost, setTaskByPost] = useState<Record<number, string>>({});
 
   function changeStage(s: EditorialStage) {
@@ -1245,6 +1318,9 @@ export function LinhaEditorial({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => setEditing(true)} disabled={!lineId} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-50">
+            <Sparkles className="h-4 w-4" /> Editar
+          </button>
           <div className="relative">
             <button onClick={() => setShowHistory((s) => !s)} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
               <History className="h-4 w-4" /> Histórico
@@ -1294,8 +1370,8 @@ export function LinhaEditorial({
         })}
       </div>
 
-      {/* ── Nível 1: Cabeçalho estratégico editável (Criar LE) ── */}
-      <StrategicHeader data={data} lineId={lineId} clientId={clientId} />
+      {/* ── Nível 1: Cabeçalho estratégico (documento read-only; edita no modal) ── */}
+      <StrategicHeaderView data={data} />
 
       {/* ── Nível 1.5: Slots do contrato ── */}
       <ContractSlots clientId={clientId} deliverables={deliverables} posts={posts} />
@@ -1350,6 +1426,24 @@ export function LinhaEditorial({
             router.refresh();
           }}
         />
+      )}
+
+      {/* Modal de edição do cabeçalho estratégico (A1/A4) */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8" onClick={() => { setEditing(false); router.refresh(); }}>
+          <div className="w-full max-w-4xl rounded-2xl border border-line bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line px-5 py-3">
+              <h2 className="text-sm font-semibold text-ink">Editar cabeçalho estratégico — {data.month}</h2>
+              <button onClick={() => { setEditing(false); router.refresh(); }} className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="max-h-[75vh] overflow-y-auto p-2">
+              <StrategicHeader data={data} lineId={lineId} clientId={clientId} />
+            </div>
+            <div className="flex justify-end border-t border-line px-5 py-3">
+              <button onClick={() => { setEditing(false); router.refresh(); }} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Concluir</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
