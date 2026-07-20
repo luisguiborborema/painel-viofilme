@@ -75,16 +75,25 @@ export async function GET(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
-  const taskId = new URL(req.url).searchParams.get("history");
-  if (!taskId) return NextResponse.json({ history: [] });
-  if (!isSupabaseConfigured()) return NextResponse.json({ history: [] });
+  const url = new URL(req.url);
+  const activityId = url.searchParams.get("activity");
+  const id = url.searchParams.get("history") ?? activityId;
+  if (!id) return NextResponse.json({ history: [] });
+  if (!isSupabaseConfigured()) return NextResponse.json({ history: [], comments: [] });
   const supabase = await createClient();
   const { data } = await supabase
     .from("delivery_task_status_history")
     .select("from_status, to_status, changed_at")
-    .eq("task_id", taskId)
+    .eq("task_id", id)
     .order("changed_at", { ascending: true })
     .limit(100);
+
+  // Feed de atividade (C4): histórico de status + comentários da task.
+  if (activityId) {
+    const { data: task } = await supabase.from("delivery_tasks").select("comments").eq("id", activityId).maybeSingle();
+    const comments = Array.isArray((task as { comments?: unknown } | null)?.comments) ? (task as { comments: unknown[] }).comments : [];
+    return NextResponse.json({ history: data ?? [], comments });
+  }
   return NextResponse.json({ history: data ?? [] });
 }
 
