@@ -1167,9 +1167,18 @@ function StrategicHeader({ data, lineId, clientId }: { data: EditorialLine; line
     void save({ datasComemorativas: next.join(" · ") });
   }
   function removeDate(i: number) {
+    const removed = datas[i];
     const next = datas.filter((_, idx) => idx !== i);
     setDatas(next);
     void save({ datasComemorativas: next.join(" · ") });
+    // F5: limpa o vínculo dessa data nos posts que a referenciavam.
+    if (lineId && removed) {
+      void fetch("/api/gerencial/editorial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-commemorative", lineId, label: removed }),
+      });
+    }
   }
   function addPillar() {
     const v = newPillar.trim();

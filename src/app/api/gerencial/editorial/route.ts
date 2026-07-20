@@ -35,9 +35,10 @@ type PostInput = {
 };
 
 type Body = {
-  action?: "create-line" | "set-stage" | "set-header" | "internal-approve" | "upsert-post" | "delete-post";
+  action?: "create-line" | "set-stage" | "set-header" | "internal-approve" | "upsert-post" | "delete-post" | "clear-commemorative";
   id?: string;
   lineId?: string;
+  label?: string;
   clientId?: string;
   month?: string;
   referenceMonth?: string;
@@ -177,6 +178,18 @@ export async function POST(req: Request) {
   if (action === "delete-post") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const { error } = await supabase.from("editorial_posts").delete().eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // F5: data comemorativa removida do cabeçalho → limpa o vínculo dos posts.
+  if (action === "clear-commemorative") {
+    if (!b.lineId || !b.label) return NextResponse.json({ error: "lineId/label ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("editorial_posts")
+      .update({ commemorative_date: null })
+      .eq("line_id", b.lineId)
+      .eq("commemorative_date", b.label);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }
