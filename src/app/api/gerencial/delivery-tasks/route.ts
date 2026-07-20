@@ -21,6 +21,7 @@ type Body = {
     | "set-assignees"
     | "set-priority"
     | "set-requester"
+    | "set-type"
     | "log-hours"
     | "set-checklist"
     | "add-comment"
@@ -88,11 +89,22 @@ export async function GET(req: Request) {
     .order("changed_at", { ascending: true })
     .limit(100);
 
-  // Feed de atividade (C4): histórico de status + comentários da task.
+  // Feed de atividade (C4) + campos da task (C2b): solicitante/tipo/colaboradores/horas.
   if (activityId) {
-    const { data: task } = await supabase.from("delivery_tasks").select("comments").eq("id", activityId).maybeSingle();
-    const comments = Array.isArray((task as { comments?: unknown } | null)?.comments) ? (task as { comments: unknown[] }).comments : [];
-    return NextResponse.json({ history: data ?? [], comments });
+    const { data: task } = await supabase
+      .from("delivery_tasks")
+      .select("comments, requester, type, assignees, assignee, logged_h")
+      .eq("id", activityId)
+      .maybeSingle();
+    const t = task as { comments?: unknown; requester?: string | null; type?: string | null; assignees?: string[] | null; assignee?: string | null; logged_h?: number | null } | null;
+    const comments = Array.isArray(t?.comments) ? t!.comments : [];
+    return NextResponse.json({
+      history: data ?? [],
+      comments,
+      task: t
+        ? { requester: t.requester ?? "", type: t.type ?? "", assignees: Array.isArray(t.assignees) ? t.assignees : (t.assignee ? [t.assignee] : []), loggedH: Number(t.logged_h ?? 0) }
+        : null,
+    });
   }
   return NextResponse.json({ history: data ?? [] });
 }
@@ -175,6 +187,15 @@ export async function POST(req: Request) {
       .from("delivery_tasks")
       .update({ requester: b.requester?.trim() || null, updated_at: now })
       .eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "set-type") {
+    if (!b.id || !b.type || !TYPES.has(b.type)) {
+      return NextResponse.json({ error: "id/tipo inválido" }, { status: 400 });
+    }
+    const { error } = await supabase.from("delivery_tasks").update({ type: b.type, updated_at: now }).eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }

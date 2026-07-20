@@ -18,6 +18,7 @@ import {
   CheckSquare,
   Square,
   MessageSquare,
+  Clock,
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -27,6 +28,7 @@ import {
   EDITORIAL_STAGES,
   OPS_TEAM,
   TASK_STAGES,
+  TASK_TYPE_DURATIONS,
   deliveryDateFor,
   ddmmFromIso,
   type ArtDirection,
@@ -38,6 +40,7 @@ import {
   type EditorialRef,
   type EditorialStage,
   type TaskStage,
+  type TaskType,
   type ClientDeliverable,
 } from "@/lib/data/operacao";
 
@@ -276,6 +279,49 @@ function PostFicha({
       headers: jsonHeaders,
       body: JSON.stringify({ action: "add-comment", id: taskId, comment: { author: "Você", text } }),
     }).catch(() => {});
+  }
+
+  // C2b: campos absorvidos do Painel de Entregas (persistem na task vinculada).
+  const [requesterC, setRequesterC] = useState("");
+  const [taskType, setTaskType] = useState<TaskType | "">("");
+  const [collabs, setCollabs] = useState<string[]>([]);
+  const [loggedH, setLoggedH] = useState(0);
+  const [addH, setAddH] = useState("");
+
+  useEffect(() => {
+    if (!taskId) return;
+    let alive = true;
+    void fetch(`/api/gerencial/delivery-tasks?activity=${taskId}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || !j.task) return;
+        setRequesterC(j.task.requester ?? "");
+        setTaskType((j.task.type as TaskType) || "");
+        setCollabs((Array.isArray(j.task.assignees) ? j.task.assignees : []).filter((a: string) => a && a !== assignee));
+        setLoggedH(Number(j.task.loggedH ?? 0));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao (re)carregar a task
+  }, [taskId]);
+
+  function postTask(body: Record<string, unknown>) {
+    if (!taskId) return;
+    void fetch("/api/gerencial/delivery-tasks", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ ...body, id: taskId }) }).catch(() => {});
+  }
+  function changeRequesterC(v: string) { setRequesterC(v); postTask({ action: "set-requester", requester: v }); }
+  function changeType(v: TaskType) { setTaskType(v); postTask({ action: "set-type", type: v }); }
+  function toggleCollab(id: string) {
+    const next = collabs.includes(id) ? collabs.filter((x) => x !== id) : [...collabs, id];
+    setCollabs(next);
+    postTask({ action: "set-assignees", assignees: [...new Set([assignee, ...next].filter(Boolean))] });
+  }
+  function logHours() {
+    const h = Number(addH.replace(",", "."));
+    if (!Number.isFinite(h) || h === 0) return;
+    setLoggedH((v) => Math.max(0, v + h));
+    setAddH("");
+    postTask({ action: "log-hours", hours: h });
   }
   const [checks, setChecks] = useState<boolean[]>(DEFAULT_CHECKLIST.map(() => false));
   const [nomeEditavel, setNomeEditavel] = useState(false);
@@ -662,6 +708,49 @@ function PostFicha({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted">Origem</span>
                 <span className="text-xs font-medium text-ink/80">Linha editorial</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted">Tipo</span>
+                <select value={taskType} onChange={(e) => changeType(e.target.value as TaskType)} disabled={!taskId} title={!taskId ? "Gere a task de produção" : undefined} className={cn(metaSelect, "disabled:opacity-50")}>
+                  <option value="">—</option>
+                  {(["Arte", "Vídeo", "Copy", "Tráfego"] as TaskType[]).map((t) => <option key={t} value={t}>{t} · {TASK_TYPE_DURATIONS[t]}min</option>)}
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted">Solicitante</span>
+                <select value={requesterC} onChange={(e) => changeRequesterC(e.target.value)} disabled={!taskId} title={!taskId ? "Gere a task de produção" : undefined} className={cn(metaSelect, "disabled:opacity-50")}>
+                  <option value="">—</option>
+                  {OPS_TEAM.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Colaboradores (C2b) — além do responsável principal */}
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Colaboradores</p>
+              {!taskId ? (
+                <p className="text-[11px] text-muted">Gere a task de produção para adicionar colaboradores.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => {
+                    const on = collabs.includes(m.id);
+                    return (
+                      <button key={m.id} onClick={() => toggleCollab(m.id)} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", on ? "border-brand-400 bg-brand-500/10 text-ink" : "border-line text-muted hover:text-ink")}>
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Time tracking (C2b) — secundário/opcional; nenhuma métrica depende disso */}
+            <div className="rounded-xl bg-subtle p-2.5">
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-ink"><Clock className="h-3.5 w-3.5" /> Time tracking <span className="text-[10px] font-normal text-muted">(opcional)</span></div>
+              <p className="text-[11px] text-muted">{loggedH}h registradas.</p>
+              <div className="mt-1.5 flex gap-1.5">
+                <input value={addH} onChange={(e) => setAddH(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logHours()} disabled={!taskId} inputMode="decimal" placeholder="+ horas" className="w-24 rounded-lg border border-line bg-surface px-2 py-1 text-[11px] text-ink outline-none focus:border-brand-400 disabled:opacity-50" />
+                <button onClick={logHours} disabled={!taskId} className="rounded-lg border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink hover:bg-subtle disabled:opacity-50">Apontar</button>
               </div>
             </div>
 
