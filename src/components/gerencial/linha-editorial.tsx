@@ -32,6 +32,7 @@ import {
   type ArtDirection,
   type EditorialFormat,
   type EditorialLine,
+  type EditorialDraft,
   type EditorialPost,
   type EditorialPillar,
   type EditorialRef,
@@ -765,11 +766,15 @@ function PostFicha({
 function NovaLEModal({
   data,
   clientId,
+  drafts = [],
+  onResume,
   onClose,
   onDone,
 }: {
   data: EditorialLine;
   clientId: string;
+  drafts?: EditorialDraft[];
+  onResume: (draftId: string) => void;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -827,6 +832,24 @@ function NovaLEModal({
           <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-ink"><X className="h-4 w-4" /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
+          {/* Rascunhos em aberto (A3) — retomar em vez de duplicar */}
+          {drafts.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Rascunhos em aberto</p>
+              <div className="space-y-1.5">
+                {drafts.map((dr) => (
+                  <button key={dr.id} onClick={() => onResume(dr.id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-subtle/50 px-3 py-2 text-left hover:border-brand-300">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">{dr.month}</p>
+                      {dr.objetivo && <p className="truncate text-[11px] text-muted">{dr.objetivo}</p>}
+                    </div>
+                    <span className="shrink-0 text-[11px] font-medium text-brand-600">Retomar →</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-[11px] text-muted"><span className="h-px flex-1 bg-line" /> ou comece uma nova <span className="h-px flex-1 bg-line" /></div>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button onClick={() => setMode("branco")} className={cn("rounded-xl border p-3 text-left transition-colors", mode === "branco" ? "border-brand-400 bg-brand-500/10" : "border-line bg-subtle hover:border-brand-300")}>
               <p className="text-sm font-medium text-ink">Começar em branco</p>
@@ -1251,10 +1274,12 @@ export function LinhaEditorial({
   data,
   clientId,
   deliverables = [],
+  drafts = [],
 }: {
   data: EditorialLine;
   clientId: string;
   deliverables?: ClientDeliverable[];
+  drafts?: EditorialDraft[];
 }) {
   const router = useRouter();
   const lineId = data.id;
@@ -1415,6 +1440,8 @@ export function LinhaEditorial({
         <NovaLEModal
           data={data}
           clientId={clientId}
+          drafts={drafts}
+          onResume={(draftId) => { setNovaLE(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${draftId}`); }}
           onClose={() => setNovaLE(false)}
           onDone={() => {
             setNovaLE(false);

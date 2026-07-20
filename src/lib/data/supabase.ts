@@ -77,6 +77,7 @@ import {
   type HubPlan,
   type HubStatus,
   type EditorialLine,
+  type EditorialDraft,
   type EditorialPost,
   type EditorialFormat,
   type EditorialStage,
@@ -2536,16 +2537,21 @@ type EditorialPostRow = {
 const dash2 = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 /** Linha editorial mais recente do cliente + posts (ou scaffold vazio). */
-export async function sbGetEditorialLine(clientId: string): Promise<EditorialLine> {
+export async function sbGetEditorialLine(clientId: string, lineId?: string): Promise<EditorialLine> {
   const supabase = await createClient();
+
+  let linesQuery = supabase
+    .from("editorial_lines")
+    .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by")
+    .eq("client_id", clientId);
+  // Retomar rascunho: quando um lineId é pedido, carrega aquela LE; senão, a mais recente.
+  linesQuery = lineId
+    ? linesQuery.eq("id", lineId)
+    : linesQuery.order("created_at", { ascending: false });
 
   const [clientRes, linesRes] = await Promise.all([
     supabase.from("clients").select("name").eq("id", clientId).maybeSingle(),
-    supabase
-      .from("editorial_lines")
-      .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false }),
+    linesQuery,
   ]);
 
   const clientName = (clientRes.data as { name: string | null } | null)?.name ?? "Cliente";
@@ -2640,6 +2646,23 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     posts,
     history: lines.slice(1).map((l) => ({ id: l.id, month: l.month ?? "—" })),
   };
+}
+
+export async function sbGetEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("editorial_lines")
+    .select("id, month, objetivo, updated_at")
+    .eq("client_id", clientId)
+    .eq("stage", "rascunho")
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  return ((data ?? []) as { id: string; month: string | null; objetivo: string | null; updated_at: string | null }[]).map((l) => ({
+    id: l.id,
+    month: l.month ?? "—",
+    objetivo: l.objetivo ?? undefined,
+    updatedAt: l.updated_at ?? undefined,
+  }));
 }
 
 // --- Entregáveis do contrato (slots da Criar LE) ----------------------------

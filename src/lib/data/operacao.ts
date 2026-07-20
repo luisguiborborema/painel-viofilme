@@ -422,6 +422,9 @@ export type EditorialPost = {
 
 export type EditorialPillar = { name: string; posts: number; color: string };
 
+/** Rascunho de LE em aberto (A3) — para retomar no modal Nova LE. */
+export type EditorialDraft = { id: string; month: string; objetivo?: string; updatedAt?: string };
+
 export type EditorialLine = {
   id?: string;
   clientName: string;

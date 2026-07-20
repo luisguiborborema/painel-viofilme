@@ -17,6 +17,7 @@ import {
   getVioLaunchView,
   getCSClientDetail,
   getEditorialLineView,
+  getEditorialDrafts,
   getHubClientsOps,
 } from "@/lib/data/queries";
 import {
@@ -115,10 +116,10 @@ export default async function RaioXCliente({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; le?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, le } = await searchParams;
   const d = await getCSClientDetail(id);
   if (!d) notFound();
 
@@ -138,8 +139,9 @@ export default async function RaioXCliente({
     whatsapp: portal?.whatsapp ?? "",
   };
 
-  const [editorial, deliverables, clientDocs, mediaDay, violaunchData] = await Promise.all([
-    getEditorialLineView(id),
+  const [editorial, editorialDrafts, deliverables, clientDocs, mediaDay, violaunchData] = await Promise.all([
+    getEditorialLineView(id, le),
+    getEditorialDrafts(id),
     getClientDeliverables(id),
     getClientDocumentsView(id),
     getMediaDayView(id),
@@ -332,7 +334,7 @@ export default async function RaioXCliente({
     {
       key: "editorial",
       label: "Linha editorial",
-      content: <LinhaEditorial data={editorial} clientId={id} deliverables={deliverables} />,
+      content: <LinhaEditorial data={editorial} clientId={id} deliverables={deliverables} drafts={editorialDrafts} />,
     },
     { key: "criativos", label: "Criativos de performance", content: criativos },
     { key: "violaunch", label: "VioLaunch", content: violaunch },

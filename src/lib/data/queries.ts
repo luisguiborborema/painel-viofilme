@@ -675,15 +675,22 @@ import {
   getEditorialLine as editorialLineMock,
   type HubClientOps,
   type EditorialLine,
+  type EditorialDraft,
   type MediaDayView,
 } from "./operacao";
 import { getCSClientDetail as csDetailMock } from "./cs";
 import type { CSClientDetail } from "./types";
 
 /** Linha editorial do cliente — persistida (editorial_lines) ou mock demo. */
-export async function getEditorialLineView(clientId: string): Promise<EditorialLine> {
-  if (isSupabaseConfigured()) return sb.sbGetEditorialLine(clientId);
+export async function getEditorialLineView(clientId: string, lineId?: string): Promise<EditorialLine> {
+  if (isSupabaseConfigured()) return sb.sbGetEditorialLine(clientId, lineId);
   return editorialLineMock(clientId);
+}
+
+/** Rascunhos de LE em aberto (A3) — reais ou vazio no demo. */
+export async function getEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
+  if (isSupabaseConfigured()) return sb.sbGetEditorialDrafts(clientId);
+  return [];
 }
 
 /** Entregáveis do contrato por formato (slots da Criar LE). */
