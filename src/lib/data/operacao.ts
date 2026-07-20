@@ -412,6 +412,12 @@ export type EditorialPost = {
   assigneeSecondary?: string;
   priority?: "normal" | "urgente";
   taskId?: string;
+  /** Duas datas (C3). ISO "AAAA-MM-DD". */
+  postDateIso?: string;
+  deliveryDate?: string;
+  deliveryOverridden?: boolean;
+  /** Data comemorativa vinculada (label da LE), opcional (C3.1). */
+  commemorativeDate?: string;
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };
@@ -634,6 +640,28 @@ export const DELIVERY_CONFIG_FALLBACK: DeliveryConfig = {
   capacityPerDay: DELIVERY_CAPACITY_PER_DAY,
   typeDurations: { ...TASK_TYPE_DURATIONS },
 };
+
+/**
+ * Prazo de entrega (C3): quarta-feira da semana ANTERIOR à da postagem.
+ * Regra: a partir de post_date, acha a segunda-feira daquela semana e subtrai 5
+ * dias → quarta da semana anterior. Recebe/retorna "AAAA-MM-DD".
+ * Ex.: postagem sáb 22/08 → entrega qua 12/08; seg 10/08 → qua 05/08.
+ */
+export function deliveryDateFor(postIso: string): string {
+  if (!postIso) return "";
+  const d = new Date(`${postIso}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  const dow = d.getUTCDay(); // 0=Dom..6=Sáb
+  const toMonday = (dow + 6) % 7; // dias desde a segunda daquela semana
+  d.setUTCDate(d.getUTCDate() - toMonday - 5); // segunda - 5 = quarta da semana anterior
+  return d.toISOString().slice(0, 10);
+}
+
+/** Formata "AAAA-MM-DD" como "DD/MM". */
+export function ddmmFromIso(iso: string): string {
+  if (!iso || iso.length < 10) return "";
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
 
 /** Data de entrega (ISO) a partir do índice do dia (0=Seg da semana atual). */
 function deliveryDate(dayIdx: number): string {

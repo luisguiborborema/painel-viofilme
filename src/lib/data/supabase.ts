@@ -2527,6 +2527,10 @@ type EditorialPostRow = {
   assignee_secondary: string | null;
   priority: string | null;
   notes: string | null;
+  post_date_iso: string | null;
+  delivery_date: string | null;
+  delivery_overridden: boolean | null;
+  commemorative_date: string | null;
 };
 
 const dash2 = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
@@ -2570,7 +2574,7 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
 
   const { data: postsData } = await supabase
     .from("editorial_posts")
-    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes")
+    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes, post_date_iso, delivery_date, delivery_overridden, commemorative_date")
     .eq("line_id", line.id)
     .order("n");
 
@@ -2609,6 +2613,10 @@ export async function sbGetEditorialLine(clientId: string): Promise<EditorialLin
     assigneeSecondary: p.assignee_secondary ?? undefined,
     priority: p.priority === "urgente" ? "urgente" : "normal",
     notes: p.notes ?? undefined,
+    postDateIso: p.post_date_iso ?? undefined,
+    deliveryDate: p.delivery_date ?? undefined,
+    deliveryOverridden: !!p.delivery_overridden,
+    commemorativeDate: p.commemorative_date ?? undefined,
   }));
 
   return {

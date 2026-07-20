@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { deliveryDateFor } from "@/lib/data/operacao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,10 @@ type PostInput = {
   assigneeSecondary?: string;
   priority?: string;
   notes?: string;
+  postDateIso?: string;
+  deliveryDate?: string;
+  deliveryOverridden?: boolean;
+  commemorativeDate?: string;
 };
 
 type Body = {
@@ -186,6 +191,11 @@ export async function POST(req: Request) {
       assignee_secondary: p.assigneeSecondary?.trim() || null,
       priority: p.priority === "urgente" ? "urgente" : "normal",
       notes: p.notes ?? null,
+      post_date_iso: p.postDateIso || null,
+      // Em "auto" (não sobrescrito), recalcula o prazo pela data de postagem.
+      delivery_date: p.deliveryOverridden ? (p.deliveryDate || null) : (p.postDateIso ? deliveryDateFor(p.postDateIso) : null),
+      delivery_overridden: !!p.deliveryOverridden,
+      commemorative_date: p.commemorativeDate?.trim() || null,
       updated_at: now,
     };
     if (p.id) {

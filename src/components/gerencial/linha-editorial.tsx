@@ -26,6 +26,8 @@ import {
   EDITORIAL_STAGES,
   OPS_TEAM,
   TASK_STAGES,
+  deliveryDateFor,
+  ddmmFromIso,
   type ArtDirection,
   type EditorialFormat,
   type EditorialLine,
@@ -217,6 +219,7 @@ function PostFicha({
   lineId,
   narrativa,
   pillars,
+  dates = [],
   leLabel,
   mode,
   onClose,
@@ -230,6 +233,7 @@ function PostFicha({
   lineId?: string;
   narrativa: string;
   pillars: EditorialPillar[];
+  dates?: string[];
   leLabel: string;
   mode: "view" | "new";
   onClose: () => void;
@@ -248,7 +252,14 @@ function PostFicha({
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
   const [priority, setPriority] = useState<"normal" | "urgente">(post.priority ?? "normal");
-  const [prazo, setPrazo] = useState(post.date !== "—" ? post.date : "");
+  const prazo = post.date !== "—" ? post.date : "";
+  // Duas datas (C3): postagem manda, entrega calcula (quarta da semana anterior).
+  const [postDateIso, setPostDateIso] = useState(post.postDateIso ?? "");
+  const [deliveryOverridden, setDeliveryOverridden] = useState(!!post.deliveryOverridden);
+  const [deliveryManual, setDeliveryManual] = useState(post.deliveryDate ?? "");
+  const [commemorative, setCommemorative] = useState(post.commemorativeDate ?? "");
+  const deliveryAuto = postDateIso ? deliveryDateFor(postDateIso) : "";
+  const deliveryIso = deliveryOverridden ? deliveryManual : deliveryAuto;
   const [stage, setStage] = useState<TaskStage | null>(post.taskStage ?? null);
   const [taskId, setTaskId] = useState<string | undefined>(post.taskId);
   const [checks, setChecks] = useState<boolean[]>(DEFAULT_CHECKLIST.map(() => false));
@@ -277,9 +288,13 @@ function PostFicha({
       assignee,
       assigneeSecondary: secondary,
       priority,
-      date: prazo || post.date,
+      date: (postDateIso ? ddmmFromIso(postDateIso) : prazo) || post.date,
       taskId: extraTaskId ?? taskId,
       taskStage: stage ?? post.taskStage,
+      postDateIso: postDateIso || undefined,
+      deliveryDate: deliveryIso || undefined,
+      deliveryOverridden,
+      commemorativeDate: commemorative || undefined,
     };
   }
 
@@ -305,7 +320,11 @@ function PostFicha({
           assignee,
           assigneeSecondary: secondary,
           priority,
-          postDate: prazo || undefined,
+          postDate: (postDateIso ? ddmmFromIso(postDateIso) : prazo) || undefined,
+          postDateIso: postDateIso || undefined,
+          deliveryDate: deliveryIso || undefined,
+          deliveryOverridden,
+          commemorativeDate: commemorative || undefined,
           weekday: post.weekday !== "—" ? post.weekday : undefined,
           taskId: extraTaskId ?? taskId,
         },
@@ -546,9 +565,55 @@ function PostFicha({
                   {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
+              {/* Box de datas (C3): postagem manda, entrega calcula */}
+              <div className="rounded-lg border border-line bg-surface p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-ink">Data de postagem</span>
+                  <input
+                    type="date"
+                    value={postDateIso}
+                    onChange={(e) => setPostDateIso(e.target.value)}
+                    className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted">Prazo de entrega</span>
+                  <div className="flex items-center gap-1.5">
+                    {deliveryOverridden ? (
+                      <input
+                        type="date"
+                        value={deliveryManual}
+                        onChange={(e) => setDeliveryManual(e.target.value)}
+                        className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400"
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-ink">{deliveryAuto ? ddmmFromIso(deliveryAuto) : "—"}</span>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (!deliveryOverridden) setDeliveryManual(deliveryAuto);
+                        setDeliveryOverridden((v) => !v);
+                      }}
+                      className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold", deliveryOverridden ? "bg-amber-500/15 text-amber-600" : "bg-brand-500/15 text-brand-600")}
+                    >
+                      {deliveryOverridden ? "manual" : "auto"}
+                    </button>
+                  </div>
+                </div>
+                {!deliveryOverridden && <p className="mt-1 text-[10px] text-muted">Quarta da semana anterior à postagem.</p>}
+              </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Prazo</span>
-                <input value={prazo} onChange={(e) => setPrazo(e.target.value)} placeholder="11/08" className="w-24 rounded-lg border border-line bg-surface px-2 py-1 text-right text-xs text-ink outline-none focus:border-brand-400" />
+                <span className="text-xs text-muted">Data comemorativa</span>
+                <select
+                  value={commemorative}
+                  onChange={(e) => setCommemorative(e.target.value)}
+                  disabled={dates.length === 0}
+                  title={dates.length === 0 ? "Adicione datas no cabeçalho da LE (Editar)" : undefined}
+                  className={cn(metaSelect, "disabled:opacity-60")}
+                >
+                  <option value="">Sem data comemorativa</option>
+                  {dates.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted">Prioridade</span>
@@ -1171,6 +1236,7 @@ export function LinhaEditorial({
           lineId={lineId}
           narrativa={data.narrativaCentral}
           pillars={data.pillars}
+          dates={und(data.datasComemorativas) ? data.datasComemorativas.split(" · ").filter(Boolean) : []}
           leLabel={`Linha editorial · ${data.month}`}
           onClose={() => setFicha(null)}
           onCreated={(n, taskId) => setTaskByPost((prev) => ({ ...prev, [n]: taskId }))}
