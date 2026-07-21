@@ -76,6 +76,14 @@ const TASK_STAGE_LABEL: Record<string, string> = {
 // Item do feed de atividade (C4): comentário ou evento de status.
 type ActItem = { ts: number; kind: "comment" | "event"; author?: string; text?: string; from?: string | null; to?: string };
 
+// Ação principal contextual por estágio (C5) — o botão muda conforme a fase.
+const NEXT_ACTION: Record<string, { label: string; stage: TaskStage }> = {
+  todo: { label: "Mover para produção", stage: "doing" },
+  doing: { label: "Enviar para revisão interna", stage: "review" },
+  review: { label: "Enviar para aprovação do cliente", stage: "approval" },
+  approval: { label: "Marcar como aprovado / publicado", stage: "done" },
+};
+
 let refSeq = 1000;
 let postSeq = 900;
 
@@ -185,7 +193,12 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
         ) : (
           <span className="text-[10px] text-muted">Rascunho</span>
         )}
-        <span className="truncate text-[11px] text-muted">{responsavel ?? "—"}</span>
+        <span className="flex items-center gap-2 truncate text-[11px] text-muted">
+          {post.commentsCount ? (
+            <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" /> {post.commentsCount}</span>
+          ) : null}
+          {responsavel ?? "—"}
+        </span>
       </div>
     </button>
   );
@@ -286,6 +299,11 @@ export function PostFicha({
       body: JSON.stringify({ action: "add-comment", id: taskId, comment: { author: "Você", text } }),
     }).catch(() => {});
   }
+
+  // @menção com autocomplete (C4): sugere pessoas ao digitar "@nome".
+  const mentionQ = (() => { const m = commentText.match(/@(\p{L}*)$/u); return m ? m[1] : null; })();
+  const mentionOpts = mentionQ !== null ? OPS_TEAM.filter((mm) => mm.name.toLowerCase().includes(mentionQ.toLowerCase())).slice(0, 5) : [];
+  function pickMention(mname: string) { setCommentText((t) => t.replace(/@\p{L}*$/u, `@${mname} `)); }
 
   // C2b: campos absorvidos do Painel de Entregas (persistem na task vinculada).
   const [requesterC, setRequesterC] = useState("");
@@ -488,15 +506,17 @@ export function PostFicha({
     }
   }
 
-  async function enviarAprovacao() {
+  const nextAct = NEXT_ACTION[stage ?? "todo"];
+  async function mainAction() {
+    if (!nextAct) return;
     setSaving(true);
     setError(null);
     try {
-      if (!taskId) await generateTask("approval");
-      else await changeStage("approval");
-      setStage("approval");
+      if (!taskId) await generateTask(nextAct.stage);
+      else await changeStage(nextAct.stage);
+      setStage(nextAct.stage);
     } catch {
-      setError("Falha ao enviar para aprovação.");
+      setError("Falha ao mover a task.");
     } finally {
       setSaving(false);
     }
@@ -798,13 +818,19 @@ export function PostFicha({
               </div>
             </div>
 
-            <button
-              onClick={enviarAprovacao}
-              disabled={saving}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2.5 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
-            >
-              <Send className="h-4 w-4" /> Enviar para aprovação do cliente
-            </button>
+            {nextAct ? (
+              <button
+                onClick={mainAction}
+                disabled={saving}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2.5 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-60"
+              >
+                <Send className="h-4 w-4" /> {saving ? "Movendo…" : nextAct.label}
+              </button>
+            ) : (
+              <p className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-600">
+                <Check className="h-4 w-4" /> Aprovado / publicado
+              </p>
+            )}
           </div>
 
           {/* Terceira coluna · Painel de atividade (C4) */}
@@ -838,12 +864,21 @@ export function PostFicha({
                   )
                 )}
               </div>
-              <div className="border-t border-line p-2.5">
+              <div className="relative border-t border-line p-2.5">
+                {mentionOpts.length > 0 && (
+                  <div className="absolute bottom-full left-2.5 right-2.5 mb-1 overflow-hidden rounded-lg border border-line bg-surface shadow-lg">
+                    {mentionOpts.map((mm) => (
+                      <button key={mm.id} onClick={() => pickMention(mm.name)} className="block w-full px-3 py-1.5 text-left text-sm text-ink hover:bg-subtle">
+                        <span className="font-medium">@{mm.name}</span> <span className="text-[11px] text-muted">{mm.role}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-1.5">
                   <input
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addComment()}
+                    onKeyDown={(e) => { if (e.key === "Enter" && mentionOpts.length === 0) addComment(); }}
                     disabled={!taskId}
                     placeholder={taskId ? "Comentar… use @ para marcar" : "Gere a task primeiro"}
                     className="flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400 disabled:opacity-60"

@@ -2602,16 +2602,18 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   const postRows = (postsData ?? []) as EditorialPostRow[];
 
-  // Live-sync: estágio real das delivery tasks vinculadas aos posts.
+  // Live-sync: estágio real + nº de comentários das tasks vinculadas aos posts.
   const taskIds = postRows.map((p) => p.task_id).filter((x): x is string => !!x);
   const stageByTask = new Map<string, TaskStage>();
+  const commentsByTask = new Map<string, number>();
   if (taskIds.length) {
     const { data: tRows } = await supabase
       .from("delivery_tasks")
-      .select("id, stage")
+      .select("id, stage, comments")
       .in("id", taskIds);
-    for (const t of (tRows ?? []) as { id: string; stage: string | null }[]) {
+    for (const t of (tRows ?? []) as { id: string; stage: string | null; comments: unknown }[]) {
       stageByTask.set(t.id, (t.stage as TaskStage) ?? "todo");
+      commentsByTask.set(t.id, Array.isArray(t.comments) ? t.comments.length : 0);
     }
   }
 
@@ -2628,6 +2630,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     artDirection: (p.art_direction as ArtDirection) ?? "Banco do cliente",
     references: Array.isArray(p.refs) ? (p.refs as EditorialRef[]) : [],
     taskStage: p.task_id ? stageByTask.get(p.task_id) : undefined,
+    commentsCount: p.task_id ? (commentsByTask.get(p.task_id) ?? 0) : 0,
     taskId: p.task_id ?? undefined,
     tema: p.tema ?? undefined,
     legenda: p.legenda ?? undefined,

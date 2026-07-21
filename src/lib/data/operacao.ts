@@ -418,6 +418,8 @@ export type EditorialPost = {
   deliveryOverridden?: boolean;
   /** Data comemorativa vinculada (label da LE), opcional (C3.1). */
   commemorativeDate?: string;
+  /** Nº de comentários na task vinculada (contador do card, B1). */
+  commentsCount?: number;
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };
