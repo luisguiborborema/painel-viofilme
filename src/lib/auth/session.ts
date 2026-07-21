@@ -41,26 +41,27 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   // e clientId=null, mandando o gerencial pra área do cliente). Sem service
   // role, cai no cliente autenticado normal.
   const db = hasServiceRole() ? createAdminClient() : supabase;
+  // SEM embed clients(name): a migration 0065 adicionou cs_main_id/cs_support_id
+  // em clients->profiles, o que tornou o embed profiles->clients AMBÍGUO
+  // (PGRST201) e fazia a query inteira falhar → profile null → role='cliente'.
+  // Buscamos o nome do cliente numa query separada, sem ambiguidade.
   const { data: profile } = await db
     .from("profiles")
-    .select("id, full_name, role, client_id, team_role, allowed_sections, avatar_url, clients(name)")
+    .select("id, full_name, role, client_id, team_role, allowed_sections, avatar_url")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   // Foto: preferimos o profiles.avatar_url (definido em Configurações) e caímos
   // no avatar do JWT/metadata como fallback.
   const avatarUrl = (profile?.avatar_url ? String(profile.avatar_url) : null) ?? metaAvatar;
 
   const role = (profile?.role as Role) ?? "cliente";
-  // O join pode vir como objeto (to-one) ou array, dependendo da inferência.
-  const clientRel = profile?.clients as
-    | { name: string }
-    | { name: string }[]
-    | null
-    | undefined;
-  const clientName = Array.isArray(clientRel)
-    ? (clientRel[0]?.name ?? null)
-    : (clientRel?.name ?? null);
+
+  let clientName: string | null = null;
+  if (profile?.client_id) {
+    const { data: c } = await db.from("clients").select("name").eq("id", profile.client_id).maybeSingle();
+    clientName = (c as { name: string | null } | null)?.name ?? null;
+  }
 
   return {
     id: userId,
