@@ -20,18 +20,17 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   }
 
   const supabase = await createClient();
-  // getClaims() lê a identidade do JWT já validado (localmente, via WebCrypto,
-  // em projetos com chaves assimétricas) — evita o round-trip de rede do
-  // getUser() a cada render. O proxy já renovou o token nesta requisição, então
-  // aqui não há refresh nem escrita de cookie. A query de profiles abaixo
-  // continua sendo a fonte de verdade de role/allowed_sections.
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const claims = claimsData?.claims;
-  if (!claims) return null;
-  const userId = claims.sub as string;
-  const userEmail = (claims.email as string | undefined) ?? "";
+  // getUser() valida o token no servidor do Supabase e garante que a MESMA
+  // sessão autenticada seja usada na query de profiles (auth.uid() correto no
+  // PostgREST). Evita o perfil vir vazio — que fazia role/clientId caírem nos
+  // defaults ('cliente'/null) e jogava o gerencial na área do cliente.
+  const { data: userData } = await supabase.auth.getUser();
+  const authUser = userData?.user;
+  if (!authUser) return null;
+  const userId = authUser.id;
+  const userEmail = authUser.email ?? "";
   const metaAvatar =
-    ((claims.user_metadata as { avatar_url?: string } | undefined)?.avatar_url) ??
+    ((authUser.user_metadata as { avatar_url?: string } | undefined)?.avatar_url) ??
     null;
 
   // Perfil + cliente vinculado
