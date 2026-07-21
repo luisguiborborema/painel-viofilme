@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { DEMO_COOKIE } from "./demo";
 import type { Role, SessionUser } from "./types";
@@ -33,8 +34,14 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     ((authUser.user_metadata as { avatar_url?: string } | undefined)?.avatar_url) ??
     null;
 
-  // Perfil + cliente vinculado
-  const { data: profile } = await supabase
+  // Perfil + cliente vinculado.
+  // Lemos o perfil com a service role (bypassa RLS) — a identidade já foi
+  // validada pelo getUser() acima. Isso evita o perfil vir vazio quando o
+  // contexto de RLS/token do PostgREST não alinha (o que jogava role='cliente'
+  // e clientId=null, mandando o gerencial pra área do cliente). Sem service
+  // role, cai no cliente autenticado normal.
+  const db = hasServiceRole() ? createAdminClient() : supabase;
+  const { data: profile } = await db
     .from("profiles")
     .select("id, full_name, role, client_id, team_role, allowed_sections, avatar_url, clients(name)")
     .eq("id", userId)
