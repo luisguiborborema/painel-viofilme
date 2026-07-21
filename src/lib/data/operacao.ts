@@ -705,10 +705,46 @@ export type DeliveryTask = {
   customFields?: Record<string, unknown>;
   /** Override de duração (min) da Timeline; herda do tipo quando ausente (ENT10). */
   durationMin?: number;
+  /** Conteúdo (C1.1 — ficha única): tema/roteiro/legenda/refs + duas datas. */
+  tema?: string;
+  roteiro?: string;
+  legenda?: string;
+  refs?: EditorialRef[];
+  postDateIso?: string;
+  deliveryDate?: string;
+  deliveryOverridden?: boolean;
+  commemorativeDate?: string;
   /** Criativo de performance (HUB10). */
   campaignGoal?: CampaignGoal;
   contentFormat?: EditorialFormat;
 };
+
+/** Mapeia uma delivery task para o shape da ficha canônica (C1.1 — ficha única). */
+export function deliveryTaskToPost(t: DeliveryTask): EditorialPost {
+  return {
+    id: t.id,
+    n: 0,
+    date: "—",
+    weekday: "—",
+    title: t.title,
+    format: (t.contentFormat ?? "Feed") as EditorialFormat,
+    pillar: "",
+    description: t.roteiro ?? "",
+    assetNote: "",
+    artDirection: "Banco do cliente",
+    references: t.refs ?? [],
+    taskStage: t.stage,
+    tema: t.tema,
+    legenda: t.legenda,
+    assignee: t.assignee || t.assignees?.[0],
+    priority: t.priority === "urgente" ? "urgente" : "normal",
+    taskId: t.id,
+    postDateIso: t.postDateIso,
+    deliveryDate: t.deliveryDate,
+    deliveryOverridden: t.deliveryOverridden,
+    commemorativeDate: t.commemorativeDate,
+  };
+}
 
 export function getDeliveryTasks(): DeliveryTask[] {
   const base: Omit<DeliveryTask, "dueDate">[] = [

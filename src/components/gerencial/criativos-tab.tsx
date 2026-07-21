@@ -14,7 +14,7 @@ import {
   type DeliveryTask,
   type EditorialFormat,
 } from "@/lib/data/operacao";
-import { TaskUniversal } from "./task-universal";
+import { TaskFicha } from "./linha-editorial";
 
 // Objetivo de campanha (CP01.1) — a decisão mais importante, em cards coloridos.
 const GOALS: { key: CampaignGoal; label: string; hint: string; card: string; chip: string }[] = [
@@ -281,7 +281,7 @@ export function CriativosTab({
         )}
       </Card>
 
-      {open && <TaskUniversal task={open} onClose={() => setOpen(null)} />}
+      {open && <TaskFicha task={open} clientId={clientId} onClose={() => setOpen(null)} />}
     </div>
   );
 }

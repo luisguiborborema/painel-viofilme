@@ -1344,6 +1344,14 @@ type DeliveryRow = {
   campaign_goal: string | null;
   content_format: string | null;
   duration_min: number | null;
+  tema: string | null;
+  roteiro: string | null;
+  legenda: string | null;
+  refs: unknown;
+  post_date_iso: string | null;
+  delivery_date: string | null;
+  delivery_overridden: boolean | null;
+  commemorative_date: string | null;
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -1352,7 +1360,7 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const { data } = await supabase
     .from("delivery_tasks")
     .select(
-      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, moved_at, custom_fields, campaign_goal, content_format, duration_min, clients(name)",
+      "id, title, type, origin, assignee, stage, due_date, estimate_h, logged_h, urgent, checklist, comments, priority, assignees, requester, moved_at, custom_fields, campaign_goal, content_format, duration_min, tema, roteiro, legenda, refs, post_date_iso, delivery_date, delivery_overridden, commemorative_date, clients(name)",
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(500);
@@ -1413,6 +1421,14 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
       campaignGoal: (r.campaign_goal as DeliveryTask["campaignGoal"]) ?? undefined,
       contentFormat: (r.content_format as DeliveryTask["contentFormat"]) ?? undefined,
       durationMin: r.duration_min != null ? Number(r.duration_min) : undefined,
+      tema: r.tema ?? undefined,
+      roteiro: r.roteiro ?? undefined,
+      legenda: r.legenda ?? undefined,
+      refs: Array.isArray(r.refs) ? (r.refs as EditorialRef[]) : [],
+      postDateIso: r.post_date_iso ?? undefined,
+      deliveryDate: r.delivery_date ?? undefined,
+      deliveryOverridden: !!r.delivery_overridden,
+      commemorativeDate: r.commemorative_date ?? undefined,
     } satisfies DeliveryTask;
   });
 }

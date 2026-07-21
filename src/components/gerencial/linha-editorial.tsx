@@ -30,6 +30,7 @@ import {
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
   deliveryDateFor,
+  deliveryTaskToPost,
   ddmmFromIso,
   type ArtDirection,
   type EditorialFormat,
@@ -39,6 +40,7 @@ import {
   type EditorialPillar,
   type EditorialRef,
   type EditorialStage,
+  type DeliveryTask,
   type TaskStage,
   type TaskType,
   type ClientDeliverable,
@@ -193,8 +195,8 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
 const DEFAULT_CHECKLIST = ["Briefing lido", "Rascunho / 1ª versão", "Revisão interna", "Aprovado pelo cliente"];
 const dtx = "/api/gerencial/delivery-tasks";
 
-/** Ficha da Task/Post (Task universal) — 2 colunas + trilha de fases. */
-function PostFicha({
+/** Ficha da Task/Post — a ficha ÚNICA/canônica (C1.1), renderizada por todas as telas. */
+export function PostFicha({
   post,
   clientId,
   clientName,
@@ -204,6 +206,7 @@ function PostFicha({
   dates = [],
   leLabel,
   mode,
+  variant = "editorial",
   onClose,
   onCreated,
   onAdd,
@@ -218,11 +221,14 @@ function PostFicha({
   dates?: string[];
   leLabel: string;
   mode: "view" | "new";
+  /** editorial = post da LE (salva em editorial_posts). delivery = task pura (salva em delivery_tasks). */
+  variant?: "editorial" | "delivery";
   onClose: () => void;
   onCreated: (n: number, taskId: string) => void;
   onAdd: (p: EditorialPost) => void;
   onSaved: (p: EditorialPost) => void;
 }) {
+  const isDelivery = variant === "delivery";
   const [title, setTitle] = useState(post.title);
   const [tema, setTema] = useState(post.tema ?? "");
   const [format, setFormat] = useState<EditorialFormat>(post.format);
@@ -360,6 +366,29 @@ function PostFicha({
   }
 
   async function persistPost(extraTaskId?: string) {
+    // Variante delivery (ficha única, C1.1): conteúdo salva na própria task.
+    if (isDelivery) {
+      const id = extraTaskId ?? taskId;
+      if (!id) return;
+      await fetch(dtx, {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          action: "upsert-content",
+          id,
+          title: title.trim(),
+          tema,
+          roteiro,
+          legenda,
+          refs: post.references,
+          postDateIso: postDateIso || undefined,
+          deliveryDate: deliveryIso || undefined,
+          deliveryOverridden,
+          commemorativeDate: commemorative || undefined,
+        }),
+      });
+      return;
+    }
     if (!lineId) return;
     await fetch("/api/gerencial/editorial", {
       method: "POST",
@@ -831,23 +860,59 @@ function PostFicha({
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-3.5">
           {savedTick && <span className="mr-auto inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="h-3.5 w-3.5" /> Salvo</span>}
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Fechar</button>
-          {mode === "new" && (
+          {mode === "new" && !isDelivery && (
             <button onClick={addToLine} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Adicionar à LE</button>
           )}
           <button onClick={saveFicha} disabled={saving} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-60">
             {saving ? "Salvando…" : "Salvar ficha"}
           </button>
-          <button
-            onClick={onGenerate}
-            disabled={saving || !!taskId}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            <Rocket className="h-4 w-4" />
-            {taskId ? "Em produção ✓" : saving ? "Gerando…" : "Gerar task de produção"}
-          </button>
+          {!isDelivery && (
+            <button
+              onClick={onGenerate}
+              disabled={saving || !!taskId}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              <Rocket className="h-4 w-4" />
+              {taskId ? "Em produção ✓" : saving ? "Gerando…" : "Gerar task de produção"}
+            </button>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Ficha ÚNICA para uma delivery task (C1.1). Ponto de entrada canônico usado pelo
+ * Painel de Entregas, Criativos e Tarefas do cliente — todas renderizam a MESMA ficha.
+ */
+export function TaskFicha({
+  task,
+  clientId = "",
+  onClose,
+  onStage,
+}: {
+  task: DeliveryTask;
+  clientId?: string;
+  onClose: () => void;
+  onStage?: (id: string, stage: TaskStage) => void;
+}) {
+  return (
+    <PostFicha
+      post={deliveryTaskToPost(task)}
+      clientId={clientId}
+      clientName={task.client}
+      narrativa=""
+      pillars={[]}
+      dates={[]}
+      leLabel={task.client}
+      mode="view"
+      variant="delivery"
+      onClose={onClose}
+      onCreated={() => {}}
+      onAdd={() => {}}
+      onSaved={(p) => { if (p.taskStage && p.id) onStage?.(p.id, p.taskStage); }}
+    />
   );
 }
 

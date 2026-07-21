@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { DELIVERY_TODAY_ISO, OPS_TEAM, type DeliveryTask } from "@/lib/data/operacao";
-import { TaskUniversal } from "./task-universal";
+import { TaskFicha } from "./linha-editorial";
 
 const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
 let taskSeq = 7000;
@@ -168,11 +168,7 @@ export function ClientTasksTab({
         </Card>
         {createModal}
         {selected && (
-          <TaskUniversal
-            task={selected}
-            onClose={() => setSelected(null)}
-            onStage={(id, stage) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)))}
-          />
+          <TaskFicha task={selected} clientId={clientId} onClose={() => setSelected(null)} onStage={(id, stage) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)))} />
         )}
       </>
     );
@@ -274,11 +270,7 @@ export function ClientTasksTab({
 
       {createModal}
       {selected && (
-        <TaskUniversal
-          task={selected}
-          onClose={() => setSelected(null)}
-          onStage={(id, stage) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)))}
-        />
+        <TaskFicha task={selected} clientId={clientId} onClose={() => setSelected(null)} onStage={(id, stage) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)))} />
       )}
     </>
   );

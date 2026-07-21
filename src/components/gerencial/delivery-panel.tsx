@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { AvatarStack } from "@/components/ui/avatar";
-import { TaskUniversal } from "./task-universal";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
+import { TaskFicha } from "./linha-editorial";
+// TaskUniversal aposentado (C1.1): todas as telas usam a ficha canônica (TaskFicha).
 import { cn } from "@/lib/utils";
 import {
   DELIVERY_CONFIG_FALLBACK,
@@ -383,13 +384,11 @@ export function DeliveryPanel({
       {view === "cliente" && <PorCliente tasks={filtered} {...shared} />}
 
       {selected && (
-        <TaskUniversal
+        <TaskFicha
           task={selected}
+          clientId={clients.find((c) => c.name === selected.client)?.id ?? ""}
           onClose={() => setSelected(null)}
           onStage={setStage}
-          team={team}
-          meName={meName}
-          onChanged={() => router.refresh()}
         />
       )}
       {drill && (

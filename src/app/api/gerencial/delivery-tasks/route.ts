@@ -22,6 +22,7 @@ type Body = {
     | "set-priority"
     | "set-requester"
     | "set-type"
+    | "upsert-content"
     | "log-hours"
     | "set-checklist"
     | "add-comment"
@@ -54,6 +55,14 @@ type Body = {
   customFields?: Record<string, unknown>;
   campaignGoal?: string;
   contentFormat?: string;
+  tema?: string;
+  roteiro?: string;
+  legenda?: string;
+  refs?: unknown;
+  postDateIso?: string;
+  deliveryDate?: string;
+  deliveryOverridden?: boolean;
+  commemorativeDate?: string;
 };
 
 type RawComment = {
@@ -196,6 +205,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "id/tipo inválido" }, { status: 400 });
     }
     const { error } = await supabase.from("delivery_tasks").update({ type: b.type, updated_at: now }).eq("id", b.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // C1.1: conteúdo da ficha canônica numa task pura (tema/roteiro/legenda/datas).
+  if (action === "upsert-content") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const patch: Record<string, unknown> = { updated_at: now };
+    if (b.title !== undefined) patch.title = String(b.title).slice(0, 300);
+    if (b.tema !== undefined) patch.tema = b.tema || null;
+    if (b.roteiro !== undefined) patch.roteiro = b.roteiro || null;
+    if (b.legenda !== undefined) patch.legenda = b.legenda || null;
+    if (b.refs !== undefined) patch.refs = Array.isArray(b.refs) ? b.refs : [];
+    if (b.postDateIso !== undefined) patch.post_date_iso = b.postDateIso || null;
+    if (b.deliveryDate !== undefined) patch.delivery_date = b.deliveryDate || null;
+    if (b.deliveryOverridden !== undefined) patch.delivery_overridden = !!b.deliveryOverridden;
+    if (b.commemorativeDate !== undefined) patch.commemorative_date = b.commemorativeDate || null;
+    const { error } = await supabase.from("delivery_tasks").update(patch).eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }
