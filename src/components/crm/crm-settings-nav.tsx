@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ArrowDownUp,
   Copy,
+  FileText,
   FormInput,
   GitBranch,
   LayoutGrid,
@@ -27,6 +28,7 @@ const ICONS: Record<string, LucideIcon> = {
   tags: Tags,
   pipelines: GitBranch,
   flows: Workflow,
+  scripts: FileText,
   forms: FormInput,
   duplicates: Copy,
   import: ArrowDownUp,
@@ -34,7 +36,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Personalização", keys: ["layout", "properties", "tags"] },
-  { title: "Funil", keys: ["pipelines", "flows"] },
+  { title: "Funil", keys: ["pipelines", "flows", "scripts"] },
   { title: "Aquisição", keys: ["forms"] },
   { title: "Dados", keys: ["duplicates", "import"] },
 ];
