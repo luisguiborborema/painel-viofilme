@@ -14,6 +14,9 @@ type Body = {
   plan?: string;
   owner?: string;
   source?: string;
+  contractType?: string;
+  contractUrl?: string; // link ZapSign
+  signedDate?: string;
 };
 
 /**
@@ -56,12 +59,20 @@ export async function POST(req: Request) {
   // Carrega o lead.
   const { data: lead, error: leadErr } = await supabase
     .from("crm_leads")
-    .select("id,name,segment,monthly_value")
+    .select("id,name,segment,monthly_value,pipeline_id,properties")
     .eq("id", b.leadId)
     .maybeSingle();
   if (leadErr || !lead) {
     return NextResponse.json({ error: "lead não encontrado" }, { status: 404 });
   }
+
+  // Estágio "Ganho" do funil do negócio (mantém stage_id coerente na cadeia).
+  const { data: wonStage } = await supabase
+    .from("crm_stages")
+    .select("id")
+    .eq("pipeline_id", lead.pipeline_id ?? "")
+    .eq("key", "ganho")
+    .maybeSingle();
 
   // Automação real: cria o cliente (Operação + Portal).
   let clientId: string | null = null;
@@ -78,17 +89,25 @@ export async function POST(req: Request) {
   clientId = created?.id ?? null;
   if (clientId) automations[0].done = true;
 
+  // Merge dos dados de contrato nas propriedades (alinha com a aba Negociação).
+  const props = (lead.properties as Record<string, unknown> | null) ?? {};
+  if (b.contractType) props.n_tipo_contrato = b.contractType;
+  if (b.contractUrl) props.n_zapsign = b.contractUrl;
+  if (b.signedDate) props.n_data_assinatura = b.signedDate;
+
   // Marca o lead como ganho.
   await supabase
     .from("crm_leads")
     .update({
       stage: "ganho",
+      stage_id: wonStage?.id ?? null,
       won_at: now,
       stage_changed_at: now,
       converted_client_id: clientId,
       monthly_value: b.monthlyValue ?? lead.monthly_value,
       media_budget: b.mediaBudget,
       plan: b.plan,
+      properties: props,
       updated_at: now,
     })
     .eq("id", b.leadId);
