@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Plus,
+  RotateCcw,
+  ShieldAlert,
+  Snowflake,
+  Trash2,
+  UserX,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
 import {
@@ -12,6 +20,13 @@ import {
   SCORE_TIERS,
   LEAD_PRIORITIES,
   unmetStageRequirements,
+  cadenceLabel,
+  PIPELINE_VENDAS_ID,
+  STAGE_RESERVOIR,
+  STAGE_CADENCE_ON,
+  STAGE_CADENCE_OFF,
+  STAGE_NO_SHOW,
+  STAGE_HANDOFF,
   type Company,
   type Contact,
   type CrmLead,
@@ -49,6 +64,10 @@ function LeadCard({
   onOpen,
   onDragStart,
   onDelete,
+  onNoShow,
+  onFreeze,
+  onUnfreeze,
+  onHandoff,
 }: {
   card: CrmLeadCard;
   allTags: Tag[];
@@ -56,12 +75,17 @@ function LeadCard({
   onOpen: () => void;
   onDragStart: () => void;
   onDelete: () => void;
+  onNoShow: () => void;
+  onFreeze: () => void;
+  onUnfreeze: () => void;
+  onHandoff: () => void;
 }) {
   const assignees = card.assignees?.length ? card.assignees : card.owner ? [card.owner] : [];
   const [confirm, setConfirm] = useState(false);
+  const frozen = Boolean(card.frozenAt);
   return (
     <div
-      draggable={!confirm}
+      draggable={!confirm && !frozen}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", card.id);
         e.dataTransfer.effectAllowed = "move";
@@ -98,6 +122,15 @@ function LeadCard({
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-ink">{card.name}</p>
         <div className="flex shrink-0 items-center gap-1">
+          {!frozen && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onFreeze(); }}
+              className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-sky-500 group-hover:opacity-100"
+              title="Congelar negócio (reengajar depois)"
+            >
+              <Snowflake className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); setConfirm(true); }}
             className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
@@ -127,6 +160,23 @@ function LeadCard({
         <span className="text-xs font-normal text-muted">/mês</span>
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {card.cadenceActive && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600"
+            title="Cadência ativa amarrada à etapa"
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+            {cadenceLabel(card.originKind)} · passo {card.cadenceStep ?? 1}
+          </span>
+        )}
+        {(card.noShowCount ?? 0) > 0 && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-600"
+            title="No-shows acumulados"
+          >
+            <UserX className="h-3 w-3" /> {card.noShowCount} no-show
+          </span>
+        )}
         {(() => {
           const p = LEAD_PRIORITIES.find((x) => x.key === (card.priority ?? "media"));
           if (!p || (card.priority !== "alta" && card.priority !== "urgente")) return null;
@@ -165,6 +215,101 @@ function LeadCard({
           : `Há ${card.daysInStage} dia${card.daysInStage > 1 ? "s" : ""}`}
         {card.rot === "stale" && " · parado"}
       </p>
+
+      {/* Ação contextual por estágio (no-show / passagem de bastão / reativar) */}
+      {frozen ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onUnfreeze(); }}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-line px-2 py-1.5 text-[11px] font-semibold text-ink hover:bg-subtle"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Reativar
+        </button>
+      ) : card.stage === STAGE_NO_SHOW ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onNoShow(); }}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/40 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-500/10"
+        >
+          <UserX className="h-3.5 w-3.5" /> Registrar no-show
+        </button>
+      ) : card.stage === STAGE_HANDOFF ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onHandoff(); }}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700"
+        >
+          <ArrowRightLeft className="h-3.5 w-3.5" /> Passar bastão
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** Adição rápida estilo Kommo: digita o nome da empresa + Enter cria o card cru. */
+function QuickAdd({ onAdd }: { onAdd: (name: string) => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && value.trim()) {
+          onAdd(value.trim());
+          setValue("");
+        }
+      }}
+      placeholder="+ Empresa e Enter…"
+      className="mb-2 w-full rounded-lg border border-dashed border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none placeholder:text-muted focus:border-brand-400"
+    />
+  );
+}
+
+/** Passagem de bastão SDR → Vendas: registra parecer (aceite híbrido). */
+function HandoffModal({
+  name,
+  onClose,
+  onSubmit,
+}: {
+  name: string;
+  onClose: () => void;
+  onSubmit: (result: "aceito" | "recusado", parecer: string) => void;
+}) {
+  const [parecer, setParecer] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+        <h2 className="text-base font-bold text-ink">Passagem de bastão</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          <span className="font-semibold text-ink">{name}</span> — registre o parecer da
+          qualificação. Aceito segue para o funil de Vendas; recusado vira Perdido com o
+          feedback anexado.
+        </p>
+        <textarea
+          value={parecer}
+          onChange={(e) => setParecer(e.target.value)}
+          rows={4}
+          placeholder="Parecer / contexto para o closer (dor, budget, decisor, urgência…)"
+          className="mt-3 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+        />
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <button
+            onClick={() => onSubmit("recusado", parecer)}
+            className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-500/10"
+          >
+            Recusar (Perdido)
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">
+              Cancelar
+            </button>
+            <button
+              onClick={() => onSubmit("aceito", parecer)}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Aceitar → Vendas
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -195,6 +340,8 @@ export function CrmPipeline({
   const [showNew, setShowNew] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [mine, setMine] = useState(false);
+  const [showFrozen, setShowFrozen] = useState(false);
+  const [handoff, setHandoff] = useState<{ id: string; name: string } | null>(null);
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
   const [pipelineId, setPipelineId] = useState(defaultId);
@@ -210,12 +357,16 @@ export function CrmPipeline({
     c.assignees?.length ? c.assignees : c.owner ? [c.owner] : [];
 
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
+  const inThisPipeline = (c: CrmLeadCard) => (c.pipelineId || defaultId) === pipelineId;
+  const frozenCount = cards.filter((c) => inThisPipeline(c) && Boolean(c.frozenAt)).length;
   const visibleCards = cards.filter(
     (c) =>
-      (c.pipelineId || defaultId) === pipelineId &&
+      inThisPipeline(c) &&
+      (showFrozen ? Boolean(c.frozenAt) : !c.frozenAt) &&
       (!tagFilter || c.tags?.includes(tagFilter)) &&
       (!mine || assigneesOf(c).includes(currentUser)),
   );
+  const isReservoir = stages[0]?.key === STAGE_RESERVOIR; // funil Pré-venda (SDR)
 
   function addLead(lead: CrmLead) {
     setShowNew(false);
@@ -230,6 +381,90 @@ export function CrmPipeline({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", id }),
     }).catch(() => {});
+    router.refresh();
+  }
+
+  function post(payload: Record<string, unknown>) {
+    return fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async function markNoShow(id: string) {
+    setCards((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, noShowCount: (c.noShowCount ?? 0) + 1 } : c)),
+    );
+    await post({ action: "no-show", id }).catch(() => {});
+  }
+
+  async function freezeCard(id: string) {
+    const iso = new Date().toISOString();
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, frozenAt: iso } : c)));
+    await post({ action: "freeze", id }).catch(() => {});
+    router.refresh();
+  }
+
+  async function unfreezeCard(id: string) {
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, frozenAt: undefined } : c)));
+    await post({ action: "unfreeze", id }).catch(() => {});
+    router.refresh();
+  }
+
+  async function submitHandoff(result: "aceito" | "recusado", parecer: string) {
+    if (!handoff) return;
+    const id = handoff.id;
+    setHandoff(null);
+    setCards((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        return result === "aceito"
+          ? { ...c, pipelineId: PIPELINE_VENDAS_ID, stage: "vnd_analise", cadenceActive: false, daysInStage: 0, rot: "fresh" as const }
+          : { ...c, stage: "perdido", cadenceActive: false };
+      }),
+    );
+    await post({ action: "handoff", id, result, parecer }).catch(() => {});
+    router.refresh();
+  }
+
+  async function quickAdd(name: string, stageId: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const iso = new Date().toISOString();
+    const tempId = `tmp-${stageId}-${iso}`;
+    const optimistic: CrmLeadCard = {
+      id: tempId,
+      name: trimmed,
+      stage: STAGE_RESERVOIR,
+      monthlyValue: 0,
+      mediaBudget: 0,
+      probability: 10,
+      bant: {},
+      pipelineId: pipeline.id,
+      stageId,
+      originKind: "outbound",
+      stageChangedAt: iso,
+      createdAt: iso,
+      updatedAt: iso,
+      daysInStage: 0,
+      rot: "fresh",
+      noShowCount: 0,
+    };
+    setCards((prev) => [optimistic, ...prev]);
+    const res = await post({
+      action: "create",
+      name: trimmed,
+      allowNoContact: true,
+      originKind: "outbound",
+      pipelineId: pipeline.id,
+      stageId,
+      stage: STAGE_RESERVOIR,
+    }).catch(() => null);
+    const json = res ? await res.json().catch(() => ({})) : {};
+    if (json?.id) {
+      setCards((prev) => prev.map((c) => (c.id === tempId ? { ...c, id: json.id } : c)));
+    }
     router.refresh();
   }
 
@@ -253,9 +488,13 @@ export function CrmPipeline({
     }
 
     const prevStage = card.stage;
+    // Cadência amarrada à etapa: reflete ON/OFF no card na hora do arraste.
+    const cadenceActive =
+      stage.key === STAGE_CADENCE_ON ? true : stage.key === STAGE_CADENCE_OFF ? false : card.cadenceActive;
+    const cadenceStep = stage.key === STAGE_CADENCE_ON ? 1 : card.cadenceStep;
     setCards((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, stage: stage.key, daysInStage: 0, rot: "fresh" } : c,
+        c.id === id ? { ...c, stage: stage.key, daysInStage: 0, rot: "fresh", cadenceActive, cadenceStep } : c,
       ),
     );
     try {
@@ -329,6 +568,23 @@ export function CrmPipeline({
               Meus negócios
             </button>
           )}
+          {(frozenCount > 0 || showFrozen) && (
+            <button
+              onClick={() => setShowFrozen((f) => !f)}
+              className={
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors " +
+                (showFrozen ? "bg-sky-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong")
+              }
+              title="Negócios congelados/arquivados"
+            >
+              <Snowflake className="h-3.5 w-3.5" /> Congelados
+              {frozenCount > 0 && (
+                <span className={cn("rounded-full px-1.5 text-[10px]", showFrozen ? "bg-white/25" : "bg-surface")}>
+                  {frozenCount}
+                </span>
+              )}
+            </button>
+          )}
           {tags.length > 0 && (
             <div className="flex items-center gap-1.5">
               <button
@@ -365,6 +621,14 @@ export function CrmPipeline({
         </div>
       </div>
 
+      {showFrozen && (
+        <div className="flex items-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-700">
+          <Snowflake className="h-4 w-4 shrink-0" />
+          Vendo negócios <strong>congelados/arquivados</strong> — reengaje quando fizer sentido.
+          Use <strong>Reativar</strong> no card para devolvê-lo ao funil.
+        </div>
+      )}
+
       {showNew && (
         <NewLeadModal
           onClose={() => setShowNew(false)}
@@ -379,9 +643,11 @@ export function CrmPipeline({
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {stages.map((s) => {
+        {stages.map((s, si) => {
           const inStage = visibleCards.filter((c) => c.stage === s.key);
           const sum = inStage.reduce((acc, c) => acc + c.monthlyValue, 0);
+          // Adição rápida (Kommo) só no reservatório do outbound (1ª coluna do SDR).
+          const showQuickAdd = si === 0 && isReservoir && !showFrozen;
           return (
             <div
               key={s.key}
@@ -413,6 +679,7 @@ export function CrmPipeline({
               {sum > 0 && (
                 <p className="mb-2 px-1 text-[11px] text-muted">{formatBRL(sum)}</p>
               )}
+              {showQuickAdd && <QuickAdd onAdd={(name) => quickAdd(name, s.id)} />}
               <div className="flex flex-1 flex-col gap-2">
                 {inStage.map((c) => (
                   <LeadCard
@@ -423,9 +690,13 @@ export function CrmPipeline({
                     onOpen={() => router.push(`/gerencial/crm/${c.id}`)}
                     onDragStart={() => setDragId(c.id)}
                     onDelete={() => deleteCard(c.id)}
+                    onNoShow={() => markNoShow(c.id)}
+                    onFreeze={() => freezeCard(c.id)}
+                    onUnfreeze={() => unfreezeCard(c.id)}
+                    onHandoff={() => setHandoff({ id: c.id, name: c.name })}
                   />
                 ))}
-                {inStage.length === 0 && (
+                {inStage.length === 0 && !showQuickAdd && (
                   <p className="rounded-xl border border-dashed border-line px-2 py-6 text-center text-[11px] text-muted">
                     Arraste um card aqui
                   </p>
@@ -435,6 +706,14 @@ export function CrmPipeline({
           );
         })}
       </div>
+
+      {handoff && (
+        <HandoffModal
+          name={handoff.name}
+          onClose={() => setHandoff(null)}
+          onSubmit={submitHandoff}
+        />
+      )}
 
       {blocked && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

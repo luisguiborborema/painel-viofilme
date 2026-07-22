@@ -1825,7 +1825,7 @@ import type {
 } from "./crm";
 
 const CRM_LEAD_COLS =
-  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,created_at,updated_at";
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,no_show_count,frozen_at,frozen_reason,origin_kind,cadence_active,cadence_step,handoff_at,handoff_result,handoff_parecer,created_at,updated_at";
 
 type CrmLeadRow = Record<string, unknown>;
 
@@ -1863,6 +1863,15 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
     stageId: s("stage_id"),
     tags: (r.tags as string[] | null) ?? [],
     properties: (r.properties as Record<string, unknown> | null) ?? {},
+    noShowCount: Number(r.no_show_count ?? 0),
+    frozenAt: s("frozen_at"),
+    frozenReason: s("frozen_reason"),
+    originKind: r.origin_kind === "inbound" || r.origin_kind === "outbound" ? r.origin_kind : undefined,
+    cadenceActive: Boolean(r.cadence_active),
+    cadenceStep: Number(r.cadence_step ?? 0),
+    handoffAt: s("handoff_at"),
+    handoffResult: r.handoff_result === "aceito" || r.handoff_result === "recusado" ? r.handoff_result : undefined,
+    handoffParecer: s("handoff_parecer"),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };

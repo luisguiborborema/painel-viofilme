@@ -74,12 +74,49 @@ export type CrmLead = {
   stageId?: string;
   tags?: string[]; // ids de Tag
   properties?: Record<string, unknown>; // valores das propriedades customizadas
+  // Cadeia de funis (0069) — backbone do módulo Comercial
+  /** No-show é estado, não etapa: contador que persiste ao voltar de estágio. */
+  noShowCount?: number;
+  /** Congelado/Arquivado: reengajar em trimestres futuros; não some do sistema. */
+  frozenAt?: string;
+  frozenReason?: string;
+  /** Origem do lead — define qual cadência liga na "Tentativa de Contato". */
+  originKind?: "inbound" | "outbound";
+  /** Cadência amarrada à etapa (ON em Tentativa de Contato, OFF em Contactado). */
+  cadenceActive?: boolean;
+  cadenceStep?: number;
+  /** Passagem de bastão: parecer registrado ao passar da Pré-venda p/ Vendas. */
+  handoffAt?: string;
+  handoffResult?: "aceito" | "recusado";
+  handoffParecer?: string;
   createdAt: string;
   updatedAt: string;
 };
 
 /** Deal (negócio) = a oportunidade no funil. Alias semântico de CrmLead. */
 export type Deal = CrmLead;
+
+// ── Cadeia de funis (0069) — ids/keys canônicos do backbone comercial ────────
+/** Funil Pré-venda (SDR): reservatório → cadência → reunião → passa bastão. */
+export const PIPELINE_PREVENDA_ID = "11111111-1111-4111-8111-111111111111";
+/** Funil Vendas (Closer): análise → proposta → negociação → Ganho. */
+export const PIPELINE_VENDAS_ID = "22222222-2222-4222-8222-222222222222";
+
+/** Reservatório do outbound: onde a adição rápida (Kommo) cria os cards crus. */
+export const STAGE_RESERVOIR = "sdr_contactar_urgente";
+/** Entrar aqui LIGA a cadência (por origem inbound/outbound). */
+export const STAGE_CADENCE_ON = "sdr_tentativa_contato";
+/** Entrar aqui DESLIGA a cadência (passa a follow-up manual). */
+export const STAGE_CADENCE_OFF = "sdr_contactado";
+/** Estágio que marca no-show (contador no card). */
+export const STAGE_NO_SHOW = "sdr_reuniao_agendada";
+/** Estágio da passagem de bastão (registra parecer ao dar Ganho). */
+export const STAGE_HANDOFF = "sdr_reuniao_realizada";
+
+/** Rótulo da cadência exibido no card, derivado da origem do lead. */
+export function cadenceLabel(originKind?: string | null): string {
+  return originKind === "inbound" ? "Cadência inbound" : "Cadência outbound";
+}
 
 // ── CRM v2: objetos Empresa / Contato + customização ────────────────────────
 

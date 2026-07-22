@@ -4,6 +4,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import {
   requirementMet,
+  PIPELINE_VENDAS_ID,
+  STAGE_CADENCE_ON,
+  STAGE_CADENCE_OFF,
   type StageAutomation,
   type StageRequirement,
 } from "@/lib/data/crm";
@@ -136,13 +139,30 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "update" | "move" | "delete" | "change-pipeline" | "set-assignees" | "set-priority";
+  action?:
+    | "create"
+    | "update"
+    | "move"
+    | "delete"
+    | "change-pipeline"
+    | "set-assignees"
+    | "set-priority"
+    | "no-show"
+    | "freeze"
+    | "unfreeze"
+    | "handoff";
   id?: string;
   assignees?: string[];
   stage?: string;
   stageId?: string;
   kind?: "open" | "won" | "lost";
   reason?: string;
+  // Passagem de bastão (Reunião Realizada → Vendas)
+  result?: "aceito" | "recusado";
+  parecer?: string;
+  // Adição rápida (Kommo) no reservatório: permite card cru sem contato
+  allowNoContact?: boolean;
+  originKind?: "inbound" | "outbound";
   name?: string;
   contactName?: string;
   contactPhone?: string;
@@ -221,6 +241,135 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
+  // No-show é ESTADO, não etapa: incrementa o contador do card (persiste ao
+  // voltar de estágio). Sem coluna de reagendamento.
+  if (action === "no-show") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { data: d } = await supabase
+      .from("crm_leads")
+      .select("no_show_count")
+      .eq("id", body.id)
+      .maybeSingle();
+    const next = Number(d?.no_show_count ?? 0) + 1;
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({ no_show_count: next, updated_at: now })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await supabase.from("crm_interactions").insert({
+      lead_id: body.id, channel: "system", body: `🚫 No-show registrado (#${next})`, author: user.name,
+    });
+    return NextResponse.json({ ok: true, persisted: true, noShowCount: next });
+  }
+
+  // Congelar = saída à parte de Perdido: reengajar em trimestres futuros, não some.
+  if (action === "freeze") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({ frozen_at: now, frozen_reason: body.reason ?? null, cadence_active: false, updated_at: now })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await supabase.from("crm_interactions").insert({
+      lead_id: body.id, channel: "system", author: user.name,
+      body: `❄️ Negócio congelado${body.reason ? ` — ${body.reason}` : ""}`,
+    });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "unfreeze") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({ frozen_at: null, frozen_reason: null, updated_at: now })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await supabase.from("crm_interactions").insert({
+      lead_id: body.id, channel: "system", body: "♻️ Negócio reativado", author: user.name,
+    });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // Passagem de bastão com parecer (aceite híbrido). Ao dar Ganho na "Reunião
+  // Realizada" (Pré-venda), registra o parecer:
+  //   • Aceito  → move o MESMO negócio p/ a 1ª etapa do Vendas (preserva timeline).
+  //   • Recusado → vira Perdido com o feedback anexado (insumo de qualificação do SDR).
+  if (action === "handoff") {
+    if (!body.id || (body.result !== "aceito" && body.result !== "recusado")) {
+      return NextResponse.json({ error: "id/result inválido" }, { status: 400 });
+    }
+    const parecer = (body.parecer ?? "").trim();
+    const { data: deal } = await supabase
+      .from("crm_leads")
+      .select("stage, pipeline_id")
+      .eq("id", body.id)
+      .maybeSingle();
+
+    if (body.result === "aceito") {
+      const { data: stages } = await supabase
+        .from("crm_stages")
+        .select("id,key,position,kind")
+        .eq("pipeline_id", PIPELINE_VENDAS_ID)
+        .order("position", { ascending: true });
+      const first = (stages ?? []).find((s) => s.kind === "open") ?? (stages ?? [])[0];
+      const { error } = await supabase
+        .from("crm_leads")
+        .update({
+          pipeline_id: PIPELINE_VENDAS_ID,
+          stage_id: first?.id ?? null,
+          stage: first?.key ?? "vnd_analise",
+          stage_changed_at: now,
+          cadence_active: false,
+          handoff_at: now,
+          handoff_result: "aceito",
+          handoff_parecer: parecer || null,
+          updated_at: now,
+        })
+        .eq("id", body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await supabase.from("crm_stage_history").insert({
+        deal_id: body.id, from_stage: deal?.stage ?? null, to_stage: first?.key ?? "vnd_analise", changed_by: user.name,
+      });
+      await supabase.from("crm_interactions").insert({
+        lead_id: body.id, channel: "system", author: user.name,
+        body: `🤝 Bastão passado — aceito na qualificação${parecer ? `: ${parecer}` : ""}`,
+      });
+      return NextResponse.json({ ok: true, persisted: true, pipelineId: PIPELINE_VENDAS_ID, stage: first?.key ?? "vnd_analise" });
+    }
+
+    // recusado → Perdido no funil atual, com feedback do closer anexado.
+    const { data: lostStage } = await supabase
+      .from("crm_stages")
+      .select("id")
+      .eq("pipeline_id", deal?.pipeline_id ?? "")
+      .eq("key", "perdido")
+      .maybeSingle();
+    const { error } = await supabase
+      .from("crm_leads")
+      .update({
+        stage: "perdido",
+        stage_id: lostStage?.id ?? null,
+        stage_changed_at: now,
+        lost_at: now,
+        lost_reason: parecer || "Recusado na passagem de bastão",
+        cadence_active: false,
+        handoff_at: now,
+        handoff_result: "recusado",
+        handoff_parecer: parecer || null,
+        updated_at: now,
+      })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await supabase.from("crm_stage_history").insert({
+      deal_id: body.id, from_stage: deal?.stage ?? null, to_stage: "perdido", changed_by: user.name,
+    });
+    await supabase.from("crm_interactions").insert({
+      lead_id: body.id, channel: "system", author: user.name,
+      body: `🚫 Bastão recusado — feedback: ${parecer || "—"}`,
+    });
+    return NextResponse.json({ ok: true, persisted: true, stage: "perdido" });
+  }
+
   if (action === "change-pipeline") {
     if (!body.id || !body.pipelineId) {
       return NextResponse.json({ error: "id/pipelineId ausente" }, { status: 400 });
@@ -297,6 +446,14 @@ export async function POST(req: Request) {
       updated_at: now,
     };
     if (body.stageId) patch.stage_id = body.stageId;
+    // Cadência amarrada à etapa: liga em "Tentativa de Contato" (passo 1),
+    // desliga em "Contactado" (passa a follow-up manual).
+    if (body.stage === STAGE_CADENCE_ON) {
+      patch.cadence_active = true;
+      patch.cadence_step = 1;
+    } else if (body.stage === STAGE_CADENCE_OFF) {
+      patch.cadence_active = false;
+    }
     // won/lost pelo TIPO do estágio (kind), com fallback às keys padrão.
     const kind = body.kind ?? (body.stage === "ganho" ? "won" : body.stage === "perdido" ? "lost" : "open");
     if (kind === "lost") {
@@ -345,12 +502,14 @@ export async function POST(req: Request) {
     if (!body.name) {
       return NextResponse.json({ error: "nome ausente" }, { status: 400 });
     }
-    // Todo negócio precisa de um contato (existente ou novo).
+    // Todo negócio precisa de um contato (existente ou novo) — EXCETO os cards
+    // crus do reservatório outbound (adição rápida Kommo / importação em massa),
+    // que nascem sem contato e são enriquecidos depois.
     const willHaveContact =
       Boolean(body.contactId) ||
       Boolean(body.newContact?.name?.trim()) ||
       Boolean(body.contactName?.trim());
-    if (!willHaveContact) {
+    if (!willHaveContact && !body.allowNoContact) {
       return NextResponse.json(
         { error: "Selecione ou crie um contato para o negócio." },
         { status: 400 },
@@ -358,6 +517,8 @@ export async function POST(req: Request) {
     }
     payload.stage = body.stage ?? "prospeccao";
     payload.stage_changed_at = now;
+    // Origem define a cadência mais à frente; outbound é o padrão do SDR.
+    payload.origin_kind = body.originKind === "inbound" ? "inbound" : "outbound";
     payload.owner = await resolveOwner(supabase, body.owner, user.name);
     payload.assignees = payload.owner ? [payload.owner] : [];
 
