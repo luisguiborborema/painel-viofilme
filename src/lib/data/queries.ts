@@ -1527,9 +1527,11 @@ import {
   MOCK_TASK_FLOWS,
   MOCK_GOALS,
   MOCK_CAPTURE_FORMS,
+  DEAL_SCRIPTS,
   type CrmLead,
   type LostReason,
   type TaskFlow,
+  type DealScript,
   type CrmGoal,
   type CaptureForm,
   type StageChange,
@@ -1661,6 +1663,15 @@ export async function getCrmLostReasons(): Promise<LostReason[]> {
 export async function getCrmTaskFlows(): Promise<TaskFlow[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmTaskFlows();
   return MOCK_TASK_FLOWS;
+}
+
+/** Biblioteca de scripts/roteiros. Cai nos defaults (DEAL_SCRIPTS) se vazia. */
+export async function getCrmScripts(): Promise<DealScript[]> {
+  if (isSupabaseConfigured()) {
+    const rows = await sb.sbGetCrmScripts();
+    return rows.length ? rows : DEAL_SCRIPTS;
+  }
+  return DEAL_SCRIPTS;
 }
 
 export async function getCrmGoals(month: string): Promise<CrmGoal[]> {

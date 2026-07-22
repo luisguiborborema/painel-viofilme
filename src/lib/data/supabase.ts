@@ -1819,6 +1819,7 @@ import type {
   PropertyFieldType,
   LostReason,
   TaskFlow,
+  DealScript,
   CrmGoal,
   CaptureForm,
   StageChange,
@@ -2103,6 +2104,24 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
           automations: (s.automations as Stage["automations"] | null) ?? [],
         }),
       ),
+  }));
+}
+
+export async function sbGetCrmScripts(): Promise<DealScript[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_scripts")
+    .select("id,command,title,hint,stage_hint,body,position,is_active")
+    .order("position", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    command: String(r.command ?? ""),
+    title: String(r.title),
+    hint: String(r.hint ?? ""),
+    stageHint: r.stage_hint ? String(r.stage_hint) : undefined,
+    body: String(r.body ?? ""),
+    isActive: r.is_active !== false,
+    position: Number(r.position ?? 0),
   }));
 }
 

@@ -105,6 +105,7 @@ export function LeadModalContent({
   pipelines = [],
   comments = [],
   currentUser = "",
+  scripts = DEAL_SCRIPTS,
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -122,6 +123,7 @@ export function LeadModalContent({
   comments?: CrmComment[];
   currentUser?: string;
   cardFields?: CardFieldSetting[];
+  scripts?: DealScript[];
 }) {
   const router = useRouter();
   const { layout, setLayout } = useLeadModalLayout();
@@ -494,6 +496,7 @@ export function LeadModalContent({
                 doneTasks={doneTasks}
                 stageKey={lead.stage}
                 notes={noteItems}
+                scripts={scripts}
                 onComplete={completeTask}
                 onReschedule={rescheduleTask}
                 onNewTask={() => setShowFab(true)}
@@ -690,6 +693,7 @@ function WorkArea({
   doneTasks,
   stageKey,
   notes,
+  scripts,
   onComplete,
   onReschedule,
   onNewTask,
@@ -698,6 +702,7 @@ function WorkArea({
   doneTasks: CrmTask[];
   stageKey: string;
   notes: CrmInteraction[];
+  scripts: DealScript[];
   onComplete: (task: CrmTask, note: string) => void;
   onReschedule: (task: CrmTask, dueIso: string) => void;
   onNewTask: () => void;
@@ -706,7 +711,7 @@ function WorkArea({
   return (
     <div className="space-y-4">
       {pendingTask ? (
-        <OpenTaskCard task={pendingTask} stageKey={stageKey} onComplete={onComplete} onReschedule={onReschedule} />
+        <OpenTaskCard task={pendingTask} stageKey={stageKey} scripts={scripts} onComplete={onComplete} onReschedule={onReschedule} />
       ) : (
         <button
           onClick={onNewTask}
@@ -759,22 +764,25 @@ function WorkArea({
 function OpenTaskCard({
   task,
   stageKey,
+  scripts,
   onComplete,
   onReschedule,
 }: {
   task: CrmTask;
   stageKey: string;
+  scripts: DealScript[];
   onComplete: (task: CrmTask, note: string) => void;
   onReschedule: (task: CrmTask, dueIso: string) => void;
 }) {
   const [note, setNote] = useState("");
   const [showScripts, setShowScripts] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
-  const suggested = suggestedScriptFor(stageKey);
+  const activeScripts = scripts.filter((s) => s.isActive !== false && s.command);
+  const suggested = suggestedScriptFor(stageKey, scripts);
   const slashQuery = note.trimStart();
   const showSlash = slashQuery.startsWith("/");
   const slashMatches = showSlash
-    ? DEAL_SCRIPTS.filter((s) => s.command.startsWith(slashQuery.split(/\s/)[0].toLowerCase()))
+    ? activeScripts.filter((s) => s.command.startsWith(slashQuery.split(/\s/)[0].toLowerCase()))
     : [];
 
   function inject(script: DealScript) {
@@ -807,9 +815,9 @@ function OpenTaskCard({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowScripts(false)} />
               <div className="absolute right-0 top-full z-20 mt-1 w-72 overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-xl">
-                {DEAL_SCRIPTS.map((s) => (
+                {activeScripts.map((s) => (
                   <button
-                    key={s.command}
+                    key={s.id ?? s.command}
                     onClick={() => inject(s)}
                     className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-subtle"
                   >
@@ -836,7 +844,7 @@ function OpenTaskCard({
           <div className="absolute bottom-full left-0 z-10 mb-1 w-72 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
             {slashMatches.map((s) => (
               <button
-                key={s.command}
+                key={s.id ?? s.command}
                 onClick={() => inject(s)}
                 className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-subtle"
               >

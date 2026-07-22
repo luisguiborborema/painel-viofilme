@@ -3,6 +3,7 @@ import type {
   Company,
   Contact,
   CrmLead,
+  DealScript,
   Pipeline,
   PropertyDef,
   Tag,
@@ -15,6 +16,7 @@ import { StageManager } from "./stage-manager";
 import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
 import { FlowManager } from "./flow-manager";
+import { ScriptsManager } from "./scripts-manager";
 import { CaptureFormsManager } from "./capture-forms-manager";
 import { DuplicatesManager } from "./duplicates-manager";
 import { CrmSettingsNav, type SettingsSection } from "./crm-settings-nav";
@@ -31,6 +33,7 @@ export function CrmSettings({
   companies,
   contacts,
   flows,
+  scripts = [],
   captureForms,
   team = [],
   cardLayout = [],
@@ -43,11 +46,25 @@ export function CrmSettings({
   companies: Company[];
   contacts: Contact[];
   flows: TaskFlow[];
+  scripts?: DealScript[];
   captureForms: CaptureForm[];
   team?: string[];
   cardLayout?: CardFieldSetting[];
   canEditCardLayout?: boolean;
 }) {
+  // Estágios de todos os funis (para o seletor "etapa sugerida" dos scripts).
+  const stageOptions = (() => {
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const p of pipelines) {
+      for (const s of p.stages) {
+        if (seen.has(s.key)) continue;
+        seen.add(s.key);
+        out.push({ key: s.key, label: `${p.name}: ${s.label}` });
+      }
+    }
+    return out;
+  })();
   const sections: SettingsSection[] = [
     {
       key: "layout",
@@ -93,10 +110,17 @@ export function CrmSettings({
     },
     {
       key: "flows",
-      label: "Fluxos de tarefas",
+      label: "Cadências & fluxos",
       description:
-        "Playbooks: conjuntos ordenados de tarefas (com prazo relativo) que você aplica de uma vez a um negócio.",
+        "Playbooks/cadências: conjuntos ordenados de tarefas (com prazo relativo) que você aplica de uma vez a um negócio.",
       node: <FlowManager flows={flows} />,
+    },
+    {
+      key: "scripts",
+      label: "Scripts & roteiros",
+      description:
+        "Biblioteca editável de roteiros injetáveis na ficha do lead (comando /). O time cria os seus e sugere um por etapa do funil.",
+      node: <ScriptsManager scripts={scripts} stageOptions={stageOptions} />,
     },
     {
       key: "forms",

@@ -125,11 +125,14 @@ export function cadenceLabel(originKind?: string | null): string {
 // preenche digitando ali mesmo durante a call. `stageHint` sugere o script certo
 // para a etapa atual. Biblioteca editável em Configurações é Camada 3 (futuro).
 export type DealScript = {
+  id?: string;
   command: string;
   title: string;
   hint: string;
   stageHint?: string;
   body: string;
+  isActive?: boolean;
+  position?: number;
 };
 
 export const DEAL_SCRIPTS: DealScript[] = [
@@ -203,9 +206,12 @@ Bora remarcar? Consigo [dia] às [hora] ou [dia] às [hora]. Qual encaixa melhor
   },
 ];
 
-/** Sugere o script mais adequado para a etapa atual do funil. */
-export function suggestedScriptFor(stageKey: string): DealScript | undefined {
-  return DEAL_SCRIPTS.find((s) => s.stageHint === stageKey);
+/** Sugere o script mais adequado para a etapa atual do funil (ignora inativos). */
+export function suggestedScriptFor(
+  stageKey: string,
+  scripts: DealScript[] = DEAL_SCRIPTS,
+): DealScript | undefined {
+  return scripts.find((s) => s.stageHint === stageKey && s.isActive !== false);
 }
 
 // ── CRM v2: objetos Empresa / Contato + customização ────────────────────────
