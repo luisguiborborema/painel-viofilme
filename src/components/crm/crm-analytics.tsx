@@ -1,9 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TrendingDown, Trophy, Target, Clock } from "lucide-react";
+import { TrendingDown, Trophy, Target, Clock, ArrowRightLeft, UserX, Zap, Snowflake } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
-import { buildFunnelAnalytics, type CrmLead, type Pipeline } from "@/lib/data/crm";
+import {
+  buildFunnelAnalytics,
+  buildSdrStats,
+  STAGE_RESERVOIR,
+  type CrmLead,
+  type Pipeline,
+} from "@/lib/data/crm";
 
 function Kpi({
   icon,
@@ -43,11 +49,14 @@ export function CrmAnalytics({
   const [pipelineId, setPipelineId] = useState(defaultId);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0];
 
-  const funnel = useMemo(() => {
-    const scoped = leads.filter((l) => (l.pipelineId || defaultId) === pipelineId);
-    return buildFunnelAnalytics(scoped, pipeline?.stages ?? [], nowIso);
+  const scoped = useMemo(
+    () => leads.filter((l) => (l.pipelineId || defaultId) === pipelineId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, pipelineId]);
+    [leads, pipelineId],
+  );
+  const funnel = useMemo(() => buildFunnelAnalytics(scoped, pipeline?.stages ?? [], nowIso), [scoped, pipeline, nowIso]);
+  const isSdrPipeline = (pipeline?.stages ?? []).some((s) => s.key === STAGE_RESERVOIR);
+  const sdr = useMemo(() => buildSdrStats(scoped), [scoped]);
 
   const maxReached = Math.max(1, ...funnel.stages.map((s) => s.reached));
   const maxLost = Math.max(1, ...funnel.lostReasons.map((r) => r.count));
@@ -149,6 +158,42 @@ export function CrmAnalytics({
           ))}
         </div>
       </section>
+
+      {/* Insights de pré-venda (SDR) */}
+      {isSdrPipeline && (
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <h2 className="mb-1 text-sm font-semibold text-ink">Insights de pré-venda (SDR)</h2>
+          <p className="mb-4 text-xs text-muted">
+            Saúde do funil de aquisição: eficiência da cadência, no-shows e aceitação na passagem de bastão.
+          </p>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi
+              icon={<ArrowRightLeft className="h-4 w-4" />}
+              label="Aceite no bastão"
+              value={`${sdr.handoffRate}%`}
+              hint={`${sdr.handoffAccepted} aceitos · ${sdr.handoffRefused} recusados`}
+            />
+            <Kpi
+              icon={<UserX className="h-4 w-4" />}
+              label="No-shows"
+              value={String(sdr.noShowTotal)}
+              hint={`${sdr.dealsWithNoShow} negócio(s) afetado(s)`}
+            />
+            <Kpi
+              icon={<Zap className="h-4 w-4" />}
+              label="Cadências ativas"
+              value={String(sdr.cadencesActive)}
+              hint={`${sdr.meetingsScheduled} reunião(ões) agendada(s)`}
+            />
+            <Kpi
+              icon={<Snowflake className="h-4 w-4" />}
+              label="Origem"
+              value={`${sdr.outbound}/${sdr.inbound}`}
+              hint={`outbound / inbound · ${sdr.frozen} congelado(s)`}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Motivos de perda */}
       <section className="rounded-2xl border border-line bg-surface p-4">

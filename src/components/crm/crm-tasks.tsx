@@ -3,13 +3,36 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Check, Loader2, Plus, RotateCcw, X } from "lucide-react";
+import { CalendarClock, Check, Loader2, Mail, MessageCircle, Phone, Plus, RotateCcw, SquareCheck, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import { LEAD_PRIORITIES, type LeadPriority, type PropertyDef, type TaskItem } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
 import { TaskModal } from "./task-modal";
+
+/** Ícone do tipo da tarefa (criador estilo HubSpot grava em properties.type). */
+const TASK_TYPE_META: Record<string, { icon: typeof Phone; label: string }> = {
+  ligacao: { icon: Phone, label: "Ligação" },
+  whatsapp: { icon: MessageCircle, label: "WhatsApp" },
+  email: { icon: Mail, label: "E-mail" },
+  reuniao: { icon: Users, label: "Reunião" },
+  todo: { icon: SquareCheck, label: "To-do" },
+};
+
+function TaskTypeIcon({ type }: { type?: unknown }) {
+  const meta = TASK_TYPE_META[String(type ?? "")];
+  if (!meta) return null;
+  const Icon = meta.icon;
+  return (
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted"
+      title={meta.label}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
 
 /** Responsáveis de uma tarefa (array), com fallback para assignee/owner. */
 function assigneesOf(t: TaskItem): string[] {
@@ -186,6 +209,7 @@ export function CrmTasks({
                       <Check className="h-3.5 w-3.5" />
                     ) : null}
                   </button>
+                  <TaskTypeIcon type={t.properties?.type} />
                   <div className="min-w-0 flex-1">
                     <p className={cn("truncate text-sm font-medium", t.status === "done" ? "text-muted line-through" : "text-ink")}>
                       {t.title}

@@ -1269,6 +1269,42 @@ export function buildForecast(
   return { month, rows, totals };
 }
 
+// ── Insights de pré-venda (SDR) — cadeia de funis ───────────────────────────
+
+export type SdrStats = {
+  total: number;
+  inbound: number;
+  outbound: number;
+  cadencesActive: number;
+  noShowTotal: number;
+  dealsWithNoShow: number;
+  meetingsScheduled: number;
+  handoffAccepted: number;
+  handoffRefused: number;
+  handoffRate: number; // % aceitos entre os que passaram bastão
+  frozen: number;
+};
+
+/** Consolida métricas específicas do funil de pré-venda (no-show, cadência, bastão). */
+export function buildSdrStats(leads: CrmLead[]): SdrStats {
+  const handoffAccepted = leads.filter((l) => l.handoffResult === "aceito").length;
+  const handoffRefused = leads.filter((l) => l.handoffResult === "recusado").length;
+  const decided = handoffAccepted + handoffRefused;
+  return {
+    total: leads.length,
+    inbound: leads.filter((l) => l.originKind === "inbound").length,
+    outbound: leads.filter((l) => l.originKind === "outbound").length,
+    cadencesActive: leads.filter((l) => l.cadenceActive).length,
+    noShowTotal: leads.reduce((s, l) => s + (l.noShowCount ?? 0), 0),
+    dealsWithNoShow: leads.filter((l) => (l.noShowCount ?? 0) > 0).length,
+    meetingsScheduled: leads.filter((l) => l.stage === STAGE_NO_SHOW).length,
+    handoffAccepted,
+    handoffRefused,
+    handoffRate: decided ? Math.round((handoffAccepted / decided) * 100) : 0,
+    frozen: leads.filter((l) => Boolean(l.frozenAt)).length,
+  };
+}
+
 // ── Detecção de duplicados ──────────────────────────────────────────────────
 
 function normName(s?: string): string {
