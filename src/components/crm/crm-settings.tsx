@@ -1,14 +1,16 @@
-import type {
-  CardFieldSetting,
-  Company,
-  Contact,
-  CrmLead,
-  DealScript,
-  Pipeline,
-  PropertyDef,
-  Tag,
-  TaskFlow,
-  CaptureForm,
+import {
+  DEFAULT_ASSIGNMENT,
+  type AssignmentConfig,
+  type CardFieldSetting,
+  type Company,
+  type Contact,
+  type CrmLead,
+  type DealScript,
+  type Pipeline,
+  type PropertyDef,
+  type Tag,
+  type TaskFlow,
+  type CaptureForm,
 } from "@/lib/data/crm";
 import { CardLayoutManager } from "./card-layout-manager";
 import { PropertyManager } from "./property-manager";
@@ -17,6 +19,7 @@ import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
 import { FlowManager } from "./flow-manager";
 import { ScriptsManager } from "./scripts-manager";
+import { AssignmentManager } from "./assignment-manager";
 import { CaptureFormsManager } from "./capture-forms-manager";
 import { DuplicatesManager } from "./duplicates-manager";
 import { CrmSettingsNav, type SettingsSection } from "./crm-settings-nav";
@@ -34,6 +37,7 @@ export function CrmSettings({
   contacts,
   flows,
   scripts = [],
+  assignment = DEFAULT_ASSIGNMENT,
   captureForms,
   team = [],
   cardLayout = [],
@@ -47,6 +51,7 @@ export function CrmSettings({
   contacts: Contact[];
   flows: TaskFlow[];
   scripts?: DealScript[];
+  assignment?: AssignmentConfig;
   captureForms: CaptureForm[];
   team?: string[];
   cardLayout?: CardFieldSetting[];
@@ -121,6 +126,13 @@ export function CrmSettings({
       description:
         "Biblioteca editável de roteiros injetáveis na ficha do lead (comando /). O time cria os seus e sugere um por etapa do funil.",
       node: <ScriptsManager scripts={scripts} stageOptions={stageOptions} />,
+    },
+    {
+      key: "automation",
+      label: "Automações & atribuição",
+      description:
+        "Como novos negócios ganham responsável (rodízio, carga, origem) e o resumo das automações disparadas por etapa.",
+      node: <AssignmentManager config={assignment} team={team} pipelines={pipelines} />,
     },
     {
       key: "forms",

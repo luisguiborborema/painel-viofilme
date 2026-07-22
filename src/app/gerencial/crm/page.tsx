@@ -23,6 +23,7 @@ import {
   getCrmTaskFlows,
   getCrmScripts,
   getCrmDocuments,
+  getAssignmentConfig,
   getCaptureForms,
   getStageHistory,
   getCardLayout,
@@ -66,16 +67,18 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, goals, captureForms, history, cardLayout] = await Promise.all([
-    getCrmTasks(),
-    getCrmTaskFlows(),
-    getCrmScripts(),
-    getCrmDocuments(),
-    getCrmGoals(curMonth),
-    getCaptureForms(),
-    getStageHistory(),
-    getCardLayout("deal"),
-  ]);
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout] =
+    await Promise.all([
+      getCrmTasks(),
+      getCrmTaskFlows(),
+      getCrmScripts(),
+      getCrmDocuments(),
+      getAssignmentConfig(),
+      getCrmGoals(curMonth),
+      getCaptureForms(),
+      getStageHistory(),
+      getCardLayout("deal"),
+    ]);
   const stageTimings = buildStageTimings(history, nowIso);
   const taskItems = buildTaskItems(crmTasks, leads);
   const forecast = buildForecast(leads, goals, teamNames, curMonth);
@@ -194,6 +197,7 @@ export default async function CrmPage({
           contacts={contacts}
           flows={flows}
           scripts={scripts}
+          assignment={assignment}
           captureForms={captureForms}
           team={teamNames}
           cardLayout={cardLayout}

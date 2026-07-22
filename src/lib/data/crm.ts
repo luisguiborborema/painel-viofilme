@@ -144,6 +144,44 @@ export const CRM_DOCUMENT_KINDS: { key: string; label: string }[] = [
   { key: "outro", label: "Outro" },
 ];
 
+// ── Atribuição automática de novos negócios (Configurações) ─────────────────
+export type AssignmentMode = "manual" | "rodizio" | "carga" | "origem";
+
+export type AssignmentConfig = {
+  /** manual = quem cria escolhe · rodizio = distribui parelho (menos negócios)
+   *  carga = menos negócios ABERTOS · origem = por inbound/outbound. */
+  mode: AssignmentMode;
+  /** Membros elegíveis (nomes). Vazio = todos os gerenciais. */
+  pool: string[];
+  /** Responsável fixo por origem (quando mode = "origem"). */
+  byOrigin: { inbound?: string; outbound?: string };
+};
+
+export const DEFAULT_ASSIGNMENT: AssignmentConfig = { mode: "carga", pool: [], byOrigin: {} };
+
+export const ASSIGNMENT_MODES: { key: AssignmentMode; label: string; hint: string }[] = [
+  { key: "manual", label: "Manual", hint: "Quem cria o negócio escolhe o responsável." },
+  { key: "rodizio", label: "Rodízio", hint: "Distribui parelho — quem tem menos negócios no total." },
+  { key: "carga", label: "Por carga", hint: "Quem tem menos negócios em aberto agora." },
+  { key: "origem", label: "Por origem", hint: "Responsável fixo para inbound e para outbound." },
+];
+
+/** Normaliza um objeto solto (jsonb) em AssignmentConfig válido. */
+export function toAssignmentConfig(v: unknown): AssignmentConfig {
+  const o = (v ?? {}) as Partial<AssignmentConfig>;
+  const mode = (["manual", "rodizio", "carga", "origem"] as const).includes(o.mode as AssignmentMode)
+    ? (o.mode as AssignmentMode)
+    : "carga";
+  return {
+    mode,
+    pool: Array.isArray(o.pool) ? o.pool.filter((x): x is string => typeof x === "string") : [],
+    byOrigin: {
+      inbound: typeof o.byOrigin?.inbound === "string" ? o.byOrigin.inbound : undefined,
+      outbound: typeof o.byOrigin?.outbound === "string" ? o.byOrigin.outbound : undefined,
+    },
+  };
+}
+
 // ── Scripts / roteiros injetáveis na caixa de nota da tarefa (Ficha do Lead) ──
 // O comando `/` injeta um TEMPLATE DE TEXTO editável (não são campos), que o SDR
 // preenche digitando ali mesmo durante a call. `stageHint` sugere o script certo

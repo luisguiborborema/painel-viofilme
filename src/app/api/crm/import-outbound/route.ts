@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { PIPELINE_PREVENDA_ID, STAGE_RESERVOIR } from "@/lib/data/crm";
+import { resolveAssignee } from "@/lib/crm/assign";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,13 +49,17 @@ export async function POST(req: Request) {
   if (rows.length === 0) {
     return NextResponse.json({ error: "Nenhuma empresa válida para importar." }, { status: 400 });
   }
-  const owner = body.owner?.trim() || user.name;
-
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: true, persisted: false, created: rows.length });
   }
 
   const supabase = await createClient();
+  // Atribuição automática (config) quando o SDR não escolhe explicitamente.
+  const owner = await resolveAssignee(supabase, {
+    requested: body.owner,
+    fallback: user.name,
+    originKind: "outbound",
+  });
 
   // Estágio-reservatório da Pré-venda.
   const { data: stage } = await supabase

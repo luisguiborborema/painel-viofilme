@@ -1528,11 +1528,13 @@ import {
   MOCK_GOALS,
   MOCK_CAPTURE_FORMS,
   DEAL_SCRIPTS,
+  DEFAULT_ASSIGNMENT,
   type CrmLead,
   type LostReason,
   type TaskFlow,
   type DealScript,
   type CrmDocument,
+  type AssignmentConfig,
   type CrmGoal,
   type CaptureForm,
   type StageChange,
@@ -1682,6 +1684,12 @@ export async function getCrmDocuments(opts?: {
 }): Promise<CrmDocument[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmDocuments(opts);
   return [];
+}
+
+/** Config de atribuição automática de novos negócios. */
+export async function getAssignmentConfig(): Promise<AssignmentConfig> {
+  if (isSupabaseConfigured()) return sb.sbGetAssignmentConfig();
+  return DEFAULT_ASSIGNMENT;
 }
 
 export async function getCrmGoals(month: string): Promise<CrmGoal[]> {

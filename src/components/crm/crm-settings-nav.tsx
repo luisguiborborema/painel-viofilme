@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Tags,
   Workflow,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   pipelines: GitBranch,
   flows: Workflow,
   scripts: FileText,
+  automation: Zap,
   forms: FormInput,
   duplicates: Copy,
   import: ArrowDownUp,
@@ -36,7 +38,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Personalização", keys: ["layout", "properties", "tags"] },
-  { title: "Funil", keys: ["pipelines", "flows", "scripts"] },
+  { title: "Funil", keys: ["pipelines", "flows", "scripts", "automation"] },
   { title: "Aquisição", keys: ["forms"] },
   { title: "Dados", keys: ["duplicates", "import"] },
 ];

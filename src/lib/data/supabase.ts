@@ -1824,7 +1824,9 @@ import type {
   CrmGoal,
   CaptureForm,
   StageChange,
+  AssignmentConfig,
 } from "./crm";
+import { toAssignmentConfig } from "./crm";
 
 const CRM_LEAD_COLS =
   "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,no_show_count,frozen_at,frozen_reason,origin_kind,cadence_active,cadence_step,handoff_at,handoff_result,handoff_parecer,prospecting_notes,created_at,updated_at";
@@ -2106,6 +2108,12 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
         }),
       ),
   }));
+}
+
+export async function sbGetAssignmentConfig(): Promise<AssignmentConfig> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("crm_settings").select("value").eq("key", "assignment").maybeSingle();
+  return toAssignmentConfig(data?.value);
 }
 
 export async function sbGetCrmDocuments(opts?: {
