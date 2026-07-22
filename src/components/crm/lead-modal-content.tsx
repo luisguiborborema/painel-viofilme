@@ -1,42 +1,57 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Bell,
+  Briefcase,
   Building2,
-  Calendar,
   CheckCircle2,
   CalendarClock,
   Check,
   ChevronDown,
   ChevronRight,
   Circle,
+  Clock,
   FileText,
+  Flag,
   GitBranch,
   History,
   Link2,
+  ListTodo,
   Maximize,
   MessageSquare,
+  Paperclip,
   PanelRight,
   Plus,
-  SlidersHorizontal,
+  RefreshCw,
+  Sparkles,
   Square,
+  StickyNote,
   Tag as TagIcon,
   Target,
   Trophy,
   Users,
   Wallet,
   X,
+  Zap,
 } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
-  BANT_LABELS,
-  CARD_PROP_PREFIX,
+  DEAL_SCRIPTS,
   DEFAULT_PIPELINE,
-  resolveCardFields,
+  PIPELINE_PREVENDA_ID,
+  PIPELINE_VENDAS_ID,
+  STAGE_RESERVOIR,
+  STAGE_CADENCE_ON,
+  cadenceLabel,
+  daysBetween,
   stageLabel,
+  suggestedScriptFor,
   type CardFieldSetting,
   type Company,
   type Contact,
@@ -44,6 +59,7 @@ import {
   type CrmInteraction,
   type CrmLead,
   type CrmTask,
+  type DealScript,
   type Pipeline,
   type PropertyDef,
   type Stage,
@@ -57,11 +73,9 @@ import {
   LoseButton,
   ScoreCard,
   StageHistoryCard,
-  TasksCard,
   Timeline,
 } from "./lead-detail";
 import { TagPicker } from "./tag-picker";
-import { DealContacts } from "./deal-contacts";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
 import { ProposalModal } from "./proposal-modal";
@@ -70,9 +84,12 @@ import { LeadComments } from "./lead-comments";
 import type { Attendant } from "@/lib/data/inbox";
 
 /**
- * Conteúdo do modal do negócio no layout estilo ClickUp: coluna de detalhes
- * (título, propriedades, descrição, link, campos) + coluna de Atividade
- * (timeline de interações + composer). Rodapé com excluir e ações do negócio.
+ * Ficha do Lead (v2) — layout em 3 zonas (viofilme_spec_ficha_lead):
+ *   ESQUERDA (consulta, sticky): dados do negócio + estado da cadência.
+ *   CENTRO (foco): área de trabalho (tarefa aberta + nota + sub-abas) e as
+ *     abas de dados Principal · Qualificação · Negociação.
+ *   DIREITA (sticky): Timeline + Movimentações + registro rápido.
+ * Princípio: a OPERAÇÃO é o palco; os campos são consulta.
  */
 export function LeadModalContent({
   lead: initialLead,
@@ -82,15 +99,12 @@ export function LeadModalContent({
   companyContacts = [],
   dealContacts = [],
   tags = [],
-  properties = [],
   teamMembers = [],
   lostReasons = [],
-  flows = [],
   history = [],
   pipelines = [],
   comments = [],
   currentUser = "",
-  cardFields = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -117,15 +131,20 @@ export function LeadModalContent({
   const [showWin, setShowWin] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showProposal, setShowProposal] = useState(false);
+  const [showFab, setShowFab] = useState(false);
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [nextPrompt, setNextPrompt] = useState<{ count: number; nextId: string | null } | null>(null);
   const [won, setWon] = useState(lead.stage === "ganho");
   const [copied, setCopied] = useState(false);
   const [stageErr, setStageErr] = useState<string | null>(null);
-  const [activityTab, setActivityTab] = useState<"historico" | "comentarios">("historico");
+  const [centerTab, setCenterTab] = useState<"trabalho" | "principal" | "qualificacao" | "negociacao">("trabalho");
+  const [rightTab, setRightTab] = useState<"timeline" | "movimentacoes" | "comentarios">("timeline");
   const [assignees, setAssignees] = useState<string[]>(
     lead.assignees?.length ? lead.assignees : lead.owner ? [lead.owner] : [],
   );
 
   const pendingTask = useMemo(() => tasks.find((t) => t.status === "pending"), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
 
   const pipeline =
     pipelines.find((p) => p.id === (lead.pipelineId ?? "")) ??
@@ -134,6 +153,15 @@ export function LeadModalContent({
     DEFAULT_PIPELINE;
   const stages = pipeline.stages ?? DEFAULT_PIPELINE.stages;
   const currentStage = stages.find((s) => s.key === lead.stage);
+  const isSdr = lead.pipelineId === PIPELINE_PREVENDA_ID || String(lead.stage).startsWith("sdr_");
+  const closed = won || lead.stage === "perdido";
+
+  const primaryContact =
+    companyContacts.find((c) => c.id === lead.primaryContactId) ??
+    dealContacts.find((c) => c.isPrimary) ??
+    dealContacts[0] ??
+    companyContacts[0] ??
+    null;
 
   function pushLocal(it: Omit<CrmInteraction, "id" | "leadId" | "createdAt">) {
     setItems((prev) => [
@@ -142,39 +170,76 @@ export function LeadModalContent({
     ]);
   }
 
-  async function completeTaskToggle(task: CrmTask) {
-    const next = task.status === "done" ? "pending" : "done";
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)));
-    await fetch("/api/crm/tasks", {
+  async function logNote(body: string) {
+    pushLocal({ channel: "note", body, author: currentUser || "Você" });
+    await fetch("/api/crm/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: next === "done" ? "done" : "reopen", taskId: task.id }),
+      body: JSON.stringify({ leadId: lead.id, channel: "note", body }),
     }).catch(() => {});
   }
 
-  async function addTask(title: string, dueIso?: string) {
-    const tmp: CrmTask = {
-      id: `tmp-${Date.now()}`,
-      leadId: lead.id,
-      title,
-      dueDate: dueIso,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-    setTasks((prev) => [...prev, tmp]);
+  async function completeTask(task: CrmTask, note: string) {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: "done" } : t)));
+    if (note.trim()) await logNote(`✔️ ${task.title}\n${note.trim()}`);
     await fetch("/api/crm/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add", leadId: lead.id, title, dueDate: dueIso }),
+      body: JSON.stringify({ action: "done", taskId: task.id }),
     }).catch(() => {});
+    // Fluxo HubSpot: oferecer o próximo lead com tarefa aberta.
+    try {
+      const r = await fetch(`/api/crm/next-task-lead?exclude=${lead.id}`);
+      const j = await r.json();
+      if (j.count > 0) setNextPrompt({ count: j.count, nextId: j.nextId });
+    } catch {
+      /* silencioso */
+    }
     router.refresh();
   }
 
-  async function applyFlow(flowId: string) {
-    await fetch("/api/crm/task-flows", {
+  async function rescheduleTask(task: CrmTask, dueIso: string) {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, dueDate: dueIso } : t)));
+    await fetch("/api/crm/object", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "apply", dealId: lead.id, flowId }),
+      body: JSON.stringify({ objectType: "task", id: task.id, fields: { due_date: dueIso } }),
+    }).catch(() => {});
+    pushLocal({ channel: "system", body: `Tarefa "${task.title}" remarcada para ${dayMonth(dueIso)}.` });
+  }
+
+  async function createTask(p: {
+    title: string;
+    dueIso?: string;
+    type?: string;
+    priority?: string;
+    reminder?: string;
+    recurrence?: string;
+  }) {
+    const tmp: CrmTask = {
+      id: `tmp-${Date.now()}`,
+      leadId: lead.id,
+      title: p.title,
+      dueDate: p.dueIso,
+      status: "pending",
+      priority: (p.priority as CrmTask["priority"]) ?? "media",
+      createdAt: new Date().toISOString(),
+      properties: { type: p.type, reminder: p.reminder, recurrence: p.recurrence },
+    };
+    setTasks((prev) => [...prev, tmp]);
+    setShowFab(false);
+    await fetch("/api/crm/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "add",
+        leadId: lead.id,
+        title: p.title,
+        dueDate: p.dueIso,
+        priority: p.priority,
+        type: p.type,
+        properties: { reminder: p.reminder, recurrence: p.recurrence },
+      }),
     }).catch(() => {});
     router.refresh();
   }
@@ -188,13 +253,7 @@ export function LeadModalContent({
     const res = await fetch("/api/crm/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "move",
-        id: lead.id,
-        stage: stage.key,
-        stageId: stage.id,
-        kind: stage.kind,
-      }),
+      body: JSON.stringify({ action: "move", id: lead.id, stage: stage.key, stageId: stage.id, kind: stage.kind }),
     }).catch(() => null);
     if (res && res.status === 422) {
       const j = await res.json().catch(() => ({}));
@@ -204,6 +263,28 @@ export function LeadModalContent({
       return;
     }
     pushLocal({ channel: "system", body: `Estágio alterado para ${stage.label}.` });
+    router.refresh();
+  }
+
+  async function submitHandoff(result: "aceito" | "recusado", parecer: string) {
+    setShowHandoff(false);
+    if (result === "aceito") {
+      setLead((l) => ({ ...l, pipelineId: PIPELINE_VENDAS_ID, stage: "vnd_analise" }));
+    } else {
+      setLead((l) => ({ ...l, stage: "perdido" }));
+    }
+    pushLocal({
+      channel: "system",
+      body:
+        result === "aceito"
+          ? `🤝 Bastão passado — aceito na qualificação${parecer ? `: ${parecer}` : ""}`
+          : `🚫 Bastão recusado — feedback: ${parecer || "—"}`,
+    });
+    await fetch("/api/crm/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "handoff", id: lead.id, result, parecer }),
+    }).catch(() => {});
     router.refresh();
   }
 
@@ -224,6 +305,19 @@ export function LeadModalContent({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ objectType: "deal", id: lead.id, properties: { [key]: value } }),
+    }).catch(() => {});
+  }
+
+  async function saveObject(
+    objectType: "company" | "contact",
+    id: string,
+    fields?: Record<string, unknown>,
+    properties?: Record<string, unknown>,
+  ) {
+    await fetch("/api/crm/object", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ objectType, id, fields, properties }),
     }).catch(() => {});
   }
 
@@ -248,322 +342,256 @@ export function LeadModalContent({
       .catch(() => {});
   }
 
-  const descricao = String(lead.properties?.descricao ?? "");
-  const link = String(lead.properties?.link ?? "");
-
-  // Layout do card personalizável pelo Gestor: itens nativos + propriedades.
-  const dealPropDefs = properties.filter((p) => p.objectType === "deal");
-  const resolved = resolveCardFields(
-    cardFields,
-    dealPropDefs.map((p) => ({ key: p.key, label: p.label })),
-  );
-  const gridItems = resolved.filter((f) => f.visible && f.group === "grid");
-  const sectionItems = resolved.filter((f) => f.visible && f.group === "section");
-
-  // Propriedade customizada renderizada como campo do grid (edição inline).
-  const renderPropField = (propKey: string) => {
-    const def = dealPropDefs.find((d) => d.key === propKey);
-    if (!def) return null;
-    return (
-      <Field icon={SlidersHorizontal} label={def.label}>
-        <PropertyValueInput
-          def={def}
-          value={lead.properties?.[propKey]}
-          onSave={(v) => saveProp(propKey, v)}
-        />
-      </Field>
-    );
-  };
-
-  const gridRenderers: Record<string, () => React.ReactNode> = {
-    status: () => (
-      <Field icon={Circle} label="Status">
-        <StagePill stages={stages} currentKey={lead.stage} onPick={changeStage} />
-        {stageErr && <p className="mt-1 text-[11px] text-rose-500">{stageErr}</p>}
-      </Field>
-    ),
-    responsaveis: () => (
-      <Field icon={Users} label="Responsáveis">
-        <AssigneesControl assignees={assignees} team={teamMembers} onChange={saveAssignees} />
-      </Field>
-    ),
-    valor_mensal: () => (
-      <Field icon={Wallet} label="Valor mensal">
-        <span className="text-sm font-semibold text-ink">{formatBRL(lead.monthlyValue)}</span>
-      </Field>
-    ),
-    proxima_acao: () => (
-      <Field icon={Calendar} label="Próxima ação">
-        <span className="text-sm text-ink">
-          {pendingTask?.dueDate
-            ? `${dayMonth(pendingTask.dueDate)} ${clockLabel(pendingTask.dueDate)}`
-            : "—"}
-        </span>
-      </Field>
-    ),
-    probabilidade: () => (
-      <Field icon={Target} label="Probabilidade">
-        <span className="text-sm text-ink">{lead.probability}%</span>
-      </Field>
-    ),
-    origem: () => (
-      <Field icon={TagIcon} label="Origem">
-        <span className="text-sm text-ink">{lead.source ?? "—"}</span>
-      </Field>
-    ),
-    pipeline: () =>
-      pipelines.length > 1 ? (
-        <Field icon={GitBranch} label="Pipeline">
-          <select
-            value={lead.pipelineId ?? pipelines.find((p) => p.isDefault)?.id ?? ""}
-            onChange={async (e) => {
-              await fetch("/api/crm/leads", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: "change-pipeline",
-                  id: lead.id,
-                  pipelineId: e.target.value,
-                }),
-              }).catch(() => {});
-              router.refresh();
-            }}
-            className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
-          >
-            {pipelines.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-      ) : null,
-    plano: () => (
-      <Field icon={FileText} label="Plano">
-        <span className="text-sm text-ink">{lead.plan || "—"}</span>
-      </Field>
-    ),
-  };
-
-  const sectionRenderers: Record<string, () => React.ReactNode> = {
-    descricao: () => (
-      <Section title="Descrição">
-        <AutoSaveTextarea
-          initial={descricao}
-          placeholder="Adicione uma descrição do negócio…"
-          onSave={(v) => saveProp("descricao", v)}
-        />
-      </Section>
-    ),
-    link: () => (
-      <Section title="Link">
-        <AutoSaveInput
-          initial={link}
-          placeholder="https://…"
-          type="url"
-          onSave={(v) => saveProp("link", v)}
-        />
-      </Section>
-    ),
-    empresa: () =>
-      company ? (
-        <Section title="Empresa">
-          <Link
-            href={`/gerencial/crm/empresa/${company.id}`}
-            className="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2.5 hover:bg-subtle"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-              <Building2 className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-ink">{company.name}</p>
-              <p className="truncate text-xs text-muted">{company.segment ?? "Ver empresa"}</p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
-          </Link>
-        </Section>
-      ) : null,
-    contatos: () => (
-      <DealContacts
-        dealId={lead.id}
-        initial={dealContacts}
-        candidates={companyContacts}
-        primaryContactId={lead.primaryContactId}
-      />
-    ),
-    tags: () => (
-      <Section title="Tags">
-        <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
-      </Section>
-    ),
-    bant: () => (
-      <Section title="Qualificação (BANT)">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {BANT_LABELS.map(({ key, label }) => (
-            <div key={key} className="rounded-lg bg-canvas px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
-              <p className="text-sm text-ink">
-                {lead.bant[key]?.trim() || <span className="text-muted">—</span>}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-    ),
-    tarefas: () => (
-      <TasksCard
-        tasks={tasks}
-        onToggle={completeTaskToggle}
-        onAdd={addTask}
-        flows={flows}
-        onApplyFlow={applyFlow}
-      />
-    ),
-    score: () => <ScoreCard lead={lead} />,
-    historico: () => (history.length > 0 ? <StageHistoryCard history={history} /> : null),
-  };
+  const noteItems = items.filter((it) => it.channel === "note");
 
   return (
-    <div className={cn("flex h-full w-full", layout === "side" ? "flex-col" : "flex-col lg:flex-row")}>
-      {/* ── Coluna de detalhes ─────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* Barra superior */}
-        <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-          <span className="inline-flex items-center gap-2 text-sm font-medium text-muted">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: currentStage?.color ?? "#64748b" }}
-            />
-            Negócio
+    <div className="relative flex h-full w-full flex-col">
+      {/* ── TOPO: breadcrumb + dias-na-etapa + chrome ─────────── */}
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: currentStage?.color ?? "#64748b" }} />
+            {pipeline.name}
           </span>
-          <div className="flex items-center gap-1.5">
-            <LayoutSwitcher layout={layout} onChange={setLayout} />
-            <button
-              onClick={copyLink}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
-            >
-              <Link2 className="h-4 w-4" />
-              {copied ? "Copiado!" : "Copiar link"}
-            </button>
-            <button
-              onClick={() => router.back()}
-              title="Fechar (Esc)"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted" />
+          <span className="truncate text-sm font-semibold text-ink">{lead.name}</span>
+          <DaysBadge iso={lead.stageChangedAt} />
         </div>
-
-        {/* Corpo rolável — itens conforme o layout configurado pelo Gestor */}
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
-          <h1 className="text-2xl font-bold leading-tight text-ink">{lead.name}</h1>
-
-          {gridItems.length > 0 && (
-            <div className="grid grid-cols-1 gap-x-8 gap-y-1 sm:grid-cols-2">
-              {gridItems.map((f) => (
-                <Fragment key={f.key}>
-                  {f.key.startsWith(CARD_PROP_PREFIX)
-                    ? renderPropField(f.key.slice(CARD_PROP_PREFIX.length))
-                    : gridRenderers[f.key]?.()}
-                </Fragment>
-              ))}
-            </div>
-          )}
-
-          {gridItems.length > 0 && sectionItems.length > 0 && <hr className="border-line" />}
-
-          {sectionItems.map((f) => (
-            <Fragment key={f.key}>{sectionRenderers[f.key]?.()}</Fragment>
-          ))}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <LayoutSwitcher layout={layout} onChange={setLayout} />
+          <button
+            onClick={copyLink}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
+          >
+            <Link2 className="h-4 w-4" />
+            {copied ? "Copiado!" : "Copiar link"}
+          </button>
+          <button
+            onClick={() => router.back()}
+            title="Fechar (Esc)"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
+      </div>
 
-        {/* Rodapé de ações */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
-          <DeleteDealButton dealId={lead.id} dealName={lead.name} variant="modal" />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowProposal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
-            >
-              <FileText className="h-4 w-4" /> Proposta
-            </button>
-            {!won && lead.stage !== "perdido" && (
-              <>
+      {/* ── Barra de estágios + ações ─────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+        <div className="flex items-center gap-2">
+          <StagePill stages={stages} currentKey={lead.stage} onPick={changeStage} />
+          {stageErr && <span className="text-[11px] text-rose-500">{stageErr}</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowProposal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            <FileText className="h-4 w-4" /> Proposta
+          </button>
+          {!closed && (
+            <>
+              <button
+                onClick={() => setShowSchedule(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+              >
+                <CalendarClock className="h-4 w-4" /> Agendar
+              </button>
+              <LoseButton onConfirm={markLost} reasons={lostReasons} />
+              {isSdr ? (
                 <button
-                  onClick={() => setShowSchedule(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+                  onClick={() => setShowHandoff(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
                 >
-                  <CalendarClock className="h-4 w-4" /> Agendar
+                  <ArrowRightLeft className="h-4 w-4" /> Passar bastão
                 </button>
-                <LoseButton onConfirm={markLost} reasons={lostReasons} />
+              ) : (
                 <button
                   onClick={() => setShowWin(true)}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
                   <Trophy className="h-4 w-4" /> Ganho
                 </button>
-              </>
-            )}
-            {won && (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> Ganho
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Coluna de Atividade ────────────────────────────── */}
-      <div
-        className={cn(
-          "flex min-h-0 w-full shrink-0 flex-col bg-canvas",
-          layout === "side"
-            ? "h-[42vh] border-t border-line"
-            : "border-t border-line lg:w-[400px] lg:border-l lg:border-t-0",
-        )}
-      >
-        <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
-          <ActivityTab
-            active={activityTab === "historico"}
-            onClick={() => setActivityTab("historico")}
-            icon={History}
-            label="Histórico"
-          />
-          <ActivityTab
-            active={activityTab === "comentarios"}
-            onClick={() => setActivityTab("comentarios")}
-            icon={MessageSquare}
-            label="Comentários"
-            badge={comments.length || undefined}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {activityTab === "historico" ? (
-            <>
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <Timeline items={items} />
-              </div>
-              <div className="bg-surface">
-                <Composer
-                  lead={lead}
-                  onPosted={(it) => pushLocal(it)}
-                  onBant={(bant) => setLead((l) => ({ ...l, bant: { ...l.bant, ...bant } }))}
-                />
-              </div>
+              )}
             </>
-          ) : (
-            <LeadComments
-              leadId={lead.id}
-              initial={comments}
-              currentUser={currentUser}
-              team={teamMembers.map((m) => m.name)}
-            />
+          )}
+          {won && (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" /> Ganho
+            </span>
           )}
         </div>
       </div>
 
+      {/* ── 3 ZONAS ───────────────────────────────────────────── */}
+      <div className={cn("flex min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col xl:flex-row")}>
+        {/* ESQUERDA — consulta */}
+        <aside
+          className={cn(
+            "shrink-0 space-y-1 border-line bg-canvas px-4 py-4",
+            layout === "side" ? "border-b" : "border-b xl:w-[248px] xl:overflow-y-auto xl:border-b-0 xl:border-r",
+          )}
+        >
+          <MiniField icon={Users} label="Responsáveis">
+            <AssigneesControl assignees={assignees} team={teamMembers} onChange={saveAssignees} />
+          </MiniField>
+          <MiniField icon={TagIcon} label="Origem">
+            {lead.source || "—"}
+          </MiniField>
+          <MiniField icon={Circle} label="Estágio">
+            {currentStage?.label ?? stageLabel(lead.stage)}
+          </MiniField>
+          <MiniField icon={Target} label="Probabilidade">
+            {lead.probability}%
+          </MiniField>
+          <MiniField icon={Wallet} label="Valor estimado">
+            <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
+            <span className="text-muted">/mês</span>
+          </MiniField>
+          {pipelines.length > 1 && (
+            <MiniField icon={GitBranch} label="Funil">
+              {pipeline.name}
+            </MiniField>
+          )}
+          <div className="pt-1">
+            <ScoreCard lead={lead} />
+          </div>
+          <CadenceNotice lead={lead} isSdr={isSdr} />
+          <div className="pt-1">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Tags</p>
+            <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
+          </div>
+          {company && (
+            <Link
+              href={`/gerencial/crm/empresa/${company.id}`}
+              className="mt-2 flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 hover:bg-subtle"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                <Building2 className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{company.name}</p>
+                <p className="truncate text-xs text-muted">{company.segment ?? "Ver empresa"}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+            </Link>
+          )}
+        </aside>
+
+        {/* CENTRO — área de trabalho (palco) */}
+        <div className={cn("flex min-w-0 flex-1 flex-col", layout === "side" ? "" : "xl:overflow-y-auto")}>
+          <div className="flex items-center gap-1 border-b border-line px-3 py-1.5">
+            <CenterTab active={centerTab === "trabalho"} onClick={() => setCenterTab("trabalho")} icon={ListTodo} label="Área de trabalho" />
+            <CenterTab active={centerTab === "principal"} onClick={() => setCenterTab("principal")} icon={Building2} label="Principal" />
+            <CenterTab active={centerTab === "qualificacao"} onClick={() => setCenterTab("qualificacao")} icon={Sparkles} label="Qualificação" />
+            <CenterTab active={centerTab === "negociacao"} onClick={() => setCenterTab("negociacao")} icon={Briefcase} label="Negociação" />
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 px-4 py-4">
+            {centerTab === "trabalho" && (
+              <WorkArea
+                pendingTask={pendingTask}
+                doneTasks={doneTasks}
+                stageKey={lead.stage}
+                notes={noteItems}
+                onComplete={completeTask}
+                onReschedule={rescheduleTask}
+                onNewTask={() => setShowFab(true)}
+              />
+            )}
+            {centerTab === "principal" && (
+              <PrincipalTab
+                company={company}
+                contact={primaryContact}
+                onSaveCompany={(fields, props) => company && saveObject("company", company.id, fields, props)}
+                onSaveContact={(fields, props) => primaryContact && saveObject("contact", primaryContact.id, fields, props)}
+              />
+            )}
+            {centerTab === "qualificacao" && <QualiTab lead={lead} onSave={saveProp} />}
+            {centerTab === "negociacao" && <NegoTab lead={lead} onSave={saveProp} />}
+          </div>
+        </div>
+
+        {/* DIREITA — timeline + movimentações */}
+        <aside
+          className={cn(
+            "flex shrink-0 flex-col border-line bg-canvas",
+            layout === "side" ? "h-[42vh] border-t" : "border-t xl:w-[372px] xl:border-l xl:border-t-0",
+          )}
+        >
+          <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+            <ActivityTab active={rightTab === "timeline"} onClick={() => setRightTab("timeline")} icon={MessageSquare} label="Timeline" />
+            <ActivityTab active={rightTab === "movimentacoes"} onClick={() => setRightTab("movimentacoes")} icon={GitBranch} label="Movimentações" />
+            <ActivityTab active={rightTab === "comentarios"} onClick={() => setRightTab("comentarios")} icon={History} label="Comentários" badge={comments.length || undefined} />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {rightTab === "timeline" && (
+              <>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <Timeline items={items} />
+                </div>
+                <div className="bg-surface">
+                  <Composer
+                    lead={lead}
+                    onPosted={(it) => pushLocal(it)}
+                    onBant={(bant) => setLead((l) => ({ ...l, bant: { ...l.bant, ...bant } }))}
+                  />
+                </div>
+              </>
+            )}
+            {rightTab === "movimentacoes" && (
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {history.length > 0 ? (
+                  <StageHistoryCard history={history} />
+                ) : (
+                  <p className="px-1 py-6 text-center text-sm text-muted">Sem movimentações de etapa ainda.</p>
+                )}
+              </div>
+            )}
+            {rightTab === "comentarios" && (
+              <LeadComments
+                leadId={lead.id}
+                initial={comments}
+                currentUser={currentUser}
+                team={teamMembers.map((m) => m.name)}
+              />
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {/* Rodapé (excluir) */}
+      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-2">
+        <DeleteDealButton dealId={lead.id} dealName={lead.name} variant="modal" />
+        <p className="text-[11px] text-muted">Ficha do negócio · {isSdr ? "Pré-venda (SDR)" : "Vendas (Closer)"}</p>
+      </div>
+
+      {/* FAB — Nova tarefa (sempre visível) */}
+      <button
+        onClick={() => setShowFab(true)}
+        className="absolute bottom-16 right-6 z-20 inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700"
+      >
+        <Plus className="h-4 w-4" /> Nova tarefa
+      </button>
+
       {/* Modais auxiliares */}
+      {showFab && (
+        <FabTaskCreator onClose={() => setShowFab(false)} onCreate={createTask} />
+      )}
+      {showHandoff && (
+        <HandoffFichaModal name={lead.name} onClose={() => setShowHandoff(false)} onSubmit={submitHandoff} />
+      )}
+      {nextPrompt && (
+        <NextLeadPrompt
+          count={nextPrompt.count}
+          onStay={() => setNextPrompt(null)}
+          onGo={() => {
+            const id = nextPrompt.nextId;
+            setNextPrompt(null);
+            if (id) router.push(`/gerencial/crm/${id}`);
+          }}
+        />
+      )}
       {showProposal && (
         <ProposalModal
           dealId={lead.id}
@@ -578,7 +606,6 @@ export function LeadModalContent({
           onClose={() => setShowSchedule(false)}
           onScheduled={(meetLink) => {
             setShowSchedule(false);
-            setLead((l) => ({ ...l, stage: "reuniao" }));
             pushLocal({
               channel: "system",
               body: `📅 Reunião agendada no Google Agenda.${meetLink ? `\nMeet: ${meetLink}` : ""}`,
@@ -607,16 +634,657 @@ export function LeadModalContent({
   );
 }
 
-/* ── Blocos auxiliares ─────────────────────────────────── */
+/* ── Zona esquerda ─────────────────────────────────────── */
+
+function MiniField({ icon: Icon, label, children }: { icon: typeof Circle; label: string; children: ReactNode }) {
+  return (
+    <div className="py-1.5">
+      <p className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </p>
+      <div className="text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
+function CadenceNotice({ lead, isSdr }: { lead: CrmLead; isSdr: boolean }) {
+  if (!isSdr) return null;
+  if (lead.cadenceActive) {
+    return (
+      <div className="mt-2 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
+        <Zap className="h-4 w-4 shrink-0" />
+        {cadenceLabel(lead.originKind)} ativa · passo {lead.cadenceStep ?? 1}
+      </div>
+    );
+  }
+  if (lead.stage !== STAGE_RESERVOIR && lead.stage !== STAGE_CADENCE_ON) {
+    return (
+      <div className="mt-2 rounded-xl border border-line bg-surface px-3 py-2 text-xs text-muted">
+        Cadência encerrada. Ações manuais agora.
+      </div>
+    );
+  }
+  return null;
+}
+
+function DaysBadge({ iso }: { iso: string }) {
+  const d = Math.max(0, daysBetween(iso, new Date().toISOString()));
+  const stagnant = d >= 7;
+  return (
+    <span
+      className={cn(
+        "ml-1 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        stagnant ? "bg-rose-500/15 text-rose-600" : "bg-subtle text-muted",
+      )}
+    >
+      {stagnant && <AlertTriangle className="h-3 w-3" />}
+      {stagnant ? `Estagnado há ${d} dias` : d === 0 ? "Entrou hoje" : `${d} dia${d > 1 ? "s" : ""} na etapa`}
+    </span>
+  );
+}
+
+/* ── Zona central: área de trabalho ────────────────────── */
+
+function WorkArea({
+  pendingTask,
+  doneTasks,
+  stageKey,
+  notes,
+  onComplete,
+  onReschedule,
+  onNewTask,
+}: {
+  pendingTask?: CrmTask;
+  doneTasks: CrmTask[];
+  stageKey: string;
+  notes: CrmInteraction[];
+  onComplete: (task: CrmTask, note: string) => void;
+  onReschedule: (task: CrmTask, dueIso: string) => void;
+  onNewTask: () => void;
+}) {
+  const [sub, setSub] = useState<"tarefas" | "anotacoes" | "arquivos">("tarefas");
+  return (
+    <div className="space-y-4">
+      {pendingTask ? (
+        <OpenTaskCard task={pendingTask} stageKey={stageKey} onComplete={onComplete} onReschedule={onReschedule} />
+      ) : (
+        <button
+          onClick={onNewTask}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-4 py-6 text-sm font-medium text-muted hover:bg-subtle"
+        >
+          <Plus className="h-4 w-4" /> Nenhuma tarefa aberta — criar próxima ação
+        </button>
+      )}
+
+      <div className="flex items-center gap-1 border-b border-line">
+        <SubTab active={sub === "tarefas"} onClick={() => setSub("tarefas")} icon={ListTodo} label="Tarefas" />
+        <SubTab active={sub === "anotacoes"} onClick={() => setSub("anotacoes")} icon={StickyNote} label="Anotações" />
+        <SubTab active={sub === "arquivos"} onClick={() => setSub("arquivos")} icon={Paperclip} label="Arquivos" />
+      </div>
+
+      {sub === "tarefas" && (
+        <div className="space-y-1.5">
+          {doneTasks.length === 0 && <p className="py-4 text-center text-sm text-muted">Sem tarefas concluídas ainda.</p>}
+          {doneTasks.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              <span className="flex-1 text-muted line-through">{t.title}</span>
+              {t.dueDate && <span className="text-[11px] text-muted">{dayMonth(t.dueDate)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {sub === "anotacoes" && (
+        <div className="space-y-2">
+          {notes.length === 0 && <p className="py-4 text-center text-sm text-muted">Sem anotações ainda.</p>}
+          {notes.map((n) => (
+            <div key={n.id} className="rounded-lg border border-line bg-surface px-3 py-2">
+              <p className="text-[11px] text-muted">
+                {n.author ?? "—"} · {dayMonth(n.createdAt)} {clockLabel(n.createdAt)}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{n.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {sub === "arquivos" && (
+        <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
+          Anexos entram aqui em breve. Por ora, cole links de arquivos nas anotações.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function OpenTaskCard({
+  task,
+  stageKey,
+  onComplete,
+  onReschedule,
+}: {
+  task: CrmTask;
+  stageKey: string;
+  onComplete: (task: CrmTask, note: string) => void;
+  onReschedule: (task: CrmTask, dueIso: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const [showScripts, setShowScripts] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const suggested = suggestedScriptFor(stageKey);
+  const slashQuery = note.trimStart();
+  const showSlash = slashQuery.startsWith("/");
+  const slashMatches = showSlash
+    ? DEAL_SCRIPTS.filter((s) => s.command.startsWith(slashQuery.split(/\s/)[0].toLowerCase()))
+    : [];
+
+  function inject(script: DealScript) {
+    // Substitui o comando "/…" digitado (se houver) pelo corpo do roteiro.
+    const base = showSlash ? "" : note ? note + "\n\n" : "";
+    setNote(base + script.body + "\n");
+    setShowScripts(false);
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Tarefa aberta</p>
+          <p className="text-sm font-semibold text-ink">{task.title}</p>
+          {task.dueDate && (
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted">
+              <Clock className="h-3.5 w-3.5" /> {dayMonth(task.dueDate)} {clockLabel(task.dueDate)}
+            </p>
+          )}
+        </div>
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setShowScripts((s) => !s)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <FileText className="h-3.5 w-3.5" /> Scripts
+          </button>
+          {showScripts && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowScripts(false)} />
+              <div className="absolute right-0 top-full z-20 mt-1 w-72 overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-xl">
+                {DEAL_SCRIPTS.map((s) => (
+                  <button
+                    key={s.command}
+                    onClick={() => inject(s)}
+                    className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-subtle"
+                  >
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                        {s.title}
+                        {suggested?.command === s.command && (
+                          <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">sugerido</span>
+                        )}
+                      </span>
+                      <span className="block text-[11px] text-muted">{s.command} · {s.hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="relative mt-2.5">
+        {showSlash && slashMatches.length > 0 && (
+          <div className="absolute bottom-full left-0 z-10 mb-1 w-72 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+            {slashMatches.map((s) => (
+              <button
+                key={s.command}
+                onClick={() => inject(s)}
+                className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-subtle"
+              >
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium text-ink">{s.command}</span>
+                  <span className="block text-[11px] text-muted">{s.title}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={4}
+          placeholder="Anote o que foi conversado nesta tarefa… (digite / para roteiros e scripts)"
+          className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand-400"
+        />
+      </div>
+
+      {rescheduling ? (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="datetime-local"
+            onChange={(e) => {
+              if (e.target.value) {
+                onReschedule(task, new Date(e.target.value).toISOString());
+                setRescheduling(false);
+              }
+            }}
+            className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+          />
+          <button onClick={() => setRescheduling(false)} className="rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-subtle">
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => onComplete(task, note)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> Concluir
+          </button>
+          <button
+            onClick={() => setRescheduling(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <CalendarClock className="h-3.5 w-3.5" /> Remarcar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Zona central: abas de dados ───────────────────────── */
+
+function EditRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function PrincipalTab({
+  company,
+  contact,
+  onSaveCompany,
+  onSaveContact,
+}: {
+  company: Company | null;
+  contact: Contact | null;
+  onSaveCompany: (fields?: Record<string, unknown>, props?: Record<string, unknown>) => void;
+  onSaveContact: (fields?: Record<string, unknown>, props?: Record<string, unknown>) => void;
+}) {
+  const cp = (company?.properties ?? {}) as Record<string, unknown>;
+  const kp = (contact?.properties ?? {}) as Record<string, unknown>;
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Empresa</p>
+        {company ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <EditRow label="Razão social">
+              <BlurInput initial={company.name} onSave={(v) => onSaveCompany({ name: v })} />
+            </EditRow>
+            <EditRow label="CNPJ">
+              <BlurInput initial={String(cp.cnpj ?? "")} onSave={(v) => onSaveCompany(undefined, { cnpj: v })} />
+            </EditRow>
+            <EditRow label="Segmento">
+              <BlurInput initial={company.segment ?? ""} onSave={(v) => onSaveCompany({ segment: v })} />
+            </EditRow>
+            <EditRow label="Cidade/UF">
+              <BlurInput initial={company.city ?? ""} onSave={(v) => onSaveCompany({ city: v })} />
+            </EditRow>
+            <EditRow label="Site">
+              <BlurInput type="url" initial={company.website ?? ""} onSave={(v) => onSaveCompany({ website: v })} />
+            </EditRow>
+            <EditRow label="Instagram">
+              <BlurInput initial={String(cp.instagram ?? "")} onSave={(v) => onSaveCompany(undefined, { instagram: v })} />
+            </EditRow>
+            <EditRow label="LinkedIn">
+              <BlurInput initial={String(cp.linkedin ?? "")} onSave={(v) => onSaveCompany(undefined, { linkedin: v })} />
+            </EditRow>
+            <EditRow label="Outras redes">
+              <BlurInput initial={String(cp.outras_redes ?? "")} onSave={(v) => onSaveCompany(undefined, { outras_redes: v })} />
+            </EditRow>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Nenhuma empresa vinculada.</p>
+        )}
+      </div>
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Contato principal</p>
+        {contact ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <EditRow label="Nome">
+              <BlurInput initial={contact.name} onSave={(v) => onSaveContact({ name: v })} />
+            </EditRow>
+            <EditRow label="Cargo">
+              <BlurInput initial={contact.title ?? ""} onSave={(v) => onSaveContact({ title: v })} />
+            </EditRow>
+            <EditRow label="WhatsApp">
+              <BlurInput initial={contact.phone ?? ""} onSave={(v) => onSaveContact({ phone: v })} />
+            </EditRow>
+            <EditRow label="E-mail">
+              <BlurInput type="email" initial={contact.email ?? ""} onSave={(v) => onSaveContact({ email: v })} />
+            </EditRow>
+            <EditRow label="LinkedIn pessoal">
+              <BlurInput initial={String(kp.linkedin ?? "")} onSave={(v) => onSaveContact(undefined, { linkedin: v })} />
+            </EditRow>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Nenhum contato vinculado.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QualiTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value: unknown) => void }) {
+  const p = (lead.properties ?? {}) as Record<string, unknown>;
+  const score = Number(p.q_score ?? 0);
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <EditRow label="Fonte / origem do lead">
+        <BlurInput initial={String(p.q_fonte ?? lead.source ?? "")} onSave={(v) => onSave("q_fonte", v)} />
+      </EditRow>
+      <EditRow label="Solução que procura">
+        <BlurInput initial={String(p.q_solucao ?? "")} onSave={(v) => onSave("q_solucao", v)} />
+      </EditRow>
+      <EditRow label="Cargo do decisor">
+        <BlurInput initial={String(p.q_cargo_decisor ?? "")} onSave={(v) => onSave("q_cargo_decisor", v)} />
+      </EditRow>
+      <EditRow label="Faturamento (faixa)">
+        <BlurInput initial={String(p.q_faturamento ?? "")} onSave={(v) => onSave("q_faturamento", v)} />
+      </EditRow>
+      <label className="flex items-center gap-2 pt-5 text-sm text-ink">
+        <input type="checkbox" checked={Boolean(p.q_decisor_final)} onChange={(e) => onSave("q_decisor_final", e.target.checked)} className="h-4 w-4 rounded border-line accent-brand-600" />
+        É o decisor final
+      </label>
+      <label className="flex items-center gap-2 pt-5 text-sm text-ink">
+        <input type="checkbox" checked={Boolean(p.q_agencia)} onChange={(e) => onSave("q_agencia", e.target.checked)} className="h-4 w-4 rounded border-line accent-brand-600" />
+        Já trabalhou com agência
+      </label>
+      <div className="sm:col-span-2">
+        <EditRow label="Dor principal">
+          <textarea
+            defaultValue={String(p.q_dor ?? "")}
+            onBlur={(e) => e.target.value !== String(p.q_dor ?? "") && onSave("q_dor", e.target.value)}
+            rows={2}
+            className="w-full resize-y rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        </EditRow>
+      </div>
+      <div className="sm:col-span-2">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Nota do lead</p>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} onClick={() => onSave("q_score", n)} title={`${n} estrela${n > 1 ? "s" : ""}`}>
+              <Flag className={cn("h-5 w-5", n <= score ? "fill-amber-400 text-amber-400" : "text-line")} />
+            </button>
+          ))}
+          <span className="ml-2 text-sm text-muted">{score || "—"}/5</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NegoTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value: unknown) => void }) {
+  const p = (lead.properties ?? {}) as Record<string, unknown>;
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <EditRow label="Budget declarado">
+        <BlurInput type="number" initial={String(p.n_budget_declarado ?? "")} onSave={(v) => onSave("n_budget_declarado", v === "" ? null : Number(v))} />
+      </EditRow>
+      <EditRow label="Budget aprovado">
+        <BlurInput type="number" initial={String(p.n_budget_aprovado ?? "")} onSave={(v) => onSave("n_budget_aprovado", v === "" ? null : Number(v))} />
+      </EditRow>
+      <EditRow label="Valor da proposta">
+        <BlurInput type="number" initial={String(p.n_valor_proposta ?? "")} onSave={(v) => onSave("n_valor_proposta", v === "" ? null : Number(v))} />
+      </EditRow>
+      <EditRow label="Tipo de contrato">
+        <BlurInput initial={String(p.n_tipo_contrato ?? "")} onSave={(v) => onSave("n_tipo_contrato", v)} />
+      </EditRow>
+      <EditRow label="Data da proposta">
+        <BlurInput type="date" initial={String(p.n_data_proposta ?? "")} onSave={(v) => onSave("n_data_proposta", v)} />
+      </EditRow>
+      <EditRow label="Data de assinatura">
+        <BlurInput type="date" initial={String(p.n_data_assinatura ?? "")} onSave={(v) => onSave("n_data_assinatura", v)} />
+      </EditRow>
+      <EditRow label="Objeção principal">
+        <BlurInput initial={String(p.n_objecao ?? "")} onSave={(v) => onSave("n_objecao", v)} />
+      </EditRow>
+      <EditRow label="Concorrente avaliado">
+        <BlurInput initial={String(p.n_concorrente ?? "")} onSave={(v) => onSave("n_concorrente", v)} />
+      </EditRow>
+      <EditRow label="Nº de follow-ups">
+        <BlurInput type="number" initial={String(p.n_followups ?? "")} onSave={(v) => onSave("n_followups", v === "" ? null : Number(v))} />
+      </EditRow>
+      <EditRow label="Link do contrato (ZapSign)">
+        <BlurInput type="url" initial={String(p.n_zapsign ?? "")} onSave={(v) => onSave("n_zapsign", v)} />
+      </EditRow>
+    </div>
+  );
+}
+
+/* ── FAB: criador de tarefa estilo HubSpot ─────────────── */
+
+const DUE_SHORTCUTS: { label: string; days: number }[] = [
+  { label: "Hoje", days: 0 },
+  { label: "Amanhã", days: 1 },
+  { label: "Em 3 dias", days: 3 },
+  { label: "Próxima semana", days: 7 },
+];
+
+const TASK_TYPE_OPTS = [
+  { key: "ligacao", label: "Ligação" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "email", label: "E-mail" },
+  { key: "reuniao", label: "Reunião" },
+  { key: "todo", label: "To-do" },
+];
+
+function FabTaskCreator({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (p: { title: string; dueIso?: string; type?: string; priority?: string; reminder?: string; recurrence?: string }) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("ligacao");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("09:00");
+  const [priority, setPriority] = useState("media");
+  const [reminder, setReminder] = useState("no-horario");
+  const [recurrence, setRecurrence] = useState("nenhuma");
+
+  function applyShortcut(days: number) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setDueDate(d.toISOString().slice(0, 10));
+  }
+
+  function submit() {
+    if (!title.trim()) return;
+    const dueIso = dueDate ? new Date(`${dueDate}T${dueTime || "09:00"}`).toISOString() : undefined;
+    onCreate({
+      title: title.trim(),
+      dueIso,
+      type,
+      priority,
+      reminder: reminder === "sem" ? undefined : reminder,
+      recurrence: recurrence === "nenhuma" ? undefined : recurrence,
+    });
+  }
+
+  const inputCls = "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-ink">Nova tarefa</h2>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-subtle">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="O que precisa ser feito?" className={inputCls} />
+
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Tipo</p>
+            <div className="flex flex-wrap gap-1.5">
+              {TASK_TYPE_OPTS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => setType(o.key)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    type === o.key ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong",
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <Clock className="h-3.5 w-3.5" /> Vencimento
+            </p>
+            <div className="mb-1.5 flex flex-wrap gap-1.5">
+              {DUE_SHORTCUTS.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => applyShortcut(s.days)}
+                  className="rounded-full bg-subtle px-2.5 py-1 text-xs font-medium text-muted hover:bg-subtle-strong"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
+              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="w-28 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted"><Bell className="h-3.5 w-3.5" /> Lembrete</span>
+              <select value={reminder} onChange={(e) => setReminder(e.target.value)} className={inputCls}>
+                <option value="30min">30 min antes</option>
+                <option value="1h">1 hora antes</option>
+                <option value="no-horario">No horário</option>
+                <option value="sem">Sem lembrete</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted"><Flag className="h-3.5 w-3.5" /> Prioridade</span>
+              <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputCls}>
+                <option value="baixa">Baixa</option>
+                <option value="media">Normal</option>
+                <option value="alta">Alta</option>
+                <option value="urgente">Urgente</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted"><RefreshCw className="h-3.5 w-3.5" /> Recorrência</span>
+              <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={inputCls}>
+                <option value="nenhuma">Não repetir</option>
+                <option value="diaria">A cada dia</option>
+                <option value="semanal">A cada semana</option>
+                <option value="mensal">A cada mês</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
+          <button
+            onClick={submit}
+            disabled={!title.trim()}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> Criar tarefa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Passagem de bastão (SDR → Vendas) ─────────────────── */
+
+function HandoffFichaModal({
+  name,
+  onClose,
+  onSubmit,
+}: {
+  name: string;
+  onClose: () => void;
+  onSubmit: (result: "aceito" | "recusado", parecer: string) => void;
+}) {
+  const [parecer, setParecer] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+        <h2 className="text-base font-bold text-ink">Passagem de bastão</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          <span className="font-semibold text-ink">{name}</span> — registre o parecer da qualificação. Aceito segue para o
+          funil de Vendas; recusado vira Perdido com o feedback anexado.
+        </p>
+        <textarea
+          value={parecer}
+          onChange={(e) => setParecer(e.target.value)}
+          rows={4}
+          placeholder="Parecer / contexto para o closer (dor, budget, decisor, urgência…)"
+          className="mt-3 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+        />
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <button onClick={() => onSubmit("recusado", parecer)} className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-500/10">
+            Recusar (Perdido)
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
+            <button onClick={() => onSubmit("aceito", parecer)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+              Aceitar → Vendas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NextLeadPrompt({ count, onGo, onStay }: { count: number; onGo: () => void; onStay: () => void }) {
+  return (
+    <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+      <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 shadow-2xl">
+        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+        <p className="text-sm text-ink">
+          Tarefa concluída! Você tem <strong>{count}</strong> {count === 1 ? "lead" : "leads"} com tarefa aberta.
+        </p>
+        <button onClick={onStay} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">Ficar aqui</button>
+        <button onClick={onGo} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">
+          Próximo lead <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Blocos auxiliares reaproveitados ──────────────────── */
 
 function personInitials(name?: string) {
   if (!name) return "•";
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+  return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
 }
 
 function Avatar({ name, url, size = 24 }: { name?: string; url?: string; size?: number }) {
@@ -632,12 +1300,7 @@ function Avatar({ name, url, size = 24 }: { name?: string; url?: string; size?: 
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={name ?? ""}
-      className="shrink-0 rounded-full object-cover"
-      style={{ width: size, height: size }}
-    />
+    <img src={url} alt={name ?? ""} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   );
 }
 
@@ -661,17 +1324,10 @@ function AssigneesControl({
     <div className="flex flex-wrap items-center gap-1.5">
       {assignees.length === 0 && <span className="text-sm text-muted">Ninguém</span>}
       {assignees.map((name) => (
-        <span
-          key={name}
-          className="group inline-flex items-center gap-1.5 rounded-full bg-subtle py-0.5 pl-0.5 pr-2 text-sm text-ink"
-        >
+        <span key={name} className="group inline-flex items-center gap-1.5 rounded-full bg-subtle py-0.5 pl-0.5 pr-2 text-sm text-ink">
           <Avatar name={name} url={avatarOf(name)} size={22} />
           {name}
-          <button
-            onClick={() => toggle(name)}
-            title="Remover"
-            className="text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
-          >
+          <button onClick={() => toggle(name)} title="Remover" className="text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100">
             <X className="h-3 w-3" />
           </button>
         </span>
@@ -688,17 +1344,11 @@ function AssigneesControl({
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
             <div className="absolute left-0 top-full z-20 mt-1 max-h-64 w-60 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-xl">
-              {team.length === 0 && (
-                <p className="px-2 py-1.5 text-xs text-muted">Nenhum membro na equipe.</p>
-              )}
+              {team.length === 0 && <p className="px-2 py-1.5 text-xs text-muted">Nenhum membro na equipe.</p>}
               {team.map((m) => {
                 const selected = assignees.includes(m.name);
                 return (
-                  <button
-                    key={m.id}
-                    onClick={() => toggle(m.name)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-subtle"
-                  >
+                  <button key={m.id} onClick={() => toggle(m.name)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-subtle">
                     <Avatar name={m.name} url={m.avatarUrl} size={24} />
                     <span className="flex-1 text-ink">{m.name}</span>
                     {selected && <Check className="h-3.5 w-3.5 text-brand-500" />}
@@ -710,6 +1360,34 @@ function AssigneesControl({
         )}
       </div>
     </div>
+  );
+}
+
+function CenterTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Square; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
+        active ? "bg-subtle text-ink" : "text-muted hover:bg-subtle hover:text-ink",
+      )}
+    >
+      <Icon className="h-4 w-4" /> {label}
+    </button>
+  );
+}
+
+function SubTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Square; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold transition-colors",
+        active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}
+    </button>
   );
 }
 
@@ -730,16 +1408,12 @@ function ActivityTab({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
         active ? "bg-subtle text-ink" : "text-muted hover:bg-subtle hover:text-ink",
       )}
     >
       <Icon className="h-4 w-4" /> {label}
-      {badge != null && (
-        <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          {badge}
-        </span>
-      )}
+      {badge != null && <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{badge}</span>}
     </button>
   );
 }
@@ -750,13 +1424,7 @@ const LAYOUTS: { key: LeadModalLayout; label: string; icon: typeof Square }[] = 
   { key: "side", label: "Barra lateral", icon: PanelRight },
 ];
 
-function LayoutSwitcher({
-  layout,
-  onChange,
-}: {
-  layout: LeadModalLayout;
-  onChange: (l: LeadModalLayout) => void;
-}) {
+function LayoutSwitcher({ layout, onChange }: { layout: LeadModalLayout; onChange: (l: LeadModalLayout) => void }) {
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-line p-0.5">
       {LAYOUTS.map((o) => {
@@ -770,9 +1438,7 @@ function LayoutSwitcher({
             aria-pressed={layout === o.key}
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-              layout === o.key
-                ? "bg-brand-600 text-white"
-                : "text-muted hover:bg-subtle hover:text-ink",
+              layout === o.key ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle hover:text-ink",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -783,54 +1449,7 @@ function LayoutSwitcher({
   );
 }
 
-function Field({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: typeof Circle;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <span className="inline-flex w-36 shrink-0 items-center gap-2 text-sm text-muted">
-        <Icon className="h-4 w-4" /> {label}
-      </span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</p>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function StagePill({
-  stages,
-  currentKey,
-  onPick,
-}: {
-  stages: Stage[];
-  currentKey: string;
-  onPick: (s: Stage) => void;
-}) {
+function StagePill({ stages, currentKey, onPick }: { stages: Stage[]; currentKey: string; onPick: (s: Stage) => void }) {
   const [open, setOpen] = useState(false);
   const cur = stages.find((s) => s.key === currentKey);
   const color = cur?.color ?? "#64748b";
@@ -869,147 +1488,6 @@ function StagePill({
   );
 }
 
-function AutoSaveTextarea({
-  initial,
-  placeholder,
-  onSave,
-}: {
-  initial: string;
-  placeholder?: string;
-  onSave: (v: string) => void;
-}) {
-  const [value, setValue] = useState(initial);
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => value !== initial && onSave(value)}
-      placeholder={placeholder}
-      rows={3}
-      className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand-400"
-    />
-  );
-}
-
-function AutoSaveInput({
-  initial,
-  placeholder,
-  type = "text",
-  onSave,
-}: {
-  initial: string;
-  placeholder?: string;
-  type?: string;
-  onSave: (v: string) => void;
-}) {
-  const [value, setValue] = useState(initial);
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => value !== initial && onSave(value)}
-      placeholder={placeholder}
-      className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-    />
-  );
-}
-
-const propInputCls =
-  "w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
-
-/** Editor inline de uma propriedade customizada (por tipo), salva ao sair/mudar. */
-function PropertyValueInput({
-  def,
-  value,
-  onSave,
-}: {
-  def: PropertyDef;
-  value: unknown;
-  onSave: (v: unknown) => void;
-}) {
-  switch (def.fieldType) {
-    case "checkbox":
-      return (
-        <label className="inline-flex items-center gap-2 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={Boolean(value)}
-            onChange={(e) => onSave(e.target.checked)}
-            className="h-4 w-4 rounded border-line accent-brand-600"
-          />
-          {value ? "Sim" : "Não"}
-        </label>
-      );
-    case "select": {
-      const val = String(value ?? "");
-      const known = !val || def.options.some((o) => o.value === val);
-      return (
-        <select value={val} onChange={(e) => onSave(e.target.value || null)} className={propInputCls}>
-          <option value="">—</option>
-          {!known && <option value={val}>{val}</option>}
-          {def.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      );
-    }
-    case "multiselect": {
-      const arr = Array.isArray(value) ? (value as string[]) : [];
-      if (def.options.length === 0) return <span className="text-sm text-muted">Sem opções</span>;
-      return (
-        <div className="flex flex-wrap gap-1.5">
-          {def.options.map((o) => {
-            const on = arr.includes(o.value);
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => onSave(on ? arr.filter((v) => v !== o.value) : [...arr, o.value])}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                  on ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong",
-                )}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      );
-    }
-    case "date":
-      return (
-        <input
-          type="date"
-          value={typeof value === "string" ? value.slice(0, 10) : ""}
-          onChange={(e) => onSave(e.target.value || null)}
-          className={propInputCls}
-        />
-      );
-    case "number":
-    case "currency":
-      return (
-        <BlurInput
-          type="number"
-          initial={value == null ? "" : String(value)}
-          placeholder={def.fieldType === "currency" ? "R$" : ""}
-          onSave={(s) => onSave(s === "" ? null : Number(s))}
-        />
-      );
-    default:
-      return (
-        <BlurInput
-          type={def.fieldType === "email" ? "email" : def.fieldType === "url" ? "url" : "text"}
-          initial={value == null ? "" : String(value)}
-          onSave={(s) => onSave(s || null)}
-        />
-      );
-  }
-}
-
 /** Input que só salva ao perder o foco (evita salvar a cada tecla). */
 function BlurInput({
   type = "text",
@@ -1030,7 +1508,7 @@ function BlurInput({
       onChange={(e) => setV(e.target.value)}
       onBlur={() => v !== initial && onSave(v)}
       placeholder={placeholder}
-      className={propInputCls}
+      className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
     />
   );
 }

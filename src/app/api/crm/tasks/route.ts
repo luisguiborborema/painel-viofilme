@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PRIORITIES = new Set(["baixa", "media", "alta", "urgente"]);
+const TASK_TYPES = new Set(["ligacao", "whatsapp", "email", "reuniao", "todo"]);
 
 type Body = {
   action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority";
@@ -16,6 +17,9 @@ type Body = {
   dueDate?: string;
   assignees?: string[];
   priority?: string;
+  // Criador estilo HubSpot: tipo + lembrete/recorrência (guardados na jsonb).
+  type?: string;
+  properties?: Record<string, unknown>;
 };
 
 /** Cria uma tarefa (próxima ação) ou marca uma como concluída. */
@@ -78,6 +82,9 @@ export async function POST(req: Request) {
   if (!b.leadId || !b.title?.trim()) {
     return NextResponse.json({ error: "leadId/title ausente" }, { status: 400 });
   }
+  // Tipo + lembrete/recorrência ficam na jsonb `properties` (sem coluna dedicada).
+  const props: Record<string, unknown> = { ...(b.properties ?? {}) };
+  if (b.type && TASK_TYPES.has(b.type)) props.type = b.type;
   const { data, error } = await supabase
     .from("crm_tasks")
     .insert({
@@ -85,6 +92,7 @@ export async function POST(req: Request) {
       title: b.title.trim(),
       due_date: b.dueDate ?? null,
       priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
+      properties: Object.keys(props).length ? props : {},
     })
     .select("id")
     .single();

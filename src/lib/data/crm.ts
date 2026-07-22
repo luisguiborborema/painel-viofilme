@@ -118,6 +118,94 @@ export function cadenceLabel(originKind?: string | null): string {
   return originKind === "inbound" ? "Cadência inbound" : "Cadência outbound";
 }
 
+// ── Scripts / roteiros injetáveis na caixa de nota da tarefa (Ficha do Lead) ──
+// O comando `/` injeta um TEMPLATE DE TEXTO editável (não são campos), que o SDR
+// preenche digitando ali mesmo durante a call. `stageHint` sugere o script certo
+// para a etapa atual. Biblioteca editável em Configurações é Camada 3 (futuro).
+export type DealScript = {
+  command: string;
+  title: string;
+  hint: string;
+  stageHint?: string;
+  body: string;
+};
+
+export const DEAL_SCRIPTS: DealScript[] = [
+  {
+    command: "/bant",
+    title: "Roteiro BANT (qualificação)",
+    hint: "Não saia da call sem validar",
+    stageHint: STAGE_HANDOFF,
+    body: `📋 QUALIFICAÇÃO BANT — não saia da call sem validar:
+
+SÓCIOS & DECISÃO
+• Sócios: quantos são e quem são?
+• Decisor: quem dá o "ok" final no marketing?
+• Gatekeeper: tem secretária/gerente no meio?
+
+NÚMEROS & FINANCEIRO
+• Faturamento mensal médio atual?
+• Ticket médio da venda/serviço?
+• Investe quanto hoje em tráfego (Meta/Google)?
+• CAC: sabe o custo por cliente novo?
+• LTV: o cliente volta a comprar? Tempo de vida?
+
+OPERAÇÃO & VENDAS
+• Time comercial: dono atende ou tem vendedores? Quantos?
+• Volume de leads/mês hoje?
+• Taxa de conversão (de 10 leads, quantos fecham)?
+• Gargalo: atração ou conversão?
+
+ESTRATÉGIA & MOMENTO
+• Já trabalha com agência ou in-house?
+• Carro-chefe de maior margem?
+• Meta de faturamento nos próximos 6 meses?
+• Urgência: por que resolver agora e não em 3 meses?`,
+  },
+  {
+    command: "/script-1aligacao",
+    title: "Script — 1ª ligação",
+    hint: "Abertura do primeiro contato",
+    stageHint: STAGE_CADENCE_ON,
+    body: `📞 1ª LIGAÇÃO — abertura:
+
+"Oi, [nome]! Aqui é [seu nome], da Viofilme. Tudo bem?
+Vi que a [empresa] atua com [segmento] — a gente ajuda negócios como o seu a [resultado].
+Você é a pessoa que cuida do marketing aí?
+
+[Se sim] Tenho 2 minutos pra te fazer 3 perguntas rápidas e ver se faz sentido a gente conversar melhor. Pode ser?"
+
+• Objetivo da call: agendar a reunião de diagnóstico.
+• Se objeção "manda por e-mail": "Claro! Mas me diz só uma coisa antes…"`,
+  },
+  {
+    command: "/whatsapp-followup",
+    title: "Follow-up de WhatsApp",
+    hint: "Reengajar sem sumir",
+    stageHint: STAGE_CADENCE_OFF,
+    body: `💬 FOLLOW-UP (WhatsApp):
+
+"Oi, [nome]! Passando aqui pra retomar nossa conversa sobre [tema].
+Consegui pensar em [ideia/insight rápido pro negócio dele].
+Faz sentido marcarmos 15 min essa semana? Tenho [dia] de manhã ou [dia] à tarde — qual fica melhor?"`,
+  },
+  {
+    command: "/remarcacao",
+    title: "Remarcação de reunião",
+    hint: "Após um no-show",
+    stageHint: STAGE_NO_SHOW,
+    body: `🔁 REMARCAÇÃO (pós no-show):
+
+"Oi, [nome]! Acho que não conseguimos nos falar no horário combinado — acontece!
+Bora remarcar? Consigo [dia] às [hora] ou [dia] às [hora]. Qual encaixa melhor na sua agenda?"`,
+  },
+];
+
+/** Sugere o script mais adequado para a etapa atual do funil. */
+export function suggestedScriptFor(stageKey: string): DealScript | undefined {
+  return DEAL_SCRIPTS.find((s) => s.stageHint === stageKey);
+}
+
 // ── CRM v2: objetos Empresa / Contato + customização ────────────────────────
 
 export type Company = {
