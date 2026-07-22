@@ -89,6 +89,8 @@ export type CrmLead = {
   handoffAt?: string;
   handoffResult?: "aceito" | "recusado";
   handoffParecer?: string;
+  /** Anotações de prospecção (outbound, momento zero) — campo livre do SDR. */
+  prospectingNotes?: string;
   createdAt: string;
   updatedAt: string;
 };

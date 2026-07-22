@@ -39,7 +39,7 @@ import {
 } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
-import { NewLeadModal } from "./new-lead-modal";
+import { NovoNegocioModal } from "./new-lead-modal";
 import { TagChips } from "./tag-chips";
 
 function cardBorder(card: CrmLeadCard): string {
@@ -318,8 +318,6 @@ export function CrmPipeline({
   cards: initial,
   pipelines = [DEFAULT_PIPELINE],
   tags = [],
-  companies = [],
-  contacts = [],
   team = [],
   teamMembers = [],
   currentUser = "",
@@ -630,13 +628,9 @@ export function CrmPipeline({
       )}
 
       {showNew && (
-        <NewLeadModal
+        <NovoNegocioModal
           onClose={() => setShowNew(false)}
           onCreated={addLead}
-          companies={companies}
-          contacts={contacts}
-          stages={stages}
-          pipelineId={pipeline.id}
           team={team}
           defaultOwner={currentUser}
         />
