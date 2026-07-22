@@ -1,18 +1,55 @@
 import Link from "next/link";
 import {
   AlarmClock,
+  ArrowRightLeft,
+  CalendarCheck,
   CalendarClock,
   DollarSign,
+  PhoneCall,
   Percent,
+  Snowflake,
   Ticket,
   TrendingUp,
   Trophy,
+  UserX,
   Video,
+  Zap,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card } from "@/components/ui/card";
-import { formatBRL } from "@/lib/utils";
+import { cn, formatBRL } from "@/lib/utils";
 import type { BdrDashboard, FocusItem } from "@/lib/data/crm";
+
+function MiniStat({
+  icon: Icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: typeof PhoneCall;
+  label: string;
+  value: number;
+  tone?: "neutral" | "amber" | "rose" | "sky" | "brand";
+}) {
+  const tones: Record<string, string> = {
+    neutral: "text-muted",
+    amber: "text-amber-600",
+    rose: "text-rose-500",
+    sky: "text-sky-600",
+    brand: "text-brand-600",
+  };
+  return (
+    <Card className="flex items-center gap-3 p-3">
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-subtle", tones[tone])}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-lg font-bold leading-none text-ink">{value}</p>
+        <p className="truncate text-[11px] text-muted">{label}</p>
+      </div>
+    </Card>
+  );
+}
 
 const FOCUS_STYLE: Record<
   FocusItem["kind"],
@@ -92,6 +129,19 @@ export function CrmDashboard({
           icon={Ticket}
           hint="por contrato ganho"
         />
+      </div>
+
+      {/* Cockpit da pré-venda (SDR) — cadeia de funis */}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Cockpit da pré-venda</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <MiniStat icon={PhoneCall} label="A contactar" value={d.toContact} tone="rose" />
+          <MiniStat icon={Zap} label="Cadências ativas" value={d.cadencesActive} tone="amber" />
+          <MiniStat icon={CalendarCheck} label="Reuniões agendadas" value={d.meetingsScheduled} tone="brand" />
+          <MiniStat icon={UserX} label="No-shows" value={d.noShowsOpen} tone="rose" />
+          <MiniStat icon={ArrowRightLeft} label="Bastões pendentes" value={d.handoffsPending} tone="brand" />
+          <MiniStat icon={Snowflake} label="Congelados" value={d.frozenCount} tone="sky" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

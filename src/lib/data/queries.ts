@@ -1566,12 +1566,14 @@ export async function getCrmTasks(): Promise<CrmTask[]> {
 }
 
 export async function getCrmDashboard(): Promise<BdrDashboard> {
-  const [leads, tasks, pipeline] = await Promise.all([
+  const [leads, tasks, pipelines] = await Promise.all([
     getCrmLeads(),
     getCrmTasks(),
-    getDefaultPipeline(),
+    getCrmPipelines(),
   ]);
-  return computeDashboard(leads, tasks, crmNowIso(), pipeline.stages);
+  // Cadeia de funis: o dashboard consolida TODOS os funis (SDR + Vendas).
+  const allStages = pipelines.flatMap((p) => p.stages);
+  return computeDashboard(leads, tasks, crmNowIso(), allStages);
 }
 
 export async function getCrmLead(id: string): Promise<{

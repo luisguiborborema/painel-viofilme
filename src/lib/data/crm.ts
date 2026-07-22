@@ -680,6 +680,13 @@ export type BdrDashboard = {
   focus: FocusItem[];
   score: number;
   scoreGoal: number;
+  // Cockpit SDR (cadeia de funis)
+  toContact: number; // no reservatório "Contactar Urgente"
+  cadencesActive: number; // cadências ligadas agora
+  meetingsScheduled: number; // reuniões agendadas (Pré-venda)
+  noShowsOpen: number; // soma de no-shows em negócios abertos
+  handoffsPending: number; // "Reunião Realizada" aguardando passar bastão
+  frozenCount: number; // congelados/arquivados
 };
 
 function sameDay(aIso: string, bIso: string): boolean {
@@ -692,6 +699,20 @@ function sameDay(aIso: string, bIso: string): boolean {
   );
 }
 
+/** Estágios que FECHAM o negócio em qualquer funil da cadeia. */
+export function isClosedStageKey(key: string): boolean {
+  return key === "ganho" || key === "perdido";
+}
+
+/**
+ * Negócio ATIVO no funil: não fechado (ganho/perdido) e não congelado.
+ * Substitui o antigo OPEN_STAGES (baseado nas keys do funil único), que ficou
+ * vazio após a cadeia de funis (0069). Robusto para SDR e Vendas.
+ */
+export function isOpenLead(l: CrmLead): boolean {
+  return !isClosedStageKey(l.stage) && !l.frozenAt;
+}
+
 /** Monta a "Lista de Foco": atrasadas, do dia e leads sem próxima ação. */
 export function buildFocus(
   leads: CrmLead[],
@@ -700,13 +721,13 @@ export function buildFocus(
 ): FocusItem[] {
   const items: FocusItem[] = [];
   const leadName = (id: string) => leads.find((l) => l.id === id)?.name ?? "Lead";
-  const openLeads = leads.filter((l) => OPEN_STAGES.includes(l.stage));
+  const openLeads = leads.filter(isOpenLead);
   const leadsWithTask = new Set<string>();
 
   for (const t of tasks) {
     if (t.status !== "pending" || !t.dueDate) continue;
     const lead = leads.find((l) => l.id === t.leadId);
-    if (!lead || !OPEN_STAGES.includes(lead.stage)) continue;
+    if (!lead || !isOpenLead(lead)) continue;
     leadsWithTask.add(t.leadId);
     const late = daysBetween(t.dueDate, nowIso);
     if (Date.parse(t.dueDate) < Date.parse(nowIso) && !sameDay(t.dueDate, nowIso)) {
@@ -740,14 +761,15 @@ export function computeDashboard(
   const now = new Date(nowIso);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
-  // Estágios abertos (do pipeline configurado ou dos padrão).
+  // Estágios abertos de TODA a cadeia (rótulos/cores/ordem p/ o byStage). Sem
+  // `stages`, cai nos padrão. Negócios abertos são detectados por predicado
+  // (isOpenLead), não por lista de keys — robusto na cadeia de funis.
   const openStages = stages?.length
     ? stages.filter((s) => s.kind === "open")
     : CRM_STAGES.filter((s) => s.open).map((s, i) => ({
         id: s.key, key: s.key, label: s.label, color: s.color,
         probability: s.probability, position: i, kind: "open" as const,
       }));
-  const openKeys = new Set(openStages.map((s) => s.key));
 
   const wonThisMonth = leads.filter((l) => l.wonAt && Date.parse(l.wonAt) >= Date.parse(monthStart));
   const lostThisMonth = leads.filter((l) => l.lostAt && Date.parse(l.lostAt) >= Date.parse(monthStart));
@@ -756,26 +778,27 @@ export function computeDashboard(
   const winRate = closed ? Math.round((wonThisMonth.length / closed) * 100) : 0;
   const avgTicket = wonThisMonth.length ? Math.round(newMrr / wonThisMonth.length) : 0;
 
-  const open = leads.filter((l) => openKeys.has(l.stage));
+  const open = leads.filter(isOpenLead);
+  const probByKey = new Map(openStages.map((s) => [s.key, s.probability]));
   // "Propostas em aberto": estágios abertos com probabilidade alta (≥60%).
-  const proposalsOpen = open.filter((l) => {
-    const st = openStages.find((s) => s.key === l.stage);
-    return (st?.probability ?? l.probability) >= 60;
-  });
+  const proposalsOpen = open.filter((l) => (probByKey.get(l.stage) ?? l.probability) >= 60);
   const pipelineOpenValue = open.reduce((s, l) => s + l.monthlyValue, 0);
   const pipelineWeighted = Math.round(
     open.reduce((s, l) => s + (l.monthlyValue * l.probability) / 100, 0),
   );
 
-  const byStage: StageBucket[] = openStages.map((s) => {
-    const inStage = open.filter((l) => l.stage === s.key);
-    return {
-      stage: s.key,
-      label: s.label,
-      count: inStage.length,
-      value: inStage.reduce((sum, l) => sum + l.monthlyValue, 0),
-    };
-  });
+  // byStage: só os estágios abertos que têm negócio (evita 9 barras vazias).
+  const byStage: StageBucket[] = openStages
+    .map((s) => {
+      const inStage = open.filter((l) => l.stage === s.key);
+      return {
+        stage: s.key,
+        label: s.label,
+        count: inStage.length,
+        value: inStage.reduce((sum, l) => sum + l.monthlyValue, 0),
+      };
+    })
+    .filter((b) => b.count > 0);
 
   const focus = buildFocus(leads, tasks, nowIso);
 
@@ -786,14 +809,21 @@ export function computeDashboard(
     proposalsValue: proposalsOpen.reduce((s, l) => s + l.monthlyValue, 0),
     winRate,
     avgTicket,
-    meetingsPlanned: open.filter((l) => l.stage === "reuniao").length,
-    meetingsDone: wonThisMonth.length + proposalsOpen.length,
+    meetingsPlanned: open.filter((l) => /reuniao/.test(l.stage)).length,
+    meetingsDone: leads.filter((l) => l.handoffAt).length,
     pipelineOpenValue,
     pipelineWeighted,
     byStage,
     focus,
     score: 720,
     scoreGoal: 1000,
+    // Cockpit SDR
+    toContact: open.filter((l) => l.stage === STAGE_RESERVOIR).length,
+    cadencesActive: open.filter((l) => l.cadenceActive).length,
+    meetingsScheduled: open.filter((l) => l.stage === STAGE_NO_SHOW).length,
+    noShowsOpen: open.reduce((s, l) => s + (l.noShowCount ?? 0), 0),
+    handoffsPending: open.filter((l) => l.stage === STAGE_HANDOFF).length,
+    frozenCount: leads.filter((l) => Boolean(l.frozenAt)).length,
   };
 }
 
@@ -1208,7 +1238,7 @@ export function buildForecast(
       .reduce((s, l) => s + l.monthlyValue, 0);
     const weighted = Math.round(
       mine
-        .filter((l) => !l.wonAt && !l.lostAt)
+        .filter((l) => !l.wonAt && !l.lostAt && !l.frozenAt)
         .reduce((s, l) => s + (l.monthlyValue * l.probability) / 100, 0),
     );
     const target = goalOf(owner);
