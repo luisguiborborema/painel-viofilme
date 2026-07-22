@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
+  LayoutGrid,
+  List,
   Plus,
   RotateCcw,
   ShieldAlert,
@@ -40,6 +42,7 @@ import {
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
 import { NovoNegocioModal } from "./new-lead-modal";
+import { CrmList } from "./crm-list";
 import { TagChips } from "./tag-chips";
 
 function cardBorder(card: CrmLeadCard): string {
@@ -318,6 +321,7 @@ export function CrmPipeline({
   cards: initial,
   pipelines = [DEFAULT_PIPELINE],
   tags = [],
+  companies = [],
   team = [],
   teamMembers = [],
   currentUser = "",
@@ -340,6 +344,7 @@ export function CrmPipeline({
   const [mine, setMine] = useState(false);
   const [showFrozen, setShowFrozen] = useState(false);
   const [handoff, setHandoff] = useState<{ id: string; name: string } | null>(null);
+  const [view, setView] = useState<"kanban" | "lista">("kanban");
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
   const [pipelineId, setPipelineId] = useState(defaultId);
@@ -533,6 +538,57 @@ export function CrmPipeline({
 
   return (
     <div className="space-y-4">
+      {/* Barra: alternador Kanban/Lista + Novo negócio (compartilhado) */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-xl border border-line p-0.5">
+          <button
+            onClick={() => setView("kanban")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "kanban" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+            )}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Kanban
+          </button>
+          <button
+            onClick={() => setView("lista")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "lista" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+            )}
+          >
+            <List className="h-3.5 w-3.5" /> Lista
+          </button>
+        </div>
+        <button
+          onClick={() => setShowNew(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Novo negócio
+        </button>
+      </div>
+
+      {showNew && (
+        <NovoNegocioModal
+          onClose={() => setShowNew(false)}
+          onCreated={addLead}
+          team={team}
+          defaultOwner={currentUser}
+        />
+      )}
+
+      {view === "lista" ? (
+        <CrmList
+          cards={cards}
+          pipelines={pipelines}
+          tags={tags}
+          companies={companies}
+          team={team}
+          teamMembers={teamMembers}
+          currentUser={currentUser}
+        />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {pipelines.length > 1 && (
@@ -610,12 +666,6 @@ export function CrmPipeline({
               ))}
             </div>
           )}
-          <button
-            onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <Plus className="h-4 w-4" /> Novo negócio
-          </button>
         </div>
       </div>
 
@@ -625,15 +675,6 @@ export function CrmPipeline({
           Vendo negócios <strong>congelados/arquivados</strong> — reengaje quando fizer sentido.
           Use <strong>Reativar</strong> no card para devolvê-lo ao funil.
         </div>
-      )}
-
-      {showNew && (
-        <NovoNegocioModal
-          onClose={() => setShowNew(false)}
-          onCreated={addLead}
-          team={team}
-          defaultOwner={currentUser}
-        />
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
@@ -750,6 +791,8 @@ export function CrmPipeline({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
