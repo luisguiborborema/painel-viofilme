@@ -1820,6 +1820,7 @@ import type {
   LostReason,
   TaskFlow,
   DealScript,
+  CrmDocument,
   CrmGoal,
   CaptureForm,
   StageChange,
@@ -2104,6 +2105,32 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
           automations: (s.automations as Stage["automations"] | null) ?? [],
         }),
       ),
+  }));
+}
+
+export async function sbGetCrmDocuments(opts?: {
+  dealId?: string;
+  companyId?: string;
+}): Promise<CrmDocument[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("crm_documents")
+    .select("id,deal_id,company_id,title,url,file_name,file_type,file_size,kind,created_at")
+    .order("created_at", { ascending: false });
+  if (opts?.dealId) q = q.eq("deal_id", opts.dealId);
+  if (opts?.companyId) q = q.eq("company_id", opts.companyId);
+  const { data } = await q;
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    dealId: r.deal_id ? String(r.deal_id) : undefined,
+    companyId: r.company_id ? String(r.company_id) : undefined,
+    title: String(r.title),
+    url: String(r.url),
+    fileName: r.file_name ? String(r.file_name) : undefined,
+    fileType: r.file_type ? String(r.file_type) : undefined,
+    fileSize: r.file_size != null ? Number(r.file_size) : undefined,
+    kind: String(r.kind ?? "outro"),
+    createdAt: String(r.created_at),
   }));
 }
 

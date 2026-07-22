@@ -120,6 +120,30 @@ export function cadenceLabel(originKind?: string | null): string {
   return originKind === "inbound" ? "Cadência inbound" : "Cadência outbound";
 }
 
+// ── Documentos do Comercial (por negócio/empresa) ───────────────────────────
+export type CrmDocument = {
+  id: string;
+  dealId?: string;
+  companyId?: string;
+  dealName?: string;
+  companyName?: string;
+  title: string;
+  url: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  kind: string;
+  createdAt: string;
+};
+
+export const CRM_DOCUMENT_KINDS: { key: string; label: string }[] = [
+  { key: "contrato", label: "Contrato" },
+  { key: "proposta", label: "Proposta" },
+  { key: "briefing", label: "Briefing" },
+  { key: "material", label: "Material" },
+  { key: "outro", label: "Outro" },
+];
+
 // ── Scripts / roteiros injetáveis na caixa de nota da tarefa (Ficha do Lead) ──
 // O comando `/` injeta um TEMPLATE DE TEXTO editável (não são campos), que o SDR
 // preenche digitando ali mesmo durante a call. `stageHint` sugere o script certo

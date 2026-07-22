@@ -1532,6 +1532,7 @@ import {
   type LostReason,
   type TaskFlow,
   type DealScript,
+  type CrmDocument,
   type CrmGoal,
   type CaptureForm,
   type StageChange,
@@ -1672,6 +1673,15 @@ export async function getCrmScripts(): Promise<DealScript[]> {
     return rows.length ? rows : DEAL_SCRIPTS;
   }
   return DEAL_SCRIPTS;
+}
+
+/** Documentos do Comercial (por negócio/empresa, ou todos). */
+export async function getCrmDocuments(opts?: {
+  dealId?: string;
+  companyId?: string;
+}): Promise<CrmDocument[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmDocuments(opts);
+  return [];
 }
 
 export async function getCrmGoals(month: string): Promise<CrmGoal[]> {

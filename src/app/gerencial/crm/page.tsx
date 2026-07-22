@@ -4,6 +4,7 @@ import { CrmDashboard } from "@/components/crm/crm-dashboard";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
 import { CrmCompanies } from "@/components/crm/crm-companies";
 import { CrmContacts } from "@/components/crm/crm-contacts";
+import { CrmDocuments } from "@/components/crm/crm-documents";
 import { CrmSettings } from "@/components/crm/crm-settings";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmTasks } from "@/components/crm/crm-tasks";
@@ -21,6 +22,7 @@ import {
   getAttendants,
   getCrmTaskFlows,
   getCrmScripts,
+  getCrmDocuments,
   getCaptureForms,
   getStageHistory,
   getCardLayout,
@@ -64,10 +66,11 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, goals, captureForms, history, cardLayout] = await Promise.all([
+  const [crmTasks, flows, scripts, documents, goals, captureForms, history, cardLayout] = await Promise.all([
     getCrmTasks(),
     getCrmTaskFlows(),
     getCrmScripts(),
+    getCrmDocuments(),
     getCrmGoals(curMonth),
     getCaptureForms(),
     getStageHistory(),
@@ -147,6 +150,17 @@ export default async function CrmPage({
       key: "contatos",
       label: "Contatos",
       content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
+    },
+    {
+      key: "documentos",
+      label: "Documentos",
+      content: (
+        <CrmDocuments
+          documents={documents}
+          deals={dealPickList.map((d) => ({ id: d.id, name: d.name }))}
+          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+        />
+      ),
     },
     {
       key: "metas",

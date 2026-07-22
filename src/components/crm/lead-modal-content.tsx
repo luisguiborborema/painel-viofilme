@@ -56,6 +56,7 @@ import {
   type Company,
   type Contact,
   type CrmComment,
+  type CrmDocument,
   type CrmInteraction,
   type CrmLead,
   type CrmTask,
@@ -81,6 +82,7 @@ import { ScheduleModal } from "./schedule-modal";
 import { ProposalModal } from "./proposal-modal";
 import { useLeadModalLayout, type LeadModalLayout } from "./lead-modal";
 import { LeadComments } from "./lead-comments";
+import { CrmDocuments } from "./crm-documents";
 import type { Attendant } from "@/lib/data/inbox";
 
 /**
@@ -106,6 +108,7 @@ export function LeadModalContent({
   comments = [],
   currentUser = "",
   scripts = DEAL_SCRIPTS,
+  documents = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -124,6 +127,7 @@ export function LeadModalContent({
   currentUser?: string;
   cardFields?: CardFieldSetting[];
   scripts?: DealScript[];
+  documents?: CrmDocument[];
 }) {
   const router = useRouter();
   const { layout, setLayout } = useLeadModalLayout();
@@ -497,6 +501,8 @@ export function LeadModalContent({
                 stageKey={lead.stage}
                 notes={noteItems}
                 scripts={scripts}
+                dealId={lead.id}
+                documents={documents}
                 onComplete={completeTask}
                 onReschedule={rescheduleTask}
                 onNewTask={() => setShowFab(true)}
@@ -694,6 +700,8 @@ function WorkArea({
   stageKey,
   notes,
   scripts,
+  dealId,
+  documents,
   onComplete,
   onReschedule,
   onNewTask,
@@ -703,6 +711,8 @@ function WorkArea({
   stageKey: string;
   notes: CrmInteraction[];
   scripts: DealScript[];
+  dealId: string;
+  documents: CrmDocument[];
   onComplete: (task: CrmTask, note: string) => void;
   onReschedule: (task: CrmTask, dueIso: string) => void;
   onNewTask: () => void;
@@ -752,11 +762,7 @@ function WorkArea({
           ))}
         </div>
       )}
-      {sub === "arquivos" && (
-        <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-          Anexos entram aqui em breve. Por ora, cole links de arquivos nas anotações.
-        </p>
-      )}
+      {sub === "arquivos" && <CrmDocuments dealId={dealId} documents={documents} compact />}
     </div>
   );
 }
