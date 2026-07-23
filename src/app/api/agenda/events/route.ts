@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createEvent } from "@/lib/google/calendar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,11 @@ type Body = {
   startAt?: string;
   endAt?: string;
   dealId?: string;
+  // Reunião real no Google Calendar (Meet + convidados + descrição).
+  useGoogle?: boolean;
+  description?: string;
+  attendees?: string[];
+  addMeet?: boolean;
 };
 
 /** CRUD dos eventos próprios (fallback/complemento ao Google Calendar). */
@@ -44,6 +50,30 @@ export async function POST(req: Request) {
   if (!b.title?.trim() || !b.startAt) {
     return NextResponse.json({ error: "título/início ausentes" }, { status: 400 });
   }
+
+  // Reunião no Google: cria evento real (Meet + convidados + descrição) e envia
+  // convites. Não grava local (aparece via listUpcomingEvents na próxima carga).
+  if (b.useGoogle) {
+    const attendees = (b.attendees ?? [])
+      .map((a) => a.trim())
+      .filter((a) => a.includes("@"));
+    const result = await createEvent({
+      summary: b.title.trim(),
+      description: b.description || undefined,
+      startIso: b.startAt,
+      endIso: b.endAt ?? new Date(new Date(b.startAt).getTime() + 60 * 60 * 1000).toISOString(),
+      attendees,
+      addMeet: b.addMeet !== false,
+    });
+    if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
+    return NextResponse.json({
+      ok: true,
+      google: true,
+      meetLink: result.event?.hangoutLink,
+      htmlLink: result.event?.htmlLink,
+    });
+  }
+
   const { data, error } = await supabase
     .from("calendar_events")
     .insert({

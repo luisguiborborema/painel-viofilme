@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
   ExternalLink,
   Layers,
   Link2,
@@ -18,6 +19,7 @@ import {
   Plus,
   Settings2,
   Trash2,
+  Users,
   Video,
   X,
 } from "lucide-react";
@@ -183,7 +185,12 @@ export function AgendaClient({
         <LinksPanel links={initialLinks} onClose={() => setShowLinks(false)} onChanged={() => router.refresh()} />
       )}
       {newAt && (
-        <EventModal at={newAt} onClose={() => setNewAt(null)} onSaved={() => { setNewAt(null); router.refresh(); }} />
+        <EventModal
+          at={newAt}
+          googleConnected={googleConnected}
+          onClose={() => setNewAt(null)}
+          onSaved={() => { setNewAt(null); router.refresh(); }}
+        />
       )}
     </div>
   );
@@ -533,49 +540,148 @@ function LinksPanel({ links, onClose, onChanged }: { links: SchedulingLink[]; on
 
 /* ── Nova reunião (evento próprio) ─────────────────────── */
 
-function EventModal({ at, onClose, onSaved }: { at: Date; onClose: () => void; onSaved: () => void }) {
+function EventModal({
+  at,
+  googleConnected,
+  onClose,
+  onSaved,
+}: {
+  at: Date;
+  googleConnected: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("meeting");
   const [date, setDate] = useState(`${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`);
   const [start, setStart] = useState(`${String(at.getHours()).padStart(2, "0")}:00`);
   const [end, setEnd] = useState(`${String((at.getHours() + 1) % 24).padStart(2, "0")}:00`);
+  const [description, setDescription] = useState("");
+  const [guests, setGuests] = useState("");
+  const [addMeet, setAddMeet] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ meetLink?: string; htmlLink?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   async function save() {
     if (!title.trim()) return;
     setBusy(true);
+    setError(null);
     const startAt = new Date(`${date}T${start}`).toISOString();
     const endAt = new Date(`${date}T${end}`).toISOString();
-    await fetch("/api/agenda/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", title: title.trim(), type, startAt, endAt }) }).catch(() => {});
-    setBusy(false); onSaved();
+    const attendees = guests
+      .split(/[\s,;]+/)
+      .map((g) => g.trim())
+      .filter((g) => g.includes("@"));
+    try {
+      const res = await fetch("/api/agenda/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          title: title.trim(),
+          type,
+          startAt,
+          endAt,
+          useGoogle: googleConnected,
+          description: description.trim() || undefined,
+          attendees,
+          addMeet,
+        }),
+      });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; google?: boolean; meetLink?: string; htmlLink?: string };
+      if (!res.ok || out.error) {
+        setError(out.error ?? "Falha ao criar a reunião.");
+        setBusy(false);
+        return;
+      }
+      // No Google, mostra o link do Meet antes de fechar; local fecha direto.
+      if (out.google && (out.meetLink || out.htmlLink)) {
+        setCreated({ meetLink: out.meetLink, htmlLink: out.htmlLink });
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      onSaved();
+    } catch {
+      setError("Erro de rede.");
+      setBusy(false);
+    }
   }
+
+  function copyLink() {
+    const link = created?.meetLink ?? created?.htmlLink;
+    if (link) {
+      navigator.clipboard?.writeText(link).catch(() => {});
+      setCopied(true);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink">Nova reunião</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
+          <h2 className="text-base font-bold text-ink">{created ? "Reunião criada" : "Nova reunião"}</h2>
+          <button onClick={created ? onSaved : onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
-        <div className="space-y-2">
-          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex.: Diagnóstico — Padaria do João)" className={inputCls} />
-          <div className="grid grid-cols-3 gap-2">
-            <select value={type} onChange={(e) => setType(e.target.value)} className={inputCls}>
-              <option value="meeting">Reunião</option>
-              <option value="call">Call</option>
-              <option value="other">Outro</option>
-            </select>
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
+
+        {created ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+              <Check className="h-4 w-4 shrink-0" /> Convites enviados aos participantes.
+            </div>
+            {created.meetLink && (
+              <div className="rounded-xl border border-line bg-canvas p-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted"><Video className="h-3.5 w-3.5" /> Link do Google Meet</p>
+                <div className="flex items-center gap-2">
+                  <a href={created.meetLink} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sm text-brand-600 hover:underline">{created.meetLink}</a>
+                  <button onClick={copyLink} className="shrink-0 rounded-lg border border-line p-1.5 text-muted hover:bg-subtle" title="Copiar">
+                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button onClick={onSaved} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Concluir</button>
+            </div>
           </div>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-          <p className="text-[11px] text-muted">Salva no calendário do sistema. Sincronização com o Google liga em Integrações.</p>
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-          <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />} Criar
-          </button>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex.: Diagnóstico — Padaria do João)" className={inputCls} />
+              <div className="grid grid-cols-3 gap-2">
+                <select value={type} onChange={(e) => setType(e.target.value)} className={inputCls}>
+                  <option value="meeting">Reunião</option>
+                  <option value="call">Call</option>
+                  <option value="other">Outro</option>
+                </select>
+                <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
+                <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
+              </div>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Descrição / pauta (opcional)" className={inputCls + " resize-y"} />
+              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted"><Users className="h-3.5 w-3.5" /> Convidados (e-mails separados por vírgula)</label>
+              <input value={guests} onChange={(e) => setGuests(e.target.value)} placeholder="fulano@empresa.com, ciclano@..." disabled={!googleConnected} className={inputCls + (googleConnected ? "" : " opacity-60")} />
+              {googleConnected ? (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                  <input type="checkbox" checked={addMeet} onChange={(e) => setAddMeet(e.target.checked)} />
+                  <Video className="h-4 w-4 text-brand-500" /> Adicionar Google Meet
+                </label>
+              ) : (
+                <p className="text-[11px] text-amber-600">Conecte o Google em Integrações para criar a reunião com Meet e convidados. Sem conexão, salva só no calendário do sistema.</p>
+              )}
+              {error && <p className="text-[11px] text-red-600">{error}</p>}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
+              <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />} {googleConnected ? "Criar reunião" : "Criar"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
