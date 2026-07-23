@@ -766,6 +766,7 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
   const [assignee, setAssignee] = useState(task?.assignees?.[0] ?? task?.assignee ?? currentUser);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const suggested = suggestedScriptFor(task?.dealStage ?? "", scripts);
   const activeScripts = scripts.filter((s) => s.isActive !== false && s.command);
@@ -780,28 +781,47 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
   async function save() {
     if (!title.trim()) return;
     setBusy(true);
+    setErr(null);
     const properties: Record<string, unknown> = {
       reminder: reminder === "sem" ? undefined : reminder,
       recurrence: recurrence === "nenhuma" ? undefined : recurrence,
       duration_min: duration ? Number(duration) : undefined,
     };
-    if (create) {
-      await postTask({
-        action: "add",
-        leadId: dealId || undefined,
-        title: title.trim(),
-        dueDate: dueIso(),
-        priority,
-        type,
-        properties,
-        assignees: assignee ? [assignee] : [],
-      }).catch(() => {});
-    } else if (task?.id) {
-      await postTask({ action: "update", taskId: task.id, title: title.trim(), dueDate: dueIso() ?? "", priority, type, properties }).catch(() => {});
-      if (assignee) await postTask({ action: "set-assignees", taskId: task.id, assignees: [assignee] }).catch(() => {});
+    try {
+      let res: Response;
+      if (create) {
+        res = await postTask({
+          action: "add",
+          leadId: dealId || undefined,
+          title: title.trim(),
+          dueDate: dueIso(),
+          priority,
+          type,
+          properties,
+          assignees: assignee ? [assignee] : [],
+        });
+      } else if (task?.id) {
+        res = await postTask({ action: "update", taskId: task.id, title: title.trim(), dueDate: dueIso() ?? "", priority, type, properties });
+      } else {
+        setBusy(false);
+        return;
+      }
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || out.error) {
+        setErr(out.error ?? "Não foi possível salvar a atividade.");
+        setBusy(false);
+        return;
+      }
+      // Responsável (só na edição; no create já vai no add).
+      if (!create && task?.id && assignee) {
+        await postTask({ action: "set-assignees", taskId: task.id, assignees: [assignee] }).catch(() => {});
+      }
+      setBusy(false);
+      onSaved();
+    } catch {
+      setErr("Erro de rede ao salvar.");
+      setBusy(false);
     }
-    setBusy(false);
-    onSaved();
   }
 
   return (
@@ -887,6 +907,9 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
           )}
         </div>
 
+        {err && (
+          <p className="border-t border-line bg-rose-50 px-4 py-2 text-xs text-rose-600">{err}</p>
+        )}
         <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
           {editing ? (
             <button onClick={() => onConclude(note)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Check className="h-4 w-4" /> Concluir</button>
