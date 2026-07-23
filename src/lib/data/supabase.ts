@@ -1825,6 +1825,9 @@ import type {
   CaptureForm,
   StageChange,
   AssignmentConfig,
+  DashInteraction,
+  CommercialBoard,
+  InspirationQuote,
 } from "./crm";
 import { toAssignmentConfig } from "./crm";
 
@@ -2108,6 +2111,35 @@ export async function sbGetCrmPipelines(): Promise<Pipeline[]> {
         }),
       ),
   }));
+}
+
+export async function sbGetCrmInteractionsSince(sinceIso: string): Promise<DashInteraction[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_interactions")
+    .select("author,channel,created_at")
+    .gte("created_at", sinceIso);
+  return (data ?? []).map((r) => ({
+    author: r.author == null ? null : String(r.author),
+    channel: String(r.channel ?? "note"),
+    createdAt: String(r.created_at),
+  }));
+}
+
+export async function sbGetCommercialBoard(): Promise<CommercialBoard> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("commercial_board").select("message,author,updated_at").eq("id", 1).maybeSingle();
+  return {
+    message: String(data?.message ?? ""),
+    author: data?.author ? String(data.author) : undefined,
+    updatedAt: data?.updated_at ? String(data.updated_at) : undefined,
+  };
+}
+
+export async function sbGetInspirationQuotes(): Promise<InspirationQuote[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("inspiration_quotes").select("text,source").eq("active", true);
+  return (data ?? []).map((r) => ({ text: String(r.text), source: r.source ? String(r.source) : undefined }));
 }
 
 export async function sbGetAssignmentConfig(): Promise<AssignmentConfig> {

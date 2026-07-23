@@ -10,7 +10,9 @@ import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmActivities } from "@/components/crm/crm-activities";
 import { CrmGoals } from "@/components/crm/crm-goals";
 import {
-  getCrmDashboard,
+  getCommercialDashboard,
+  getCommercialBoard,
+  getDailyQuote,
   getCrmLeads,
   getCrmTasks,
   getCrmGoals,
@@ -49,9 +51,8 @@ export default async function CrmPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
-  const [dashboard, leads, companies, contacts, tags, properties, pipelines, team, user, events] =
+  const [leads, companies, contacts, tags, properties, pipelines, team, user, events] =
     await Promise.all([
-      getCrmDashboard(),
       getCrmLeads(),
       getCrmCompanies(),
       getCrmContacts(),
@@ -67,7 +68,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout] =
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote] =
     await Promise.all([
       getCrmTasks(),
       getCrmTaskFlows(),
@@ -78,7 +79,14 @@ export default async function CrmPage({
       getCaptureForms(),
       getStageHistory(),
       getCardLayout("deal"),
+      getCommercialDashboard(currentUser),
+      getCommercialBoard(),
+      getDailyQuote(),
     ]);
+  const proximaReuniao = events.length
+    ? { title: events[0].summary, iso: events[0].start, meetLink: events[0].hangoutLink }
+    : undefined;
+  const canEditMural = hasFullAccess(user?.allowedSections ?? null) || (user?.commercialRole ?? "gestor") === "gestor";
   const stageTimings = buildStageTimings(history, nowIso);
   const taskItems = buildTaskItems(crmTasks, leads);
   const forecast = buildForecast(leads, goals, teamNames, curMonth);
@@ -110,7 +118,22 @@ export default async function CrmPage({
     : CRM_AGENDA.map((a) => ({ time: a.time, title: a.title, meetLink: undefined as string | undefined }));
 
   const tabs: ClientTab[] = [
-    { key: "dashboard", label: "Dashboard", content: <CrmDashboard d={dashboard} agenda={agenda} /> },
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      content: (
+        <CrmDashboard
+          dash={commercialDash}
+          agenda={agenda}
+          proximaReuniao={proximaReuniao}
+          board={board}
+          quote={quote}
+          currentUser={currentUser}
+          commercialRole={user?.commercialRole ?? "gestor"}
+          canEditMural={canEditMural}
+        />
+      ),
+    },
     {
       key: "pipeline",
       label: "Pipeline",

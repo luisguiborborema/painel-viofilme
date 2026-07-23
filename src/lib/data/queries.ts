@@ -1520,6 +1520,9 @@ import {
   DEFAULT_PIPELINE,
   CRM_REFERENCE_ISO,
   computeDashboard,
+  buildCommercialDash,
+  buildTaskItems,
+  monthKey,
   buildCompanyDetail,
   buildContactDetail,
   buildFunnelAnalytics,
@@ -1535,6 +1538,9 @@ import {
   type DealScript,
   type CrmDocument,
   type AssignmentConfig,
+  type CommercialDash,
+  type CommercialBoard,
+  type InspirationQuote,
   type CrmGoal,
   type CaptureForm,
   type StageChange,
@@ -1579,6 +1585,44 @@ export async function getCrmDashboard(): Promise<BdrDashboard> {
   // Cadeia de funis: o dashboard consolida TODOS os funis (SDR + Vendas).
   const allStages = pipelines.flatMap((p) => p.stages);
   return computeDashboard(leads, tasks, crmNowIso(), allStages);
+}
+
+/** Dashboard Comercial completo (lentes, Ontem/Hoje/Mês, ritmo/projeção). */
+export async function getCommercialDashboard(currentUser: string): Promise<CommercialDash> {
+  const nowIso = crmNowIso();
+  const now = new Date(nowIso);
+  const monthStartIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const [leads, tasks, pipelines, goals, interactions] = await Promise.all([
+    getCrmLeads(),
+    getCrmTasks(),
+    getCrmPipelines(),
+    getCrmGoals(monthKey(nowIso)),
+    isSupabaseConfigured() ? sb.sbGetCrmInteractionsSince(monthStartIso) : Promise.resolve([]),
+  ]);
+  const base = computeDashboard(leads, tasks, nowIso, pipelines.flatMap((p) => p.stages));
+  const taskItems = buildTaskItems(tasks, leads);
+  return buildCommercialDash({ base, leads, tasks: taskItems, interactions, goals, nowIso, currentUser });
+}
+
+/** Mural do time (recado da liderança). */
+export async function getCommercialBoard(): Promise<CommercialBoard> {
+  if (isSupabaseConfigured()) return sb.sbGetCommercialBoard();
+  return { message: "Bem-vindos! Bora fazer um mês histórico. 🚀" };
+}
+
+const DEMO_QUOTES: InspirationQuote[] = [
+  { text: "O sucesso é a soma de pequenos esforços repetidos dia após dia.", source: "Robert Collier" },
+  { text: "Cada não te aproxima do próximo sim.", source: "Anônimo" },
+  { text: "Feito é melhor que perfeito.", source: "Sheryl Sandberg" },
+];
+
+/** Frase inspiracional do dia (rotação diária). */
+export async function getDailyQuote(): Promise<InspirationQuote | null> {
+  const quotes = isSupabaseConfigured() ? await sb.sbGetInspirationQuotes() : DEMO_QUOTES;
+  if (!quotes.length) return null;
+  const d = new Date(crmNowIso());
+  const dayOfYear = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000);
+  return quotes[dayOfYear % quotes.length];
 }
 
 export async function getCrmLead(id: string): Promise<{

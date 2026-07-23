@@ -915,6 +915,190 @@ export function computeDashboard(
   };
 }
 
+// ── Dashboard Comercial (lentes, Ontem/Hoje/Mês, ritmo/projeção) ────────────
+
+export type LensMetric = { key: string; label: string; mine: number; team: number; unit?: "num" | "brl" | "pct" };
+export type ProjStatus = "verde" | "ambar" | "vermelho";
+export type DashInteraction = { author?: string | null; channel: string; createdAt: string };
+export type CommercialBoard = { message: string; author?: string; updatedAt?: string };
+export type InspirationQuote = { text: string; source?: string };
+
+export type CommercialDash = {
+  base: BdrDashboard;
+  prevenda: LensMetric[];
+  venda: LensMetric[];
+  ontem: LensMetric[];
+  hojeTasks: number;
+  hojeTeamTasks: number;
+  mes: {
+    mrrRealizado: number;
+    mrrMeta: number;
+    mrrRitmo: number;
+    projecao: number;
+    projStatus: ProjStatus;
+    atingimento: number;
+    faltaMrr: number;
+    workdaysElapsed: number;
+    workdaysTotal: number;
+    hasMeta: boolean;
+    teamRealizado: number;
+    teamMeta: number;
+  };
+  termometro: { hot: number; warm: number; cold: number };
+  proximaTarefa?: { id: string; title: string; dueIso?: string; leadId: string };
+};
+
+function workdaysBetween(startMs: number, endMs: number): number {
+  let n = 0;
+  for (let t = startMs; t < endMs; t += DAY) {
+    const wd = new Date(t).getDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return n;
+}
+
+/** Consolida o Dashboard Comercial: lentes, Ontem/Hoje/Mês, ritmo e projeção. */
+export function buildCommercialDash(input: {
+  base: BdrDashboard;
+  leads: CrmLead[];
+  tasks: TaskItem[];
+  interactions: DashInteraction[];
+  goals: CrmGoal[];
+  nowIso: string;
+  currentUser: string;
+}): CommercialDash {
+  const { base, leads, tasks, interactions, goals, nowIso, currentUser } = input;
+  const now = new Date(nowIso);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayEnd = todayStart + DAY;
+  const yStart = todayStart - DAY;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+  const month = monthKey(nowIso);
+
+  const inRange = (iso: string | null | undefined, a: number, b: number) => {
+    if (!iso) return false;
+    const t = Date.parse(iso);
+    return t >= a && t < b;
+  };
+  const CONTATO = new Set(["call", "whatsapp", "email"]);
+  const cnt = (mine: boolean, a: number, b: number, ch: Set<string>) =>
+    interactions.filter((i) => (!mine || i.author === currentUser) && ch.has(i.channel) && inRange(i.createdAt, a, b)).length;
+
+  const leadMine = (l: CrmLead) => l.owner === currentUser;
+  const metric = (key: string, label: string, pred: (l: CrmLead) => boolean, unit?: LensMetric["unit"]): LensMetric => ({
+    key, label, unit,
+    mine: leads.filter((l) => leadMine(l) && pred(l)).length,
+    team: leads.filter(pred).length,
+  });
+  const sumMetric = (key: string, label: string, pred: (l: CrmLead) => boolean, val: (l: CrmLead) => number, unit: LensMetric["unit"]): LensMetric => ({
+    key, label, unit,
+    mine: Math.round(leads.filter((l) => leadMine(l) && pred(l)).reduce((s, l) => s + val(l), 0)),
+    team: Math.round(leads.filter(pred).reduce((s, l) => s + val(l), 0)),
+  });
+
+  const wonMonth = (l: CrmLead) => !!l.wonAt && inRange(l.wonAt, monthStart, monthEnd);
+  const lostMonth = (l: CrmLead) => !!l.lostAt && inRange(l.lostAt, monthStart, monthEnd);
+
+  // ── Lente Pré-venda (esforço) ──
+  const prevenda: LensMetric[] = [
+    { key: "contatos", label: "Contatos (mês)", unit: "num", mine: cnt(true, monthStart, monthEnd, CONTATO), team: cnt(false, monthStart, monthEnd, CONTATO) },
+    { key: "calls", label: "Ligações (mês)", unit: "num", mine: cnt(true, monthStart, monthEnd, new Set(["call"])), team: cnt(false, monthStart, monthEnd, new Set(["call"])) },
+    metric("cadencias", "Cadências ativas", (l) => isOpenLead(l) && !!l.cadenceActive),
+    metric("reunioes", "Reuniões marcadas", (l) => isOpenLead(l) && l.stage === STAGE_NO_SHOW),
+    sumMetric("noshow", "No-shows", (l) => isOpenLead(l), (l) => l.noShowCount ?? 0, "num"),
+    metric("bastoes", "Bastões passados (mês)", (l) => l.handoffResult === "aceito" && inRange(l.handoffAt, monthStart, monthEnd)),
+  ];
+
+  // ── Lente Venda (resultado) ──
+  const wonMine = leads.filter((l) => leadMine(l) && wonMonth(l));
+  const wonAll = leads.filter(wonMonth);
+  const ticket = (arr: CrmLead[]) => (arr.length ? Math.round(arr.reduce((s, l) => s + l.monthlyValue, 0) / arr.length) : 0);
+  const winRate = (won: CrmLead[], lost: CrmLead[]) => (won.length + lost.length ? Math.round((won.length / (won.length + lost.length)) * 100) : 0);
+  const cycle = (arr: CrmLead[]) => (arr.length ? Math.round(arr.reduce((s, l) => s + Math.max(0, daysBetween(l.createdAt, l.wonAt!)), 0) / arr.length) : 0);
+  const venda: LensMetric[] = [
+    metric("propostas", "Em proposta", (l) => isOpenLead(l) && (l.stage === "vnd_proposta" || l.stage === "vnd_reuniao_proposta")),
+    metric("reunioes_real", "Reuniões realizadas (mês)", (l) => inRange(l.handoffAt, monthStart, monthEnd)),
+    { key: "fechamentos", label: "Fechamentos (mês)", unit: "num", mine: wonMine.length, team: wonAll.length },
+    sumMetric("mrr", "MRR novo (mês)", wonMonth, (l) => l.monthlyValue, "brl"),
+    { key: "ticket", label: "Ticket médio", unit: "brl", mine: ticket(wonMine), team: ticket(wonAll) },
+    { key: "winrate", label: "Win rate", unit: "pct", mine: winRate(wonMine, leads.filter((l) => leadMine(l) && lostMonth(l))), team: winRate(wonAll, leads.filter(lostMonth)) },
+    { key: "ciclo", label: "Ciclo (dias)", unit: "num", mine: cycle(wonMine), team: cycle(wonAll) },
+  ];
+
+  // ── Ontem ──
+  const doneYest = (mine: boolean) => tasks.filter((t) => t.status === "done" && inRange(t.doneAt, yStart, todayStart) && (!mine || taskMine(t, currentUser))).length;
+  const ontem: LensMetric[] = [
+    { key: "calls", label: "Ligações", unit: "num", mine: cnt(true, yStart, todayStart, new Set(["call"])), team: cnt(false, yStart, todayStart, new Set(["call"])) },
+    { key: "contatos", label: "Contatos", unit: "num", mine: cnt(true, yStart, todayStart, CONTATO), team: cnt(false, yStart, todayStart, CONTATO) },
+    { key: "tarefas", label: "Tarefas concluídas", unit: "num", mine: doneYest(true), team: doneYest(false) },
+    { key: "fechamentos", label: "Fechamentos", unit: "num", mine: leads.filter((l) => leadMine(l) && inRange(l.wonAt, yStart, todayStart)).length, team: leads.filter((l) => inRange(l.wonAt, yStart, todayStart)).length },
+  ];
+
+  // ── Hoje ──
+  const dueTodayOrOverdue = (t: TaskItem, mine: boolean) =>
+    t.status === "pending" && !!t.dueDate && Date.parse(t.dueDate) < todayEnd && (!mine || taskMine(t, currentUser));
+  const hojeTasks = tasks.filter((t) => dueTodayOrOverdue(t, true)).length;
+  const hojeTeamTasks = tasks.filter((t) => dueTodayOrOverdue(t, false)).length;
+
+  // ── Mês (ritmo + projeção, meta pessoal) ──
+  const myWon = wonMine.reduce((s, l) => s + l.monthlyValue, 0);
+  const teamWon = wonAll.reduce((s, l) => s + l.monthlyValue, 0);
+  const myMeta = goals.find((g) => g.owner === currentUser && g.month === month)?.target ?? 0;
+  const teamMeta = goals.filter((g) => g.month === month).reduce((s, g) => s + g.target, 0);
+  const workdaysTotal = workdaysBetween(monthStart, monthEnd) || 1;
+  const workdaysElapsed = Math.max(1, workdaysBetween(monthStart, Math.min(todayEnd, monthEnd)));
+  const mrrRitmo = Math.round(myMeta * (workdaysElapsed / workdaysTotal));
+  const projecao = workdaysElapsed > 0 ? Math.round((myWon / workdaysElapsed) * workdaysTotal) : 0;
+  const hasMeta = myMeta > 0;
+  const projStatus: ProjStatus = !hasMeta ? "ambar" : projecao >= myMeta ? "verde" : projecao >= myMeta * 0.8 ? "ambar" : "vermelho";
+
+  // ── Termômetro (leads abertos por score) ──
+  const termometro = { hot: 0, warm: 0, cold: 0 };
+  for (const l of leads.filter(isOpenLead)) {
+    const tier = scoreDeal(l, nowIso).tier;
+    termometro[tier] += 1;
+  }
+
+  // ── Próxima tarefa a vencer (minha) ──
+  const mineDue = tasks
+    .filter((t) => t.status === "pending" && !!t.dueDate && taskMine(t, currentUser))
+    .sort((a, b) => Date.parse(a.dueDate!) - Date.parse(b.dueDate!));
+  const nt = mineDue[0];
+  const proximaTarefa = nt ? { id: nt.id, title: nt.title, dueIso: nt.dueDate, leadId: nt.leadId } : undefined;
+
+  return {
+    base,
+    prevenda,
+    venda,
+    ontem,
+    hojeTasks,
+    hojeTeamTasks,
+    mes: {
+      mrrRealizado: myWon,
+      mrrMeta: myMeta,
+      mrrRitmo,
+      projecao,
+      projStatus,
+      atingimento: myMeta ? Math.round((myWon / myMeta) * 100) : 0,
+      faltaMrr: Math.max(0, myMeta - myWon),
+      workdaysElapsed,
+      workdaysTotal,
+      hasMeta,
+      teamRealizado: teamWon,
+      teamMeta,
+    },
+    termometro,
+    proximaTarefa,
+  };
+}
+
+/** "Minha" tarefa: assignee/assignees ou, sem responsável, dono do negócio. */
+function taskMine(t: TaskItem, me: string): boolean {
+  const a = t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : [];
+  return a.length ? a.includes(me) : t.owner === me;
+}
+
 // ── Mock (fallback demo) ─────────────────────────────────────────────────────
 
 const REF = REFERENCE_DATE.toISOString();

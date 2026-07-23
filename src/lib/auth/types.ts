@@ -16,6 +16,8 @@ export type SessionUser = {
   allowedSections?: string[] | null;
   /** Rótulo do tipo de usuário gerencial (gestor/financeiro/rh/...). */
   teamRole?: string | null;
+  /** Função comercial (sdr/closer/gestor) — define a lente do Dashboard Comercial. */
+  commercialRole?: string | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
