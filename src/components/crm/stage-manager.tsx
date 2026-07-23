@@ -275,6 +275,7 @@ function StageRow({
   onSaved: () => void;
 }) {
   const [label, setLabel] = useState(stage.label);
+  const [hint, setHint] = useState(stage.hint ?? "");
   const [color, setColor] = useState(stage.color);
   const [prob, setProb] = useState(stage.probability);
   const [kind, setKind] = useState<Stage["kind"]>(stage.kind);
@@ -286,6 +287,7 @@ function StageRow({
 
   const dirty =
     label !== stage.label ||
+    hint !== (stage.hint ?? "") ||
     color !== stage.color ||
     prob !== stage.probability ||
     kind !== stage.kind ||
@@ -337,6 +339,7 @@ function StageRow({
       action: "update",
       id: stage.id,
       label,
+      hint,
       color,
       probability: prob,
       kind,
@@ -375,11 +378,19 @@ function StageRow({
         title="Cor do estágio"
       />
 
-      <input
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:border-brand-400"
-      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm font-medium text-ink outline-none focus:border-brand-400"
+        />
+        <input
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
+          placeholder="Hint (o que acontece na etapa)…"
+          className="w-full rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] text-muted outline-none focus:border-brand-400"
+        />
+      </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
         <button

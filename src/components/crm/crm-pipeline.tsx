@@ -427,6 +427,8 @@ export function CrmPipeline({
   const [showFrozen, setShowFrozen] = useState(false);
   const [handoff, setHandoff] = useState<{ id: string; name: string } | null>(null);
   const [lose, setLose] = useState<{ id: string; name: string } | null>(null);
+  const [newFunil, setNewFunil] = useState("");
+  const [creatingFunil, setCreatingFunil] = useState(false);
   const [view, setView] = useState<PipelineView>("kanban");
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
@@ -538,6 +540,21 @@ export function CrmPipeline({
       }),
     );
     await post({ action: "handoff", id, result, parecer }).catch(() => {});
+    router.refresh();
+  }
+
+  async function createFunil(name: string) {
+    if (!name.trim() || creatingFunil) return;
+    setCreatingFunil(true);
+    const res = await fetch("/api/crm/pipelines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", name: name.trim() }),
+    }).catch(() => null);
+    const j = res ? await res.json().catch(() => ({})) : {};
+    setCreatingFunil(false);
+    setNewFunil("");
+    if (j?.id) setPipelineId(j.id);
     router.refresh();
   }
 
@@ -760,6 +777,25 @@ export function CrmPipeline({
               ))}
             </select>
           )}
+          <div className="flex items-center gap-1">
+            <input
+              value={newFunil}
+              onChange={(e) => setNewFunil(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createFunil(newFunil)}
+              placeholder="+ Novo funil"
+              className="w-28 rounded-xl border border-dashed border-line bg-surface px-2.5 py-2 text-xs text-ink outline-none transition-all focus:w-40 focus:border-brand-400"
+              title="Criar funil — digite o nome e Enter"
+            />
+            {newFunil.trim() && (
+              <button
+                onClick={() => createFunil(newFunil)}
+                disabled={creatingFunil}
+                className="shrink-0 rounded-lg bg-brand-600 px-2 py-2 text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <p className="text-sm text-muted">
             {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
             negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
@@ -867,6 +903,7 @@ export function CrmPipeline({
                   {inStage.length}
                 </span>
               </div>
+              {s.hint && <p className="mb-1 px-1 text-[10px] leading-tight text-muted">{s.hint}</p>}
               {sum > 0 && (
                 <p className="mb-2 px-1 text-[11px] text-muted">{formatBRL(sum)}</p>
               )}

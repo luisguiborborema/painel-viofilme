@@ -381,6 +381,8 @@ export type Stage = {
   probability: number;
   position: number;
   kind: "open" | "won" | "lost";
+  /** Texto curto do que acontece na etapa (exibido no cabeçalho da coluna). */
+  hint?: string;
   requirements: StageRequirement[];
   automations: StageAutomation[];
 };

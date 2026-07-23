@@ -24,6 +24,7 @@ type Body = {
   color?: string;
   probability?: number;
   kind?: string;
+  hint?: string;
   requirements?: Requirement[];
   automations?: unknown[];
   orders?: { id: string; position: number }[];
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
     if (body.color != null) patch.color = body.color;
     if (body.probability != null) patch.probability = body.probability;
     if (body.kind != null && KINDS.includes(body.kind)) patch.kind = body.kind;
+    if (body.hint != null) patch.hint = body.hint.trim() || null;
     if (Array.isArray(body.requirements)) patch.requirements = body.requirements;
     if (Array.isArray(body.automations)) patch.automations = body.automations;
     const { error } = await supabase.from("crm_stages").update(patch).eq("id", body.id);
