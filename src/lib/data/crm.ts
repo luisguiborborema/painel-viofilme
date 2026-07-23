@@ -943,6 +943,7 @@ export type CommercialDash = {
     hasMeta: boolean;
     teamRealizado: number;
     teamMeta: number;
+    esforcoFalta: { metric: string; label: string; done: number; target: number; falta: number }[];
   };
   termometro: { hot: number; warm: number; cold: number };
   proximaTarefa?: { id: string; title: string; dueIso?: string; leadId: string };
@@ -1053,6 +1054,19 @@ export function buildCommercialDash(input: {
   const hasMeta = myMeta > 0;
   const projStatus: ProjStatus = !hasMeta ? "ambar" : projecao >= myMeta ? "verde" : projecao >= myMeta * 0.8 ? "ambar" : "vermelho";
 
+  // Metas de atividade (esforço) — quanto falta pra bater o alvo do mês.
+  const myGoal = goals.find((g) => g.owner === currentUser && g.month === month);
+  const realCalls = cnt(true, monthStart, monthEnd, new Set(["call"]));
+  const realContatos = cnt(true, monthStart, monthEnd, CONTATO);
+  const realReunioes = leads.filter((l) => leadMine(l) && inRange(l.handoffAt, monthStart, monthEnd)).length;
+  const esforcoFalta = [
+    { metric: "calls", label: "ligações", done: realCalls, target: myGoal?.callsTarget ?? 0 },
+    { metric: "reunioes", label: "reuniões", done: realReunioes, target: myGoal?.reunioesTarget ?? 0 },
+    { metric: "contatos", label: "contatos", done: realContatos, target: myGoal?.contatosTarget ?? 0 },
+  ]
+    .filter((e) => e.target > 0)
+    .map((e) => ({ ...e, falta: Math.max(0, e.target - e.done) }));
+
   // ── Termômetro (leads abertos por score) ──
   const termometro = { hot: 0, warm: 0, cold: 0 };
   for (const l of leads.filter(isOpenLead)) {
@@ -1087,6 +1101,7 @@ export function buildCommercialDash(input: {
       hasMeta,
       teamRealizado: teamWon,
       teamMeta,
+      esforcoFalta,
     },
     termometro,
     proximaTarefa,
@@ -1470,7 +1485,14 @@ export function buildFunnelAnalytics(
 
 // ── Metas & forecast ────────────────────────────────────────────────────────
 
-export type CrmGoal = { owner: string; month: string; target: number };
+export type CrmGoal = {
+  owner: string;
+  month: string;
+  target: number;
+  callsTarget?: number;
+  contatosTarget?: number;
+  reunioesTarget?: number;
+};
 
 export type ForecastRow = {
   owner: string;

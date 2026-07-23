@@ -7,7 +7,16 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Body = { owner?: string; month?: string; target?: number };
+type Body = {
+  owner?: string;
+  month?: string;
+  target?: number;
+  callsTarget?: number;
+  contatosTarget?: number;
+  reunioesTarget?: number;
+};
+
+const int = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : undefined);
 
 /** Define (upsert) a meta de um vendedor num mês. Só Gestor (acesso total). */
 export async function POST(req: Request) {
@@ -30,12 +39,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: false });
   }
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("crm_goals")
-    .upsert(
-      { owner: b.owner, month: b.month, target: b.target ?? 0, updated_at: new Date().toISOString() },
-      { onConflict: "owner,month" },
-    );
+  const row: Record<string, unknown> = { owner: b.owner, month: b.month, updated_at: new Date().toISOString() };
+  if (b.target != null) row.target = b.target;
+  if (int(b.callsTarget) != null) row.calls_target = int(b.callsTarget);
+  if (int(b.contatosTarget) != null) row.contatos_target = int(b.contatosTarget);
+  if (int(b.reunioesTarget) != null) row.reunioes_target = int(b.reunioesTarget);
+  const { error } = await supabase.from("crm_goals").upsert(row, { onConflict: "owner,month" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, persisted: true });
 }

@@ -2316,12 +2316,15 @@ export async function sbGetCrmGoals(month: string): Promise<CrmGoal[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("crm_goals")
-    .select("owner,month,target")
+    .select("owner,month,target,calls_target,contatos_target,reunioes_target")
     .eq("month", month);
   return (data ?? []).map((r) => ({
     owner: String(r.owner),
     month: String(r.month),
     target: Number(r.target ?? 0),
+    callsTarget: Number(r.calls_target ?? 0),
+    contatosTarget: Number(r.contatos_target ?? 0),
+    reunioesTarget: Number(r.reunioes_target ?? 0),
   }));
 }
 

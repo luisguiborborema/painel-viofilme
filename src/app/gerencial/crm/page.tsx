@@ -192,7 +192,7 @@ export default async function CrmPage({
       key: "metas",
       label: "Metas",
       content: (
-        <CrmGoals forecast={forecast} monthLabel={monthLabel} canEdit={canEditGoals} />
+        <CrmGoals forecast={forecast} monthLabel={monthLabel} canEdit={canEditGoals} goals={goals} />
       ),
     },
     {

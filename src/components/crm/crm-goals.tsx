@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Target, TrendingUp } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
-import type { Forecast, ForecastRow } from "@/lib/data/crm";
+import type { CrmGoal, Forecast, ForecastRow } from "@/lib/data/crm";
 
 function attColor(pct: number): string {
   if (pct >= 100) return "bg-emerald-500";
@@ -17,15 +17,27 @@ export function CrmGoals({
   forecast,
   monthLabel,
   canEdit,
+  goals = [],
 }: {
   forecast: Forecast;
   monthLabel: string;
   canEdit: boolean;
+  goals?: CrmGoal[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const goalOf = (owner: string) => goals.find((g) => g.owner === owner);
+
+  async function saveActivity(owner: string, field: "callsTarget" | "contatosTarget" | "reunioesTarget", v: string) {
+    await fetch("/api/crm/goals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, month: forecast.month, [field]: Number(v) || 0 }),
+    }).catch(() => {});
+    router.refresh();
+  }
 
   async function saveTarget(owner: string) {
     setBusy(true);
@@ -89,7 +101,46 @@ export function CrmGoals({
       <p className="text-[11px] text-muted">
         Previsão = ganho no mês + pipeline aberto ponderado pela probabilidade de cada estágio.
       </p>
+
+      {/* Metas de atividade (esforço) — alimentam o "quanto falta" do Dashboard */}
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="border-b border-line px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          Metas de atividade (mês) — esforço
+        </div>
+        <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 border-b border-line px-4 py-2 text-[11px] font-medium text-muted">
+          <span>Vendedor</span>
+          <span className="text-right">Ligações</span>
+          <span className="text-right">Contatos</span>
+          <span className="text-right">Reuniões</span>
+        </div>
+        {forecast.rows.map((r) => {
+          const g = goalOf(r.owner);
+          return (
+            <div key={r.owner} className="grid grid-cols-[1.4fr_1fr_1fr_1fr] items-center gap-2 border-b border-line px-4 py-2 last:border-b-0">
+              <span className="truncate text-sm text-ink">{r.owner}</span>
+              <ActInput initial={g?.callsTarget ?? 0} disabled={!canEdit} onSave={(v) => saveActivity(r.owner, "callsTarget", v)} />
+              <ActInput initial={g?.contatosTarget ?? 0} disabled={!canEdit} onSave={(v) => saveActivity(r.owner, "contatosTarget", v)} />
+              <ActInput initial={g?.reunioesTarget ?? 0} disabled={!canEdit} onSave={(v) => saveActivity(r.owner, "reunioesTarget", v)} />
+            </div>
+          );
+        })}
+        {forecast.rows.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted">Sem vendedores ainda.</p>}
+      </div>
     </div>
+  );
+}
+
+function ActInput({ initial, disabled, onSave }: { initial: number; disabled?: boolean; onSave: (v: string) => void }) {
+  const [v, setV] = useState(String(initial || ""));
+  return (
+    <input
+      value={v}
+      disabled={disabled}
+      onChange={(e) => setV(e.target.value.replace(/\D/g, ""))}
+      onBlur={() => String(initial || "") !== v && onSave(v)}
+      placeholder={disabled ? "—" : "0"}
+      className="w-full rounded-lg border border-line bg-surface px-2 py-1 text-right text-sm text-ink outline-none focus:border-brand-400 disabled:opacity-60"
+    />
   );
 }
 

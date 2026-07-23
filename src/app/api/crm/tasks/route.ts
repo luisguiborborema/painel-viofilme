@@ -7,7 +7,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PRIORITIES = new Set(["baixa", "media", "alta", "urgente"]);
-const TASK_TYPES = new Set(["ligacao", "whatsapp", "email", "reuniao", "todo"]);
+const TASK_TYPES = new Set(["ligacao", "whatsapp", "email", "reuniao", "prazo", "todo"]);
+
+/** Próximo vencimento de uma recorrência (diaria/semanal/mensal), ou null. */
+function nextDue(baseIso: string, recurrence: string): string | null {
+  if (!["diaria", "semanal", "mensal"].includes(recurrence)) return null;
+  const d = new Date(baseIso);
+  if (recurrence === "diaria") d.setDate(d.getDate() + 1);
+  else if (recurrence === "semanal") d.setDate(d.getDate() + 7);
+  else d.setMonth(d.getMonth() + 1);
+  return d.toISOString();
+}
 
 type Body = {
   action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority" | "update" | "delete";
@@ -67,6 +77,28 @@ export async function POST(req: Request) {
         : { status: "pending", done_at: null };
     const { error } = await supabase.from("crm_tasks").update(patch).eq("id", b.taskId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Recorrência: ao concluir, materializa a próxima ocorrência (event-driven).
+    if (action === "done") {
+      const { data: t } = await supabase
+        .from("crm_tasks")
+        .select("lead_id,title,due_date,priority,assignee,assignees,properties")
+        .eq("id", b.taskId)
+        .maybeSingle();
+      const rec = (t?.properties as Record<string, unknown> | null)?.recurrence;
+      const next = nextDue(t?.due_date ? String(t.due_date) : now, String(rec ?? ""));
+      if (t && next) {
+        await supabase.from("crm_tasks").insert({
+          lead_id: t.lead_id ?? null,
+          title: t.title,
+          due_date: next,
+          priority: t.priority ?? "media",
+          assignee: t.assignee ?? null,
+          assignees: t.assignees ?? null,
+          properties: t.properties ?? {},
+        });
+      }
+    }
     return NextResponse.json({ ok: true, persisted: true });
   }
 

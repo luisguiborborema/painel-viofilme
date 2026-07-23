@@ -170,6 +170,13 @@ export function CrmDashboard({
               <p className="mt-0.5 text-xs text-muted">Defina sua meta na aba Metas para ver ritmo e projeção.</p>
             </div>
           )}
+          {mes.esforcoFalta.length > 0 && (
+            <p className="mt-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-700">
+              Esforço: {mes.esforcoFalta.some((e) => e.falta > 0)
+                ? mes.esforcoFalta.filter((e) => e.falta > 0).map((e) => `faltam ${e.falta} ${e.label}`).join(" · ")
+                : "metas de atividade batidas 🎯"}
+            </p>
+          )}
           <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">
             Time: {formatBRL(mes.teamRealizado)}{mes.teamMeta > 0 ? ` de ${formatBRL(mes.teamMeta)}` : ""}
           </p>
