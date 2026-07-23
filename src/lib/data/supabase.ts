@@ -1885,7 +1885,7 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
 function mapCrmTask(r: CrmLeadRow): CrmTask {
   return {
     id: String(r.id),
-    leadId: String(r.lead_id),
+    leadId: r.lead_id == null ? "" : String(r.lead_id),
     title: String(r.title),
     dueDate: r.due_date == null ? undefined : String(r.due_date),
     status: (r.status as "pending" | "done") ?? "pending",

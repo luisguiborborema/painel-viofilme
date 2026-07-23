@@ -111,31 +111,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
-  // add
-  if (!b.leadId || !b.title?.trim()) {
-    return NextResponse.json({ error: "leadId/title ausente" }, { status: 400 });
+  // add — tarefa vinculada a um negócio OU avulsa (sem leadId).
+  if (!b.title?.trim()) {
+    return NextResponse.json({ error: "título ausente" }, { status: 400 });
   }
   // Tipo + lembrete/recorrência ficam na jsonb `properties` (sem coluna dedicada).
   const props: Record<string, unknown> = { ...(b.properties ?? {}) };
   if (b.type && TASK_TYPES.has(b.type)) props.type = b.type;
+  // Responsáveis: os informados ou, p/ avulsa, o próprio criador (exigido pelo RLS).
+  const reqAssignees = [...new Set((b.assignees ?? []).map((n) => n.trim()).filter(Boolean))];
+  const assignees = reqAssignees.length ? reqAssignees : b.leadId ? [] : [user.name];
   const { data, error } = await supabase
     .from("crm_tasks")
     .insert({
-      lead_id: b.leadId,
+      lead_id: b.leadId ?? null,
       title: b.title.trim(),
       due_date: b.dueDate ?? null,
       priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
       properties: Object.keys(props).length ? props : {},
+      assignee: assignees[0] ?? null,
+      assignees: assignees.length ? assignees : null,
     })
     .select("id")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Fixa como "próxima ação" do lead.
-  await supabase
-    .from("crm_leads")
-    .update({ next_task_title: b.title.trim(), next_task_due: b.dueDate ?? null, updated_at: now })
-    .eq("id", b.leadId);
+  // Fixa como "próxima ação" do lead (só quando vinculada).
+  if (b.leadId) {
+    await supabase
+      .from("crm_leads")
+      .update({ next_task_title: b.title.trim(), next_task_due: b.dueDate ?? null, updated_at: now })
+      .eq("id", b.leadId);
+  }
 
   return NextResponse.json({ ok: true, persisted: true, id: data.id });
 }

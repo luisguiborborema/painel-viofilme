@@ -584,10 +584,10 @@ export type TaskItem = CrmTask & {
 export function buildTaskItems(tasks: CrmTask[], leads: CrmLead[]): TaskItem[] {
   const byId = new Map(leads.map((l) => [l.id, l]));
   return tasks.map((t) => {
-    const lead = byId.get(t.leadId);
+    const lead = t.leadId ? byId.get(t.leadId) : undefined;
     return {
       ...t,
-      dealName: lead?.name ?? "Negócio",
+      dealName: lead?.name ?? (t.leadId ? "Negócio" : "Avulsa"),
       owner: lead?.owner,
       companyId: lead?.companyId,
       contactName: lead?.contactName,

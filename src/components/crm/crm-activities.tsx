@@ -486,7 +486,11 @@ function ListView({
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <Link href={`/gerencial/crm/${t.leadId}`} onClick={(e) => e.stopPropagation()} className="text-muted hover:text-ink hover:underline">{t.dealName}</Link>
+                  {t.leadId ? (
+                    <Link href={`/gerencial/crm/${t.leadId}`} onClick={(e) => e.stopPropagation()} className="text-muted hover:text-ink hover:underline">{t.dealName}</Link>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
                   {pr && (t.priority === "alta" || t.priority === "urgente") && (
@@ -782,10 +786,16 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
       duration_min: duration ? Number(duration) : undefined,
     };
     if (create) {
-      if (!dealId) { setBusy(false); return; }
-      const res = await postTask({ action: "add", leadId: dealId, title: title.trim(), dueDate: dueIso(), priority, type, properties }).catch(() => null);
-      const j = res ? await res.json().catch(() => ({})) : {};
-      if (j?.id && assignee) await postTask({ action: "set-assignees", taskId: j.id, assignees: [assignee] }).catch(() => {});
+      await postTask({
+        action: "add",
+        leadId: dealId || undefined,
+        title: title.trim(),
+        dueDate: dueIso(),
+        priority,
+        type,
+        properties,
+        assignees: assignee ? [assignee] : [],
+      }).catch(() => {});
     } else if (task?.id) {
       await postTask({ action: "update", taskId: task.id, title: title.trim(), dueDate: dueIso() ?? "", priority, type, properties }).catch(() => {});
       if (assignee) await postTask({ action: "set-assignees", taskId: task.id, assignees: [assignee] }).catch(() => {});
@@ -806,9 +816,9 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {create ? (
             <label className="block">
-              <span className="mb-0.5 block text-[11px] font-medium text-muted">Negócio *</span>
+              <span className="mb-0.5 block text-[11px] font-medium text-muted">Negócio (opcional)</span>
               <select value={dealId} onChange={(e) => setDealId(e.target.value)} className={drawerInput}>
-                <option value="">Selecione o negócio…</option>
+                <option value="">Sem negócio (avulsa)</option>
                 {deals.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </label>
@@ -883,7 +893,7 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
           ) : <span />}
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-            <button onClick={save} disabled={busy || !title.trim() || (create && !dealId)} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+            <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Salvar
             </button>
           </div>
