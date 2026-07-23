@@ -7,7 +7,7 @@ import { CrmContacts } from "@/components/crm/crm-contacts";
 import { CrmDocuments } from "@/components/crm/crm-documents";
 import { CrmSettings } from "@/components/crm/crm-settings";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
-import { CrmTasks } from "@/components/crm/crm-tasks";
+import { CrmActivities } from "@/components/crm/crm-activities";
 import { CrmGoals } from "@/components/crm/crm-goals";
 import {
   getCrmDashboard,
@@ -129,16 +129,16 @@ export default async function CrmPage({
     },
     {
       key: "tarefas",
-      label: "Tarefas",
+      label: "Atividades",
       badge: myDueCount,
       content: (
-        <CrmTasks
+        <CrmActivities
           tasks={taskItems}
           deals={dealPickList}
-          currentUser={currentUser}
-          properties={properties}
+          pipelines={pipelines}
           team={teamNames}
-          teamMembers={team}
+          currentUser={currentUser}
+          scripts={scripts}
         />
       ),
     },

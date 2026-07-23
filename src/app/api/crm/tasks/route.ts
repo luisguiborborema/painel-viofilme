@@ -10,13 +10,14 @@ const PRIORITIES = new Set(["baixa", "media", "alta", "urgente"]);
 const TASK_TYPES = new Set(["ligacao", "whatsapp", "email", "reuniao", "todo"]);
 
 type Body = {
-  action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority";
+  action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority" | "update" | "delete";
   leadId?: string;
   taskId?: string;
   title?: string;
   dueDate?: string;
   assignees?: string[];
   priority?: string;
+  status?: "pending" | "done";
   // Criador estilo HubSpot: tipo + lembrete/recorrência (guardados na jsonb).
   type?: string;
   properties?: Record<string, unknown>;
@@ -74,6 +75,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "taskId/prioridade inválida" }, { status: 400 });
     }
     const { error } = await supabase.from("crm_tasks").update({ priority: b.priority }).eq("id", b.taskId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (action === "delete") {
+    if (!b.taskId) return NextResponse.json({ error: "taskId ausente" }, { status: 400 });
+    const { error } = await supabase.from("crm_tasks").delete().eq("id", b.taskId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // update — edita campos da tarefa (título, prazo, prioridade, status, tipo,
+  // lembrete/recorrência/duração via properties). Merge da jsonb no servidor.
+  if (action === "update") {
+    if (!b.taskId) return NextResponse.json({ error: "taskId ausente" }, { status: 400 });
+    const patch: Record<string, unknown> = {};
+    if (b.title != null) patch.title = b.title.trim();
+    if (b.dueDate !== undefined) patch.due_date = b.dueDate || null;
+    if (b.priority && PRIORITIES.has(b.priority)) patch.priority = b.priority;
+    if (b.status === "pending" || b.status === "done") {
+      patch.status = b.status;
+      patch.done_at = b.status === "done" ? now : null;
+    }
+    const extra: Record<string, unknown> = { ...(b.properties ?? {}) };
+    if (b.type && TASK_TYPES.has(b.type)) extra.type = b.type;
+    if (Object.keys(extra).length) {
+      const { data: cur } = await supabase.from("crm_tasks").select("properties").eq("id", b.taskId).maybeSingle();
+      const existing = (cur?.properties as Record<string, unknown> | null) ?? {};
+      patch.properties = { ...existing, ...extra };
+    }
+    if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true, persisted: true });
+    const { error } = await supabase.from("crm_tasks").update(patch).eq("id", b.taskId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }

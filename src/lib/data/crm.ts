@@ -569,11 +569,16 @@ export type CrmTask = {
 export type TaskFlowStep = { id: string; position: number; title: string; dueDays: number };
 export type TaskFlow = { id: string; name: string; steps: TaskFlowStep[] };
 
-/** Tarefa enriquecida com o negócio a que pertence (para a tela de Tarefas). */
+/** Tarefa enriquecida com o negócio a que pertence (para a Central de Atividades). */
 export type TaskItem = CrmTask & {
   dealName: string;
   owner?: string;
   companyId?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  pipelineId?: string;
+  dealStage?: CrmStage;
 };
 
 export function buildTaskItems(tasks: CrmTask[], leads: CrmLead[]): TaskItem[] {
@@ -585,9 +590,24 @@ export function buildTaskItems(tasks: CrmTask[], leads: CrmLead[]): TaskItem[] {
       dealName: lead?.name ?? "Negócio",
       owner: lead?.owner,
       companyId: lead?.companyId,
+      contactName: lead?.contactName,
+      contactPhone: lead?.contactPhone,
+      contactEmail: lead?.contactEmail,
+      pipelineId: lead?.pipelineId,
+      dealStage: lead?.stage,
     };
   });
 }
+
+/** Tipos de atividade (iguais aos do criador de tarefa da Ficha). */
+export const TASK_TYPES: { key: string; label: string }[] = [
+  { key: "ligacao", label: "Ligação" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "email", label: "E-mail" },
+  { key: "reuniao", label: "Reunião" },
+  { key: "prazo", label: "Prazo" },
+  { key: "todo", label: "To-do" },
+];
 
 // ── Estágios do funil ───────────────────────────────────────────────────────
 
