@@ -1832,7 +1832,7 @@ import type {
 import { toAssignmentConfig } from "./crm";
 
 const CRM_LEAD_COLS =
-  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,no_show_count,frozen_at,frozen_reason,origin_kind,cadence_active,cadence_step,handoff_at,handoff_result,handoff_parecer,prospecting_notes,created_at,updated_at";
+  "id,name,contact_name,contact_phone,contact_email,segment,stage,monthly_value,media_budget,plan,probability,priority,source,owner,assignees,bant,next_task_title,next_task_due,last_interaction_at,stage_changed_at,won_at,lost_at,lost_reason,converted_client_id,company_id,primary_contact_id,pipeline_id,stage_id,tags,properties,no_show_count,frozen_at,frozen_reason,origin_kind,cadence_active,cadence_step,handoff_at,handoff_result,handoff_parecer,prospecting_notes,expected_close_at,created_at,updated_at";
 
 type CrmLeadRow = Record<string, unknown>;
 
@@ -1880,6 +1880,7 @@ function mapCrmLead(r: CrmLeadRow): CrmLead {
     handoffResult: r.handoff_result === "aceito" || r.handoff_result === "recusado" ? r.handoff_result : undefined,
     handoffParecer: s("handoff_parecer"),
     prospectingNotes: s("prospecting_notes"),
+    expectedCloseAt: s("expected_close_at"),
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
   };

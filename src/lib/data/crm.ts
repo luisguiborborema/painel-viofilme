@@ -91,6 +91,8 @@ export type CrmLead = {
   handoffParecer?: string;
   /** Anotações de prospecção (outbound, momento zero) — campo livre do SDR. */
   prospectingNotes?: string;
+  /** Data prevista de fechamento (alimenta a distribuição mensal do Forecast). */
+  expectedCloseAt?: string;
   createdAt: string;
   updatedAt: string;
 };

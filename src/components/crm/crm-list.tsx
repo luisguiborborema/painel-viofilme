@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowRightLeft,
   ArrowUpDown,
   Check,
   Download,
@@ -12,6 +13,7 @@ import {
   Trash2,
   UserPlus,
   X,
+  XCircle,
 } from "lucide-react";
 import { cn, formatBRL } from "@/lib/utils";
 import { dayMonth } from "@/lib/datetime";
@@ -47,6 +49,7 @@ export function CrmList({
   team = [],
   teamMembers = [],
   currentUser = "",
+  initialStatus = "abertos",
 }: {
   cards: CrmLeadCard[];
   pipelines?: Pipeline[];
@@ -55,12 +58,13 @@ export function CrmList({
   team?: string[];
   teamMembers?: Attendant[];
   currentUser?: string;
+  initialStatus?: StatusFilter;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(cards);
   const [search, setSearch] = useState("");
   const [pipelineFilter, setPipelineFilter] = useState<string>("all");
-  const [status, setStatus] = useState<StatusFilter>("abertos");
+  const [status, setStatus] = useState<StatusFilter>(initialStatus);
   const [mine, setMine] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("days");
@@ -68,6 +72,8 @@ export function CrmList({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [losing, setLosing] = useState(false);
+  const [loseReason, setLoseReason] = useState("");
 
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const stageMetaByKey = useMemo(() => {
@@ -207,6 +213,28 @@ export function CrmList({
     setConfirmDelete(false);
     router.refresh();
   }
+  async function bulkStage(stageKey: string) {
+    if (pipelineFilter === "all") return;
+    const pipeline = pipelines.find((p) => p.id === pipelineFilter);
+    const st = pipeline?.stages.find((s) => s.key === stageKey);
+    if (!st) return;
+    const ids = selectedIds();
+    setBusy(true);
+    setRows((prev) => prev.map((c) => (selected.has(c.id) ? { ...c, stage: st.key, daysInStage: 0, rot: "fresh" } : c)));
+    await Promise.all(ids.map((id) => post({ action: "move", id, stage: st.key, stageId: st.id, kind: st.kind }).catch(() => {})));
+    setBusy(false);
+    setSelected(new Set());
+    router.refresh();
+  }
+  async function bulkLose(reason: string) {
+    const ids = selectedIds();
+    setBusy(true);
+    setRows((prev) => prev.map((c) => (selected.has(c.id) ? { ...c, stage: "perdido" } : c)));
+    await Promise.all(ids.map((id) => post({ action: "move", id, stage: "perdido", kind: "lost", reason }).catch(() => {})));
+    setBusy(false);
+    setSelected(new Set());
+    router.refresh();
+  }
 
   function exportCsv(which: "selecionados" | "todos") {
     const list = which === "selecionados" ? filtered.filter((c) => selected.has(c.id)) : filtered;
@@ -309,8 +337,28 @@ export function CrmList({
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-400/40 bg-brand-50/50 px-3 py-2">
           <span className="text-sm font-semibold text-ink">{selected.size} selecionado{selected.size > 1 ? "s" : ""}</span>
+          {pipelineFilter !== "all" && (
+            <BulkMenu
+              icon={ArrowRightLeft}
+              label="Mudar etapa"
+              options={(pipelines.find((p) => p.id === pipelineFilter)?.stages ?? []).filter((s) => s.kind === "open").map((s) => ({ key: s.key, label: s.label }))}
+              onPick={bulkStage}
+              disabled={busy}
+            />
+          )}
           <BulkMenu icon={UserPlus} label="Atribuir" options={team.map((n) => ({ key: n, label: n }))} onPick={bulkAssign} disabled={busy} />
           <BulkMenu icon={TagIcon} label="Tag" options={tags.map((t) => ({ key: t.id, label: t.name }))} onPick={bulkTag} disabled={busy} />
+          {losing ? (
+            <span className="inline-flex items-center gap-1.5">
+              <input autoFocus value={loseReason} onChange={(e) => setLoseReason(e.target.value)} placeholder="Motivo da perda" className="w-40 rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400" />
+              <button onClick={() => { if (loseReason.trim()) { bulkLose(loseReason.trim()); setLosing(false); setLoseReason(""); } }} disabled={busy || !loseReason.trim()} className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">Confirmar</button>
+              <button onClick={() => setLosing(false)} className="rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-subtle">✕</button>
+            </span>
+          ) : (
+            <button onClick={() => setLosing(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-500/10">
+              <XCircle className="h-3.5 w-3.5" /> Perder
+            </button>
+          )}
           <button onClick={bulkFreeze} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-60">
             <Snowflake className="h-3.5 w-3.5" /> Congelar
           </button>

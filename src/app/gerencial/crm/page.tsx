@@ -25,6 +25,7 @@ import {
   getCrmTaskFlows,
   getCrmScripts,
   getCrmDocuments,
+  getCrmLostReasons,
   getAssignmentConfig,
   getCaptureForms,
   getStageHistory,
@@ -68,7 +69,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote] =
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons] =
     await Promise.all([
       getCrmTasks(),
       getCrmTaskFlows(),
@@ -82,6 +83,7 @@ export default async function CrmPage({
       getCommercialDashboard(currentUser),
       getCommercialBoard(),
       getDailyQuote(),
+      getCrmLostReasons(),
     ]);
   const proximaReuniao = events.length
     ? { title: events[0].summary, iso: events[0].start, meetLink: events[0].hangoutLink }
@@ -147,6 +149,7 @@ export default async function CrmPage({
           team={teamNames}
           teamMembers={team}
           currentUser={currentUser}
+          lostReasons={lostReasons.map((r) => r.label)}
         />
       ),
     },

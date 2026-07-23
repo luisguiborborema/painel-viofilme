@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   ArrowRightLeft,
+  BarChart3,
+  Bell,
   LayoutGrid,
   List,
   Plus,
@@ -12,6 +15,7 @@ import {
   Snowflake,
   Trash2,
   UserX,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
@@ -43,6 +47,7 @@ import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
 import { NovoNegocioModal } from "./new-lead-modal";
 import { CrmList } from "./crm-list";
+import { CrmForecast } from "./crm-forecast";
 import { TagChips } from "./tag-chips";
 
 function cardBorder(card: CrmLeadCard): string {
@@ -178,6 +183,14 @@ function LeadCard({
             title="No-shows acumulados"
           >
             <UserX className="h-3 w-3" /> {card.noShowCount} no-show
+          </span>
+        )}
+        {!frozen && !card.nextTaskDue && card.stage !== "ganho" && card.stage !== "perdido" && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600"
+            title="Sem próxima ação agendada"
+          >
+            <Bell className="h-3 w-3" /> Sem próxima ação
           </span>
         )}
         {(() => {
@@ -317,6 +330,73 @@ function HandoffModal({
   );
 }
 
+/** Modal de motivo de perda (obrigatório) ao arrastar p/ Saídas › Perdido. */
+function LoseModal({
+  name,
+  reasons,
+  onClose,
+  onConfirm,
+}: {
+  name: string;
+  reasons: string[];
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
+  const final = [reason, note.trim()].filter(Boolean).join(" — ");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+        <h2 className="text-base font-bold text-ink">Marcar como Perdido</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          <span className="font-semibold text-ink">{name}</span> — o motivo é obrigatório (insumo de qualificação).
+        </p>
+        {reasons.length > 0 ? (
+          <select
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="mt-3 w-full rounded-lg border border-line bg-canvas px-2.5 py-2 text-sm text-ink outline-none focus:border-brand-400"
+          >
+            <option value="">Motivo da perda…</option>
+            {reasons.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Motivo da perda"
+            className="mt-3 w-full rounded-lg border border-line bg-canvas px-2.5 py-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        )}
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Observação (opcional)"
+          className="mt-2 w-full rounded-lg border border-line bg-canvas px-2.5 py-2 text-sm text-ink outline-none focus:border-brand-400"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
+          <button
+            onClick={() => onConfirm(final)}
+            disabled={!reason}
+            className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            Confirmar perda
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PipelineView = "kanban" | "lista" | "forecast" | "arquivados";
+
 export function CrmPipeline({
   cards: initial,
   pipelines = [DEFAULT_PIPELINE],
@@ -325,6 +405,7 @@ export function CrmPipeline({
   team = [],
   teamMembers = [],
   currentUser = "",
+  lostReasons = [],
 }: {
   cards: CrmLeadCard[];
   pipelines?: Pipeline[];
@@ -334,6 +415,7 @@ export function CrmPipeline({
   team?: string[];
   teamMembers?: Attendant[];
   currentUser?: string;
+  lostReasons?: string[];
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(initial);
@@ -344,10 +426,38 @@ export function CrmPipeline({
   const [mine, setMine] = useState(false);
   const [showFrozen, setShowFrozen] = useState(false);
   const [handoff, setHandoff] = useState<{ id: string; name: string } | null>(null);
-  const [view, setView] = useState<"kanban" | "lista">("kanban");
+  const [lose, setLose] = useState<{ id: string; name: string } | null>(null);
+  const [view, setView] = useState<PipelineView>("kanban");
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
   const [pipelineId, setPipelineId] = useState(defaultId);
+
+  // Persistência por usuário: funil, escopo, tag e visão.
+  useEffect(() => {
+    // Hidrata as preferências salvas no cliente (localStorage) após montar.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const raw = localStorage.getItem("crm-pipe-prefs");
+      if (raw) {
+        const p = JSON.parse(raw) as { pipelineId?: string; mine?: boolean; tag?: string | null; view?: PipelineView };
+        if (p.pipelineId && pipelines.some((x) => x.id === p.pipelineId)) setPipelineId(p.pipelineId);
+        if (typeof p.mine === "boolean") setMine(p.mine);
+        if (p.tag) setTagFilter(p.tag);
+        if (p.view) setView(p.view);
+      }
+    } catch {
+      /* ignore */
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("crm-pipe-prefs", JSON.stringify({ pipelineId, mine, tag: tagFilter, view }));
+    } catch {
+      /* ignore */
+    }
+  }, [pipelineId, mine, tagFilter, view]);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0] ?? DEFAULT_PIPELINE;
   const stages = pipeline.stages;
   const [blocked, setBlocked] = useState<{
@@ -428,6 +538,16 @@ export function CrmPipeline({
       }),
     );
     await post({ action: "handoff", id, result, parecer }).catch(() => {});
+    router.refresh();
+  }
+
+  async function losePerdido(reason: string) {
+    if (!lose) return;
+    const id = lose.id;
+    setLose(null);
+    const lostStage = stages.find((s) => s.kind === "lost");
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, stage: lostStage?.key ?? "perdido" } : c)));
+    await post({ action: "move", id, stage: lostStage?.key ?? "perdido", stageId: lostStage?.id, kind: "lost", reason }).catch(() => {});
     router.refresh();
   }
 
@@ -559,6 +679,24 @@ export function CrmPipeline({
           >
             <List className="h-3.5 w-3.5" /> Lista
           </button>
+          <button
+            onClick={() => setView("forecast")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "forecast" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+            )}
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Forecast
+          </button>
+          <button
+            onClick={() => setView("arquivados")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "arquivados" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+            )}
+          >
+            <Archive className="h-3.5 w-3.5" /> Arquivados
+          </button>
         </div>
         <button
           onClick={() => setShowNew(true)}
@@ -585,6 +723,24 @@ export function CrmPipeline({
           companies={companies}
           team={team}
           teamMembers={teamMembers}
+          currentUser={currentUser}
+        />
+      ) : view === "arquivados" ? (
+        <CrmList
+          cards={cards}
+          pipelines={pipelines}
+          tags={tags}
+          companies={companies}
+          team={team}
+          teamMembers={teamMembers}
+          currentUser={currentUser}
+          initialStatus="congelados"
+        />
+      ) : view === "forecast" ? (
+        <CrmForecast
+          cards={cards}
+          pipelines={pipelines}
+          defaultPipelineId={pipelineId}
           currentUser={currentUser}
         />
       ) : (
@@ -678,7 +834,7 @@ export function CrmPipeline({
       )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {stages.map((s, si) => {
+        {stages.filter((s) => s.kind !== "lost").map((s, si) => {
           const inStage = visibleCards.filter((c) => c.stage === s.key);
           const sum = inStage.reduce((acc, c) => acc + c.monthlyValue, 0);
           // Adição rápida (Kommo) só no reservatório do outbound (1ª coluna do SDR).
@@ -740,6 +896,50 @@ export function CrmPipeline({
             </div>
           );
         })}
+
+        {/* Coluna lateral "Saídas" (não é etapa): Perdido (motivo) · Congelado */}
+        {!showFrozen && (
+          <div className="flex w-[190px] shrink-0 flex-col gap-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Saídas</p>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setOverStage("__lost__"); }}
+              onDragLeave={() => setOverStage((c) => (c === "__lost__" ? null : c))}
+              onDrop={() => {
+                const id = dragId;
+                setDragId(null);
+                setOverStage(null);
+                const card = cards.find((c) => c.id === id);
+                if (card) setLose({ id: card.id, name: card.name });
+              }}
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-3 text-center transition-colors",
+                overStage === "__lost__" ? "border-rose-500 bg-rose-500/10" : "border-line",
+              )}
+            >
+              <XCircle className="h-5 w-5 text-rose-500" />
+              <p className="mt-1 text-xs font-semibold text-rose-600">Perdido</p>
+              <p className="text-[10px] text-muted">arraste aqui — pede motivo</p>
+            </div>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setOverStage("__frozen__"); }}
+              onDragLeave={() => setOverStage((c) => (c === "__frozen__" ? null : c))}
+              onDrop={() => {
+                const id = dragId;
+                setDragId(null);
+                setOverStage(null);
+                if (id) freezeCard(id);
+              }}
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-3 text-center transition-colors",
+                overStage === "__frozen__" ? "border-sky-500 bg-sky-500/10" : "border-line",
+              )}
+            >
+              <Snowflake className="h-5 w-5 text-sky-500" />
+              <p className="mt-1 text-xs font-semibold text-sky-600">Congelar</p>
+              <p className="text-[10px] text-muted">reengajar depois</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {handoff && (
@@ -748,6 +948,10 @@ export function CrmPipeline({
           onClose={() => setHandoff(null)}
           onSubmit={submitHandoff}
         />
+      )}
+
+      {lose && (
+        <LoseModal name={lose.name} reasons={lostReasons} onClose={() => setLose(null)} onConfirm={losePerdido} />
       )}
 
       {blocked && (
