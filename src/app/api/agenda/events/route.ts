@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { createEvent } from "@/lib/google/calendar";
+import { createEvent, updateEvent, deleteEvent } from "@/lib/google/calendar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,19 +10,25 @@ export const dynamic = "force-dynamic";
 const TYPES = new Set(["meeting", "call", "other"]);
 
 type Body = {
-  action?: "create" | "delete";
+  action?: "create" | "update" | "delete";
   id?: string;
   title?: string;
   type?: string;
   startAt?: string;
   endAt?: string;
   dealId?: string;
+  /** Origem do evento sendo editado/apagado: "google" (real) ou "own" (local). */
+  source?: "own" | "google";
   // Reunião real no Google Calendar (Meet + convidados + descrição).
   useGoogle?: boolean;
   description?: string;
   attendees?: string[];
   addMeet?: boolean;
 };
+
+function cleanEmails(list?: string[]): string[] {
+  return (list ?? []).map((a) => a.trim()).filter((a) => a.includes("@"));
+}
 
 /** CRUD dos eventos próprios (fallback/complemento ao Google Calendar). */
 export async function POST(req: Request) {
@@ -41,7 +47,41 @@ export async function POST(req: Request) {
 
   if (b.action === "delete") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    if (b.source === "google") {
+      const r = await deleteEvent(b.id);
+      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 502 });
+      return NextResponse.json({ ok: true, google: true });
+    }
     const { error } = await supabase.from("calendar_events").delete().eq("id", b.id).eq("owner_id", user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (b.action === "update") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    if (b.source === "google") {
+      const result = await updateEvent(b.id, {
+        summary: b.title?.trim(),
+        description: b.description ?? "",
+        startIso: b.startAt,
+        endIso: b.endAt,
+        attendees: cleanEmails(b.attendees),
+        addMeet: b.addMeet,
+      });
+      if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
+      return NextResponse.json({
+        ok: true,
+        google: true,
+        meetLink: result.event?.hangoutLink,
+        htmlLink: result.event?.htmlLink,
+      });
+    }
+    const patch: Record<string, unknown> = {};
+    if (b.title != null) patch.title = b.title.trim();
+    if (b.type != null && TYPES.has(b.type)) patch.type = b.type;
+    if (b.startAt != null) patch.start_at = b.startAt;
+    if (b.endAt !== undefined) patch.end_at = b.endAt ?? null;
+    const { error } = await supabase.from("calendar_events").update(patch).eq("id", b.id).eq("owner_id", user.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

@@ -36,7 +36,17 @@ import {
   type SchedulingLink,
 } from "@/lib/data/agenda";
 
-type Meeting = { id: string; title: string; start: string; end?: string; source: "own" | "google"; link?: string };
+type Meeting = {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  source: "own" | "google";
+  link?: string;
+  type?: string;
+  description?: string;
+  attendees?: string[];
+};
 type Task = { id: string; title: string; dueDate?: string; status: string; type?: string; leadId?: string; dealName?: string };
 
 const START_H = 7;
@@ -68,7 +78,17 @@ export function AgendaClient({
   templates?: RoutineTemplate[];
   schedulingLinks: SchedulingLink[];
   events?: CalendarEvent[];
-  googleEvents?: { id: string; summary: string; start?: string; end?: string; hangoutLink?: string; htmlLink?: string; allDay?: boolean }[];
+  googleEvents?: {
+    id: string;
+    summary: string;
+    start?: string;
+    end?: string;
+    hangoutLink?: string;
+    htmlLink?: string;
+    allDay?: boolean;
+    description?: string;
+    attendees?: string[];
+  }[];
   googleConnected?: boolean;
   googleConfigured?: boolean;
   tasks?: Task[];
@@ -84,6 +104,7 @@ export function AgendaClient({
   const [showLinks, setShowLinks] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [newAt, setNewAt] = useState<Date | null>(null);
+  const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
 
   useEffect(() => {
     // Hidrata preferências do cliente (localStorage) após montar.
@@ -103,10 +124,19 @@ export function AgendaClient({
 
   // Reuniões unificadas (próprias + Google).
   const meetings: Meeting[] = useMemo(() => {
-    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own" }));
+    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own", type: e.type }));
     const g: Meeting[] = googleEvents
       .filter((e) => e.start && !e.allDay)
-      .map((e) => ({ id: e.id, title: e.summary, start: e.start!, end: e.end, source: "google", link: e.hangoutLink ?? e.htmlLink }));
+      .map((e) => ({
+        id: e.id,
+        title: e.summary,
+        start: e.start!,
+        end: e.end,
+        source: "google",
+        link: e.hangoutLink ?? e.htmlLink,
+        description: e.description,
+        attendees: e.attendees,
+      }));
     return [...own, ...g];
   }, [events, googleEvents]);
 
@@ -166,9 +196,9 @@ export function AgendaClient({
         {/* Grid */}
         <div className="min-w-0 flex-1 rounded-2xl border border-line bg-surface">
           {view === "mes" ? (
-            <MonthGrid anchor={anchor} now={now} meetings={meetings} onNew={(d) => setNewAt(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9))} />
+            <MonthGrid anchor={anchor} now={now} meetings={meetings} onNew={(d) => setNewAt(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9))} onOpenMeeting={setEditMeeting} />
           ) : (
-            <TimeGrid days={days} now={now} meetings={meetings} blocks={blocks} showRotina={showRotina} onSlot={(d) => setNewAt(d)} />
+            <TimeGrid days={days} now={now} meetings={meetings} blocks={blocks} showRotina={showRotina} onSlot={(d) => setNewAt(d)} onOpenMeeting={setEditMeeting} />
           )}
         </div>
 
@@ -192,19 +222,29 @@ export function AgendaClient({
           onSaved={() => { setNewAt(null); router.refresh(); }}
         />
       )}
+      {editMeeting && (
+        <EventModal
+          at={new Date(editMeeting.start)}
+          edit={editMeeting}
+          googleConnected={googleConnected}
+          onClose={() => setEditMeeting(null)}
+          onSaved={() => { setEditMeeting(null); router.refresh(); }}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Grid de horas (dia/semana) ────────────────────────── */
 
-function TimeGrid({ days, now, meetings, blocks, showRotina, onSlot }: {
+function TimeGrid({ days, now, meetings, blocks, showRotina, onSlot, onOpenMeeting }: {
   days: Date[];
   now: Date;
   meetings: Meeting[];
   blocks: RoutineBlock[];
   showRotina: boolean;
   onSlot: (d: Date) => void;
+  onOpenMeeting: (m: Meeting) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -259,15 +299,16 @@ function TimeGrid({ days, now, meetings, blocks, showRotina, onSlot }: {
                   const e = m.end ? new Date(m.end) : new Date(s.getTime() + 30 * 60000);
                   const top = ((s.getHours() * 60 + s.getMinutes() - START_H * 60) / 60) * ROW_H;
                   const height = Math.max(22, ((e.getTime() - s.getTime()) / 3600000) * ROW_H);
-                  const content = (
-                    <div className="flex h-full flex-col overflow-hidden rounded-md border-l-2 border-brand-500 bg-brand-500/15 px-1.5 py-0.5 text-left">
-                      <span className="truncate text-[10px] font-semibold text-brand-700">{m.title}</span>
-                      <span className="text-[9px] text-brand-600">{clockLabel(m.start)}</span>
-                    </div>
-                  );
                   return (
                     <div key={m.id} className="absolute inset-x-1 z-10" style={{ top, height }}>
-                      {m.link ? <a href={m.link} target="_blank" rel="noreferrer" className="block h-full">{content}</a> : content}
+                      <button
+                        type="button"
+                        onClick={() => onOpenMeeting(m)}
+                        className="flex h-full w-full flex-col overflow-hidden rounded-md border-l-2 border-brand-500 bg-brand-500/15 px-1.5 py-0.5 text-left transition-colors hover:bg-brand-500/25"
+                      >
+                        <span className="truncate text-[10px] font-semibold text-brand-700">{m.title}</span>
+                        <span className="text-[9px] text-brand-600">{clockLabel(m.start)}</span>
+                      </button>
                     </div>
                   );
                 })}
@@ -288,7 +329,7 @@ function TimeGrid({ days, now, meetings, blocks, showRotina, onSlot }: {
 
 /* ── Grid mensal ───────────────────────────────────────── */
 
-function MonthGrid({ anchor, now, meetings, onNew }: { anchor: Date; now: Date; meetings: Meeting[]; onNew: (d: Date) => void }) {
+function MonthGrid({ anchor, now, meetings, onNew, onOpenMeeting }: { anchor: Date; now: Date; meetings: Meeting[]; onNew: (d: Date) => void; onOpenMeeting: (m: Meeting) => void }) {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const startPad = (first.getDay() + 6) % 7;
   const gridStart = addDays(first, -startPad);
@@ -307,17 +348,24 @@ function MonthGrid({ anchor, now, meetings, onNew }: { anchor: Date; now: Date; 
           const list = (byDay.get(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`) ?? []).sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
           const inMonth = d.getMonth() === anchor.getMonth();
           return (
-            <button key={iso(d)} onClick={() => onNew(d)} className={cn("min-h-[84px] rounded-lg border p-1 text-left align-top", sameDay(d, now) ? "border-brand-400 bg-brand-50/30" : "border-line", !inMonth && "opacity-40")}>
-              <span className="text-[11px] font-semibold text-muted">{d.getDate()}</span>
+            <div key={iso(d)} className={cn("min-h-[84px] rounded-lg border p-1 align-top", sameDay(d, now) ? "border-brand-400 bg-brand-50/30" : "border-line", !inMonth && "opacity-40")}>
+              <button type="button" onClick={() => onNew(d)} className="block w-full text-left text-[11px] font-semibold text-muted hover:text-brand-600" title="Nova reunião">
+                {d.getDate()}
+              </button>
               <div className="mt-0.5 space-y-0.5">
                 {list.slice(0, 3).map((m) => (
-                  <span key={m.id} className="flex items-center gap-1 truncate rounded bg-brand-500/15 px-1 text-[10px] text-brand-700">
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onOpenMeeting(m)}
+                    className="flex w-full items-center gap-1 truncate rounded bg-brand-500/15 px-1 text-left text-[10px] text-brand-700 hover:bg-brand-500/25"
+                  >
                     <Clock className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{clockLabel(m.start)} {m.title}</span>
-                  </span>
+                  </button>
                 ))}
                 {list.length > 3 && <span className="text-[10px] text-muted">+{list.length - 3}</span>}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -542,23 +590,32 @@ function LinksPanel({ links, onClose, onChanged }: { links: SchedulingLink[]; on
 
 function EventModal({
   at,
+  edit,
   googleConnected,
   onClose,
   onSaved,
 }: {
   at: Date;
+  edit?: Meeting;
   googleConnected: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState("meeting");
-  const [date, setDate] = useState(`${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`);
-  const [start, setStart] = useState(`${String(at.getHours()).padStart(2, "0")}:00`);
-  const [end, setEnd] = useState(`${String((at.getHours() + 1) % 24).padStart(2, "0")}:00`);
-  const [description, setDescription] = useState("");
-  const [guests, setGuests] = useState("");
-  const [addMeet, setAddMeet] = useState(true);
+  const isEdit = !!edit;
+  // Campos ricos (descrição/convidados/Meet): no novo, dependem da conexão;
+  // na edição, dependem da origem do evento (só eventos do Google os têm).
+  const canRich = isEdit ? edit!.source === "google" : googleConnected;
+  const startD = new Date(edit?.start ?? at);
+  const endD = edit?.end ? new Date(edit.end) : new Date(startD.getTime() + 60 * 60000);
+
+  const [title, setTitle] = useState(edit?.title ?? "");
+  const [type, setType] = useState(edit?.type ?? "meeting");
+  const [date, setDate] = useState(`${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-${String(startD.getDate()).padStart(2, "0")}`);
+  const [start, setStart] = useState(`${String(startD.getHours()).padStart(2, "0")}:${String(startD.getMinutes()).padStart(2, "0")}`);
+  const [end, setEnd] = useState(`${String(endD.getHours()).padStart(2, "0")}:${String(endD.getMinutes()).padStart(2, "0")}`);
+  const [description, setDescription] = useState(edit?.description ?? "");
+  const [guests, setGuests] = useState((edit?.attendees ?? []).join(", "));
+  const [addMeet, setAddMeet] = useState(isEdit ? !edit!.link : true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ meetLink?: string; htmlLink?: string } | null>(null);
@@ -570,15 +627,21 @@ function EventModal({
     setError(null);
     const startAt = new Date(`${date}T${start}`).toISOString();
     const endAt = new Date(`${date}T${end}`).toISOString();
-    const attendees = guests
-      .split(/[\s,;]+/)
-      .map((g) => g.trim())
-      .filter((g) => g.includes("@"));
-    try {
-      const res = await fetch("/api/agenda/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+    const attendees = guests.split(/[\s,;]+/).map((g) => g.trim()).filter((g) => g.includes("@"));
+    const body = isEdit
+      ? {
+          action: "update",
+          id: edit!.id,
+          source: edit!.source,
+          title: title.trim(),
+          type,
+          startAt,
+          endAt,
+          description: canRich ? description.trim() : undefined,
+          attendees: canRich ? attendees : undefined,
+          addMeet: canRich ? addMeet : undefined,
+        }
+      : {
           action: "create",
           title: title.trim(),
           type,
@@ -588,21 +651,50 @@ function EventModal({
           description: description.trim() || undefined,
           attendees,
           addMeet,
-        }),
+        };
+    try {
+      const res = await fetch("/api/agenda/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; google?: boolean; meetLink?: string; htmlLink?: string };
       if (!res.ok || out.error) {
-        setError(out.error ?? "Falha ao criar a reunião.");
+        setError(out.error ?? "Falha ao salvar a reunião.");
         setBusy(false);
         return;
       }
-      // No Google, mostra o link do Meet antes de fechar; local fecha direto.
-      if (out.google && (out.meetLink || out.htmlLink)) {
+      // Ao criar no Google, mostra o link do Meet antes de fechar.
+      if (!isEdit && out.google && (out.meetLink || out.htmlLink)) {
         setCreated({ meetLink: out.meetLink, htmlLink: out.htmlLink });
         setBusy(false);
         return;
       }
       setBusy(false);
+      onSaved();
+    } catch {
+      setError("Erro de rede.");
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!edit) return;
+    if (!window.confirm("Excluir esta reunião? Os participantes serão avisados.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/agenda/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: edit.id, source: edit.source }),
+      });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || out.error) {
+        setError(out.error ?? "Falha ao excluir.");
+        setBusy(false);
+        return;
+      }
       onSaved();
     } catch {
       setError("Erro de rede.");
@@ -623,7 +715,7 @@ function EventModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink">{created ? "Reunião criada" : "Nova reunião"}</h2>
+          <h2 className="text-base font-bold text-ink">{created ? "Reunião criada" : isEdit ? "Editar reunião" : "Nova reunião"}</h2>
           <button onClick={created ? onSaved : onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
 
@@ -650,6 +742,11 @@ function EventModal({
         ) : (
           <>
             <div className="space-y-2">
+              {isEdit && edit!.link && (
+                <a href={edit!.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                  <Video className="h-4 w-4" /> Entrar no Meet
+                </a>
+              )}
               <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex.: Diagnóstico — Padaria do João)" className={inputCls} />
               <div className="grid grid-cols-3 gap-2">
                 <select value={type} onChange={(e) => setType(e.target.value)} className={inputCls}>
@@ -661,24 +758,33 @@ function EventModal({
                 <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
               </div>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Descrição / pauta (opcional)" className={inputCls + " resize-y"} />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Descrição / pauta (opcional)" disabled={!canRich} className={inputCls + " resize-y" + (canRich ? "" : " opacity-60")} />
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted"><Users className="h-3.5 w-3.5" /> Convidados (e-mails separados por vírgula)</label>
-              <input value={guests} onChange={(e) => setGuests(e.target.value)} placeholder="fulano@empresa.com, ciclano@..." disabled={!googleConnected} className={inputCls + (googleConnected ? "" : " opacity-60")} />
-              {googleConnected ? (
+              <input value={guests} onChange={(e) => setGuests(e.target.value)} placeholder="fulano@empresa.com, ciclano@..." disabled={!canRich} className={inputCls + (canRich ? "" : " opacity-60")} />
+              {canRich ? (
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
                   <input type="checkbox" checked={addMeet} onChange={(e) => setAddMeet(e.target.checked)} />
-                  <Video className="h-4 w-4 text-brand-500" /> Adicionar Google Meet
+                  <Video className="h-4 w-4 text-brand-500" /> {isEdit && edit!.link ? "Manter Google Meet" : "Adicionar Google Meet"}
                 </label>
               ) : (
-                <p className="text-[11px] text-amber-600">Conecte o Google em Integrações para criar a reunião com Meet e convidados. Sem conexão, salva só no calendário do sistema.</p>
+                <p className="text-[11px] text-amber-600">
+                  {isEdit ? "Evento do calendário do sistema — descrição, convidados e Meet exigem Google." : "Conecte o Google em Integrações para Meet e convidados. Sem conexão, salva só no calendário do sistema."}
+                </p>
               )}
               {error && <p className="text-[11px] text-red-600">{error}</p>}
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-              <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />} {googleConnected ? "Criar reunião" : "Criar"}
-              </button>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              {isEdit ? (
+                <button onClick={remove} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+                  <Trash2 className="h-4 w-4" /> Excluir
+                </button>
+              ) : <span />}
+              <div className="flex gap-2">
+                <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
+                <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />} {isEdit ? "Salvar" : googleConnected ? "Criar reunião" : "Criar"}
+                </button>
+              </div>
             </div>
           </>
         )}

@@ -184,3 +184,84 @@ export async function createEvent(input: {
     return { error: e instanceof Error ? e.message : "erro de rede" };
   }
 }
+
+/**
+ * Edita um evento existente (PATCH). Só toca os campos enviados; envia os
+ * convites atualizados (sendUpdates=all). Adiciona Meet se pedido.
+ */
+export async function updateEvent(
+  id: string,
+  input: {
+    summary?: string;
+    description?: string;
+    startIso?: string;
+    endIso?: string;
+    attendees?: string[];
+    addMeet?: boolean;
+  },
+): Promise<CreateEventResult> {
+  const access = await getValidAccess();
+  if (!access) return { error: "Google não conectado." };
+
+  const body: Record<string, unknown> = {};
+  if (input.summary != null) body.summary = input.summary;
+  if (input.description != null) body.description = input.description;
+  if (input.startIso) body.start = { dateTime: input.startIso, timeZone: "America/Sao_Paulo" };
+  if (input.endIso) body.end = { dateTime: input.endIso, timeZone: "America/Sao_Paulo" };
+  if (input.attendees) body.attendees = input.attendees.map((email) => ({ email }));
+  if (input.addMeet) {
+    body.conferenceData = {
+      createRequest: {
+        requestId: `vio-edit-${id}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
+  try {
+    const url = new URL(`${API}/calendars/${encodeURIComponent(access.calendarId)}/events/${encodeURIComponent(id)}`);
+    url.searchParams.set("sendUpdates", "all");
+    if (input.addMeet) url.searchParams.set("conferenceDataVersion", "1");
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${access.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* mantém text */
+    }
+    if (!res.ok) {
+      const msg = (json as { error?: { message?: string } })?.error?.message ?? text.slice(0, 200);
+      return { error: `Google ${res.status}: ${msg}` };
+    }
+    return { event: mapEvent(json as RawEvent) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "erro de rede" };
+  }
+}
+
+/** Apaga um evento do calendário de escrita (avisa os participantes). */
+export async function deleteEvent(id: string): Promise<{ ok: boolean; error?: string }> {
+  const access = await getValidAccess();
+  if (!access) return { ok: false, error: "Google não conectado." };
+  try {
+    const url = new URL(`${API}/calendars/${encodeURIComponent(access.calendarId)}/events/${encodeURIComponent(id)}`);
+    url.searchParams.set("sendUpdates", "all");
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${access.token}` },
+      cache: "no-store",
+    });
+    // 410 = já removido; tratamos como sucesso (idempotente).
+    if (res.ok || res.status === 410) return { ok: true };
+    const text = await res.text();
+    return { ok: false, error: `Google ${res.status}: ${text.slice(0, 150)}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "erro de rede" };
+  }
+}
