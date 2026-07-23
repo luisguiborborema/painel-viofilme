@@ -6,7 +6,6 @@ import {
   BarChart3,
   MessagesSquare,
   CalendarDays,
-  Target,
   Gauge,
   Inbox,
   Plug,
@@ -22,6 +21,10 @@ import {
   Boxes,
   Building2,
   CircleUser,
+  KanbanSquare,
+  Database,
+  SlidersHorizontal,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -51,9 +54,15 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     title: "Comercial",
     icon: Briefcase,
     items: [
-      { label: "CRM & Vendas", href: "/gerencial/crm", icon: Target, section: "crm" },
-      { label: "Atendimento", href: "/gerencial/inbox", icon: MessagesSquare, section: "crm" },
-      { label: "Agenda", href: "/gerencial/agenda", icon: CalendarDays, section: "crm" },
+      { label: "Dashboard Comercial", href: "/gerencial/comercial/dashboard", icon: LayoutDashboard, section: "crm" },
+      { label: "Comunicações", href: "/gerencial/inbox", icon: MessagesSquare, section: "crm" },
+      { label: "Pipeline (funis)", href: "/gerencial/comercial/pipeline", icon: KanbanSquare, section: "crm" },
+      { label: "Calendário/Agenda", href: "/gerencial/agenda", icon: CalendarDays, section: "crm" },
+      { label: "Atividades", href: "/gerencial/comercial/atividades", icon: ListChecks, section: "crm" },
+      { label: "Listas", href: "/gerencial/comercial/listas", icon: Database, section: "crm" },
+      { label: "Insights", href: "/gerencial/comercial/insights", icon: BarChart3, section: "crm" },
+      { label: "Configurações", href: "/gerencial/comercial/configuracoes", icon: SlidersHorizontal, section: "crm" },
+      { label: "Documentos", href: "/gerencial/comercial/documentos", icon: FileText, section: "crm" },
     ],
   },
   {

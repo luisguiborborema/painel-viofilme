@@ -81,10 +81,10 @@ export function CommandPalette({
   const actions: Cmd[] = [
     ...(role === "gerencial"
       ? [
-          { label: "Novo negócio", href: "/gerencial/crm?tab=pipeline", icon: Plus, badge: "Ação" },
-          { label: "Nova tarefa", href: "/gerencial/crm?tab=tarefas", icon: Plus, badge: "Ação" },
-          { label: "Nova empresa", href: "/gerencial/crm?tab=empresas", icon: Plus, badge: "Ação" },
-          { label: "Novo contato", href: "/gerencial/crm?tab=contatos", icon: Plus, badge: "Ação" },
+          { label: "Novo negócio", href: "/gerencial/comercial/pipeline", icon: Plus, badge: "Ação" },
+          { label: "Nova tarefa", href: "/gerencial/comercial/atividades", icon: Plus, badge: "Ação" },
+          { label: "Nova empresa", href: "/gerencial/comercial/listas", icon: Plus, badge: "Ação" },
+          { label: "Novo contato", href: "/gerencial/comercial/listas", icon: Plus, badge: "Ação" },
         ]
       : []),
     { label: "Configurações", href: "/configuracoes", icon: Settings, badge: "Ação" },

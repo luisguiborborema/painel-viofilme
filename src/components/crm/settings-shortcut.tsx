@@ -4,7 +4,7 @@ import { Settings2 } from "lucide-react";
 /**
  * Atalho contextual para a fonte única de configuração (§1 do spec).
  * NÃO configura no lugar — apenas navega para a seção certa, via âncora direta:
- * /gerencial/crm?tab=configuracoes#{section}.
+ * /gerencial/comercial/configuracoes#{section}.
  */
 export function SettingsShortcut({
   section,
@@ -17,7 +17,7 @@ export function SettingsShortcut({
 }) {
   return (
     <Link
-      href={`/gerencial/crm?tab=configuracoes#${section}`}
+      href={`/gerencial/comercial/configuracoes#${section}`}
       className={`inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-brand-600 ${className}`}
       title="Abrir nas Configurações"
     >

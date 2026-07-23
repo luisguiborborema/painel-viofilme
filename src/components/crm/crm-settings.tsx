@@ -202,9 +202,9 @@ export function CrmSettings({
       description: "Metas do time e distribuição por liderado. A operação vive em Insights › Metas.",
       node: (
         <ShortcutPanel
-          description="As metas e a distribuição por responsável são definidas na aba Metas, onde ficam ao lado do forecast."
-          href="/gerencial/crm?tab=metas"
-          cta="Abrir Metas"
+          description="As metas e a distribuição por responsável são definidas em Insights › Metas, ao lado do forecast."
+          href="/gerencial/comercial/insights"
+          cta="Abrir Insights"
         />
       ),
     },
@@ -215,7 +215,7 @@ export function CrmSettings({
       node: (
         <ShortcutPanel
           description="O catálogo de serviços e planos é cadastrado em Listas › Produtos."
-          href="/gerencial/crm?tab=listas"
+          href="/gerencial/comercial/listas"
           cta="Abrir Listas"
         />
       ),

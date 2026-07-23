@@ -22,7 +22,7 @@ export type SectionKey =
 
 export const SECTIONS: { key: SectionKey; label: string; href: string }[] = [
   { key: "visao-geral", label: "Visão geral", href: "/gerencial" },
-  { key: "crm", label: "CRM & Vendas", href: "/gerencial/crm" },
+  { key: "crm", label: "Comercial", href: "/gerencial/comercial/dashboard" },
   { key: "clientes", label: "Clientes", href: "/gerencial/clientes" },
   { key: "entregas", label: "Entregas", href: "/gerencial/entregas" },
   { key: "campanhas", label: "Campanhas", href: "/gerencial/campanhas" },

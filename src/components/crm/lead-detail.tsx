@@ -194,7 +194,7 @@ export function LeadDetail({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
-            href="/gerencial/crm?tab=pipeline"
+            href="/gerencial/comercial/pipeline"
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-subtle"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -731,7 +731,7 @@ export function DeleteDealButton({
     }).catch(() => {});
     // No modal: volta ao board (fecha o modal). Na página: navega ao pipeline.
     if (variant === "modal") router.back();
-    else router.push("/gerencial/crm?tab=pipeline");
+    else router.push("/gerencial/comercial/pipeline");
     router.refresh();
   }
 

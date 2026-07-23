@@ -72,7 +72,7 @@ export function ContactDetail({
         <DeleteButton
           endpoint="/api/crm/contacts"
           id={contact.id}
-          redirectTo="/gerencial/crm?tab=contatos"
+          redirectTo="/gerencial/comercial/listas"
           confirmLabel={`Excluir “${contact.name}”?`}
         />
       </div>
