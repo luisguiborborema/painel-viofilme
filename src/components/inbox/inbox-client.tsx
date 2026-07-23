@@ -26,6 +26,7 @@ import {
   type WaMessage,
   type WaStatus,
 } from "@/lib/data/inbox";
+import type { SalesMaterial } from "@/lib/data/crm";
 import { InboxLeadPanel } from "./inbox-lead-panel";
 
 function initials(name: string) {
@@ -78,10 +79,12 @@ export function InboxClient({
   initialConversations,
   attendants,
   deals = [],
+  materials = [],
 }: {
   initialConversations: WaConversation[];
   attendants: Attendant[];
   deals?: { id: string; name: string; stage?: string }[];
+  materials?: SalesMaterial[];
 }) {
   const [conversations, setConversations] = useState(initialConversations);
   const [status, setStatus] = useState<WaStatus>("open");
@@ -94,10 +97,23 @@ export function InboxClient({
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [showMaterials, setShowMaterials] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Anexa um material de venda à mensagem (insere link) e conta o envio.
+  function attachMaterial(m: SalesMaterial) {
+    const href = m.link || m.fileUrl || "";
+    setText((t) => `${t}${t.trim() ? "\n" : ""}${m.title}${href && href !== "#" ? `: ${href}` : ""}`);
+    setShowMaterials(false);
+    fetch("/api/crm/sales-materials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "use", id: m.id }),
+    }).catch(() => {});
+  }
 
   const filtered = conversations
     .filter((c) => c.status === status)
@@ -510,6 +526,33 @@ export function InboxClient({
                 >
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
                 </button>
+                {materials.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMaterials((s) => !s)}
+                      disabled={recording}
+                      title="Anexar material de venda"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-muted hover:bg-subtle disabled:opacity-50"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
+                    {showMaterials && (
+                      <div className="absolute bottom-12 left-0 z-30 max-h-72 w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                        <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">Materiais de venda</p>
+                        {materials.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => attachMaterial(m)}
+                            className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-black/5"
+                          >
+                            <span className="min-w-0 truncate">{m.title}</span>
+                            <span className="shrink-0 text-[11px] text-muted">{m.usageCount}×</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}

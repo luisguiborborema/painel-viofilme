@@ -52,6 +52,9 @@ import {
   daysBetween,
   stageLabel,
   suggestedScriptFor,
+  DOC_STATUSES,
+  TRACKED_DOC_KINDS,
+  CRM_DOCUMENT_KINDS,
   type CardFieldSetting,
   type Company,
   type Contact,
@@ -61,6 +64,7 @@ import {
   type CrmLead,
   type CrmTask,
   type DealScript,
+  type DocTemplate,
   type Pipeline,
   type PropertyDef,
   type Stage,
@@ -109,6 +113,7 @@ export function LeadModalContent({
   currentUser = "",
   scripts = DEAL_SCRIPTS,
   documents = [],
+  templates = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -128,6 +133,7 @@ export function LeadModalContent({
   cardFields?: CardFieldSetting[];
   scripts?: DealScript[];
   documents?: CrmDocument[];
+  templates?: DocTemplate[];
 }) {
   const router = useRouter();
   const { layout, setLayout } = useLeadModalLayout();
@@ -517,7 +523,9 @@ export function LeadModalContent({
               />
             )}
             {centerTab === "qualificacao" && <QualiTab lead={lead} onSave={saveProp} />}
-            {centerTab === "negociacao" && <NegoTab lead={lead} onSave={saveProp} />}
+            {centerTab === "negociacao" && (
+              <NegoTab lead={lead} onSave={saveProp} documents={documents} templates={templates} />
+            )}
           </div>
         </div>
 
@@ -1045,9 +1053,132 @@ function QualiTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value
   );
 }
 
-function NegoTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value: unknown) => void }) {
+const DOC_TONE: Record<string, string> = {
+  muted: "bg-black/5 text-muted",
+  brand: "bg-brand-100 text-brand-700",
+  amber: "bg-amber-100 text-amber-700",
+  emerald: "bg-emerald-100 text-emerald-700",
+  red: "bg-red-100 text-red-700",
+};
+const DOC_KIND_LABEL = Object.fromEntries(CRM_DOCUMENT_KINDS.map((k) => [k.key, k.label]));
+const DOC_STATUS_MAP = Object.fromEntries(DOC_STATUSES.map((s) => [s.key, s]));
+
+/** Documentos do negócio (propostas/contratos) refletidos na Negociação. */
+function NegoDocs({
+  lead,
+  documents,
+  templates,
+}: {
+  lead: CrmLead;
+  documents: CrmDocument[];
+  templates: DocTemplate[];
+}) {
+  const router = useRouter();
+  const [tplId, setTplId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const docs = documents.filter((d) => TRACKED_DOC_KINDS.has(d.kind));
+  const activeTpls = templates.filter((t) => t.isActive);
+
+  async function generate() {
+    const tpl = templates.find((t) => t.id === tplId);
+    if (!tpl) return;
+    setBusy(true);
+    const p = (lead.properties ?? {}) as Record<string, unknown>;
+    const filled = (tpl.content ?? "")
+      .replaceAll("{empresa}", lead.name ?? "")
+      .replaceAll("{valor}", p.n_valor_proposta ? formatBRL(Number(p.n_valor_proposta)) : "{valor}");
+    await fetch("/api/crm/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "generate",
+        title: `${tpl.name} — ${lead.name}`,
+        kind: tpl.kind,
+        content: filled,
+        templateId: tpl.id,
+        dealId: lead.id,
+        value: p.n_valor_proposta ? Number(p.n_valor_proposta) : undefined,
+      }),
+    }).catch(() => {});
+    setBusy(false);
+    setTplId("");
+    router.refresh();
+  }
+
+  return (
+    <div className="mb-3 rounded-xl border border-line bg-surface p-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
+        <FileText className="h-4 w-4 text-brand-500" /> Documentos deste negócio
+      </div>
+      {docs.length === 0 ? (
+        <p className="text-xs text-muted">Nenhuma proposta/contrato ainda. Gere um a partir de um modelo abaixo.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {docs.map((d) => {
+            const s = DOC_STATUS_MAP[d.status ?? "draft"] ?? DOC_STATUS_MAP.draft;
+            return (
+              <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-black/[0.02] px-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="text-ink">{d.title}</span>
+                  <span className="ml-2 text-[11px] text-muted">{DOC_KIND_LABEL[d.kind] ?? d.kind}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  {d.value != null && <span className="text-xs font-medium text-ink">{formatBRL(d.value)}</span>}
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${DOC_TONE[s.tone]}`}>{s.label}</span>
+                  {d.url && (
+                    <a href={d.url} target="_blank" rel="noreferrer" className="text-muted hover:text-brand-600">
+                      abrir
+                    </a>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {activeTpls.length > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <select
+            value={tplId}
+            onChange={(e) => setTplId(e.target.value)}
+            className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+          >
+            <option value="">Gerar a partir de um modelo…</option>
+            {activeTpls.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!tplId || busy}
+            onClick={generate}
+            className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+          >
+            Gerar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NegoTab({
+  lead,
+  onSave,
+  documents = [],
+  templates = [],
+}: {
+  lead: CrmLead;
+  onSave: (key: string, value: unknown) => void;
+  documents?: CrmDocument[];
+  templates?: DocTemplate[];
+}) {
   const p = (lead.properties ?? {}) as Record<string, unknown>;
   return (
+    <>
+    <NegoDocs lead={lead} documents={documents} templates={templates} />
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <EditRow label="Budget declarado">
         <BlurInput type="number" initial={String(p.n_budget_declarado ?? "")} onSave={(v) => onSave("n_budget_declarado", v === "" ? null : Number(v))} />
@@ -1080,6 +1211,7 @@ function NegoTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value:
         <BlurInput type="url" initial={String(p.n_zapsign ?? "")} onSave={(v) => onSave("n_zapsign", v)} />
       </EditRow>
     </div>
+    </>
   );
 }
 

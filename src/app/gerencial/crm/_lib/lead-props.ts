@@ -10,6 +10,7 @@ import {
   getCrmTaskFlows,
   getCrmScripts,
   getCrmDocuments,
+  getDocTemplates,
   getDealHistory,
   getCrmPipelines,
   getCrmComments,
@@ -37,7 +38,7 @@ export async function getLeadDetailProps(id: string) {
       getAttendants(),
       getCrmLostReasons(),
     ]);
-  const [flows, dealHistory, pipelines, comments, session, cardFields, scripts, documents] = await Promise.all([
+  const [flows, dealHistory, pipelines, comments, session, cardFields, scripts, documents, templates] = await Promise.all([
     getCrmTaskFlows(),
     getDealHistory(id),
     getCrmPipelines(),
@@ -46,6 +47,7 @@ export async function getLeadDetailProps(id: string) {
     getCardLayout("deal"),
     getCrmScripts(),
     getCrmDocuments({ dealId: id }),
+    getDocTemplates(),
   ]);
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
@@ -74,5 +76,6 @@ export async function getLeadDetailProps(id: string) {
     cardFields,
     scripts,
     documents,
+    templates,
   };
 }
