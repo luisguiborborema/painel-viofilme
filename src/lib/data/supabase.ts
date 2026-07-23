@@ -1821,6 +1821,8 @@ import type {
   TaskFlow,
   DealScript,
   CrmDocument,
+  DocTemplate,
+  SalesMaterial,
   CrmGoal,
   CaptureForm,
   StageChange,
@@ -2157,21 +2159,81 @@ export async function sbGetCrmDocuments(opts?: {
   const supabase = await createClient();
   let q = supabase
     .from("crm_documents")
-    .select("id,deal_id,company_id,title,url,file_name,file_type,file_size,kind,created_at")
+    .select(
+      "id,deal_id,company_id,title,url,file_name,file_type,file_size,kind,status,value,owner,content,template_id,external_id,sent_at,viewed_at,signed_at,expires_at,created_at",
+    )
     .order("created_at", { ascending: false });
   if (opts?.dealId) q = q.eq("deal_id", opts.dealId);
   if (opts?.companyId) q = q.eq("company_id", opts.companyId);
   const { data } = await q;
+  // Nomes do negócio/empresa (para a central de rastreio, quando não escopado).
+  const dealIds = [...new Set((data ?? []).map((r) => r.deal_id).filter(Boolean) as string[])];
+  const companyIds = [...new Set((data ?? []).map((r) => r.company_id).filter(Boolean) as string[])];
+  const [deals, cos] = await Promise.all([
+    dealIds.length ? supabase.from("crm_leads").select("id,name").in("id", dealIds) : Promise.resolve({ data: [] }),
+    companyIds.length ? supabase.from("crm_companies").select("id,name").in("id", companyIds) : Promise.resolve({ data: [] }),
+  ]);
+  const dealName = new Map((deals.data ?? []).map((d) => [String(d.id), String(d.name)]));
+  const companyName = new Map((cos.data ?? []).map((c) => [String(c.id), String(c.name)]));
   return (data ?? []).map((r) => ({
     id: String(r.id),
     dealId: r.deal_id ? String(r.deal_id) : undefined,
     companyId: r.company_id ? String(r.company_id) : undefined,
+    dealName: r.deal_id ? dealName.get(String(r.deal_id)) : undefined,
+    companyName: r.company_id ? companyName.get(String(r.company_id)) : undefined,
     title: String(r.title),
-    url: String(r.url),
+    url: r.url ? String(r.url) : undefined,
     fileName: r.file_name ? String(r.file_name) : undefined,
     fileType: r.file_type ? String(r.file_type) : undefined,
     fileSize: r.file_size != null ? Number(r.file_size) : undefined,
     kind: String(r.kind ?? "outro"),
+    status: (r.status ?? "draft") as CrmDocument["status"],
+    value: r.value != null ? Number(r.value) : undefined,
+    owner: r.owner ? String(r.owner) : undefined,
+    content: r.content ? String(r.content) : undefined,
+    templateId: r.template_id ? String(r.template_id) : undefined,
+    externalId: r.external_id ? String(r.external_id) : undefined,
+    sentAt: r.sent_at ? String(r.sent_at) : undefined,
+    viewedAt: r.viewed_at ? String(r.viewed_at) : undefined,
+    signedAt: r.signed_at ? String(r.signed_at) : undefined,
+    expiresAt: r.expires_at ? String(r.expires_at) : undefined,
+    createdAt: String(r.created_at),
+  }));
+}
+
+export async function sbGetDocTemplates(): Promise<DocTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_document_templates")
+    .select("id,name,kind,description,content,variables,is_active,created_at")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name),
+    kind: String(r.kind ?? "outro"),
+    description: r.description ? String(r.description) : undefined,
+    content: r.content ? String(r.content) : undefined,
+    variables: Array.isArray(r.variables) ? (r.variables as string[]) : [],
+    isActive: r.is_active !== false,
+    createdAt: String(r.created_at),
+  }));
+}
+
+export async function sbGetSalesMaterials(): Promise<SalesMaterial[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_sales_materials")
+    .select("id,title,kind,file_url,link,tags,usage_count,is_active,created_at")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    title: String(r.title),
+    kind: String(r.kind ?? "outro"),
+    fileUrl: r.file_url ? String(r.file_url) : undefined,
+    link: r.link ? String(r.link) : undefined,
+    tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+    usageCount: Number(r.usage_count ?? 0),
+    isActive: r.is_active !== false,
     createdAt: String(r.created_at),
   }));
 }

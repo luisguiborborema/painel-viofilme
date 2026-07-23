@@ -1537,6 +1537,8 @@ import {
   type TaskFlow,
   type DealScript,
   type CrmDocument,
+  type DocTemplate,
+  type SalesMaterial,
   type AssignmentConfig,
   type CommercialDash,
   type CommercialBoard,
@@ -1727,6 +1729,16 @@ export async function getCrmDocuments(opts?: {
   companyId?: string;
 }): Promise<CrmDocument[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmDocuments(opts);
+  return [];
+}
+
+export async function getDocTemplates(): Promise<DocTemplate[]> {
+  if (isSupabaseConfigured()) return sb.sbGetDocTemplates();
+  return [];
+}
+
+export async function getSalesMaterials(): Promise<SalesMaterial[]> {
+  if (isSupabaseConfigured()) return sb.sbGetSalesMaterials();
   return [];
 }
 

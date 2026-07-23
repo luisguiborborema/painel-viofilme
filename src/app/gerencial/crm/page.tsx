@@ -3,7 +3,7 @@ import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { CrmDashboard } from "@/components/crm/crm-dashboard";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
 import { CrmListas } from "@/components/crm/crm-listas";
-import { CrmDocuments } from "@/components/crm/crm-documents";
+import { CrmDocumentos } from "@/components/crm/crm-documentos";
 import { CrmSettings } from "@/components/crm/crm-settings";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmActivities } from "@/components/crm/crm-activities";
@@ -24,6 +24,8 @@ import {
   getCrmTaskFlows,
   getCrmScripts,
   getCrmDocuments,
+  getDocTemplates,
+  getSalesMaterials,
   getCrmLostReasons,
   getAssignmentConfig,
   getCaptureForms,
@@ -69,7 +71,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons, savedViews, serviceCatalog, knowledge] =
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons, savedViews, serviceCatalog, knowledge, docTemplates, salesMaterials] =
     await Promise.all([
       getCrmTasks(),
       getCrmTaskFlows(),
@@ -87,6 +89,8 @@ export default async function CrmPage({
       getSavedViews(user?.id ?? ""),
       getServiceCatalog(),
       getKnowledge(),
+      getDocTemplates(),
+      getSalesMaterials(),
     ]);
   const proximaReuniao = events.length
     ? { title: events[0].summary, iso: events[0].start, meetLink: events[0].hangoutLink }
@@ -192,10 +196,13 @@ export default async function CrmPage({
       key: "documentos",
       label: "Documentos",
       content: (
-        <CrmDocuments
+        <CrmDocumentos
           documents={documents}
-          deals={dealPickList.map((d) => ({ id: d.id, name: d.name }))}
+          templates={docTemplates}
+          materials={salesMaterials}
+          deals={dealPickList}
           companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+          team={teamNames}
         />
       ),
     },

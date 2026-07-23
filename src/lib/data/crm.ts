@@ -130,21 +130,98 @@ export type CrmDocument = {
   dealName?: string;
   companyName?: string;
   title: string;
-  url: string;
+  url?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: number;
   kind: string;
+  // Central de rastreio (0082) — ciclo de vida de proposta/contrato.
+  status?: DocStatus;
+  value?: number;
+  owner?: string;
+  content?: string;
+  templateId?: string;
+  externalId?: string;
+  sentAt?: string;
+  viewedAt?: string;
+  signedAt?: string;
+  expiresAt?: string;
   createdAt: string;
 };
 
 export const CRM_DOCUMENT_KINDS: { key: string; label: string }[] = [
   { key: "contrato", label: "Contrato" },
   { key: "proposta", label: "Proposta" },
+  { key: "aditivo", label: "Aditivo" },
   { key: "briefing", label: "Briefing" },
   { key: "material", label: "Material" },
   { key: "outro", label: "Outro" },
 ];
+
+/** Status do ciclo de vida de um documento (proposta/contrato). */
+export type DocStatus = "draft" | "sent" | "viewed" | "signed" | "refused" | "expired";
+
+export const DOC_STATUSES: { key: DocStatus; label: string; tone: "muted" | "brand" | "amber" | "emerald" | "red" }[] = [
+  { key: "draft", label: "Rascunho", tone: "muted" },
+  { key: "sent", label: "Enviado", tone: "brand" },
+  { key: "viewed", label: "Visualizado", tone: "amber" },
+  { key: "signed", label: "Assinado", tone: "emerald" },
+  { key: "refused", label: "Recusado", tone: "red" },
+  { key: "expired", label: "Vencido", tone: "red" },
+];
+
+/** Kinds relevantes à central de rastreio (o que circula/assina). */
+export const TRACKED_DOC_KINDS = new Set(["proposta", "contrato", "aditivo"]);
+
+/** Modelo reutilizável que alimenta a geração de documentos. */
+export type DocTemplate = {
+  id: string;
+  name: string;
+  kind: string;
+  description?: string;
+  content?: string;
+  variables: string[];
+  isActive: boolean;
+  createdAt: string;
+};
+
+export const DOC_TEMPLATE_KINDS: { key: string; label: string }[] = [
+  { key: "proposta", label: "Proposta" },
+  { key: "contrato", label: "Contrato" },
+  { key: "apresentacao", label: "Apresentação" },
+  { key: "termo", label: "Termo/Anexo" },
+  { key: "outro", label: "Outro" },
+];
+
+/** Material de apoio à venda (o que o vendedor ENVIA ao lead). */
+export type SalesMaterial = {
+  id: string;
+  title: string;
+  kind: string;
+  fileUrl?: string;
+  link?: string;
+  tags: string[];
+  usageCount: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export const SALES_MATERIAL_KINDS: { key: string; label: string }[] = [
+  { key: "case", label: "Case / Resultado" },
+  { key: "portfolio", label: "Portfólio" },
+  { key: "one_pager", label: "One-pager" },
+  { key: "apresentacao", label: "Apresentação" },
+  { key: "comparativo", label: "Comparativo" },
+  { key: "outro", label: "Outro" },
+];
+
+/** Extrai as variáveis {token} de um corpo de modelo. */
+export function extractTemplateVars(content?: string): string[] {
+  if (!content) return [];
+  const found = new Set<string>();
+  for (const m of content.matchAll(/\{([a-zA-Z0-9_]+)\}/g)) found.add(m[1]);
+  return [...found];
+}
 
 // ── Atribuição automática de novos negócios (Configurações) ─────────────────
 export type AssignmentMode = "manual" | "rodizio" | "carga" | "origem";
