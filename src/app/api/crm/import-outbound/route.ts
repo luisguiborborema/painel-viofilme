@@ -84,47 +84,6 @@ export async function POST(req: Request) {
   let firstId: string | null = null;
 
   for (const r of rows) {
-    const empresa = r.empresa!.trim();
-    const props: Record<string, unknown> = {};
-    if (r.cnpj?.trim()) props.cnpj = r.cnpj.trim();
-    if (r.instagram?.trim()) props.instagram = r.instagram.trim();
-
-    // 1) Empresa
-    const { data: co, error: coErr } = await supabase
-      .from("crm_companies")
-      .insert({
-        name: empresa,
-        segment: r.segmento?.trim() || null,
-        website: r.site?.trim() || null,
-        city: r.cidade_uf?.trim() || null,
-        owner,
-        properties: Object.keys(props).length ? props : {},
-      })
-      .select("id")
-      .single();
-    if (coErr || !co) continue;
-    const companyId = co.id as string;
-
-    // 2) Contato (opcional)
-    let contactId: string | null = null;
-    if (r.contato?.trim()) {
-      const { data: ct } = await supabase
-        .from("crm_contacts")
-        .insert({
-          company_id: companyId,
-          name: r.contato.trim(),
-          title: r.cargo?.trim() || null,
-          phone: digits(r.whatsapp) || null,
-          email: r.email?.trim() || null,
-          is_primary: true,
-          owner,
-        })
-        .select("id")
-        .single();
-      contactId = (ct?.id as string) ?? null;
-    }
-
-    // 3) Negócio cru no reservatório
     const tagIds = [
       ...new Set([
         ...(r.tags ?? "").split(/[,;|]/).map((t) => tagByName.get(t.trim().toLowerCase())).filter((x): x is string => Boolean(x)),
@@ -132,40 +91,31 @@ export async function POST(req: Request) {
       ]),
     ];
 
-    const { data: deal, error: dealErr } = await supabase
-      .from("crm_leads")
-      .insert({
-        name: r.titulo?.trim() || empresa,
-        stage: STAGE_RESERVOIR,
-        stage_id: stageId,
-        pipeline_id: PIPELINE_PREVENDA_ID,
-        origin_kind: "outbound",
-        source: r.source?.trim() || "Outbound (prospecção)",
-        prospecting_notes: r.anotacao?.trim() || null,
-        segment: r.segmento?.trim() || null,
+    // Criação atômica (company + contact + deal + vínculo) via função Postgres.
+    const { data: dealId, error } = await supabase.rpc("crm_create_outbound_deal", {
+      p: {
+        empresa: r.empresa!.trim(),
+        titulo: r.titulo?.trim() || null,
+        segmento: r.segmento?.trim() || null,
+        site: r.site?.trim() || null,
+        cidade_uf: r.cidade_uf?.trim() || null,
+        cnpj: r.cnpj?.trim() || null,
+        instagram: r.instagram?.trim() || null,
         owner,
-        assignees: [owner],
-        company_id: companyId,
-        primary_contact_id: contactId,
-        contact_name: r.contato?.trim() || null,
-        contact_phone: digits(r.whatsapp) || null,
-        contact_email: r.email?.trim() || null,
-        probability: 10,
-        monthly_value: 0,
-        media_budget: 0,
-        bant: {},
-        tags: tagIds,
-        stage_changed_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
-    if (dealErr || !deal) continue;
-    if (!firstId) firstId = deal.id as string;
-    if (contactId) {
-      await supabase
-        .from("crm_deal_contacts")
-        .insert({ deal_id: deal.id, contact_id: contactId, is_primary: true });
-    }
+        source: r.source?.trim() || null,
+        anotacao: r.anotacao?.trim() || null,
+        contato: r.contato?.trim() || null,
+        cargo: r.cargo?.trim() || null,
+        whatsapp: digits(r.whatsapp) || null,
+        email: r.email?.trim() || null,
+        tag_ids: tagIds,
+        stage_id: stageId,
+        stage_key: STAGE_RESERVOIR,
+        pipeline_id: PIPELINE_PREVENDA_ID,
+      },
+    });
+    if (error || !dealId) continue;
+    if (!firstId) firstId = String(dealId);
     created += 1;
   }
 
