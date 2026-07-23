@@ -87,6 +87,7 @@ import { ProposalModal } from "./proposal-modal";
 import { useLeadModalLayout, type LeadModalLayout } from "./lead-modal";
 import { LeadComments } from "./lead-comments";
 import { CrmDocuments } from "./crm-documents";
+import { SettingsShortcut } from "./settings-shortcut";
 import type { Attendant } from "@/lib/data/inbox";
 
 /**
@@ -1048,6 +1049,9 @@ function QualiTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value
           ))}
           <span className="ml-2 text-sm text-muted">{score || "—"}/5</span>
         </div>
+      </div>
+      <div className="sm:col-span-2 border-t border-line pt-2">
+        <SettingsShortcut section="properties" label="Adicione ou edite outras perguntas em Configurações" />
       </div>
     </div>
   );

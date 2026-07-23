@@ -6,6 +6,8 @@ import {
   type Contact,
   type CrmLead,
   type DealScript,
+  type FreezeReason,
+  type LostReason,
   type Pipeline,
   type PropertyDef,
   type Tag,
@@ -22,7 +24,11 @@ import { ScriptsManager } from "./scripts-manager";
 import { AssignmentManager } from "./assignment-manager";
 import { CaptureFormsManager } from "./capture-forms-manager";
 import { DuplicatesManager } from "./duplicates-manager";
+import { ReasonsManager, ShortcutPanel, LeadScorePanel } from "./settings-extras";
 import { CrmSettingsNav, type SettingsSection } from "./crm-settings-nav";
+
+/** Seções estruturais: escondidas de quem não é gestor/C-level (§4 RBAC). */
+const STRUCTURAL_HIDDEN = new Set(["pipelines", "flows", "scripts", "automation", "routines"]);
 
 /**
  * Central de personalização do CRM, organizada em categorias (nav lateral):
@@ -42,6 +48,9 @@ export function CrmSettings({
   team = [],
   cardLayout = [],
   canEditCardLayout = false,
+  lostReasons = [],
+  freezeReasons = [],
+  canEditStructural = false,
 }: {
   properties: PropertyDef[];
   pipelines: Pipeline[];
@@ -56,6 +65,9 @@ export function CrmSettings({
   team?: string[];
   cardLayout?: CardFieldSetting[];
   canEditCardLayout?: boolean;
+  lostReasons?: LostReason[];
+  freezeReasons?: FreezeReason[];
+  canEditStructural?: boolean;
 }) {
   // Estágios de todos os funis (para o seletor "etapa sugerida" dos scripts).
   const stageOptions = (() => {
@@ -149,6 +161,84 @@ export function CrmSettings({
       node: <DuplicatesManager companies={companies} contacts={contacts} />,
     },
     {
+      key: "loss-reasons",
+      label: "Motivos de perda",
+      description: "Lista usada ao marcar um negócio como Perdido (insumo de qualificação do funil).",
+      node: <ReasonsManager kind="loss" reasons={lostReasons} canEdit={canEditStructural} />,
+    },
+    {
+      key: "freeze-reasons",
+      label: "Motivos de congelamento",
+      description: "Lista usada ao arquivar/congelar um negócio para reengajar em ciclos futuros.",
+      node: <ReasonsManager kind="freeze" reasons={freezeReasons} canEdit={canEditStructural} />,
+    },
+    {
+      key: "routines",
+      label: "Rotinas (modelos)",
+      description: "Modelos de rotina por cargo/squad (blocos de tempo padrão) usados na Agenda.",
+      node: (
+        <ShortcutPanel
+          description="Os modelos de rotina são criados e aplicados na Agenda, onde ficam ao lado dos blocos de tempo do time."
+          href="/gerencial/agenda"
+          cta="Abrir Agenda"
+        />
+      ),
+    },
+    {
+      key: "scheduling",
+      label: "Links de agendamento",
+      description: "Links tipo Calendly usados para marcar reuniões (vivem na Agenda).",
+      node: (
+        <ShortcutPanel
+          description="Os links de agendamento são gerenciados na Agenda, junto do calendário e da rotina."
+          href="/gerencial/agenda"
+          cta="Abrir Agenda"
+        />
+      ),
+    },
+    {
+      key: "goals",
+      label: "Metas & distribuição",
+      description: "Metas do time e distribuição por liderado. A operação vive em Insights › Metas.",
+      node: (
+        <ShortcutPanel
+          description="As metas e a distribuição por responsável são definidas na aba Metas, onde ficam ao lado do forecast."
+          href="/gerencial/crm?tab=metas"
+          cta="Abrir Metas"
+        />
+      ),
+    },
+    {
+      key: "products",
+      label: "Produtos / Serviços",
+      description: "Catálogo de serviços, planos e pacotes — vive em Listas › Produtos.",
+      node: (
+        <ShortcutPanel
+          description="O catálogo de serviços e planos é cadastrado em Listas › Produtos."
+          href="/gerencial/crm?tab=listas"
+          cta="Abrir Listas"
+        />
+      ),
+    },
+    {
+      key: "channels",
+      label: "Canais de comunicação",
+      description: "Conexão de WhatsApp, Instagram e e-mail — vive em Integrações.",
+      node: (
+        <ShortcutPanel
+          description="As conexões de canais (WhatsApp, Instagram, e-mail, Google Calendar) ficam em Integrações."
+          href="/gerencial/integracoes"
+          cta="Abrir Integrações"
+        />
+      ),
+    },
+    {
+      key: "leadscore",
+      label: "Regras de lead score",
+      description: "Como o score é calculado (pesos e gatilhos).",
+      node: <LeadScorePanel />,
+    },
+    {
       key: "import",
       label: "Importar / Exportar",
       description: "Baixe seus dados em CSV ou importe negócios em massa por planilha.",
@@ -156,5 +246,8 @@ export function CrmSettings({
     },
   ];
 
-  return <CrmSettingsNav sections={sections} />;
+  // RBAC (§4): esconde as seções estruturais de quem não é gestor/C-level.
+  const visible = canEditStructural ? sections : sections.filter((s) => !STRUCTURAL_HIDDEN.has(s.key));
+
+  return <CrmSettingsNav sections={visible} />;
 }

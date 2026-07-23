@@ -1429,6 +1429,8 @@ export function resolveTags(ids: string[] | undefined, all: Tag[]): Tag[] {
 }
 
 export type LostReason = { id: string; label: string; position: number };
+/** Motivo de congelamento (mesma forma do de perda). */
+export type FreezeReason = LostReason;
 
 export const MOCK_LOST_REASONS: LostReason[] = [
   { id: "lr1", label: "Preço acima do orçamento", position: 1 },

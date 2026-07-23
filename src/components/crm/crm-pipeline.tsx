@@ -49,6 +49,7 @@ import { NovoNegocioModal } from "./new-lead-modal";
 import { CrmList } from "./crm-list";
 import { CrmForecast } from "./crm-forecast";
 import { TagChips } from "./tag-chips";
+import { SettingsShortcut } from "./settings-shortcut";
 
 function cardBorder(card: CrmLeadCard): string {
   if (card.rot === "stale") return "border-l-rose-500";
@@ -374,6 +375,9 @@ function LoseModal({
             className="mt-3 w-full rounded-lg border border-line bg-canvas px-2.5 py-2 text-sm text-ink outline-none focus:border-brand-400"
           />
         )}
+        <div className="mt-1.5">
+          <SettingsShortcut section="loss-reasons" label="Editar motivos de perda" />
+        </div>
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -797,6 +801,7 @@ export function CrmPipeline({
               </button>
             )}
           </div>
+          <SettingsShortcut section="pipelines" label="Configurar funil" />
           <p className="text-sm text-muted">
             {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
             negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}

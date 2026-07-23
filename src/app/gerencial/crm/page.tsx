@@ -27,6 +27,7 @@ import {
   getDocTemplates,
   getSalesMaterials,
   getCrmLostReasons,
+  getCrmFreezeReasons,
   getAssignmentConfig,
   getCaptureForms,
   getStageHistory,
@@ -71,7 +72,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons, savedViews, serviceCatalog, knowledge, docTemplates, salesMaterials] =
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons, savedViews, serviceCatalog, knowledge, docTemplates, salesMaterials, freezeReasons] =
     await Promise.all([
       getCrmTasks(),
       getCrmTaskFlows(),
@@ -91,6 +92,7 @@ export default async function CrmPage({
       getKnowledge(),
       getDocTemplates(),
       getSalesMaterials(),
+      getCrmFreezeReasons(),
     ]);
   const proximaReuniao = events.length
     ? { title: events[0].summary, iso: events[0].start, meetLink: events[0].hangoutLink }
@@ -243,6 +245,9 @@ export default async function CrmPage({
           team={teamNames}
           cardLayout={cardLayout}
           canEditCardLayout={canEditGoals}
+          lostReasons={lostReasons}
+          freezeReasons={freezeReasons}
+          canEditStructural={canEditGoals}
         />
       ),
     },

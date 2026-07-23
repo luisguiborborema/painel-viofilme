@@ -1818,6 +1818,7 @@ import type {
   CrmObjectType,
   PropertyFieldType,
   LostReason,
+  FreezeReason,
   TaskFlow,
   DealScript,
   CrmDocument,
@@ -2396,6 +2397,19 @@ export async function sbGetCrmLostReasons(): Promise<LostReason[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("crm_lost_reasons")
+    .select("id,label,position")
+    .order("position", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    label: String(r.label),
+    position: Number(r.position ?? 0),
+  }));
+}
+
+export async function sbGetCrmFreezeReasons(): Promise<FreezeReason[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_freeze_reasons")
     .select("id,label,position")
     .order("position", { ascending: true });
   return (data ?? []).map((r) => ({

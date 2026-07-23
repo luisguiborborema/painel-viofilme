@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownUp,
+  CalendarClock,
   Copy,
   FileText,
   FormInput,
+  Gauge,
   GitBranch,
   LayoutGrid,
+  Link2,
+  Package,
+  Plug,
   SlidersHorizontal,
+  Snowflake,
   Tags,
+  Target,
   Workflow,
+  XCircle,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -31,16 +39,27 @@ const ICONS: Record<string, LucideIcon> = {
   flows: Workflow,
   scripts: FileText,
   automation: Zap,
+  "loss-reasons": XCircle,
+  "freeze-reasons": Snowflake,
+  routines: CalendarClock,
+  scheduling: Link2,
+  goals: Target,
+  leadscore: Gauge,
   forms: FormInput,
   duplicates: Copy,
   import: ArrowDownUp,
+  channels: Plug,
+  products: Package,
 };
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Personalização", keys: ["layout", "properties", "tags"] },
-  { title: "Funil", keys: ["pipelines", "flows", "scripts", "automation"] },
+  { title: "Funil", keys: ["pipelines", "flows", "scripts", "automation", "loss-reasons", "freeze-reasons"] },
+  { title: "Rotina & Agenda", keys: ["routines", "scheduling"] },
+  { title: "Metas & Score", keys: ["goals", "leadscore"] },
   { title: "Aquisição", keys: ["forms"] },
   { title: "Dados", keys: ["duplicates", "import"] },
+  { title: "Integrações", keys: ["channels", "products"] },
 ];
 
 /**
@@ -51,6 +70,23 @@ export function CrmSettingsNav({ sections }: { sections: SettingsSection[] }) {
   const byKey = new Map(sections.map((s) => [s.key, s]));
   const [active, setActive] = useState(sections[0]?.key ?? "");
   const current = byKey.get(active) ?? sections[0];
+
+  // Âncora direta (§1): abre a seção pedida via #hash e reage a atalhos externos.
+  useEffect(() => {
+    const apply = () => {
+      const h = decodeURIComponent(window.location.hash.replace("#", ""));
+      if (h && sections.some((s) => s.key === h)) setActive(h);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function select(k: string) {
+    setActive(k);
+    if (typeof window !== "undefined") window.history.replaceState(null, "", `#${k}`);
+  }
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
@@ -70,7 +106,7 @@ export function CrmSettingsNav({ sections }: { sections: SettingsSection[] }) {
                   return (
                     <button
                       key={s.key}
-                      onClick={() => setActive(s.key)}
+                      onClick={() => select(s.key)}
                       className={cn(
                         "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
                         on ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle hover:text-ink",

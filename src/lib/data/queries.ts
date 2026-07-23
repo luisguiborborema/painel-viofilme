@@ -1534,6 +1534,7 @@ import {
   DEFAULT_ASSIGNMENT,
   type CrmLead,
   type LostReason,
+  type FreezeReason,
   type TaskFlow,
   type DealScript,
   type CrmDocument,
@@ -1707,6 +1708,11 @@ export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
 export async function getCrmLostReasons(): Promise<LostReason[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmLostReasons();
   return MOCK_LOST_REASONS;
+}
+
+export async function getCrmFreezeReasons(): Promise<FreezeReason[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmFreezeReasons();
+  return [];
 }
 
 export async function getCrmTaskFlows(): Promise<TaskFlow[]> {
