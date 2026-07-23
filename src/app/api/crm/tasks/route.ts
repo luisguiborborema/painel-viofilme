@@ -94,7 +94,7 @@ export async function POST(req: Request) {
           due_date: next,
           priority: t.priority ?? "media",
           assignee: t.assignee ?? null,
-          assignees: t.assignees ?? null,
+          assignees: t.assignees ?? [], // coluna é NOT NULL default '{}'
           properties: t.properties ?? {},
         });
       }
@@ -162,7 +162,7 @@ export async function POST(req: Request) {
       priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
       properties: Object.keys(props).length ? props : {},
       assignee: assignees[0] ?? null,
-      assignees: assignees.length ? assignees : null,
+      assignees, // NUNCA null: coluna é NOT NULL default '{}' (array vazio é ok)
     })
     .select("id")
     .single();
