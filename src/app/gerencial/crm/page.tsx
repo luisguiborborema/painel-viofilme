@@ -2,8 +2,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { CrmDashboard } from "@/components/crm/crm-dashboard";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
-import { CrmCompanies } from "@/components/crm/crm-companies";
-import { CrmContacts } from "@/components/crm/crm-contacts";
+import { CrmListas } from "@/components/crm/crm-listas";
 import { CrmDocuments } from "@/components/crm/crm-documents";
 import { CrmSettings } from "@/components/crm/crm-settings";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
@@ -40,6 +39,7 @@ import {
   monthKey,
   CRM_AGENDA,
 } from "@/lib/data/crm";
+import { getSavedViews, getServiceCatalog, getKnowledge } from "@/lib/data/listas-server";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
@@ -69,7 +69,7 @@ export default async function CrmPage({
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
   const curMonth = monthKey(nowIso);
-  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons] =
+  const [crmTasks, flows, scripts, documents, assignment, goals, captureForms, history, cardLayout, commercialDash, board, quote, lostReasons, savedViews, serviceCatalog, knowledge] =
     await Promise.all([
       getCrmTasks(),
       getCrmTaskFlows(),
@@ -84,6 +84,9 @@ export default async function CrmPage({
       getCommercialBoard(),
       getDailyQuote(),
       getCrmLostReasons(),
+      getSavedViews(user?.id ?? ""),
+      getServiceCatalog(),
+      getKnowledge(),
     ]);
   const proximaReuniao = events.length
     ? { title: events[0].summary, iso: events[0].start, meetLink: events[0].hangoutLink }
@@ -169,16 +172,21 @@ export default async function CrmPage({
       ),
     },
     {
-      key: "empresas",
-      label: "Empresas",
+      key: "listas",
+      label: "Listas",
       content: (
-        <CrmCompanies companies={companies} contacts={contacts} deals={leads} tags={tags} />
+        <CrmListas
+          contacts={contacts}
+          companies={companies}
+          deals={leads}
+          tasks={taskItems}
+          tags={tags}
+          team={teamNames}
+          savedViews={savedViews}
+          serviceCatalog={serviceCatalog}
+          knowledge={knowledge}
+        />
       ),
-    },
-    {
-      key: "contatos",
-      label: "Contatos",
-      content: <CrmContacts contacts={contacts} companies={companies} tags={tags} />,
     },
     {
       key: "documentos",
