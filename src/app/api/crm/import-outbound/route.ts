@@ -19,6 +19,8 @@ type Row = {
   empresa?: string;
   titulo?: string;
   cnpj?: string;
+  segmento?: string;
+  source?: string;
   contato?: string;
   cargo?: string;
   whatsapp?: string;
@@ -26,7 +28,8 @@ type Row = {
   site?: string;
   instagram?: string;
   cidade_uf?: string;
-  tags?: string;
+  tags?: string; // nomes (CSV) — casados com crm_tags
+  tagIds?: string[]; // ids (cadastro manual)
   anotacao?: string;
 };
 
@@ -91,6 +94,7 @@ export async function POST(req: Request) {
       .from("crm_companies")
       .insert({
         name: empresa,
+        segment: r.segmento?.trim() || null,
         website: r.site?.trim() || null,
         city: r.cidade_uf?.trim() || null,
         owner,
@@ -121,10 +125,12 @@ export async function POST(req: Request) {
     }
 
     // 3) Negócio cru no reservatório
-    const tagIds = (r.tags ?? "")
-      .split(/[,;|]/)
-      .map((t) => tagByName.get(t.trim().toLowerCase()))
-      .filter((x): x is string => Boolean(x));
+    const tagIds = [
+      ...new Set([
+        ...(r.tags ?? "").split(/[,;|]/).map((t) => tagByName.get(t.trim().toLowerCase())).filter((x): x is string => Boolean(x)),
+        ...(r.tagIds ?? []),
+      ]),
+    ];
 
     const { data: deal, error: dealErr } = await supabase
       .from("crm_leads")
@@ -134,8 +140,9 @@ export async function POST(req: Request) {
         stage_id: stageId,
         pipeline_id: PIPELINE_PREVENDA_ID,
         origin_kind: "outbound",
+        source: r.source?.trim() || "Outbound (prospecção)",
         prospecting_notes: r.anotacao?.trim() || null,
-        segment: null,
+        segment: r.segmento?.trim() || null,
         owner,
         assignees: [owner],
         company_id: companyId,

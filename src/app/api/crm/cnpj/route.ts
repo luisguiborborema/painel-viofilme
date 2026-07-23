@@ -21,6 +21,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, reason: "CNPJ inválido" });
   }
 
+  // Se a Edge Function estiver configurada (provedor pago / ponto único),
+  // delega a ela. Senão, ReceitaWS inline (fallback grátis, sempre disponível).
+  const fnUrl = process.env.CNPJ_LOOKUP_URL;
+  if (fnUrl) {
+    try {
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const r = await fetch(`${fnUrl}?cnpj=${cnpj}`, { headers: { Authorization: `Bearer ${key}`, apikey: key } });
+      if (r.ok) return NextResponse.json(await r.json());
+    } catch {
+      /* cai no fallback ReceitaWS abaixo */
+    }
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {

@@ -729,6 +729,7 @@ export function CrmPipeline({
           onCreated={addLead}
           team={team}
           defaultOwner={currentUser}
+          tags={tags}
         />
       )}
 

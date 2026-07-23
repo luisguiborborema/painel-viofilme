@@ -19,17 +19,24 @@ import {
   PIPELINE_PREVENDA_ID,
   STAGE_RESERVOIR,
   type CrmLead,
+  type Tag,
 } from "@/lib/data/crm";
 
 const inputCls =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
 
 const CSV_HEADER = "empresa,cnpj,contato,cargo,whatsapp,email,site,instagram,cidade_uf,tags,anotacao";
+const CSV_SAMPLE =
+  "Padaria do João,12.345.678/0001-90,Maria,Gerente,5527999990000,maria@padoca.com,padoca.com.br,@padocadojoao,Vitória/ES,Quente,Achei pelo Instagram\n" +
+  "Ótica Vista Boa,,,,5527988887777,,,@oticavistaboa,Vila Velha/ES,,Sem site — só IG";
+const ORIGINS = ["Outbound (prospecção)", "Indicação", "Evento", "Outro"];
 
 type Row = {
   empresa?: string;
   titulo?: string;
   cnpj?: string;
+  segmento?: string;
+  source?: string;
   contato?: string;
   cargo?: string;
   whatsapp?: string;
@@ -38,6 +45,7 @@ type Row = {
   instagram?: string;
   cidade_uf?: string;
   tags?: string;
+  tagIds?: string[];
   anotacao?: string;
 };
 
@@ -62,7 +70,7 @@ function parseCsv(text: string): Row[] {
       const cells = line.split(",");
       const row: Row = {};
       header.forEach((h, i) => {
-        if (keys.includes(h)) row[h as keyof Row] = (cells[i] ?? "").trim();
+        if (keys.includes(h)) (row as Record<string, string>)[h] = (cells[i] ?? "").trim();
       });
       return row;
     })
@@ -74,15 +82,18 @@ export function NovoNegocioModal({
   onCreated,
   team = [],
   defaultOwner = "",
+  tags = [],
 }: {
   onClose: () => void;
   onCreated: (lead: CrmLead) => void;
   team?: string[];
   defaultOwner?: string;
+  tags?: Tag[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"manual" | "import">("manual");
   const [owner, setOwner] = useState(defaultOwner);
+  const [origin, setOrigin] = useState(ORIGINS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +107,13 @@ export function NovoNegocioModal({
             {name === defaultOwner ? " (você)" : ""}
           </option>
         ))}
+      </select>
+    );
+  }
+  function originSelect() {
+    return (
+      <select value={origin} onChange={(e) => setOrigin(e.target.value)} className={inputCls}>
+        {ORIGINS.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
   }
@@ -136,6 +154,8 @@ export function NovoNegocioModal({
         {tab === "manual" ? (
           <ManualForm
             ownerSelect={ownerSelect}
+            originSelect={originSelect}
+            tags={tags}
             busy={busy}
             error={error}
             onCancel={onClose}
@@ -146,7 +166,7 @@ export function NovoNegocioModal({
                 const res = await fetch("/api/crm/import-outbound", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ rows: [row], owner: owner || undefined }),
+                  body: JSON.stringify({ rows: [{ ...row, source: origin }], owner: owner || undefined }),
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error ?? "falha");
@@ -181,6 +201,7 @@ export function NovoNegocioModal({
         ) : (
           <ImportForm
             ownerSelect={ownerSelect}
+            originSelect={originSelect}
             busy={busy}
             error={error}
             onCancel={onClose}
@@ -191,7 +212,7 @@ export function NovoNegocioModal({
                 const res = await fetch("/api/crm/import-outbound", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ rows, owner: owner || undefined }),
+                  body: JSON.stringify({ rows: rows.map((r) => ({ ...r, source: origin })), owner: owner || undefined }),
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error ?? "falha");
@@ -228,12 +249,16 @@ function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCli
 
 function ManualForm({
   ownerSelect,
+  originSelect,
+  tags = [],
   busy,
   error,
   onCancel,
   onSubmit,
 }: {
   ownerSelect: () => React.ReactNode;
+  originSelect: () => React.ReactNode;
+  tags?: Tag[];
   busy: boolean;
   error: string | null;
   onCancel: () => void;
@@ -241,9 +266,11 @@ function ManualForm({
 }) {
   const [f, setF] = useState<Row>({});
   const [titleEdited, setTitleEdited] = useState(false);
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [cnpjBusy, setCnpjBusy] = useState(false);
   const [cnpjMsg, setCnpjMsg] = useState<string | null>(null);
   const set = (k: keyof Row, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const toggleTag = (id: string) => setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const empresa = f.empresa?.trim() ?? "";
   const titulo = titleEdited ? (f.titulo ?? "") : empresa;
@@ -265,6 +292,7 @@ function ManualForm({
           ...p,
           empresa: p.empresa?.trim() ? p.empresa : j.name,
           cidade_uf: p.cidade_uf?.trim() ? p.cidade_uf : j.cidadeUf,
+          segmento: p.segmento?.trim() ? p.segmento : j.segment,
         }));
         setCnpjMsg("Dados preenchidos pela Receita.");
       } else {
@@ -304,7 +332,7 @@ function ManualForm({
               {cnpjMsg && <p className="mt-1 text-[11px] text-muted">{cnpjMsg}</p>}
             </Labeled>
             <Labeled label="Segmento">
-              <input value={f.tags ?? ""} onChange={(e) => set("tags", e.target.value)} placeholder="Nicho / segmento" className={inputCls} />
+              <input value={f.segmento ?? ""} onChange={(e) => set("segmento", e.target.value)} placeholder="Nicho / segmento" className={inputCls} />
             </Labeled>
             <Labeled label="Cidade/UF">
               <input value={f.cidade_uf ?? ""} onChange={(e) => set("cidade_uf", e.target.value)} placeholder="Vitória/ES" className={inputCls} />
@@ -365,9 +393,28 @@ function ManualForm({
                 className={inputCls + " resize-y"}
               />
             </Labeled>
-            <Labeled label="Responsável" full>
-              {ownerSelect()}
-            </Labeled>
+            <Labeled label="Origem">{originSelect()}</Labeled>
+            <Labeled label="Responsável">{ownerSelect()}</Labeled>
+            {tags.length > 0 && (
+              <Labeled label="Tags" full>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((t) => {
+                    const on = tagIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleTag(t.id)}
+                        className="rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity"
+                        style={{ backgroundColor: `${t.color}22`, color: t.color, opacity: on ? 1 : 0.45 }}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Labeled>
+            )}
           </div>
         </div>
 
@@ -379,7 +426,7 @@ function ManualForm({
           Cancelar
         </button>
         <button
-          onClick={() => onSubmit({ ...f, titulo: titleEdited ? f.titulo : undefined })}
+          onClick={() => onSubmit({ ...f, titulo: titleEdited ? f.titulo : undefined, tagIds })}
           disabled={!canSubmit}
           className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
         >
@@ -395,12 +442,14 @@ function ManualForm({
 
 function ImportForm({
   ownerSelect,
+  originSelect,
   busy,
   error,
   onCancel,
   onImport,
 }: {
   ownerSelect: () => React.ReactNode;
+  originSelect: () => React.ReactNode;
   busy: boolean;
   error: string | null;
   onCancel: () => void;
@@ -411,24 +460,34 @@ function ImportForm({
   const [csvRows, setCsvRows] = useState<Row[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Colar: 1 empresa por linha. Extrai CNPJ, WhatsApp e @instagram do texto,
+  // o resto vira o nome da empresa.
   const pastedRows: Row[] = useMemo(
     () =>
       pasted
         .split(/\r?\n/)
         .map((l) => l.trim())
         .filter(Boolean)
-        .map((l) => ({ empresa: l })),
+        .map((l) => {
+          const cnpjM = l.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+          const igM = l.match(/@[\w.]+/);
+          const waM = l.replace(cnpjM?.[0] ?? "", "").match(/\d{10,13}/);
+          let empresa = l;
+          for (const tok of [cnpjM?.[0], igM?.[0], waM?.[0]]) if (tok) empresa = empresa.replace(tok, "");
+          empresa = empresa.replace(/[,;|]+/g, " ").trim();
+          return { empresa: empresa || l, cnpj: cnpjM?.[0], instagram: igM?.[0], whatsapp: waM?.[0] };
+        }),
     [pasted],
   );
 
   const rows = mode === "colar" ? pastedRows : csvRows;
 
   function downloadTemplate() {
-    const blob = new Blob([CSV_HEADER + "\n"], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([`${CSV_HEADER}\n${CSV_SAMPLE}\n`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "modelo-prospeccao.csv";
+    a.download = "modelo_prospeccao_viofilme.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -503,10 +562,16 @@ function ImportForm({
           </div>
         )}
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">Responsável dos cards</span>
-          {ownerSelect()}
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Origem (todas)</span>
+            {originSelect()}
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Responsável dos cards</span>
+            {ownerSelect()}
+          </label>
+        </div>
 
         {error && <p className="text-xs text-rose-500">{error}</p>}
       </div>
