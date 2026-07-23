@@ -13,7 +13,6 @@ import {
   Search,
   Send,
   Square,
-  UserCircle2,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +26,7 @@ import {
   type WaMessage,
   type WaStatus,
 } from "@/lib/data/inbox";
+import { InboxLeadPanel } from "./inbox-lead-panel";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -77,9 +77,11 @@ function stamp(iso?: string) {
 export function InboxClient({
   initialConversations,
   attendants,
+  deals = [],
 }: {
   initialConversations: WaConversation[];
   attendants: Attendant[];
+  deals?: { id: string; name: string; stage?: string }[];
 }) {
   const [conversations, setConversations] = useState(initialConversations);
   const [status, setStatus] = useState<WaStatus>("open");
@@ -346,6 +348,18 @@ export function InboxClient({
               </option>
             ))}
           </select>
+          {/* Canais (multicanal): WhatsApp ativo; IG/e-mail conectam via Integrações. */}
+          <div className="mt-2 flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> WhatsApp
+            </span>
+            <Link href="/gerencial/integracoes" className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted hover:bg-subtle-strong" title="Conectar Instagram em Integrações">
+              Instagram <span className="text-[9px]">+ conectar</span>
+            </Link>
+            <Link href="/gerencial/integracoes" className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted hover:bg-subtle-strong" title="Conectar e-mail em Integrações">
+              E-mail <span className="text-[9px]">+ conectar</span>
+            </Link>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -562,18 +576,14 @@ export function InboxClient({
                 ))}
               </select>
             </div>
-            {selected.leadId ? (
-              <Link
-                href={`/gerencial/crm/${selected.leadId}`}
-                className="flex items-center gap-2 rounded-lg bg-subtle px-3 py-2 text-sm text-ink hover:bg-subtle-strong"
-              >
-                <UserCircle2 className="h-4 w-4" /> Abrir ficha do lead
-              </Link>
-            ) : (
-              <p className="rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
-                Este contato ainda não é um lead do CRM.
-              </p>
-            )}
+            <InboxLeadPanel
+              conversation={selected}
+              deals={deals}
+              onLinked={(leadId) => {
+                setSelected((s) => (s ? { ...s, leadId } : s));
+                setConversations((prev) => prev.map((x) => (x.id === selected.id ? { ...x, leadId } : x)));
+              }}
+            />
           </div>
         ) : (
           <div className="p-4">
