@@ -85,7 +85,8 @@ async function eventsFromCalendar(
     });
     if (!res.ok) return [];
     const json = await res.json();
-    return (json.items ?? []).map(mapEvent);
+    // Guarda de qual calendário o evento veio (para editar/apagar no certo).
+    return (json.items ?? []).map((e: RawEvent) => ({ ...mapEvent(e), calendarId }));
   } catch {
     return [];
   }
@@ -198,10 +199,13 @@ export async function updateEvent(
     endIso?: string;
     attendees?: string[];
     addMeet?: boolean;
+    /** Calendário onde o evento vive (default: o de escrita). */
+    calendarId?: string;
   },
 ): Promise<CreateEventResult> {
   const access = await getValidAccess();
   if (!access) return { error: "Google não conectado." };
+  const calendarId = input.calendarId || access.calendarId;
 
   const body: Record<string, unknown> = {};
   if (input.summary != null) body.summary = input.summary;
@@ -219,7 +223,7 @@ export async function updateEvent(
   }
 
   try {
-    const url = new URL(`${API}/calendars/${encodeURIComponent(access.calendarId)}/events/${encodeURIComponent(id)}`);
+    const url = new URL(`${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`);
     url.searchParams.set("sendUpdates", "all");
     if (input.addMeet) url.searchParams.set("conferenceDataVersion", "1");
     const res = await fetch(url, {
@@ -245,12 +249,13 @@ export async function updateEvent(
   }
 }
 
-/** Apaga um evento do calendário de escrita (avisa os participantes). */
-export async function deleteEvent(id: string): Promise<{ ok: boolean; error?: string }> {
+/** Apaga um evento do calendário onde ele vive (avisa os participantes). */
+export async function deleteEvent(id: string, calendarIdIn?: string): Promise<{ ok: boolean; error?: string }> {
   const access = await getValidAccess();
   if (!access) return { ok: false, error: "Google não conectado." };
+  const calendarId = calendarIdIn || access.calendarId;
   try {
-    const url = new URL(`${API}/calendars/${encodeURIComponent(access.calendarId)}/events/${encodeURIComponent(id)}`);
+    const url = new URL(`${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`);
     url.searchParams.set("sendUpdates", "all");
     const res = await fetch(url, {
       method: "DELETE",

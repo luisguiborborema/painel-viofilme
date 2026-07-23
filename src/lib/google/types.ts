@@ -11,6 +11,8 @@ export type GoogleEvent = {
   htmlLink?: string;
   attendees: string[];
   location?: string;
+  /** Calendário de origem — necessário para editar/apagar no lugar certo. */
+  calendarId?: string;
 };
 
 export type GoogleStatus = {

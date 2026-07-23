@@ -46,6 +46,7 @@ type Meeting = {
   type?: string;
   description?: string;
   attendees?: string[];
+  calendarId?: string;
 };
 type Task = { id: string; title: string; dueDate?: string; status: string; type?: string; leadId?: string; dealName?: string };
 
@@ -88,6 +89,7 @@ export function AgendaClient({
     allDay?: boolean;
     description?: string;
     attendees?: string[];
+    calendarId?: string;
   }[];
   googleConnected?: boolean;
   googleConfigured?: boolean;
@@ -136,6 +138,7 @@ export function AgendaClient({
         link: e.hangoutLink ?? e.htmlLink,
         description: e.description,
         attendees: e.attendees,
+        calendarId: e.calendarId,
       }));
     return [...own, ...g];
   }, [events, googleEvents]);
@@ -633,6 +636,7 @@ function EventModal({
           action: "update",
           id: edit!.id,
           source: edit!.source,
+          calendarId: edit!.calendarId,
           title: title.trim(),
           type,
           startAt,
@@ -687,7 +691,7 @@ function EventModal({
       const res = await fetch("/api/agenda/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", id: edit.id, source: edit.source }),
+        body: JSON.stringify({ action: "delete", id: edit.id, source: edit.source, calendarId: edit.calendarId }),
       });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || out.error) {

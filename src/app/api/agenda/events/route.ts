@@ -19,6 +19,8 @@ type Body = {
   dealId?: string;
   /** Origem do evento sendo editado/apagado: "google" (real) ou "own" (local). */
   source?: "own" | "google";
+  /** Calendário do Google onde o evento vive (edição/exclusão no lugar certo). */
+  calendarId?: string;
   // Reunião real no Google Calendar (Meet + convidados + descrição).
   useGoogle?: boolean;
   description?: string;
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
   if (b.action === "delete") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     if (b.source === "google") {
-      const r = await deleteEvent(b.id);
+      const r = await deleteEvent(b.id, b.calendarId);
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 502 });
       return NextResponse.json({ ok: true, google: true });
     }
@@ -67,6 +69,7 @@ export async function POST(req: Request) {
         endIso: b.endAt,
         attendees: cleanEmails(b.attendees),
         addMeet: b.addMeet,
+        calendarId: b.calendarId,
       });
       if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
       return NextResponse.json({
