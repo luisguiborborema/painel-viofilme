@@ -477,7 +477,7 @@ export default async function RaioXCliente({
             value={ops ? `${ops.leNextMonth.status}${ops.leNextMonth.date ? ` · ${ops.leNextMonth.date}` : ""}` : "—"}
             valueClass={ops ? LE_HEAD_TONE[ops.leNextMonth.tone] : undefined}
           />
-          <Stat label="Próxima agenda" value={ops?.nextAgenda ?? "—"} />
+          <Stat label="Próxima agenda" value={d.nextMeeting ? `${d.nextMeeting.whenLabel} · ${d.nextMeeting.title}` : "Agenda livre"} />
         </div>
 
         <div className="mt-4">

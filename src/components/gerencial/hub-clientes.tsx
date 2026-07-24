@@ -45,6 +45,7 @@ function LeCiclo({ le }: { le: LeNextMonth }) {
 // Status operacional — 4 estados automáticos (derivados de tasks + churn + fase).
 type StatusState = "em-dia" | "atencao" | "critico" | "onboarding";
 type EstadoFilter = "todas" | StatusState | "le-pendente";
+type SortKey = "name" | "plan" | "squad" | "status" | "late" | "approval";
 
 const STATUS: Record<StatusState, { label: string; chip: string; icon: typeof CheckCircle2 }> = {
   "em-dia": { label: "Em dia", chip: "bg-emerald-500/15 text-emerald-600", icon: CheckCircle2 },
@@ -198,6 +199,24 @@ function ClientActions({ c, align = "right" }: { c: HubClientOps; align?: "right
   );
 }
 
+function SortTh({ label, k, sort, onSort, align }: {
+  label: string;
+  k: SortKey;
+  sort: { key: SortKey; dir: "asc" | "desc" };
+  onSort: (k: SortKey) => void;
+  align?: "right";
+}) {
+  const active = sort.key === k;
+  return (
+    <th className={cn("px-3 py-2.5", align === "right" && "text-right")}>
+      <button onClick={() => onSort(k)} className={cn("inline-flex items-center gap-1 font-medium hover:text-ink", active && "text-ink")} title="Ordenar">
+        {label}
+        <span className={cn("text-[9px]", !active && "opacity-30")}>{active && sort.dir === "desc" ? "▼" : "▲"}</span>
+      </button>
+    </th>
+  );
+}
+
 export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meName?: string }) {
   const [layout, setLayout] = usePersistentState<"card" | "lista">("vio-hub-layout", "card");
   const [scope, setScope] = useState<Scope>("squad");
@@ -205,6 +224,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
   const [estado, setEstado] = useState<EstadoFilter>("todas");
   const [resp, setResp] = useState<string>("");
   const [plan, setPlan] = useState<string>("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
 
   const meFirst = meName?.split(" ")[0].toLowerCase();
   const isMine = (c: HubClientOps) =>
@@ -229,6 +249,29 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [clients, scope, query, estado, resp, plan, meFirst],
   );
+
+  const sorted = useMemo(() => {
+    const val = (c: HubClientOps): string | number => {
+      switch (sort.key) {
+        case "plan": return c.plan;
+        case "squad": return c.squadName;
+        case "status": return statusOf(c);
+        case "late": return c.semaforo.late;
+        case "approval": return c.semaforo.approval;
+        default: return c.name.toLowerCase();
+      }
+    };
+    const arr = [...filtered].sort((a, b) => {
+      const av = val(a), bv = val(b);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [filtered, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  }
 
   return (
     <div className="space-y-4">
@@ -338,20 +381,20 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="px-3 py-2.5">Cliente</th>
-                <th className="px-3 py-2.5">Plano</th>
-                <th className="px-3 py-2.5">Squad</th>
+                <SortTh label="Cliente" k="name" sort={sort} onSort={toggleSort} />
+                <SortTh label="Plano" k="plan" sort={sort} onSort={toggleSort} />
+                <SortTh label="Squad" k="squad" sort={sort} onSort={toggleSort} />
                 <th className="px-3 py-2.5">Responsáveis</th>
-                <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5 text-right">Atrasadas</th>
-                <th className="px-3 py-2.5 text-right">Aguardando</th>
+                <SortTh label="Status" k="status" sort={sort} onSort={toggleSort} />
+                <SortTh label="Atrasadas" k="late" sort={sort} onSort={toggleSort} align="right" />
+                <SortTh label="Aguardando" k="approval" sort={sort} onSort={toggleSort} align="right" />
                 <th className="px-3 py-2.5">Próx. ciclo</th>
                 <th className="px-3 py-2.5">Próxima agenda</th>
                 <th className="px-3 py-2.5" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c, i) => (
+              {sorted.map((c, i) => (
                 <tr key={c.id} className="border-b border-line/60 hover:bg-subtle">
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2.5">
