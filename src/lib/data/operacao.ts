@@ -706,6 +706,9 @@ export type DeliveryTask = {
   assignees?: string[];
   requester?: string;
   movedAt?: string;
+  /** Criação e conclusão (etapa terminal) — base das métricas de produtividade. */
+  createdAt?: string;
+  completedAt?: string;
   customFields?: Record<string, unknown>;
   /** Override de duração (min) da Timeline; herda do tipo quando ausente (ENT10). */
   durationMin?: number;

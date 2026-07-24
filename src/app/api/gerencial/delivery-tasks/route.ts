@@ -147,9 +147,11 @@ export async function POST(req: Request) {
     if (!b.id || !b.stage || !STAGES.has(b.stage)) {
       return NextResponse.json({ error: "id/estágio inválido" }, { status: 400 });
     }
+    // moved_at a cada mudança (base de "movida no período" e lead time);
+    // completed_at só quando entra/sai da etapa terminal 'done'.
     const { error } = await supabase
       .from("delivery_tasks")
-      .update({ stage: b.stage, updated_at: now })
+      .update({ stage: b.stage, moved_at: now, completed_at: b.stage === "done" ? now : null, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });

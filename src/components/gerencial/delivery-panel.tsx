@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  BarChart3,
   CalendarDays,
   Clock,
   KanbanSquare,
@@ -10,6 +11,7 @@ import {
   Loader2,
   Pause,
   Plus,
+  Search,
   Settings2,
   SlidersHorizontal,
   Users,
@@ -33,6 +35,7 @@ import {
   DELIVERY_PRIORITIES,
   WEEKDAYS,
   type DeliveryConfig,
+  type DeliveryPriority,
   type DeliveryTask,
   type TaskOrigin,
   type TaskStage,
@@ -75,6 +78,24 @@ const memberInitials = (id: string) => {
       .toUpperCase() || "?"
   );
 };
+
+// ── Métricas / filtros estilo Sprint board ──────────────────────────────────
+const TERMINAL_STAGE: TaskStage = "done"; // etapa terminal (= "concluída")
+const STUCK_DAYS = 7;
+/** Responsáveis do card: array (fonte de verdade) com fallback ao single. */
+const respIdsOf = (t: DeliveryTask): string[] =>
+  t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : [];
+function daysSinceMove(t: DeliveryTask): number {
+  const ref = t.movedAt || t.createdAt;
+  return ref ? Math.floor((Date.now() - new Date(ref).getTime()) / 86_400_000) : 0;
+}
+/** Parada: não-terminal e sem movimentação há STUCK_DAYS+. */
+const isStuckTask = (t: DeliveryTask) => t.stage !== TERMINAL_STAGE && daysSinceMove(t) >= STUCK_DAYS;
+/** Atrasada: tem prazo, não é terminal e o prazo (por DIA) já passou. */
+function isOverdueTask(t: DeliveryTask): boolean {
+  if (t.stage === TERMINAL_STAGE || !t.dueDate) return false;
+  return new Date(t.dueDate) < new Date(new Date().toDateString());
+}
 
 async function postDelivery(body: unknown): Promise<boolean> {
   const res = await fetch("/api/gerencial/delivery-tasks", {
@@ -175,6 +196,133 @@ function DeliveryConfigModal({
   );
 }
 
+// Métricas de produtividade por pessoa (WIP · concluídas · lead time · atrasadas).
+type MetricPeriod = "semana" | "mes" | "tudo";
+function inPeriod(iso: string | undefined, period: MetricPeriod): boolean {
+  if (period === "tudo") return true;
+  if (!iso) return false;
+  const days = period === "semana" ? 7 : 30;
+  return new Date(iso).getTime() >= Date.now() - days * 86_400_000;
+}
+
+function RankTable({ title, rows, max, suffix, tone }: { title: string; rows: { id: string; v: number; n?: number }[]; max?: number; suffix?: string; tone: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+      {rows.length === 0 ? (
+        <p className="py-4 text-center text-xs text-muted">Sem dados no período.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.slice(0, 8).map((r) => (
+            <div key={r.id} className="flex items-center gap-2 text-sm">
+              <span className="w-28 shrink-0 truncate text-ink">{memberName(r.id)}</span>
+              {max != null && (
+                <span className="h-2 flex-1 overflow-hidden rounded-full bg-subtle">
+                  <span className={cn("block h-full rounded-full", tone)} style={{ width: `${Math.round((r.v / max) * 100)}%` }} />
+                </span>
+              )}
+              <span className="w-12 shrink-0 text-right font-semibold text-ink">{r.v}{suffix ?? ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeliveryMetricsModal({ tasks, onClose }: { tasks: DeliveryTask[]; onClose: () => void }) {
+  const [period, setPeriod] = useState<MetricPeriod>("mes");
+
+  const m = useMemo(() => {
+    const active = tasks.filter((t) => t.stage !== TERMINAL_STAGE);
+    const done = tasks.filter((t) => t.stage === TERMINAL_STAGE && inPeriod(t.completedAt, period));
+    const overdue = active.filter(isOverdueTask);
+
+    const wip = new Map<string, number>();
+    const over = new Map<string, number>();
+    const doneCount = new Map<string, number>();
+    const lead = new Map<string, { sum: number; n: number }>();
+    for (const t of active) for (const id of respIdsOf(t)) wip.set(id, (wip.get(id) ?? 0) + 1);
+    for (const t of overdue) for (const id of respIdsOf(t)) over.set(id, (over.get(id) ?? 0) + 1);
+    for (const t of done) {
+      const c = t.createdAt ? new Date(t.createdAt).getTime() : NaN;
+      const f = t.completedAt ? new Date(t.completedAt).getTime() : NaN;
+      const leadDays = !isNaN(c) && !isNaN(f) && f >= c ? (f - c) / 86_400_000 : null;
+      for (const id of respIdsOf(t)) {
+        doneCount.set(id, (doneCount.get(id) ?? 0) + 1);
+        if (leadDays != null) {
+          const cur = lead.get(id) ?? { sum: 0, n: 0 };
+          cur.sum += leadDays;
+          cur.n += 1;
+          lead.set(id, cur);
+        }
+      }
+    }
+    const rank = (map: Map<string, number>) =>
+      [...map.entries()].map(([id, v]) => ({ id, v })).sort((a, b) => b.v - a.v);
+    const fastest = [...lead.entries()]
+      .map(([id, d]) => ({ id, v: Math.round((d.sum / d.n) * 10) / 10, n: d.n }))
+      .sort((a, b) => a.v - b.v);
+    return {
+      kpis: {
+        ativas: active.length,
+        andamento: active.filter((t) => t.stage !== "todo").length,
+        concluidas: done.length,
+        atrasadas: overdue.length,
+      },
+      topDoers: rank(doneCount),
+      byLoad: rank(wip),
+      byOverdue: rank(over),
+      fastest,
+    };
+  }, [tasks, period]);
+
+  const maxDone = Math.max(1, ...m.topDoers.map((r) => r.v));
+  const maxLoad = Math.max(1, ...m.byLoad.map((r) => r.v));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-ink"><BarChart3 className="h-4 w-4 text-brand-500" /> Produtividade do time</h3>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-xs">
+              {(["semana", "mes", "tudo"] as MetricPeriod[]).map((p) => (
+                <button key={p} onClick={() => setPeriod(p)} className={cn("rounded-md px-2.5 py-1 font-medium", period === p ? "bg-brand-600 text-white" : "text-muted hover:text-ink")}>
+                  {p === "semana" ? "7 dias" : p === "mes" ? "30 dias" : "Tudo"}
+                </button>
+              ))}
+            </div>
+            <button onClick={onClose} title="Fechar" aria-label="Fechar" className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Ativas", value: m.kpis.ativas, tone: "text-ink" },
+            { label: "Em andamento", value: m.kpis.andamento, tone: "text-sky-600" },
+            { label: "Concluídas", value: m.kpis.concluidas, tone: "text-emerald-600" },
+            { label: "Atrasadas", value: m.kpis.atrasadas, tone: "text-rose-600" },
+          ].map((k) => (
+            <div key={k.label} className="rounded-xl border border-line bg-canvas p-3">
+              <p className={cn("text-xl font-bold", k.tone)}>{k.value}</p>
+              <p className="text-[11px] text-muted">{k.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <RankTable title="Quem concluiu mais" rows={m.topDoers} max={maxDone} tone="bg-emerald-500" />
+          <RankTable title="Carga atual (WIP)" rows={m.byLoad} max={maxLoad} tone="bg-brand-500" />
+          <RankTable title="Lead time médio (dias)" rows={m.fastest} suffix="d" tone="bg-sky-500" />
+          <RankTable title="Atrasadas por pessoa" rows={m.byOverdue} tone="bg-rose-500" />
+        </div>
+        <p className="mt-3 text-[11px] text-muted">Concluídas = tarefas que entraram na etapa final no período. Lead time = da criação à conclusão. Um card com vários responsáveis conta para cada um.</p>
+      </div>
+    </div>
+  );
+}
+
 function sameDay(a: string, b: string) {
   const x = new Date(a), y = new Date(b);
   return x.getUTCFullYear() === y.getUTCFullYear() && x.getUTCMonth() === y.getUTCMonth() && x.getUTCDate() === y.getUTCDate();
@@ -222,7 +370,43 @@ export function DeliveryPanel({
   const [assignee, setAssignee] = useState<string | null>(null);
   const [origin, setOrigin] = useState<TaskOrigin | null>(null);
   const [client, setClient] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [stageF, setStageF] = useState<TaskStage | null>(null);
+  const [priorityF, setPriorityF] = useState<DeliveryPriority | null>(null);
+  const [stuckOnly, setStuckOnly] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false);
   const [selected, setSelected] = useState<DeliveryTask | null>(null);
+
+  // Deep-link: hidrata os filtros da URL ao montar (compartilhável).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (p.get("q")) setSearch(p.get("q")!);
+    if (p.get("stage")) setStageF(p.get("stage") as TaskStage);
+    if (p.get("prio")) setPriorityF(p.get("prio") as DeliveryPriority);
+    if (p.get("stuck") === "1") setStuckOnly(true);
+    if (p.get("resp")) setAssignee(p.get("resp"));
+    if (p.get("client")) setClient(p.get("client"));
+    if (p.get("origin")) setOrigin(p.get("origin") as TaskOrigin);
+    if (p.get("me") === "1") setMode("meu");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Espelha os filtros → URL (replaceState, preserva ?task= e não re-renderiza).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const put = (k: string, v: string) => (v ? p.set(k, v) : p.delete(k));
+    put("q", search.trim());
+    put("stage", stageF ?? "");
+    put("prio", priorityF ?? "");
+    put("stuck", stuckOnly ? "1" : "");
+    put("resp", assignee ?? "");
+    put("client", client ?? "");
+    put("origin", origin ?? "");
+    put("me", mode === "meu" ? "1" : "");
+    const qs = p.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [search, stageF, priorityF, stuckOnly, assignee, client, origin, mode]);
   // Deep-link: abre a task de ?task=<id> ao montar (o "Copiar link" da ficha).
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -246,17 +430,26 @@ export function DeliveryPanel({
   );
   const clientColor = (c: string) => CLIENT_PALETTE[allClients.indexOf(c) % CLIENT_PALETTE.length];
 
-  const filtered = useMemo(
-    () =>
-      items.filter(
-        (t) =>
-          (mode === "time" || !meId || t.assignee === meId) &&
-          (!assignee || t.assignee === assignee) &&
-          (!origin || t.origin === origin) &&
-          (!client || t.client === client),
-      ),
-    [items, mode, meId, assignee, origin, client],
-  );
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return items.filter(
+      (t) =>
+        (mode === "time" || !meId || respIdsOf(t).includes(meId)) &&
+        (!assignee || respIdsOf(t).includes(assignee)) &&
+        (!origin || t.origin === origin) &&
+        (!client || t.client === client) &&
+        (!stageF || t.stage === stageF) &&
+        (!priorityF || (t.priority ?? "media") === priorityF) &&
+        (!stuckOnly || isStuckTask(t)) &&
+        (!term || t.title.toLowerCase().includes(term) || t.client.toLowerCase().includes(term)),
+    );
+  }, [items, mode, meId, assignee, origin, client, stageF, priorityF, stuckOnly, search]);
+
+  const activeFilters =
+    (assignee ? 1 : 0) + (origin ? 1 : 0) + (client ? 1 : 0) + (stageF ? 1 : 0) + (priorityF ? 1 : 0) + (stuckOnly ? 1 : 0) + (search.trim() ? 1 : 0);
+  function clearFilters() {
+    setSearch(""); setStageF(null); setPriorityF(null); setStuckOnly(false); setAssignee(null); setClient(null); setOrigin(null);
+  }
 
   function setStage(id: string, stage: TaskStage) {
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, stage } : t)));
@@ -333,12 +526,61 @@ export function DeliveryPanel({
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
+        <select
+          value={stageF ?? ""}
+          onChange={(e) => setStageF((e.target.value as TaskStage) || null)}
+          className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+        >
+          <option value="">Todas etapas</option>
+          {TASK_STAGES.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
+        <select
+          value={priorityF ?? ""}
+          onChange={(e) => setPriorityF((e.target.value as DeliveryPriority) || null)}
+          className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+        >
+          <option value="">Toda prioridade</option>
+          {DELIVERY_PRIORITIES.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setStuckOnly((v) => !v)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
+            stuckOnly ? "border-rose-400 bg-rose-50 text-rose-600" : "border-line text-muted hover:text-ink",
+          )}
+        >
+          <Pause className="h-3.5 w-3.5" /> Paradas
+        </button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar tarefa ou cliente…"
+            className="w-40 rounded-lg border border-line bg-surface py-1.5 pl-7 pr-2 text-xs text-ink outline-none focus:border-brand-400 sm:w-52"
+          />
+        </div>
+        {activeFilters > 0 && (
+          <button onClick={clearFilters} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
+            <X className="h-3.5 w-3.5" /> limpar ({activeFilters})
+          </button>
+        )}
         {mode === "meu" && !meId && (
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
         <button
-          onClick={() => setShowConfig(true)}
+          onClick={() => setShowMetrics(true)}
           className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          <BarChart3 className="h-3.5 w-3.5" /> Métricas
+        </button>
+        <button
+          onClick={() => setShowConfig(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" /> Capacidade
         </button>
@@ -363,6 +605,8 @@ export function DeliveryPanel({
           onChange={setConfig}
         />
       )}
+
+      {showMetrics && <DeliveryMetricsModal tasks={items} onClose={() => setShowMetrics(false)} />}
 
       {showNew && (
         <NewDeliveryTask
