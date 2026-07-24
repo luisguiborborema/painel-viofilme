@@ -328,7 +328,7 @@ export function ListaShell<T extends RowBase>({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={`Buscar ${noun}…`}
-              className="w-56 rounded-xl border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-400"
+              className="w-full sm:w-56 rounded-xl border border-line bg-surface py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-400"
             />
           </div>
           {/* Lente com/sem negócio */}
@@ -364,7 +364,7 @@ export function ListaShell<T extends RowBase>({
               <Columns3 className="h-4 w-4" /> Colunas
             </button>
             {showCols && (
-              <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-line bg-surface p-2 shadow-lg">
+              <div className="absolute right-0 z-20 mt-1 max-h-64 w-52 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-lg">
                 {columns.filter((c) => c.hideable).map((c) => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ink hover:bg-black/5">
                     <input

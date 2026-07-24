@@ -283,7 +283,7 @@ export function CrmList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar negócio, empresa ou contato…"
-            className="w-64 rounded-xl border border-line bg-surface py-2 pl-8 pr-3 text-sm text-ink outline-none focus:border-brand-400"
+            className="w-full sm:w-64 rounded-xl border border-line bg-surface py-2 pl-8 pr-3 text-sm text-ink outline-none focus:border-brand-400"
           />
         </div>
         <select

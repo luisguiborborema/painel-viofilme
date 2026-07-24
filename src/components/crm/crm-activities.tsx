@@ -668,9 +668,9 @@ function CalHeader({ mode, setMode, label, onPrev, onNext }: { mode: "semana" | 
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
-        <button onClick={onPrev} className="rounded-lg p-1.5 text-muted hover:bg-subtle"><ChevronLeft className="h-4 w-4" /></button>
+        <button onClick={onPrev} title="Período anterior" aria-label="Período anterior" className="rounded-lg p-1.5 text-muted hover:bg-subtle"><ChevronLeft className="h-4 w-4" /></button>
         <span className="min-w-[160px] text-center text-sm font-semibold capitalize text-ink">{label}</span>
-        <button onClick={onNext} className="rounded-lg p-1.5 text-muted hover:bg-subtle"><ChevronRight className="h-4 w-4" /></button>
+        <button onClick={onNext} title="Próximo período" aria-label="Próximo período" className="rounded-lg p-1.5 text-muted hover:bg-subtle"><ChevronRight className="h-4 w-4" /></button>
       </div>
       <div className="inline-flex rounded-lg border border-line p-0.5">
         {(["semana", "mes"] as const).map((m) => (
@@ -721,7 +721,7 @@ function FocusCockpit({ queue, scripts, pipelines, onClose, onConclude, onRemark
           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Zap className="h-4 w-4 text-amber-500" /> Modo foco{total ? ` · ${Math.min(idx + 1, total)} de ${total}` : ""}
           </span>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
 
         {!t ? (
@@ -779,7 +779,7 @@ function FocusCockpit({ queue, scripts, pipelines, onClose, onConclude, onRemark
                 {showScript && (
                   <>
                     <pre className="mt-2 whitespace-pre-wrap font-sans text-xs text-muted">{script.body}</pre>
-                    <button onClick={() => setNote((n) => (n ? n + "\n\n" : "") + script.body)} className="mt-2 rounded-lg border border-line px-2.5 py-1 text-xs text-brand-600 hover:bg-black/5">Usar no registro</button>
+                    <button onClick={() => setNote((n) => (n ? n + "\n\n" : "") + script.body)} className="mt-2 rounded-lg border border-line px-2.5 py-1 text-xs text-brand-600 hover:bg-subtle">Usar no registro</button>
                   </>
                 )}
               </div>
@@ -946,7 +946,7 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
       <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="text-base font-bold text-ink">{create ? "Nova atividade" : "Atividade"}</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">

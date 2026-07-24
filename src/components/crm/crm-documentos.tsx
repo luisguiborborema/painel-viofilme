@@ -377,7 +377,7 @@ function ModelosPanel({ templates, deals, companies }: { templates: DocTemplate[
               <button
                 type="button"
                 onClick={() => setGen(t)}
-                className="mt-3 inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink hover:bg-black/5"
+                className="mt-3 inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink hover:bg-subtle"
               >
                 <FileText className="h-3.5 w-3.5" /> Gerar documento
               </button>

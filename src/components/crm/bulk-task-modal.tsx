@@ -116,7 +116,7 @@ export function BulkTaskModal({
               {pickTargets ? `${effectiveCount || "nenhum"} negócio${effectiveCount === 1 ? "" : "s"} selecionado${effectiveCount === 1 ? "" : "s"}` : `Para ${targetLabel}`}
             </p>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="space-y-3 overflow-y-auto px-4 py-3">
@@ -181,11 +181,11 @@ export function BulkTaskModal({
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar negócio…" className={input + " pl-8"} />
               </div>
               <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-lg border border-line p-1">
-                {dealMatches.length === 0 && <p className="px-2 py-2 text-center text-xs text-muted">Nenhum negócio.</p>}
+                {dealMatches.length === 0 && <p className="px-2 py-2 text-center text-xs text-muted">{q.trim() ? "Nenhum negócio encontrado." : "Nenhum negócio disponível."}</p>}
                 {dealMatches.slice(0, 200).map((d) => {
                   const on = picked.has(d.id);
                   return (
-                    <button key={d.id} type="button" onClick={() => togglePick(d.id)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-black/5">
+                    <button key={d.id} type="button" onClick={() => togglePick(d.id)} aria-pressed={on} aria-label={`${on ? "Desmarcar" : "Selecionar"} ${d.name}`} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-subtle">
                       {on ? <CheckSquare className="h-4 w-4 shrink-0 text-brand-500" /> : <Square className="h-4 w-4 shrink-0 text-muted" />}
                       <span className="truncate text-ink">{d.name}</span>
                     </button>
