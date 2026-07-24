@@ -420,6 +420,8 @@ export type EditorialPost = {
   commemorativeDate?: string;
   /** Nº de comentários na task vinculada (contador do card, B1). */
   commentsCount?: number;
+  /** Checklist de entrega salvo na task (para reidratar a ficha). */
+  checklist?: { label: string; done: boolean }[];
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };
@@ -745,6 +747,7 @@ export function deliveryTaskToPost(t: DeliveryTask): EditorialPost {
     deliveryDate: t.deliveryDate,
     deliveryOverridden: t.deliveryOverridden,
     commemorativeDate: t.commemorativeDate,
+    checklist: t.checklist,
   };
 }
 

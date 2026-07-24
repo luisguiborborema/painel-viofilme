@@ -228,6 +228,7 @@ function UpdatesList({
     onChange();
   }
   async function remove(u: RecurringUpdate) {
+    if (!window.confirm("Excluir este envio recorrente? Esta ação não pode ser desfeita.")) return;
     await fetch("/api/gerencial/recurring-updates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

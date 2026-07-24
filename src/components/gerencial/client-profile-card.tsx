@@ -94,6 +94,10 @@ export function ClientProfileCard({
   };
 
   async function save() {
+    if (f.contactEmail && !/^\S+@\S+\.\S+$/.test(f.contactEmail.trim())) {
+      setError("E-mail inválido — verifique o formato (ex.: contato@cliente.com.br).");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {

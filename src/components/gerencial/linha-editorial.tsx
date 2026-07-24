@@ -14,6 +14,7 @@ import {
   Presentation,
   Sparkles,
   Rocket,
+  Trash2,
   Send,
   CheckSquare,
   Square,
@@ -168,7 +169,7 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
         </span>
         <span className="text-[11px] text-muted">{post.date}{post.weekday && post.weekday !== "—" ? ` (${post.weekday})` : ""}</span>
       </div>
-      <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-ink">{post.title}</p>
+      <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-ink">{post.title?.trim() || post.tema?.trim() || "Sem título"}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", FORMAT_COLOR[post.format])}>{post.format}</span>
         {post.pillar && (
@@ -242,6 +243,7 @@ export function PostFicha({
   onSaved: (p: EditorialPost) => void;
 }) {
   const isDelivery = variant === "delivery";
+  const router = useRouter();
   const [title, setTitle] = useState(post.title);
   const [tema, setTema] = useState(post.tema ?? "");
   const [format, setFormat] = useState<EditorialFormat>(post.format);
@@ -347,7 +349,9 @@ export function PostFicha({
     setAddH("");
     postTask({ action: "log-hours", hours: h });
   }
-  const [checks, setChecks] = useState<boolean[]>(DEFAULT_CHECKLIST.map(() => false));
+  const [checks, setChecks] = useState<boolean[]>(
+    DEFAULT_CHECKLIST.map((label) => post.checklist?.find((c) => c.label === label)?.done ?? false),
+  );
   const [nomeEditavel, setNomeEditavel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
@@ -355,14 +359,14 @@ export function PostFicha({
 
   const clientFirst = clientName.split(" ")[0];
   const clientInitials = clientName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  const canonicalTitle = `[${clientFirst}] ${format.toUpperCase()}: ${title.trim() || "Sem título"}`;
+  const canonicalTitle = `[${clientFirst}] ${format.toUpperCase()}: ${title.trim() || tema.trim() || "Sem título"}`;
   const pillarColor = pillars.find((p) => p.name === pillar)?.color ?? "#1b4188";
   const jsonHeaders = { "Content-Type": "application/json" };
 
   function currentPost(extraTaskId?: string): EditorialPost {
     return {
       ...post,
-      title: title.trim() || "Novo post",
+      title: title.trim() || tema.trim() || "Novo post",
       tema,
       format,
       pillar: pillar.trim() || post.pillar,
@@ -483,7 +487,18 @@ export function PostFicha({
     setStage(targetStage);
     await persistPost(realId ?? id);
     onCreated(post.n, id);
+    router.refresh(); // reflete a nova task no Painel de Entregas / Tarefas / Resumo
     return realId;
+  }
+
+  async function deleteTask() {
+    if (!taskId) return;
+    if (!window.confirm("Excluir esta tarefa? Esta ação não pode ser desfeita.")) return;
+    setSaving(true);
+    await fetch(dtx, { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "delete", id: taskId }) }).catch(() => {});
+    setSaving(false);
+    router.refresh();
+    onClose();
   }
 
   async function onGenerate() {
@@ -893,7 +908,12 @@ export function PostFicha({
         {error && <p className="px-6 pb-1 text-xs font-medium text-rose-500">{error}</p>}
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-3.5">
-          {savedTick && <span className="mr-auto inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="h-3.5 w-3.5" /> Salvo</span>}
+          {isDelivery && taskId && (
+            <button onClick={deleteTask} disabled={saving} className="mr-auto inline-flex items-center gap-1.5 rounded-xl border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60">
+              <Trash2 className="h-4 w-4" /> Excluir
+            </button>
+          )}
+          {savedTick && <span className={cn("inline-flex items-center gap-1 text-xs font-medium text-emerald-600", !(isDelivery && taskId) && "mr-auto")}><Check className="h-3.5 w-3.5" /> Salvo</span>}
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Fechar</button>
           {mode === "new" && !isDelivery && (
             <button onClick={addToLine} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Adicionar à LE</button>

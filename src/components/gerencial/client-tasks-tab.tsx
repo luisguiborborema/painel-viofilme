@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock3, ListChecks, Plus, User, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export function ClientTasksTab({
   clientId?: string;
   clientName?: string;
 }) {
+  const router = useRouter();
   const [tasks, setTasks] = useState(initial);
   const [selected, setSelected] = useState<DeliveryTask | null>(null);
   const [chip, setChip] = useState<Chip>("todas");
@@ -39,6 +41,10 @@ export function ClientTasksTab({
   const [newTitle, setNewTitle] = useState("");
   const [newAssignee, setNewAssignee] = useState(OPS_TEAM[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
+
+  // Resincroniza com o servidor quando os dados mudam (após router.refresh()).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setTasks(initial), [initial]);
 
   async function createTask() {
     const title = newTitle.trim();
@@ -82,6 +88,7 @@ export function ClientTasksTab({
     setCreating(false);
     setNewTitle("");
     setSelected(optimistic); // abre a ficha (Task universal)
+    router.refresh(); // atualiza o card "funil de produção" do Resumo e demais abas
   }
 
   const lateCount = tasks.filter((t) => t.late).length;
