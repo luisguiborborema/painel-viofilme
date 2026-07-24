@@ -102,6 +102,7 @@ export function ClientDocumentsTab({
   }
 
   async function remove(id: string) {
+    if (!window.confirm("Excluir este documento? Esta ação não pode ser desfeita.")) return;
     const prev = docs;
     setDocs((d) => d.filter((x) => x.id !== id));
     const res = await fetch("/api/gerencial/client-documents", {

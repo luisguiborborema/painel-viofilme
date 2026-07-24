@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { AvatarStack } from "@/components/ui/avatar";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { TaskFicha } from "./linha-editorial";
+import { toast } from "@/components/ui/toast";
 // TaskUniversal aposentado (C1.1): todas as telas usam a ficha canônica (TaskFicha).
 import { cn } from "@/lib/utils";
 import {
@@ -80,7 +81,11 @@ async function postDelivery(body: unknown): Promise<boolean> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).catch(() => null);
-  return Boolean(res?.ok);
+  if (!res?.ok) {
+    toast("Não foi possível salvar a alteração no Painel de Entregas. Tente de novo.", "error");
+    return false;
+  }
+  return true;
 }
 
 async function postConfig(body: unknown): Promise<boolean> {

@@ -69,6 +69,15 @@ export function CriativosTab({
 
   const canGenerate = !!goal && !!format && !!title.trim();
   const field = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
+  // Aviso leve se o prazo (dd/mm) já passou neste ano — não bloqueia o envio.
+  const duePast = (() => {
+    const m = due.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (!m) return false;
+    const now = new Date();
+    const cand = new Date(now.getFullYear(), Number(m[2]) - 1, Number(m[1]));
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return cand < today;
+  })();
 
   function briefingText() {
     const secName = OPS_TEAM.find((m) => m.id === secondary)?.name;
@@ -233,6 +242,7 @@ export function CriativosTab({
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Prazo</label>
             <input value={due} onChange={(e) => setDue(e.target.value)} placeholder="ex.: 28/06" className={field} />
+            {duePast && <p className="mt-1 text-[11px] text-amber-600">Esse prazo já passou neste ano — confira a data.</p>}
           </div>
         </div>
 

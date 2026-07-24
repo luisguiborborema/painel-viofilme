@@ -501,6 +501,18 @@ export function PostFicha({
     onClose();
   }
 
+  async function deletePost() {
+    if (!post.id) return;
+    if (!window.confirm("Excluir este post da linha editorial? Esta ação não pode ser desfeita.")) return;
+    setSaving(true);
+    await fetch("/api/gerencial/editorial", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ action: "delete-post", id: post.id }) }).catch(() => {});
+    setSaving(false);
+    router.refresh();
+    onClose();
+  }
+
+  const canDelete = isDelivery ? !!taskId : mode === "view" && !!post.id;
+
   async function onGenerate() {
     setSaving(true);
     setError(null);
@@ -908,12 +920,12 @@ export function PostFicha({
         {error && <p className="px-6 pb-1 text-xs font-medium text-rose-500">{error}</p>}
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-3.5">
-          {isDelivery && taskId && (
-            <button onClick={deleteTask} disabled={saving} className="mr-auto inline-flex items-center gap-1.5 rounded-xl border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60">
+          {canDelete && (
+            <button onClick={isDelivery ? deleteTask : deletePost} disabled={saving} className="mr-auto inline-flex items-center gap-1.5 rounded-xl border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60">
               <Trash2 className="h-4 w-4" /> Excluir
             </button>
           )}
-          {savedTick && <span className={cn("inline-flex items-center gap-1 text-xs font-medium text-emerald-600", !(isDelivery && taskId) && "mr-auto")}><Check className="h-3.5 w-3.5" /> Salvo</span>}
+          {savedTick && <span className={cn("inline-flex items-center gap-1 text-xs font-medium text-emerald-600", !canDelete && "mr-auto")}><Check className="h-3.5 w-3.5" /> Salvo</span>}
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Fechar</button>
           {mode === "new" && !isDelivery && (
             <button onClick={addToLine} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Adicionar à LE</button>

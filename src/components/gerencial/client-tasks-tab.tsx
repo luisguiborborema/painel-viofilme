@@ -36,7 +36,8 @@ export function ClientTasksTab({
   const [tasks, setTasks] = useState(initial);
   const [selected, setSelected] = useState<DeliveryTask | null>(null);
   const [chip, setChip] = useState<Chip>("todas");
-  const [showDone, setShowDone] = useState(false);
+  // "Todas" mostra tudo por padrão (inclui concluídas); toggle permite ocultar.
+  const [showDone, setShowDone] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newAssignee, setNewAssignee] = useState(OPS_TEAM[0]?.id ?? "");
