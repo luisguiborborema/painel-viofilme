@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { AvatarStack } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { TaskFicha } from "./linha-editorial";
 import { toast } from "@/components/ui/toast";
@@ -128,7 +129,7 @@ function DeliveryConfigModal({
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">Capacidade & durações</h3>
-          <button onClick={onClose} className="text-muted hover:text-ink"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="text-muted hover:text-ink"><X className="h-4 w-4" /></button>
         </div>
 
         <label className="mb-4 block">
@@ -139,7 +140,7 @@ function DeliveryConfigModal({
             max={50}
             value={cap}
             onChange={(e) => setCap(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-            className="w-28 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+            className="w-28 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
           />
           <span className="ml-2 text-xs text-muted">alerta: âmbar em {cap + 1}, vermelho em {cap + 2}+</span>
         </label>
@@ -158,7 +159,7 @@ function DeliveryConfigModal({
                 onChange={(e) =>
                   setDurations((d) => ({ ...d, [type]: Math.max(5, Math.min(600, Number(e.target.value) || 5)) }))
                 }
-                className="w-24 rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+                className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
               />
               <span className="text-xs text-muted">min</span>
             </div>
@@ -166,14 +167,8 @@ function DeliveryConfigModal({
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-subtle">Cancelar</button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Salvar
-          </button>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" size="sm" onClick={save} busy={saving}>Salvar</Button>
         </div>
       </div>
     </div>
@@ -467,7 +462,7 @@ function NewDeliveryTask({
     <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold text-ink">Nova tarefa de entrega</p>
-        <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
+        <button onClick={onClose} title="Fechar" aria-label="Fechar" className="rounded-lg p-1 text-muted hover:bg-subtle">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -1051,7 +1046,7 @@ function DrillModal({ title, list, onClose, onOpen }: {
       <div className="relative z-10 max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-line p-4">
           <h2 className="text-sm font-semibold text-ink">{title} · {list.length}</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
         </div>
         <div className="divide-y divide-line">
           {list.map((t) => (

@@ -138,7 +138,7 @@ export function ClientDocumentsTab({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex.: Contrato 2026"
-                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
               />
             </label>
             <label className="block">
@@ -146,7 +146,7 @@ export function ClientDocumentsTab({
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value)}
-                className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
               >
                 {DOCUMENT_KINDS.map((k) => (
                   <option key={k.key} value={k.key}>

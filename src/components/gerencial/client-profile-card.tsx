@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Contact } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type ClientProfileInitial = {
@@ -183,14 +184,10 @@ export function ClientProfileCard({
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
-        >
-          <CheckCircle2 className="h-4 w-4" />
+        <Button variant="primary" size="md" onClick={save} busy={saving}>
+          {!saving && <CheckCircle2 className="h-4 w-4" />}
           {saving ? "Salvando…" : "Salvar contatos & briefing"}
-        </button>
+        </Button>
         {error && <span className="text-xs font-medium text-rose-500">{error}</span>}
         {saved && !error && (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">

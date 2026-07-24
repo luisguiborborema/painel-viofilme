@@ -421,7 +421,7 @@ function RoadmapEditor({
             <h3 className="text-sm font-semibold text-ink">Editor do Roadmap</h3>
             <p className="text-[11px] text-muted">Conteúdo dos 7 blocos · 60% Playbook de Nicho + 40% personalizado</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="rounded-lg p-1 text-muted hover:bg-subtle"><X className="h-5 w-5" /></button>
         </div>
         <div className="flex min-h-0 flex-1">
           <div className="w-40 shrink-0 overflow-y-auto border-r border-line p-2">

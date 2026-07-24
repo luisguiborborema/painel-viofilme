@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
@@ -193,14 +194,16 @@ function NewUpdate({ clients, onCreated }: { clients: ClientOpt[]; onCreated: ()
         </div>
       )}
 
-      <button
+      <Button
+        variant="primary"
+        size="sm"
         onClick={create}
-        disabled={busy || metrics.length === 0}
-        className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        disabled={metrics.length === 0}
+        busy={busy}
       >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+        {!busy && <Plus className="h-4 w-4" />}
         Criar update
-      </button>
+      </Button>
       {ok && <span className="ml-2 text-xs text-emerald-600">Criado!</span>}
     </Card>
   );
