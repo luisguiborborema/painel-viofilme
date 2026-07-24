@@ -20,7 +20,7 @@ function nextDue(baseIso: string, recurrence: string): string | null {
 }
 
 type Body = {
-  action?: "add" | "done" | "reopen" | "set-assignees" | "set-priority" | "update" | "delete";
+  action?: "add" | "bulk-add" | "done" | "reopen" | "set-assignees" | "set-priority" | "update" | "delete";
   leadId?: string;
   taskId?: string;
   title?: string;
@@ -31,6 +31,10 @@ type Body = {
   // Criador estilo HubSpot: tipo + lembrete/recorrência (guardados na jsonb).
   type?: string;
   properties?: Record<string, unknown>;
+  // Criação em massa (HubSpot): alvos por negócio, pessoa ou empresa.
+  leadIds?: string[];
+  contactIds?: string[];
+  companyIds?: string[];
 };
 
 /** Cria uma tarefa (próxima ação) ou marca uma como concluída. */
@@ -141,6 +145,110 @@ export async function POST(req: Request) {
     const { error } = await supabase.from("crm_tasks").update(patch).eq("id", b.taskId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // bulk-add — cria UMA tarefa por registro selecionado (negócio, pessoa ou
+  // empresa). Estilo HubSpot: mesmo título/tipo/prazo/responsável para todos.
+  if (action === "bulk-add") {
+    if (!b.title?.trim()) return NextResponse.json({ error: "título ausente" }, { status: 400 });
+    const bulkProps: Record<string, unknown> = { ...(b.properties ?? {}) };
+    if (b.type && TASK_TYPES.has(b.type)) bulkProps.type = b.type;
+    const reqA = [...new Set((b.assignees ?? []).map((n) => n.trim()).filter(Boolean))];
+    const prio = b.priority && PRIORITIES.has(b.priority) ? b.priority : "media";
+    const propsJson = Object.keys(bulkProps).length ? bulkProps : {};
+
+    const leadIds = [...new Set((b.leadIds ?? []).filter(Boolean))];
+    const contactIds = [...new Set((b.contactIds ?? []).filter(Boolean))];
+    const companyIds = [...new Set((b.companyIds ?? []).filter(Boolean))];
+    const totalTargets = leadIds.length + contactIds.length + companyIds.length;
+    if (totalTargets === 0) return NextResponse.json({ error: "nenhum alvo selecionado" }, { status: 400 });
+
+    // Escolhe UM negócio por pessoa/empresa: preferir aberto, senão o mais recente.
+    const isOpen = (r: { stage?: string | null; frozen_at?: string | null }) =>
+      r.stage !== "ganho" && r.stage !== "perdido" && !r.frozen_at;
+    function pickDeal(rows: { id: string; stage?: string | null; frozen_at?: string | null; created_at?: string | null }[]): string | null {
+      if (!rows.length) return null;
+      const sorted = [...rows].sort((a, z) => {
+        const ao = isOpen(a) ? 0 : 1;
+        const zo = isOpen(z) ? 0 : 1;
+        if (ao !== zo) return ao - zo;
+        return String(z.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+      });
+      return sorted[0].id;
+    }
+
+    // Resolve os negócios de contatos e empresas em queries agrupadas.
+    const resolved: { leadId: string | null }[] = leadIds.map((id) => ({ leadId: id }));
+    if (contactIds.length) {
+      const { data } = await supabase
+        .from("crm_leads")
+        .select("id, primary_contact_id, stage, frozen_at, created_at")
+        .in("primary_contact_id", contactIds);
+      const byContact = new Map<string, { id: string; stage?: string | null; frozen_at?: string | null; created_at?: string | null }[]>();
+      for (const r of data ?? []) {
+        const k = String(r.primary_contact_id);
+        (byContact.get(k) ?? byContact.set(k, []).get(k)!).push(r);
+      }
+      for (const cid of contactIds) resolved.push({ leadId: pickDeal(byContact.get(cid) ?? []) });
+    }
+    if (companyIds.length) {
+      const { data } = await supabase
+        .from("crm_leads")
+        .select("id, company_id, stage, frozen_at, created_at")
+        .in("company_id", companyIds);
+      const byCompany = new Map<string, { id: string; stage?: string | null; frozen_at?: string | null; created_at?: string | null }[]>();
+      for (const r of data ?? []) {
+        const k = String(r.company_id);
+        (byCompany.get(k) ?? byCompany.set(k, []).get(k)!).push(r);
+      }
+      for (const cid of companyIds) resolved.push({ leadId: pickDeal(byCompany.get(cid) ?? []) });
+    }
+
+    // Monta as linhas: avulsas (lead_id null) exigem o próprio usuário no assignee.
+    const rowFor = (leadId: string | null) => {
+      const rowA = leadId ? reqA : reqA.length ? reqA : [user.name];
+      return {
+        lead_id: leadId,
+        title: b.title!.trim(),
+        due_date: b.dueDate ?? null,
+        priority: prio,
+        properties: propsJson,
+        assignee: rowA[0] ?? null,
+        assignees: rowA,
+      };
+    };
+    const orphanRows = resolved.filter((r) => !r.leadId).map(() => rowFor(null));
+    const linkedRows = resolved.filter((r) => r.leadId).map((r) => rowFor(r.leadId));
+
+    let created = 0;
+    // Avulsas sempre passam a RLS (usuário é o responsável).
+    if (orphanRows.length) {
+      const { data } = await supabase.from("crm_tasks").insert(orphanRows).select("id");
+      created += data?.length ?? 0;
+    }
+    // Linkadas: tenta em lote; se a RLS recusar (negócio de outro dono), refaz
+    // linha a linha para não perder o lote todo e contar as ignoradas.
+    if (linkedRows.length) {
+      const { data, error } = await supabase.from("crm_tasks").insert(linkedRows).select("id");
+      if (!error) {
+        created += data?.length ?? 0;
+      } else {
+        for (const row of linkedRows) {
+          const { data: one } = await supabase.from("crm_tasks").insert(row).select("id");
+          if (one?.length) created += 1;
+        }
+      }
+      // Fixa "próxima ação" nos negócios que receberam tarefa.
+      const linkedIds = [...new Set(resolved.map((r) => r.leadId).filter(Boolean) as string[])];
+      if (linkedIds.length) {
+        await supabase
+          .from("crm_leads")
+          .update({ next_task_title: b.title!.trim(), next_task_due: b.dueDate ?? null, updated_at: now })
+          .in("id", linkedIds);
+      }
+    }
+
+    return NextResponse.json({ ok: true, persisted: true, created, skipped: totalTargets - created });
   }
 
   // add — tarefa vinculada a um negócio OU avulsa (sem leadId).

@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   Check,
   Download,
+  ListChecks,
   Search,
   Snowflake,
   Tag as TagIcon,
@@ -28,6 +29,7 @@ import {
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
 import { withToast } from "@/lib/api";
+import { BulkTaskModal } from "./bulk-task-modal";
 
 type SortKey = "name" | "empresa" | "stage" | "owner" | "value" | "priority" | "days";
 type StatusFilter = "abertos" | "ganhos" | "perdidos" | "congelados" | "todos";
@@ -73,6 +75,7 @@ export function CrmList({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bulkTask, setBulkTask] = useState(false);
   const [losing, setLosing] = useState(false);
   const [loseReason, setLoseReason] = useState("");
 
@@ -350,6 +353,9 @@ export function CrmList({
             />
           )}
           <BulkMenu icon={UserPlus} label="Atribuir" options={team.map((n) => ({ key: n, label: n }))} onPick={bulkAssign} disabled={busy} />
+          <button onClick={() => setBulkTask(true)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-60">
+            <ListChecks className="h-3.5 w-3.5" /> Criar tarefa
+          </button>
           <BulkMenu icon={TagIcon} label="Tag" options={tags.map((t) => ({ key: t.id, label: t.name }))} onPick={bulkTag} disabled={busy} />
           {losing ? (
             <span className="inline-flex items-center gap-1.5">
@@ -384,6 +390,18 @@ export function CrmList({
             <X className="h-3.5 w-3.5" /> limpar
           </button>
         </div>
+      )}
+
+      {bulkTask && (
+        <BulkTaskModal
+          targetLabel={`${selected.size} negócio${selected.size > 1 ? "s" : ""}`}
+          count={selected.size}
+          team={team}
+          currentUser={currentUser}
+          leadIds={[...selected]}
+          onClose={() => setBulkTask(false)}
+          onDone={() => { setBulkTask(false); setSelected(new Set()); router.refresh(); }}
+        />
       )}
 
       {/* Tabela */}

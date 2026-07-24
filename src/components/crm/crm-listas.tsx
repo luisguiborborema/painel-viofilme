@@ -28,6 +28,7 @@ import type { KnowledgeCategory, KnowledgePageCard, ServiceCatalog } from "@/lib
 import { ListaShell, type Col } from "./listas-shell";
 import { NewContactModal } from "./new-contact-modal";
 import { NewCompanyModal } from "./new-company-modal";
+import { BulkTaskModal } from "./bulk-task-modal";
 
 type Sub = "pessoas" | "empresas" | "produtos" | "processos";
 
@@ -108,6 +109,7 @@ export function CrmListas({
   tasks,
   tags,
   team,
+  currentUser = "",
   savedViews,
   serviceCatalog,
   knowledge,
@@ -118,6 +120,7 @@ export function CrmListas({
   tasks: TaskItem[];
   tags: Tag[];
   team: string[];
+  currentUser?: string;
   savedViews: SavedView[];
   serviceCatalog: ServiceCatalog[];
   knowledge: { categories: KnowledgeCategory[]; pages: KnowledgePageCard[] };
@@ -126,6 +129,7 @@ export function CrmListas({
   const [sub, setSub] = useState<Sub>("pessoas");
   const [newPerson, setNewPerson] = useState(false);
   const [newCompany, setNewCompany] = useState(false);
+  const [taskTargets, setTaskTargets] = useState<{ scope: "pessoas" | "empresas"; ids: string[]; count: number } | null>(null);
 
   const personRows = useMemo(
     () => buildPersonRows(contacts, companies, deals, tasks),
@@ -220,6 +224,7 @@ export function CrmListas({
           savedViews={savedViews}
           tags={tags}
           team={team}
+          onBulkTask={(rows) => setTaskTargets({ scope: "pessoas", ids: rows.map((r) => r.id), count: rows.length })}
           onOpenRow={(r) => router.push(`/gerencial/crm/contato/${r.id}`)}
           newButton={
             <button
@@ -243,6 +248,7 @@ export function CrmListas({
           savedViews={savedViews}
           tags={tags}
           team={team}
+          onBulkTask={(rows) => setTaskTargets({ scope: "empresas", ids: rows.map((r) => r.id), count: rows.length })}
           onOpenRow={(r) => router.push(`/gerencial/crm/empresa/${r.id}`)}
           newButton={
             <button
@@ -261,6 +267,18 @@ export function CrmListas({
 
       {newPerson && <NewContactModal companies={companies} onClose={() => setNewPerson(false)} />}
       {newCompany && <NewCompanyModal onClose={() => setNewCompany(false)} />}
+      {taskTargets && (
+        <BulkTaskModal
+          targetLabel={`${taskTargets.count} ${taskTargets.scope === "pessoas" ? "pessoa" : "empresa"}${taskTargets.count > 1 ? "s" : ""}`}
+          count={taskTargets.count}
+          team={team}
+          currentUser={currentUser}
+          contactIds={taskTargets.scope === "pessoas" ? taskTargets.ids : undefined}
+          companyIds={taskTargets.scope === "empresas" ? taskTargets.ids : undefined}
+          onClose={() => setTaskTargets(null)}
+          onDone={() => { setTaskTargets(null); router.refresh(); }}
+        />
+      )}
     </div>
   );
 }

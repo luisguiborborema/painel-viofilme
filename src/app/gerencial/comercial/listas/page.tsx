@@ -32,6 +32,7 @@ export default async function ListasPage() {
         tasks={taskItems}
         tags={tags}
         team={team.map((t) => t.name)}
+        currentUser={user?.name ?? ""}
         savedViews={savedViews}
         serviceCatalog={serviceCatalog}
         knowledge={knowledge}

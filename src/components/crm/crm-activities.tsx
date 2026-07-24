@@ -12,8 +12,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  FileText,
   Flag,
   List as ListIcon,
+  ListChecks,
   Loader2,
   Mail,
   MessageCircle,
@@ -35,11 +37,14 @@ import {
   DEAL_SCRIPTS,
   LEAD_PRIORITIES,
   TASK_TYPES,
+  stageLabel,
   suggestedScriptFor,
   type DealScript,
   type Pipeline,
   type TaskItem,
 } from "@/lib/data/crm";
+import { formatPhone } from "@/lib/data/inbox";
+import { BulkTaskModal } from "./bulk-task-modal";
 
 /* ── Metadados de tipo ─────────────────────────────────── */
 
@@ -147,6 +152,7 @@ export function CrmActivities({
   const [custom, setCustom] = useState({ from: "", to: "" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [foco, setFoco] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [drawer, setDrawer] = useState<{ task?: TaskItem; create?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -192,14 +198,14 @@ export function CrmActivities({
   function patchLocal(id: string, patch: Partial<TaskItem>) {
     setItems((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }
-  async function conclude(t: TaskItem, note?: string) {
+  async function conclude(t: TaskItem, note?: string, channel: string = "note") {
     patchLocal(t.id, { status: "done", doneAt: now.toISOString() });
     setSelected((s) => { const n = new Set(s); n.delete(t.id); return n; });
     await postTask({ action: "done", taskId: t.id }).catch(() => {});
     if (note?.trim() && t.leadId) {
       await fetch("/api/crm/interactions", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: t.leadId, channel: "note", body: `✔️ ${t.title}\n${note.trim()}` }),
+        body: JSON.stringify({ leadId: t.leadId, channel, body: `✔️ ${t.title}\n${note.trim()}` }),
       }).catch(() => {});
     }
     router.refresh();
@@ -279,10 +285,17 @@ export function CrmActivities({
           )}
           <button
             onClick={() => setFoco(true)}
-            disabled={focoQueue.length === 0}
+            disabled={!filtered.some((t) => t.status === "pending")}
             className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-50"
+            title="Executar as tarefas filtradas uma a uma"
           >
             <Zap className="h-4 w-4" /> Modo foco
+          </button>
+          <button
+            onClick={() => setBulkOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            <ListChecks className="h-4 w-4" /> Em massa
           </button>
           <button
             onClick={() => setDrawer({ create: true })}
@@ -406,9 +419,30 @@ export function CrmActivities({
         <FocusView items={focoQueue} now={now} onConclude={conclude} onOpen={(t) => setDrawer({ task: t })} />
       )}
 
-      {/* Modo foco (fila) */}
+      {/* Modo foco / cockpit (fila = a lista filtrada atual) */}
       {foco && (
-        <FocoMode queue={focoQueue} onClose={() => setFoco(false)} onConclude={conclude} onRemark={(t, iso) => remark([t.id], iso)} onOpen={(t) => setDrawer({ task: t })} />
+        <FocusCockpit
+          queue={filtered.filter((t) => t.status === "pending")}
+          scripts={scripts}
+          pipelines={pipelines}
+          onClose={() => setFoco(false)}
+          onConclude={conclude}
+          onRemark={(t, iso) => remark([t.id], iso)}
+          onOpen={(t) => setDrawer({ task: t })}
+        />
+      )}
+
+      {/* Criar tarefas em massa (seletor de negócios) */}
+      {bulkOpen && (
+        <BulkTaskModal
+          targetLabel="negócios"
+          count={0}
+          team={team}
+          currentUser={currentUser}
+          pickTargets={{ deals: deals.map((d) => ({ id: d.id, name: d.name })) }}
+          onClose={() => setBulkOpen(false)}
+          onDone={() => { setBulkOpen(false); router.refresh(); }}
+        />
       )}
 
       {/* Drawer criar/editar */}
@@ -651,51 +685,130 @@ function CalHeader({ mode, setMode, label, onPrev, onNext }: { mode: "semana" | 
 
 /* ── Modo foco (fila) ──────────────────────────────────── */
 
-function FocoMode({ queue, onClose, onConclude, onRemark, onOpen }: { queue: TaskItem[]; onClose: () => void; onConclude: (t: TaskItem, note?: string) => void; onRemark: (t: TaskItem, iso: string) => void; onOpen: (t: TaskItem) => void }) {
+const CHANNEL_BY_TYPE: Record<string, string> = { ligacao: "call", whatsapp: "whatsapp", email: "email" };
+
+function FocusCockpit({ queue, scripts, pipelines, onClose, onConclude, onRemark, onOpen }: {
+  queue: TaskItem[];
+  scripts: DealScript[];
+  pipelines: Pipeline[];
+  onClose: () => void;
+  onConclude: (t: TaskItem, note?: string, channel?: string) => void;
+  onRemark: (t: TaskItem, iso: string) => void;
+  onOpen: (t: TaskItem) => void;
+}) {
   const [idx, setIdx] = useState(0);
+  const [note, setNote] = useState("");
   const [remarking, setRemarking] = useState(false);
-  const remaining = queue.filter((_, i) => i >= idx);
-  const t = remaining[0];
+  const [showScript, setShowScript] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setNote(""); setShowScript(false); setRemarking(false); }, [idx]);
+
+  const total = queue.length;
+  const t = queue[idx];
+  const channel = t ? CHANNEL_BY_TYPE[typeOf(t)] ?? "note" : "note";
+  const digits = t?.contactPhone?.replace(/\D/g, "");
+  const script = t ? suggestedScriptFor(t.dealStage ?? "", scripts) : undefined;
+  const stageColor = t ? pipelines.flatMap((p) => p.stages).find((s) => s.key === t.dealStage)?.color : undefined;
+
+  const advance = () => setIdx((i) => i + 1);
+  const done = () => { if (t) onConclude(t, note, channel); advance(); };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-line bg-surface p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink"><Zap className="h-4 w-4 text-amber-500" /> Modo foco</span>
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <Zap className="h-4 w-4 text-amber-500" /> Modo foco{total ? ` · ${Math.min(idx + 1, total)} de ${total}` : ""}
+          </span>
           <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
+
         {!t ? (
-          <div className="py-10 text-center">
+          <div className="py-14 text-center">
             <CheckCircle2 className="mx-auto mb-2 h-10 w-10 text-emerald-500" />
-            <p className="text-sm font-semibold text-ink">Tudo em dia. Nenhuma ação pendente.</p>
+            <p className="text-sm font-semibold text-ink">Fila concluída. Nada pendente. 🎉</p>
             <button onClick={onClose} className="mt-4 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Voltar</button>
           </div>
         ) : (
-          <>
-            <p className="text-xs text-muted">{remaining.length} restante{remaining.length > 1 ? "s" : ""} na fila</p>
-            <div className="mt-2 rounded-xl border border-line bg-canvas p-4">
-              {(() => { const meta = TYPE_META[typeOf(t)]; const Icon = meta.icon; return (
-                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", meta.chip)}><Icon className="h-3.5 w-3.5" /> {meta.label}</span>
-              ); })()}
+          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(() => { const meta = TYPE_META[typeOf(t)]; const Icon = meta.icon; return (
+                  <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", meta.chip)}><Icon className="h-3.5 w-3.5" /> {meta.label}</span>
+                ); })()}
+                {t.dealStage && (
+                  <span className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={stageColor ? { backgroundColor: `${stageColor}1f`, color: stageColor } : undefined}>
+                    {stageLabel(t.dealStage)}
+                  </span>
+                )}
+              </div>
               <h3 className="mt-2 text-lg font-bold text-ink">{t.title}</h3>
-              <button onClick={() => onOpen(t)} className="mt-0.5 text-sm text-muted hover:text-ink hover:underline">{t.dealName}{t.dueDate ? ` · ${dayMonth(t.dueDate)} ${clockLabel(t.dueDate)}` : ""}</button>
+              <button onClick={() => onOpen(t)} className="text-sm text-brand-600 hover:underline">
+                {t.contactName ? `${t.contactName} · ` : ""}{t.dealName}
+              </button>
+              {t.dueDate && <p className="text-xs text-muted">Vence {dayMonth(t.dueDate)} {clockLabel(t.dueDate)}</p>}
             </div>
+
+            {(digits || t.contactEmail) && (
+              <div className="flex flex-wrap gap-2">
+                {digits && (
+                  <a href={`tel:${t.contactPhone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
+                    <Phone className="h-4 w-4 text-sky-500" /> Ligar {formatPhone(t.contactPhone!)}
+                  </a>
+                )}
+                {digits && (
+                  <a href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
+                    <MessageCircle className="h-4 w-4 text-emerald-500" /> WhatsApp
+                  </a>
+                )}
+                {t.contactEmail && (
+                  <a href={`mailto:${t.contactEmail}`} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
+                    <Mail className="h-4 w-4 text-violet-500" /> E-mail
+                  </a>
+                )}
+              </div>
+            )}
+
+            {script && (
+              <div className="rounded-xl border border-line bg-canvas p-3">
+                <button onClick={() => setShowScript((s) => !s)} className="flex w-full items-center justify-between text-left text-sm font-semibold text-ink">
+                  <span className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4 text-brand-500" /> {script.title}</span>
+                  <span className="text-xs text-brand-600">{showScript ? "ocultar" : "ver roteiro"}</span>
+                </button>
+                {showScript && (
+                  <>
+                    <pre className="mt-2 whitespace-pre-wrap font-sans text-xs text-muted">{script.body}</pre>
+                    <button onClick={() => setNote((n) => (n ? n + "\n\n" : "") + script.body)} className="mt-2 rounded-lg border border-line px-2.5 py-1 text-xs text-brand-600 hover:bg-black/5">Usar no registro</button>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Registrar resultado</p>
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="O que aconteceu? (vira interação no negócio)" className={drawerInput + " resize-y"} />
+            </div>
+          </div>
+        )}
+
+        {t && (
+          <div className="border-t border-line px-5 py-3">
             {remarking ? (
-              <div className="mt-4 flex items-center gap-2">
-                <input type="datetime-local" onChange={(e) => { if (e.target.value) { onRemark(t, new Date(e.target.value).toISOString()); setRemarking(false); setIdx((i) => i + 1); } }} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm" />
+              <div className="flex items-center gap-2">
+                <input type="datetime-local" onChange={(e) => { if (e.target.value) { onRemark(t, new Date(e.target.value).toISOString()); advance(); } }} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm" />
                 <button onClick={() => setRemarking(false)} className="rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-subtle">Cancelar</button>
               </div>
             ) : (
-              <div className="mt-4 flex items-center gap-2">
-                <button onClick={() => { onConclude(t); }} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-                  <Check className="h-4 w-4" /> Concluir
+              <div className="flex items-center gap-2">
+                <button onClick={done} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                  <Check className="h-4 w-4" /> Concluir e próxima
                 </button>
                 <button onClick={() => setRemarking(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2.5 text-sm font-medium text-ink hover:bg-subtle"><CalendarClock className="h-4 w-4" /> Remarcar</button>
-                <button onClick={() => setIdx((i) => i + 1)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2.5 text-sm font-medium text-muted hover:bg-subtle"><SkipForward className="h-4 w-4" /> Pular</button>
+                <button onClick={advance} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2.5 text-sm font-medium text-muted hover:bg-subtle"><SkipForward className="h-4 w-4" /> Pular</button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

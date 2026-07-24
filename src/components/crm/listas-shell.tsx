@@ -8,6 +8,7 @@ import {
   Download,
   Filter,
   GitMerge,
+  ListChecks,
   Plus,
   Save,
   Search,
@@ -62,6 +63,7 @@ export function ListaShell<T extends RowBase>({
   team,
   newButton,
   onOpenRow,
+  onBulkTask,
 }: {
   scope: "pessoas" | "empresas";
   rows: T[];
@@ -73,6 +75,7 @@ export function ListaShell<T extends RowBase>({
   team: string[];
   newButton: ReactNode;
   onOpenRow: (row: T) => void;
+  onBulkTask?: (rows: T[]) => void;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -479,6 +482,16 @@ export function ListaShell<T extends RowBase>({
                 </option>
               ))}
             </select>
+          )}
+          {onBulkTask && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onBulkTask(selectedRows)}
+              className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-black/5 disabled:opacity-50"
+            >
+              <ListChecks className="h-3.5 w-3.5" /> Criar tarefa
+            </button>
           )}
           <button
             type="button"
