@@ -458,6 +458,8 @@ export type Stage = {
   probability: number;
   position: number;
   kind: "open" | "won" | "lost";
+  /** Sucesso desta etapa = Passagem de Bastão (não "Ganho"). Parametriza o funil. */
+  isHandoff?: boolean;
   /** Texto curto do que acontece na etapa (exibido no cabeçalho da coluna). */
   hint?: string;
   requirements: StageRequirement[];

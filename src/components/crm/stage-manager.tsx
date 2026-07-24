@@ -279,6 +279,7 @@ function StageRow({
   const [color, setColor] = useState(stage.color);
   const [prob, setProb] = useState(stage.probability);
   const [kind, setKind] = useState<Stage["kind"]>(stage.kind);
+  const [isHandoff, setIsHandoff] = useState(Boolean(stage.isHandoff));
   const [reqs, setReqs] = useState<StageRequirement[]>(stage.requirements ?? []);
   const [autos, setAutos] = useState<StageAutomation[]>(stage.automations ?? []);
   const [showRules, setShowRules] = useState(false);
@@ -291,6 +292,7 @@ function StageRow({
     color !== stage.color ||
     prob !== stage.probability ||
     kind !== stage.kind ||
+    isHandoff !== Boolean(stage.isHandoff) ||
     JSON.stringify(reqs) !== JSON.stringify(stage.requirements ?? []) ||
     JSON.stringify(autos) !== JSON.stringify(stage.automations ?? []);
 
@@ -343,6 +345,7 @@ function StageRow({
       color,
       probability: prob,
       kind,
+      isHandoff: kind === "won" ? isHandoff : false,
       requirements: reqs,
       automations: autos,
     });
@@ -458,6 +461,12 @@ function StageRow({
           ))}
         </select>
       </label>
+      {kind === "won" && (
+        <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ink" title="O sucesso desta etapa vira Passagem de Bastão (passa o negócio para o próximo funil) em vez de Ganho.">
+          <input type="checkbox" checked={isHandoff} onChange={(e) => setIsHandoff(e.target.checked)} />
+          Passagem de bastão
+        </label>
+      )}
       {dirty && (
         <button
           onClick={save}

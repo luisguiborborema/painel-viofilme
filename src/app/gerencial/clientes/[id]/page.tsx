@@ -28,6 +28,8 @@ import { VioLaunchPanel } from "@/components/gerencial/violaunch-panel";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientGoalsCard } from "@/components/gerencial/client-goals-card";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
+import { getSession } from "@/lib/auth/session";
+import { hasFullAccess, canAccessSection } from "@/lib/access";
 import { LinhaEditorial } from "@/components/gerencial/linha-editorial";
 import { VioDay } from "@/components/gerencial/vioday";
 import { ClientTasksTab } from "@/components/gerencial/client-tasks-tab";
@@ -120,8 +122,15 @@ export default async function RaioXCliente({
 }) {
   const { id } = await params;
   const { tab, le } = await searchParams;
-  const d = await getCSClientDetail(id);
+  const [d, sessionUser] = await Promise.all([getCSClientDetail(id), getSession()]);
   if (!d) notFound();
+  // Perfil operacional (Designer/Editor/Social): sem acesso a Financeiro nem
+  // Comercial → esconde a aba Metas (dados comerciais/financeiros do cliente).
+  const opOnly =
+    !!sessionUser &&
+    !hasFullAccess(sessionUser.allowedSections) &&
+    !canAccessSection(sessionUser.allowedSections, "financeiro") &&
+    !canAccessSection(sessionUser.allowedSections, "crm");
 
   const c = d.client;
   const [hubOps, clientTasks, portal] = await Promise.all([
@@ -485,7 +494,7 @@ export default async function RaioXCliente({
         </div>
       </Card>
 
-      <ClientTabs tabs={tabs} defaultKey={tab} />
+      <ClientTabs tabs={opOnly ? tabs.filter((t) => t.key !== "metas") : tabs} defaultKey={tab} />
     </div>
   );
 }

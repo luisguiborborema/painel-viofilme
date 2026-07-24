@@ -168,7 +168,12 @@ export function LeadModalContent({
     DEFAULT_PIPELINE;
   const stages = pipeline.stages ?? DEFAULT_PIPELINE.stages;
   const currentStage = stages.find((s) => s.key === lead.stage);
-  const isSdr = lead.pipelineId === PIPELINE_PREVENDA_ID || String(lead.stage).startsWith("sdr_");
+  // Funil de passagem de bastão: parametrizável (etapa marcada como handoff em
+  // Configurações) OU o funil de Pré-venda padrão / etapas sdr_ (retrocompat).
+  const isSdr =
+    stages.some((s) => s.isHandoff) ||
+    lead.pipelineId === PIPELINE_PREVENDA_ID ||
+    String(lead.stage).startsWith("sdr_");
   const closed = won || lead.stage === "perdido";
 
   const primaryContact =
