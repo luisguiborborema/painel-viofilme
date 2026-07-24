@@ -16,7 +16,6 @@ import {
   Flag,
   List as ListIcon,
   ListChecks,
-  Loader2,
   Mail,
   MessageCircle,
   Phone,
@@ -32,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { withToast } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
   DEAL_SCRIPTS,
@@ -262,7 +262,7 @@ export function CrmActivities({
       {/* Toolbar: view toggle + criar + modo foco */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="inline-flex rounded-xl border border-line p-0.5">
-          {([["lista", ListIcon, "Lista"], ["calendario", CalendarDays, "Calendário"], ["foco", Target, "Foco do dia"]] as const).map(
+          {([["lista", ListIcon, "Lista"], ["calendario", CalendarDays, "Calendário"], ["foco", Target, "Prioridades"]] as const).map(
             ([k, Icon, label]) => (
               <button
                 key={k}
@@ -882,13 +882,22 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [slashIdx, setSlashIdx] = useState(0);
 
   const suggested = suggestedScriptFor(task?.dealStage ?? "", scripts);
   const activeScripts = scripts.filter((s) => s.isActive !== false && s.command);
   const slashQ = note.trimStart();
   const showSlash = slashQ.startsWith("/");
   const slashMatches = showSlash ? activeScripts.filter((s) => s.command.startsWith(slashQ.split(/\s/)[0].toLowerCase())) : [];
-  function inject(s: DealScript) { setNote((showSlash ? "" : note ? note + "\n\n" : "") + s.body + "\n"); }
+  const slashActive = Math.min(slashIdx, Math.max(0, slashMatches.length - 1));
+  function inject(s: DealScript) { setNote((showSlash ? "" : note ? note + "\n\n" : "") + s.body + "\n"); setSlashIdx(0); }
+  function onNoteKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!showSlash || slashMatches.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(i + 1, slashMatches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); inject(slashMatches[slashActive]); }
+    else if (e.key === "Escape") { e.preventDefault(); setNote(note.replace(/^\s*\/\S*\s?/, "")); }
+  }
 
   function applyShortcut(days: number) { const d = new Date(); d.setDate(d.getDate() + days); setDueDate(d.toISOString().slice(0, 10)); }
   const dueIso = () => (dueDate ? new Date(`${dueDate}T${dueTime || "09:00"}`).toISOString() : undefined);
@@ -899,7 +908,8 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
     setErr(null);
     const properties: Record<string, unknown> = {
       reminder: reminder === "sem" ? undefined : reminder,
-      recurrence: recurrence === "nenhuma" ? undefined : recurrence,
+      // Recorrência não se aplica a toques avulsos (ligação/whatsapp/e-mail).
+      recurrence: recurrence === "nenhuma" || ["ligacao", "whatsapp", "email"].includes(type) ? undefined : recurrence,
       duration_min: duration ? Number(duration) : undefined,
     };
     try {
@@ -991,9 +1001,11 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
             <label className="block"><span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted"><Flag className="h-3 w-3" /> Prioridade</span>
               <select value={priority} onChange={(e) => setPriority(e.target.value)} className={drawerInput}><option value="baixa">Baixa</option><option value="media">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select>
             </label>
-            <label className="block"><span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted"><RefreshCw className="h-3 w-3" /> Recorrência</span>
-              <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={drawerInput}><option value="nenhuma">Não repetir</option><option value="diaria">Diária</option><option value="semanal">Semanal</option><option value="mensal">Mensal</option></select>
-            </label>
+            {!["ligacao", "whatsapp", "email"].includes(type) && (
+              <label className="block"><span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted"><RefreshCw className="h-3 w-3" /> Recorrência</span>
+                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={drawerInput}><option value="nenhuma">Não repetir</option><option value="diaria">Diária</option><option value="semanal">Semanal</option><option value="mensal">Mensal</option></select>
+              </label>
+            )}
             <label className="block"><span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted"><Clock className="h-3 w-3" /> Duração (min)</span>
               <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="30" className={drawerInput} />
             </label>
@@ -1010,15 +1022,23 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
             <div className="relative">
               <p className="mb-1 text-[11px] font-medium text-muted">Anotação {suggested && <span className="text-brand-500">· digite / p/ roteiros</span>}</p>
               {showSlash && slashMatches.length > 0 && (
-                <div className="absolute bottom-full left-0 z-10 mb-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
-                  {slashMatches.map((s) => (
-                    <button key={s.id ?? s.command} onClick={() => inject(s)} className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-subtle">
+                <div className="absolute bottom-full left-0 z-10 mb-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-lg" role="listbox">
+                  {slashMatches.map((s, i) => (
+                    <button
+                      key={s.id ?? s.command}
+                      type="button"
+                      onClick={() => inject(s)}
+                      onMouseEnter={() => setSlashIdx(i)}
+                      role="option"
+                      aria-selected={i === slashActive}
+                      className={cn("flex w-full items-start gap-2 px-3 py-2 text-left text-sm", i === slashActive ? "bg-subtle" : "hover:bg-subtle")}
+                    >
                       <Zap className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><span className="min-w-0"><span className="font-medium text-ink">{s.command}</span><span className="block text-[11px] text-muted">{s.title}</span></span>
                     </button>
                   ))}
                 </div>
               )}
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} placeholder="O que foi conversado nesta tarefa…" className={drawerInput + " resize-y"} />
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={onNoteKeyDown} rows={4} placeholder="O que foi conversado nesta tarefa…  (digite / para roteiros — ↑↓ e Enter)" className={drawerInput + " resize-y"} />
             </div>
           )}
         </div>
@@ -1028,13 +1048,11 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
         )}
         <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
           {editing ? (
-            <button onClick={() => onConclude(note)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Check className="h-4 w-4" /> Concluir</button>
+            <Button variant="success" size="sm" onClick={() => onConclude(note)}><Check className="h-4 w-4" /> Concluir</Button>
           ) : <span />}
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-            <button onClick={save} disabled={busy || !title.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Salvar
-            </button>
+            <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={save} disabled={!title.trim()} busy={busy}>Salvar</Button>
           </div>
         </div>
       </div>

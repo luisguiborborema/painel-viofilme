@@ -26,6 +26,7 @@ import {
 } from "@/lib/data/listas";
 import type { KnowledgeCategory, KnowledgePageCard, ServiceCatalog } from "@/lib/data/listas-server";
 import { ListaShell, type Col } from "./listas-shell";
+import { TabNav } from "@/components/ui/tab-nav";
 import { NewContactModal } from "./new-contact-modal";
 import { NewCompanyModal } from "./new-company-modal";
 import { BulkTaskModal } from "./bulk-task-modal";
@@ -193,26 +194,7 @@ export function CrmListas({
   return (
     <div className="space-y-4">
       {/* Sub-navegação das listas */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = sub === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setSub(t.key)}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition ${
-                active ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-              <span className={`rounded-full px-1.5 text-[11px] ${active ? "bg-white/20" : "bg-black/5 text-muted"}`}>{t.count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <TabNav tabs={TABS} active={sub} onChange={setSub} />
 
       {sub === "pessoas" && (
         <ListaShell

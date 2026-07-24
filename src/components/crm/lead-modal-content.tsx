@@ -90,6 +90,7 @@ import { LeadComments } from "./lead-comments";
 import { CrmDocuments } from "./crm-documents";
 import { SettingsShortcut } from "./settings-shortcut";
 import { withToast } from "@/lib/api";
+import { toneClass } from "@/components/ui/tone";
 import type { Attendant } from "@/lib/data/inbox";
 
 /**
@@ -810,12 +811,22 @@ function OpenTaskCard({
   const slashMatches = showSlash
     ? activeScripts.filter((s) => s.command.startsWith(slashQuery.split(/\s/)[0].toLowerCase()))
     : [];
+  const [slashIdx, setSlashIdx] = useState(0);
+  const slashActive = Math.min(slashIdx, Math.max(0, slashMatches.length - 1));
 
   function inject(script: DealScript) {
     // Substitui o comando "/…" digitado (se houver) pelo corpo do roteiro.
     const base = showSlash ? "" : note ? note + "\n\n" : "";
     setNote(base + script.body + "\n");
     setShowScripts(false);
+    setSlashIdx(0);
+  }
+  function onNoteKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!showSlash || slashMatches.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(i + 1, slashMatches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); inject(slashMatches[slashActive]); }
+    else if (e.key === "Escape") { e.preventDefault(); setNote(note.replace(/^\s*\/\S*\s?/, "")); }
   }
 
   return (
@@ -867,12 +878,16 @@ function OpenTaskCard({
 
       <div className="relative mt-2.5">
         {showSlash && slashMatches.length > 0 && (
-          <div className="absolute bottom-full left-0 z-10 mb-1 w-72 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
-            {slashMatches.map((s) => (
+          <div className="absolute bottom-full left-0 z-10 mb-1 w-72 overflow-hidden rounded-xl border border-line bg-surface shadow-lg" role="listbox">
+            {slashMatches.map((s, i) => (
               <button
                 key={s.id ?? s.command}
+                type="button"
                 onClick={() => inject(s)}
-                className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-subtle"
+                onMouseEnter={() => setSlashIdx(i)}
+                role="option"
+                aria-selected={i === slashActive}
+                className={cn("flex w-full items-start gap-2 px-3 py-2 text-left text-sm", i === slashActive ? "bg-subtle" : "hover:bg-subtle")}
               >
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                 <span className="min-w-0 flex-1">
@@ -886,8 +901,9 @@ function OpenTaskCard({
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          onKeyDown={onNoteKeyDown}
           rows={4}
-          placeholder="Anote o que foi conversado nesta tarefa… (digite / para roteiros e scripts)"
+          placeholder="Anote o que foi conversado nesta tarefa… (digite / para roteiros — ↑↓ e Enter)"
           className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand-400"
         />
       </div>
@@ -1068,13 +1084,6 @@ function QualiTab({ lead, onSave }: { lead: CrmLead; onSave: (key: string, value
   );
 }
 
-const DOC_TONE: Record<string, string> = {
-  muted: "bg-black/5 text-muted",
-  brand: "bg-brand-100 text-brand-700",
-  amber: "bg-amber-100 text-amber-700",
-  emerald: "bg-emerald-100 text-emerald-700",
-  red: "bg-red-100 text-red-700",
-};
 const DOC_KIND_LABEL = Object.fromEntries(CRM_DOCUMENT_KINDS.map((k) => [k.key, k.label]));
 const DOC_STATUS_MAP = Object.fromEntries(DOC_STATUSES.map((s) => [s.key, s]));
 
@@ -1139,7 +1148,7 @@ function NegoDocs({
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {d.value != null && <span className="text-xs font-medium text-ink">{formatBRL(d.value)}</span>}
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${DOC_TONE[s.tone]}`}>{s.label}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClass(s.tone)}`}>{s.label}</span>
                   {d.url && (
                     <a href={d.url} target="_blank" rel="noreferrer" className="text-muted hover:text-brand-600">
                       abrir

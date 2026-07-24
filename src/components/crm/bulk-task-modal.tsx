@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Loader2, Search, Square, X } from "lucide-react";
+import { CheckSquare, Search, Square, X } from "lucide-react";
 import { TASK_TYPES } from "@/lib/data/crm";
 import { apiPost } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 const input = "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
 const DUE_SHORTCUTS: { label: string; days: number }[] = [
@@ -198,11 +199,11 @@ export function BulkTaskModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-4 py-3">
-          <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-          <button onClick={save} disabled={disabled} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare className="h-4 w-4" />}
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" onClick={save} disabled={disabled} busy={busy}>
+            {!busy && <CheckSquare className="h-4 w-4" />}
             Criar {pickTargets ? (picked.size || "") : count} tarefa{effectiveCount === 1 ? "" : "s"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

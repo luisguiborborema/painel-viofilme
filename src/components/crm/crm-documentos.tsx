@@ -28,6 +28,8 @@ import {
   type DocTemplate,
   type SalesMaterial,
 } from "@/lib/data/crm";
+import { toneClass } from "@/components/ui/tone";
+import { TabNav } from "@/components/ui/tab-nav";
 
 type Tab = "propostas" | "modelos" | "materiais";
 type Deal = { id: string; name: string; owner?: string };
@@ -36,14 +38,6 @@ const KIND_LABEL = Object.fromEntries(CRM_DOCUMENT_KINDS.map((k) => [k.key, k.la
 const TPL_KIND_LABEL = Object.fromEntries(DOC_TEMPLATE_KINDS.map((k) => [k.key, k.label]));
 const MAT_KIND_LABEL = Object.fromEntries(SALES_MATERIAL_KINDS.map((k) => [k.key, k.label]));
 const STATUS = Object.fromEntries(DOC_STATUSES.map((s) => [s.key, s]));
-
-const TONE: Record<string, string> = {
-  muted: "bg-black/5 text-muted",
-  brand: "bg-brand-100 text-brand-700",
-  amber: "bg-amber-100 text-amber-700",
-  emerald: "bg-emerald-100 text-emerald-700",
-  red: "bg-red-100 text-red-700",
-};
 
 const inputCls = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
 
@@ -65,7 +59,7 @@ async function post(url: string, body: unknown) {
 
 function StatusBadge({ status }: { status?: DocStatus }) {
   const s = STATUS[status ?? "draft"] ?? STATUS.draft;
-  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[s.tone]}`}>{s.label}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClass(s.tone)}`}>{s.label}</span>;
 }
 
 function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -113,26 +107,7 @@ export function CrmDocumentos({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition ${
-                active ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-              <span className={`rounded-full px-1.5 text-[11px] ${active ? "bg-white/20" : "bg-black/5 text-muted"}`}>{t.count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <TabNav tabs={TABS} active={tab} onChange={setTab} />
 
       {tab === "propostas" && <PropostasPanel docs={tracked} team={team} />}
       {tab === "modelos" && <ModelosPanel templates={templates} deals={deals} companies={companies} />}
