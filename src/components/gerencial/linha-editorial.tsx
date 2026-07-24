@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   Clapperboard,
@@ -102,7 +102,7 @@ const REF_ICON: Record<EditorialRef["kind"], typeof Link2> = {
   link: Link2,
 };
 
-function Moodboard({ refs, onAdd, compact }: { refs: EditorialRef[]; onAdd: (r: EditorialRef) => void; compact?: boolean }) {
+function Moodboard({ refs, onAdd, onRemove, compact }: { refs: EditorialRef[]; onAdd: (r: EditorialRef) => void; onRemove?: (id: string) => void; compact?: boolean }) {
   const [url, setUrl] = useState("");
   function add() {
     const v = url.trim();
@@ -121,10 +121,22 @@ function Moodboard({ refs, onAdd, compact }: { refs: EditorialRef[]; onAdd: (r: 
               <span className="line-clamp-2 text-[9px] text-muted">{r.label ?? r.kind}</span>
             </div>
           );
-          return r.url ? (
-            <a key={r.id} href={r.url} target="_blank" rel="noreferrer" title={r.url} className="hover:opacity-80">{tile}</a>
-          ) : (
-            <div key={r.id}>{tile}</div>
+          const inner = r.url ? (
+            <a href={r.url} target="_blank" rel="noreferrer" title={r.url} className="block hover:opacity-80">{tile}</a>
+          ) : tile;
+          return (
+            <div key={r.id} className="group relative">
+              {inner}
+              {onRemove && (
+                <button
+                  onClick={(e) => { e.preventDefault(); onRemove(r.id); }}
+                  title="Remover referência"
+                  className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white group-hover:flex"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
           );
         })}
         <button
@@ -997,7 +1009,7 @@ function NovaLEModal({
   drafts?: EditorialDraft[];
   onResume: (draftId: string) => void;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (newLineId?: string) => void;
 }) {
   const [mode, setMode] = useState<"branco" | "duplicar">(data.id ? "duplicar" : "branco");
   const [monthNum, setMonthNum] = useState("");
@@ -1034,7 +1046,7 @@ function NovaLEModal({
         setError(j?.error ?? "Falha ao criar a LE.");
         return;
       }
-      onDone();
+      onDone(j?.id ? String(j.id) : undefined);
     } catch {
       setError("Falha de rede ao criar a LE.");
     } finally {
@@ -1137,9 +1149,21 @@ function ReadField({ label, value }: { label: string; value?: string }) {
   );
 }
 
-/** Cabeçalho estratégico READ-ONLY (A1/A5): a tela principal é documento, não formulário. */
-function StrategicHeaderView({ data }: { data: EditorialLine }) {
+/** Cabeçalho estratégico READ-ONLY (A1/A5): a tela principal é documento, não formulário.
+ *  Exceção: o Moodboard & referências fica sempre editável (colar links/imagens
+ *  a qualquer momento, sem entrar em modo de edição). */
+function StrategicHeaderView({ data, lineId }: { data: EditorialLine; lineId?: string }) {
   const datas = und(data.datasComemorativas) ? data.datasComemorativas.split(" · ").filter(Boolean) : [];
+  const [moodboard, setMoodboard] = useState<EditorialRef[]>(data.moodboardGeral);
+  async function persistMoodboard(next: EditorialRef[]) {
+    setMoodboard(next);
+    if (!lineId) return;
+    await fetch("/api/gerencial/editorial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-header", id: lineId, moodboard: next }),
+    }).catch(() => {});
+  }
   return (
     <div className="rounded-2xl border border-brand-200 bg-brand-50/30">
       <div className="border-b border-brand-100 px-4 py-2.5">
@@ -1177,19 +1201,8 @@ function StrategicHeaderView({ data }: { data: EditorialLine }) {
         </div>
         <div>
           <p className="mb-1.5 text-xs font-semibold text-ink">Moodboard & referências</p>
-          {data.moodboardGeral.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {data.moodboardGeral.map((r) =>
-                r.url ? (
-                  <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-subtle px-2 py-1 text-[11px] text-ink hover:bg-subtle-strong">
-                    {r.label || r.kind}
-                  </a>
-                ) : (
-                  <span key={r.id} className="inline-flex items-center gap-1 rounded-lg bg-subtle px-2 py-1 text-[11px] text-muted">{r.label || r.kind}</span>
-                ),
-              )}
-            </div>
-          ) : <p className="text-sm italic text-muted">— não definido</p>}
+          <Moodboard refs={moodboard} onAdd={(r) => persistMoodboard([...moodboard, r])} onRemove={(id) => persistMoodboard(moodboard.filter((x) => x.id !== id))} compact />
+          <p className="mt-1.5 text-[11px] text-muted">Cole links ou anexe imagens a qualquer momento — salva sozinho.</p>
         </div>
       </div>
     </div>
@@ -1512,6 +1525,7 @@ export function LinhaEditorial({
   drafts?: EditorialDraft[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const lineId = data.id;
   const [filter, setFilter] = useState<"Todos" | EditorialFormat>("Todos");
   const [showHistory, setShowHistory] = useState(false);
@@ -1521,6 +1535,16 @@ export function LinhaEditorial({
   const [novaLE, setNovaLE] = useState(false);
   const [editing, setEditing] = useState(false);
   const [taskByPost, setTaskByPost] = useState<Record<number, string>>({});
+
+  // Fluxo unificado: ao criar uma LE (navegação com ?edit=1), abre o editor do
+  // cabeçalho automaticamente (uma vez), sem exigir o clique em "Editar".
+  const openedFromParam = useRef(false);
+  useEffect(() => {
+    if (!openedFromParam.current && searchParams.get("edit") === "1" && lineId) {
+      openedFromParam.current = true;
+      setEditing(true);
+    }
+  }, [searchParams, lineId]);
 
   function changeStage(s: EditorialStage) {
     setStage(s);
@@ -1575,9 +1599,26 @@ export function LinhaEditorial({
               <History className="h-4 w-4" /> Histórico
             </button>
             {showHistory && (
-              <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-line bg-surface p-1 shadow-lg">
+              <div className="absolute right-0 z-20 mt-1 max-h-72 w-52 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
+                {lineId && (
+                  <button
+                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${lineId}`); }}
+                    className="block w-full rounded-lg bg-subtle px-3 py-2 text-left text-sm font-medium text-ink"
+                  >
+                    {data.month} <span className="text-[11px] text-muted">(atual)</span>
+                  </button>
+                )}
+                {data.history.length === 0 && !lineId && (
+                  <p className="px-3 py-2 text-center text-xs text-muted">Sem meses anteriores.</p>
+                )}
                 {data.history.map((h) => (
-                  <button key={h.id} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-subtle">{h.month}</button>
+                  <button
+                    key={h.id}
+                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${h.id}`); }}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-subtle"
+                  >
+                    {h.month}
+                  </button>
                 ))}
               </div>
             )}
@@ -1620,7 +1661,7 @@ export function LinhaEditorial({
       </div>
 
       {/* ── Nível 1: Cabeçalho estratégico (documento read-only; edita no modal) ── */}
-      <StrategicHeaderView data={data} />
+      <StrategicHeaderView data={data} lineId={lineId} />
 
       {/* ── Nível 1.5: Slots do contrato ── */}
       <ContractSlots clientId={clientId} deliverables={deliverables} posts={posts} />
@@ -1673,9 +1714,11 @@ export function LinhaEditorial({
           drafts={drafts}
           onResume={(draftId) => { setNovaLE(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${draftId}`); }}
           onClose={() => setNovaLE(false)}
-          onDone={() => {
+          onDone={(newId) => {
             setNovaLE(false);
-            router.refresh();
+            // Fluxo unificado: já abre a nova LE com o editor do cabeçalho aberto.
+            if (newId) router.push(`/gerencial/clientes/${clientId}?tab=le&le=${newId}&edit=1`);
+            else router.refresh();
           }}
         />
       )}

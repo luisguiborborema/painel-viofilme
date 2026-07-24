@@ -52,10 +52,22 @@ export const TEAM_TEMPLATES: TeamTemplate[] = [
   },
   { value: "financeiro", label: "Financeiro", sections: ["financeiro"] },
   { value: "rh", label: "RH & cultura", sections: ["rh"] },
+  // Operacional: só o escopo de produção (Linha Editorial + Tarefas/Entregas).
+  // Sem CRM/Comercial, Financeiro nem Configurações administrativas.
   {
     value: "social",
     label: "Social Media",
-    sections: ["clientes", "conteudo", "resultados", "entregas"],
+    sections: ["clientes", "entregas", "conteudo"],
+  },
+  {
+    value: "designer",
+    label: "Designer",
+    sections: ["clientes", "entregas"],
+  },
+  {
+    value: "editor-video",
+    label: "Editor de Vídeo",
+    sections: ["clientes", "entregas"],
   },
   {
     value: "trafego",

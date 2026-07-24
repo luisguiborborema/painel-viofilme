@@ -55,6 +55,7 @@ import {
   DOC_STATUSES,
   TRACKED_DOC_KINDS,
   CRM_DOCUMENT_KINDS,
+  BANT_LABELS,
   type CardFieldSetting,
   type Company,
   type Contact,
@@ -602,7 +603,7 @@ export function LeadModalContent({
         <FabTaskCreator onClose={() => setShowFab(false)} onCreate={createTask} />
       )}
       {showHandoff && (
-        <HandoffFichaModal name={lead.name} onClose={() => setShowHandoff(false)} onSubmit={submitHandoff} />
+        <HandoffFichaModal lead={lead} onClose={() => setShowHandoff(false)} onSubmit={submitHandoff} />
       )}
       {nextPrompt && (
         <NextLeadPrompt
@@ -1377,38 +1378,96 @@ function FabTaskCreator({
 /* ── Passagem de bastão (SDR → Vendas) ─────────────────── */
 
 function HandoffFichaModal({
-  name,
+  lead,
   onClose,
   onSubmit,
 }: {
-  name: string;
+  lead: CrmLead;
   onClose: () => void;
   onSubmit: (result: "aceito" | "recusado", parecer: string) => void;
 }) {
   const [parecer, setParecer] = useState("");
+  const props = (lead.properties ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (v == null ? "" : String(v)).trim();
+  // Campos da qualificação que o closer precisa receber preenchidos.
+  const quali: { label: string; value: string }[] = [
+    { label: "Solução procurada", value: str(props.q_solucao) },
+    { label: "Cargo do decisor", value: str(props.q_cargo_decisor) },
+    { label: "Faturamento", value: str(props.q_faturamento) },
+    { label: "Dor principal", value: str(props.q_dor) || str(lead.bant?.need) },
+  ];
+  const bantMissing = BANT_LABELS.filter((b) => !str(lead.bant?.[b.key])).map((b) => b.label);
+  const qualiMissing = quali.filter((q) => !q.value).map((q) => q.label);
+  const missing = [...bantMissing, ...qualiMissing];
+  const canAccept = missing.length === 0 && parecer.trim().length > 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+      <div className="relative z-10 max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl">
         <h2 className="text-base font-bold text-ink">Passagem de bastão</h2>
         <p className="mt-0.5 text-xs text-muted">
-          <span className="font-semibold text-ink">{name}</span> — registre o parecer da qualificação. Aceito segue para o
-          funil de Vendas; recusado vira Perdido com o feedback anexado.
+          <span className="font-semibold text-ink">{lead.name}</span> — o closer precisa receber a qualificação
+          completa. Confira e complete antes de passar. Aceito segue para Vendas; recusado vira Perdido.
         </p>
+
+        {/* Resumo da qualificação (BANT + campos-chave) */}
+        <div className="mt-3 space-y-2 rounded-xl border border-line bg-canvas p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">BANT</p>
+          <div className="grid grid-cols-2 gap-2">
+            {BANT_LABELS.map((b) => {
+              const v = str(lead.bant?.[b.key]);
+              return (
+                <div key={b.key} className="text-xs">
+                  <span className="text-muted">{b.label}: </span>
+                  {v ? <span className="text-ink">{v}</span> : <span className="italic text-rose-500">faltando</span>}
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Qualificação</p>
+          <div className="grid grid-cols-2 gap-2">
+            {quali.map((q) => (
+              <div key={q.label} className="text-xs">
+                <span className="text-muted">{q.label}: </span>
+                {q.value ? <span className="text-ink">{q.value}</span> : <span className="italic text-rose-500">faltando</span>}
+              </div>
+            ))}
+          </div>
+          {str(lead.prospectingNotes) && (
+            <p className="mt-1 text-xs"><span className="text-muted">Prospecção: </span><span className="text-ink">{str(lead.prospectingNotes)}</span></p>
+          )}
+        </div>
+
         <textarea
           value={parecer}
           onChange={(e) => setParecer(e.target.value)}
-          rows={4}
+          rows={3}
           placeholder="Parecer / contexto para o closer (dor, budget, decisor, urgência…)"
           className="mt-3 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
         />
+
+        {missing.length > 0 && (
+          <p className="mt-2 text-[11px] text-amber-600">
+            Preencha na ficha (aba Qualificação) antes de passar o bastão: <strong>{missing.join(", ")}</strong>.
+          </p>
+        )}
+        {missing.length === 0 && !parecer.trim() && (
+          <p className="mt-2 text-[11px] text-amber-600">Escreva o parecer para liberar a passagem.</p>
+        )}
+
         <div className="mt-4 flex items-center justify-between gap-2">
           <button onClick={() => onSubmit("recusado", parecer)} className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-500/10">
             Recusar (Perdido)
           </button>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-subtle">Cancelar</button>
-            <button onClick={() => onSubmit("aceito", parecer)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+            <button
+              onClick={() => onSubmit("aceito", parecer)}
+              disabled={!canAccept}
+              title={canAccept ? "" : "Complete a qualificação e o parecer"}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               Aceitar → Vendas
             </button>
           </div>
