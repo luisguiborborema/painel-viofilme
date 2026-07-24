@@ -29,6 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { withToast } from "@/lib/api";
 import { dayMonth, clockLabel } from "@/lib/datetime";
 import {
   DEAL_SCRIPTS,
@@ -112,7 +113,8 @@ function savePref(key: string, value: string) {
 
 /* ── API helper ────────────────────────────────────────── */
 function postTask(body: unknown) {
-  return fetch("/api/crm/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  // withToast: falha vira aviso ao usuário (não some sem avisar).
+  return withToast(fetch("/api/crm/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 }
 
 /* ════════════════════════════════════════════════════════ */
@@ -788,7 +790,7 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
       duration_min: duration ? Number(duration) : undefined,
     };
     try {
-      let res: Response;
+      let res: Response | null;
       if (create) {
         res = await postTask({
           action: "add",
@@ -806,8 +808,9 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
         setBusy(false);
         return;
       }
-      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || out.error) {
+      // withToast já avisou em falha de rede/servidor; só interrompe.
+      if (!res || !res.ok) {
+        const out = res ? ((await res.json().catch(() => ({}))) as { error?: string }) : {};
         setErr(out.error ?? "Não foi possível salvar a atividade.");
         setBusy(false);
         return;

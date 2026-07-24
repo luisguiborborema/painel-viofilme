@@ -27,6 +27,7 @@ import {
 } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
 import { AvatarStack } from "@/components/ui/avatar";
+import { withToast } from "@/lib/api";
 
 type SortKey = "name" | "empresa" | "stage" | "owner" | "value" | "priority" | "days";
 type StatusFilter = "abertos" | "ganhos" | "perdidos" | "congelados" | "todos";
@@ -158,11 +159,13 @@ export function CrmList({
   }
 
   function post(payload: Record<string, unknown>) {
-    return fetch("/api/crm/leads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    return withToast(
+      fetch("/api/crm/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
   }
   const selectedIds = () => [...selected];
 

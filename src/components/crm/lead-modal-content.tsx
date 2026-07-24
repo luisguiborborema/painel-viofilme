@@ -88,6 +88,7 @@ import { useLeadModalLayout, type LeadModalLayout } from "./lead-modal";
 import { LeadComments } from "./lead-comments";
 import { CrmDocuments } from "./crm-documents";
 import { SettingsShortcut } from "./settings-shortcut";
+import { withToast } from "@/lib/api";
 import type { Attendant } from "@/lib/data/inbox";
 
 /**
@@ -314,11 +315,13 @@ export function LeadModalContent({
 
   async function saveProp(key: string, value: unknown) {
     setLead((l) => ({ ...l, properties: { ...(l.properties ?? {}), [key]: value } }));
-    await fetch("/api/crm/object", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ objectType: "deal", id: lead.id, properties: { [key]: value } }),
-    }).catch(() => {});
+    await withToast(
+      fetch("/api/crm/object", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objectType: "deal", id: lead.id, properties: { [key]: value } }),
+      }),
+    );
   }
 
   async function saveObject(
@@ -327,11 +330,13 @@ export function LeadModalContent({
     fields?: Record<string, unknown>,
     properties?: Record<string, unknown>,
   ) {
-    await fetch("/api/crm/object", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ objectType, id, fields, properties }),
-    }).catch(() => {});
+    await withToast(
+      fetch("/api/crm/object", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objectType, id, fields, properties }),
+      }),
+    );
   }
 
   async function markLost(reason: string) {

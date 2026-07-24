@@ -50,6 +50,8 @@ import { CrmList } from "./crm-list";
 import { CrmForecast } from "./crm-forecast";
 import { TagChips } from "./tag-chips";
 import { SettingsShortcut } from "./settings-shortcut";
+import { withToast } from "@/lib/api";
+import { toast } from "@/components/ui/toast";
 
 function cardBorder(card: CrmLeadCard): string {
   if (card.rot === "stale") return "border-l-rose-500";
@@ -504,11 +506,14 @@ export function CrmPipeline({
   }
 
   function post(payload: Record<string, unknown>) {
-    return fetch("/api/crm/leads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    // withToast: em falha, avisa o usuário (não engole). Devolve Response|null.
+    return withToast(
+      fetch("/api/crm/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    );
   }
 
   async function markNoShow(id: string) {
@@ -671,8 +676,14 @@ export function CrmPipeline({
         });
         return;
       }
+      if (!res.ok) {
+        // Falha real (não requisitos): avisa e reverte o movimento otimista.
+        toast("Não foi possível mover o negócio. Tente de novo.", "error");
+        setCards((prev) => prev.map((c) => (c.id === id ? { ...c, stage: prevStage } : c)));
+        return;
+      }
     } catch {
-      /* otimista: mantém no board mesmo se falhar por rede */
+      toast("Sem conexão — o movimento não foi salvo.", "error");
     }
     router.refresh();
   }
