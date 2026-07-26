@@ -102,11 +102,22 @@ export async function POST(req: Request) {
     .order("position", { ascending: true });
   const fields = (fieldsData ?? []) as FieldRow[];
 
+  // Formulários sem campos configurados (inclui os de captação antigos): usa o
+  // conjunto legado (nome/empresa/e-mail/telefone/mensagem) para não perder o envio.
+  const LEGACY_FIELDS: FieldRow[] = [
+    { field_key: "contact_name", label: "Nome", field_type: "text", required: true, map_to: "contact_name", position: 0 },
+    { field_key: "company", label: "Empresa", field_type: "text", required: false, map_to: "company", position: 1 },
+    { field_key: "contact_email", label: "E-mail", field_type: "email", required: false, map_to: "contact_email", position: 2 },
+    { field_key: "contact_phone", label: "WhatsApp", field_type: "phone", required: false, map_to: "contact_phone", position: 3 },
+    { field_key: "message", label: "Mensagem", field_type: "textarea", required: false, map_to: "custom", position: 4 },
+  ];
+  const effectiveFields = fields.length ? fields : LEGACY_FIELDS;
+
   // Mapeia valores por destino do campo + valida obrigatórios.
   const mapped: Record<string, string> = {};
   const custom: Record<string, unknown> = {};
   const briefing: string[] = [];
-  for (const f of fields) {
+  for (const f of effectiveFields) {
     const raw = values[f.field_key];
     const v = str(raw);
     if (f.required && !v) {
@@ -123,7 +134,7 @@ export async function POST(req: Request) {
   const owner = (form.owner as string | null) ?? null;
   const source = (form.source as string | null) ?? "Formulário";
   const title =
-    mapped.title || mapped.company || mapped.contact_name || fields.map((f) => str(values[f.field_key])).find(Boolean) || source;
+    mapped.title || mapped.company || mapped.contact_name || effectiveFields.map((f) => str(values[f.field_key])).find(Boolean) || source;
   const contactName = mapped.contact_name || mapped.company || title;
   const email = mapped.contact_email || null;
   const phone = mapped.contact_phone ? mapped.contact_phone.replace(/\D/g, "") : null;

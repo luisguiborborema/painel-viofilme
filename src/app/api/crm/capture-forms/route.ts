@@ -84,6 +84,9 @@ export async function POST(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
+  if (user.readOnly) {
+    return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
+  }
 
   let b: Body;
   try {
@@ -127,6 +130,16 @@ export async function POST(req: Request) {
         };
       })
       .filter(Boolean) as Record<string, unknown>[];
+    // Dedup de field_key (rótulos iguais gerariam a mesma chave → colisão de valor).
+    const seenKeys = new Set<string>();
+    for (const r of rows) {
+      const base = String(r.field_key);
+      let key = base;
+      let n = 2;
+      while (seenKeys.has(key)) key = `${base}_${n++}`;
+      seenKeys.add(key);
+      r.field_key = key;
+    }
     // Substitui todos os campos do formulário (replace-all).
     const { error: delErr } = await supabase.from("crm_form_fields").delete().eq("form_id", b.id);
     if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
