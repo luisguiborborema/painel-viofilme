@@ -271,7 +271,12 @@ function FormEditor({
         fieldKey: f.fieldKey,
         label: f.label,
         fieldType: f.fieldType,
-        options: f.options,
+        options:
+          f.fieldType === "select"
+            ? f.options
+                .map((o) => ({ value: o.label.trim(), label: o.label.trim() }))
+                .filter((o) => o.label)
+            : [],
         required: f.required,
         mapTo: f.mapTo,
         position: i,
@@ -425,20 +430,42 @@ function FormEditor({
                 </button>
               </div>
               {f.fieldType === "select" && (
-                <input
-                  value={f.options.map((o) => o.label).join(", ")}
-                  onChange={(e) =>
-                    patchField(f.uid, {
-                      options: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                        .map((s) => ({ value: s, label: s })),
-                    })
-                  }
-                  placeholder="Opções separadas por vírgula (ex.: Reels, Feed, Stories)"
-                  className={inputCls + " mt-2"}
-                />
+                <div className="mt-2 space-y-1.5 rounded-lg bg-canvas p-2">
+                  <p className="text-[11px] font-medium text-muted">Opções da seleção</p>
+                  {f.options.length === 0 && (
+                    <p className="text-[11px] text-muted">Nenhuma opção ainda — adicione abaixo.</p>
+                  )}
+                  {f.options.map((o, oi) => (
+                    <div key={oi} className="flex items-center gap-1.5">
+                      <span className="w-4 text-right text-[11px] text-muted">{oi + 1}.</span>
+                      <input
+                        value={o.label}
+                        onChange={(e) => {
+                          const label = e.target.value;
+                          patchField(f.uid, {
+                            options: f.options.map((x, xi) => (xi === oi ? { value: label, label } : x)),
+                          });
+                        }}
+                        placeholder={`Opção ${oi + 1}`}
+                        className={inputCls + " flex-1 py-1"}
+                      />
+                      <button
+                        onClick={() => patchField(f.uid, { options: f.options.filter((_, xi) => xi !== oi) })}
+                        className="rounded p-1 text-muted hover:bg-rose-500/10 hover:text-rose-500"
+                        title="Remover opção"
+                        aria-label="Remover opção"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => patchField(f.uid, { options: [...f.options, { value: "", label: "" }] })}
+                    className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-subtle"
+                  >
+                    <Plus className="h-3 w-3" /> Adicionar opção
+                  </button>
+                </div>
               )}
             </div>
           ))}
