@@ -15,6 +15,7 @@ import {
   getCardLayout,
   getCrmLostReasons,
   getCrmFreezeReasons,
+  getClients,
 } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
@@ -30,7 +31,7 @@ export default async function ConfiguracoesComercialPage() {
     getAttendants(),
     getSession(),
   ]);
-  const [flows, scripts, assignment, captureForms, cardLayout, lostReasons, freezeReasons] = await Promise.all([
+  const [flows, scripts, assignment, captureForms, cardLayout, lostReasons, freezeReasons, clients] = await Promise.all([
     getCrmTaskFlows(),
     getCrmScripts(),
     getAssignmentConfig(),
@@ -38,6 +39,7 @@ export default async function ConfiguracoesComercialPage() {
     getCardLayout("deal"),
     getCrmLostReasons(),
     getCrmFreezeReasons(),
+    getClients(),
   ]);
   const canEdit = hasFullAccess(user?.allowedSections ?? null);
 
@@ -56,6 +58,7 @@ export default async function ConfiguracoesComercialPage() {
         assignment={assignment}
         captureForms={captureForms}
         team={team.map((t) => t.name)}
+        clients={clients.map((c) => ({ id: c.id, name: c.name }))}
         cardLayout={cardLayout}
         canEditCardLayout={canEdit}
         lostReasons={lostReasons}

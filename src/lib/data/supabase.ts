@@ -1830,6 +1830,7 @@ import type {
   SalesMaterial,
   CrmGoal,
   CaptureForm,
+  FormField,
   StageChange,
   AssignmentConfig,
   DashInteraction,
@@ -2370,15 +2371,66 @@ export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("crm_capture_forms")
-    .select("id,name,slug,owner,source,active")
+    .select(
+      "id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description",
+    )
     .order("created_at", { ascending: true });
-  return (data ?? []).map((r) => ({
+  const forms = data ?? [];
+  const ids = forms.map((r) => String(r.id));
+
+  // Campos de todos os formulários (uma query), agrupados por form_id.
+  const fieldsByForm = new Map<string, FormField[]>();
+  if (ids.length) {
+    const { data: fields } = await supabase
+      .from("crm_form_fields")
+      .select("id,form_id,field_key,label,field_type,options,required,map_to,position,active")
+      .in("form_id", ids)
+      .order("position", { ascending: true });
+    for (const f of fields ?? []) {
+      const list = fieldsByForm.get(String(f.form_id)) ?? [];
+      list.push({
+        id: String(f.id),
+        fieldKey: String(f.field_key),
+        label: String(f.label),
+        fieldType: String(f.field_type ?? "text") as FormField["fieldType"],
+        options: Array.isArray(f.options) ? (f.options as FormField["options"]) : [],
+        required: Boolean(f.required),
+        mapTo: String(f.map_to ?? "custom") as FormField["mapTo"],
+        position: Number(f.position ?? 0),
+        active: Boolean(f.active),
+      });
+      fieldsByForm.set(String(f.form_id), list);
+    }
+  }
+
+  // Contagem de envios por formulário (para feedback no gerenciador).
+  const countByForm = new Map<string, number>();
+  if (ids.length) {
+    const { data: subs } = await supabase
+      .from("crm_form_submissions")
+      .select("form_id")
+      .in("form_id", ids);
+    for (const s of subs ?? []) {
+      const k = String(s.form_id);
+      countByForm.set(k, (countByForm.get(k) ?? 0) + 1);
+    }
+  }
+
+  return forms.map((r) => ({
     id: String(r.id),
     name: String(r.name),
     slug: String(r.slug),
     owner: r.owner == null ? undefined : String(r.owner),
     source: String(r.source ?? "Formulário"),
     active: Boolean(r.active),
+    destination: (String(r.destination ?? "crm") === "entregas" ? "entregas" : "crm") as CaptureForm["destination"],
+    pipelineId: r.pipeline_id == null ? undefined : String(r.pipeline_id),
+    stageId: r.stage_id == null ? undefined : String(r.stage_id),
+    clientId: r.client_id == null ? undefined : String(r.client_id),
+    taskType: r.task_type == null ? undefined : String(r.task_type),
+    description: r.description == null ? undefined : String(r.description),
+    fields: fieldsByForm.get(String(r.id)) ?? [],
+    submissions: countByForm.get(String(r.id)) ?? 0,
   }));
 }
 

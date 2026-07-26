@@ -1356,6 +1356,63 @@ export const MOCK_DEAL_CONTACTS: DealContact[] = MOCK_LEADS.filter(
   isPrimary: true,
 }));
 
+/** Destino do formulário: cria negócio no Comercial ou tarefa em Entregas. */
+export type FormDestination = "crm" | "entregas";
+
+/** Tipos de campo de um formulário/briefing. */
+export type FormFieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "select"
+  | "date"
+  | "checkbox"
+  | "url"
+  | "email"
+  | "phone";
+
+/** Para onde o valor do campo vai no card criado (senão vira campo custom). */
+export type FormFieldMap =
+  | "title"
+  | "contact_name"
+  | "contact_email"
+  | "contact_phone"
+  | "company"
+  | "custom";
+
+export type FormField = {
+  id: string;
+  fieldKey: string;
+  label: string;
+  fieldType: FormFieldType;
+  options: { value: string; label: string }[];
+  required: boolean;
+  mapTo: FormFieldMap;
+  position: number;
+  active: boolean;
+};
+
+export const FORM_FIELD_TYPES: { key: FormFieldType; label: string }[] = [
+  { key: "text", label: "Texto" },
+  { key: "textarea", label: "Texto longo" },
+  { key: "number", label: "Número" },
+  { key: "select", label: "Seleção" },
+  { key: "date", label: "Data" },
+  { key: "checkbox", label: "Sim/Não" },
+  { key: "url", label: "Link" },
+  { key: "email", label: "E-mail" },
+  { key: "phone", label: "Telefone" },
+];
+
+export const FORM_FIELD_MAPS: { key: FormFieldMap; label: string }[] = [
+  { key: "custom", label: "Campo do briefing" },
+  { key: "title", label: "Título do card" },
+  { key: "contact_name", label: "Nome do contato" },
+  { key: "contact_email", label: "E-mail do contato" },
+  { key: "contact_phone", label: "Telefone do contato" },
+  { key: "company", label: "Empresa" },
+];
+
 export type CaptureForm = {
   id: string;
   name: string;
@@ -1363,10 +1420,26 @@ export type CaptureForm = {
   owner?: string;
   source: string;
   active: boolean;
+  destination: FormDestination;
+  pipelineId?: string;
+  stageId?: string;
+  clientId?: string;
+  taskType?: string;
+  description?: string;
+  fields: FormField[];
+  submissions?: number;
 };
 
 export const MOCK_CAPTURE_FORMS: CaptureForm[] = [
-  { id: "cf1", name: "Fale com a gente", slug: "fale-com-a-gente", source: "Site", active: true },
+  {
+    id: "cf1",
+    name: "Fale com a gente",
+    slug: "fale-com-a-gente",
+    source: "Site",
+    active: true,
+    destination: "crm",
+    fields: [],
+  },
 ];
 
 export const MOCK_GOALS: CrmGoal[] = [

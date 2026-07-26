@@ -46,6 +46,7 @@ export function CrmSettings({
   assignment = DEFAULT_ASSIGNMENT,
   captureForms,
   team = [],
+  clients = [],
   cardLayout = [],
   canEditCardLayout = false,
   lostReasons = [],
@@ -63,6 +64,7 @@ export function CrmSettings({
   assignment?: AssignmentConfig;
   captureForms: CaptureForm[];
   team?: string[];
+  clients?: { id: string; name: string }[];
   cardLayout?: CardFieldSetting[];
   canEditCardLayout?: boolean;
   lostReasons?: LostReason[];
@@ -148,10 +150,10 @@ export function CrmSettings({
     },
     {
       key: "forms",
-      label: "Formulários de captura",
+      label: "Formulários e briefings",
       description:
-        "Links públicos que criam leads direto no CRM (site, bio do Instagram, campanhas). Cada envio vira empresa + contato + negócio.",
-      node: <CaptureFormsManager forms={captureForms} team={team} />,
+        "Links públicos que, ao preencher, criam um card no destino escolhido — negócio no Comercial ou tarefa no Painel de Entregas. Campos personalizáveis por formulário.",
+      node: <CaptureFormsManager forms={captureForms} team={team} pipelines={pipelines} clients={clients} />,
     },
     {
       key: "duplicates",

@@ -6,15 +6,65 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type FieldInput = {
+  fieldKey?: string;
+  label?: string;
+  fieldType?: string;
+  options?: { value: string; label: string }[];
+  required?: boolean;
+  mapTo?: string;
+  position?: number;
+  active?: boolean;
+};
+
 type Body = {
-  action?: "create" | "update" | "delete";
+  action?: "create" | "update" | "delete" | "save-fields";
   id?: string;
   name?: string;
   slug?: string;
   owner?: string;
   source?: string;
   active?: boolean;
+  destination?: "crm" | "entregas";
+  pipelineId?: string | null;
+  stageId?: string | null;
+  clientId?: string | null;
+  taskType?: string | null;
+  description?: string | null;
+  fields?: FieldInput[];
 };
+
+const FIELD_TYPES = new Set([
+  "text",
+  "textarea",
+  "number",
+  "select",
+  "date",
+  "checkbox",
+  "url",
+  "email",
+  "phone",
+]);
+const FIELD_MAPS = new Set([
+  "title",
+  "contact_name",
+  "contact_email",
+  "contact_phone",
+  "company",
+  "custom",
+]);
+
+function slugifyKey(s: string, fallback: string): string {
+  return (
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 40) || fallback
+  );
+}
 
 function slugify(s: string): string {
   return (
@@ -56,6 +106,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "save-fields") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const rows = (b.fields ?? [])
+      .map((f, i) => {
+        const label = (f.label ?? "").trim();
+        if (!label) return null;
+        const fieldType = FIELD_TYPES.has(String(f.fieldType)) ? String(f.fieldType) : "text";
+        const mapTo = FIELD_MAPS.has(String(f.mapTo)) ? String(f.mapTo) : "custom";
+        return {
+          form_id: b.id,
+          field_key: slugifyKey(f.fieldKey || label, `campo_${i + 1}`),
+          label,
+          field_type: fieldType,
+          options: Array.isArray(f.options) ? f.options : [],
+          required: Boolean(f.required),
+          map_to: mapTo,
+          position: typeof f.position === "number" ? f.position : i,
+          active: f.active !== false,
+        };
+      })
+      .filter(Boolean) as Record<string, unknown>[];
+    // Substitui todos os campos do formulário (replace-all).
+    const { error: delErr } = await supabase.from("crm_form_fields").delete().eq("form_id", b.id);
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+    if (rows.length) {
+      const { error: insErr } = await supabase.from("crm_form_fields").insert(rows);
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, count: rows.length });
+  }
+
   if (action === "update") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const patch: Record<string, unknown> = {};
@@ -63,6 +144,12 @@ export async function POST(req: Request) {
     if (b.owner !== undefined) patch.owner = b.owner || null;
     if (b.source != null) patch.source = b.source;
     if (b.active != null) patch.active = b.active;
+    if (b.destination != null) patch.destination = b.destination === "entregas" ? "entregas" : "crm";
+    if (b.pipelineId !== undefined) patch.pipeline_id = b.pipelineId || null;
+    if (b.stageId !== undefined) patch.stage_id = b.stageId || null;
+    if (b.clientId !== undefined) patch.client_id = b.clientId || null;
+    if (b.taskType !== undefined) patch.task_type = b.taskType || null;
+    if (b.description !== undefined) patch.description = b.description || null;
     const { error } = await supabase.from("crm_capture_forms").update(patch).eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -85,6 +172,12 @@ export async function POST(req: Request) {
       owner: b.owner || null,
       source: b.source?.trim() || "Formulário",
       active: true,
+      destination: b.destination === "entregas" ? "entregas" : "crm",
+      pipeline_id: b.pipelineId || null,
+      stage_id: b.stageId || null,
+      client_id: b.clientId || null,
+      task_type: b.taskType || null,
+      description: b.description || null,
     })
     .select("id")
     .single();
