@@ -1,4 +1,5 @@
 import {
+  Activity,
   LayoutDashboard,
   Users,
   Megaphone,
@@ -100,6 +101,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
       { label: "Usuários", href: "/gerencial/usuarios", icon: ShieldCheck, adminOnly: true },
+      { label: "Monitoramento", href: "/gerencial/monitoramento", icon: Activity, adminOnly: true },
     ],
   },
   {

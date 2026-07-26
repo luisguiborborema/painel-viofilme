@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { AppShell } from "@/components/shell/app-shell";
 import { AiChat } from "@/components/cliente/ai-chat";
+import { ActivityTracker } from "@/components/shell/activity-tracker";
 
 export default async function ClienteLayout({
   children,
@@ -15,6 +16,7 @@ export default async function ClienteLayout({
     <AppShell user={user}>
       {children}
       <AiChat clientName={user.clientName ?? user.name} />
+      <ActivityTracker />
     </AppShell>
   );
 }

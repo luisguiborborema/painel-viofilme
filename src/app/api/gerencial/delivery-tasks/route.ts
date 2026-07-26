@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { logEvent } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -157,6 +158,16 @@ export async function POST(req: Request) {
       .update({ stage: b.stage, moved_at: now, completed_at: b.stage === "done" ? now : null, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logEvent({
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      panel: "gerencial",
+      action: "status_change",
+      area: "Tarefas",
+      target: b.id,
+      detail: b.stage,
+    });
     return NextResponse.json({ ok: true, persisted: true });
   }
 

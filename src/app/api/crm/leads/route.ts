@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { logEvent } from "@/lib/audit/log";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -449,6 +450,16 @@ export async function POST(req: Request) {
     // Automações do estágio (best-effort, não bloqueiam a resposta em caso de erro).
     await runStageAutomations(supabase, body.id, stageAutomations, user.name);
 
+    await logEvent({
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      panel: "gerencial",
+      action: "move",
+      area: "Comercial",
+      target: body.id,
+      detail: `${fromStage ?? "?"} → ${body.stage}`,
+    });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -558,6 +569,15 @@ export async function POST(req: Request) {
         .insert({ deal_id: data.id, contact_id: contactId, is_primary: true });
     }
 
+    await logEvent({
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      panel: "gerencial",
+      action: "create",
+      area: "Comercial",
+      target: body.name,
+    });
     return NextResponse.json({
       ok: true,
       persisted: true,

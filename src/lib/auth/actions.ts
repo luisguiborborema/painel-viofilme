@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { authenticateDemo, DEMO_COOKIE, DEMO_USERS } from "./demo";
 import { homeForRole } from "./routes";
+import { getSession } from "./session";
+import { logEvent } from "@/lib/audit/log";
 
 export type SignInState = { error: string | null; redirectTo?: string };
 
@@ -42,10 +44,19 @@ export async function signIn(
     } = await supabase.auth.getUser();
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, full_name")
       .eq("id", user?.id ?? "")
       .single();
     role = (profile?.role as typeof role) ?? "cliente";
+    await logEvent({
+      userId: user?.id ?? null,
+      userName: (profile?.full_name as string | null) ?? email,
+      userEmail: email,
+      panel: role,
+      action: "login",
+      area: "Autenticação",
+      detail: email,
+    });
   } else {
     const user = authenticateDemo(email, password);
     if (!user) {
@@ -85,6 +96,18 @@ export async function signInDemoAction(
 
 /** Encerra a sessão (Supabase + cookie demo). O cliente recarrega para /login. */
 export async function clearSession(): Promise<void> {
+  const user = await getSession();
+  if (user) {
+    await logEvent({
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      panel: user.role === "cliente" ? "cliente" : "gerencial",
+      action: "logout",
+      area: "Autenticação",
+      detail: user.email,
+    });
+  }
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     await supabase.auth.signOut();

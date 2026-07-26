@@ -5,6 +5,7 @@ import { canAccessPath, firstAllowedHref } from "@/lib/access";
 import { AppShell } from "@/components/shell/app-shell";
 import { AiChat } from "@/components/cliente/ai-chat";
 import { Toaster } from "@/components/ui/toast";
+import { ActivityTracker } from "@/components/shell/activity-tracker";
 
 export default async function GerencialLayout({
   children,
@@ -26,6 +27,7 @@ export default async function GerencialLayout({
       {children}
       <AiChat clientName={user.name} scope="gerencial" />
       <Toaster />
+      <ActivityTracker />
     </AppShell>
   );
 }
