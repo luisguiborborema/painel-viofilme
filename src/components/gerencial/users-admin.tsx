@@ -49,6 +49,7 @@ export function UsersAdmin({
   const [busy, setBusy] = useState(false);
   const [pwFor, setPwFor] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState("");
+  const [delFor, setDelFor] = useState<string | null>(null);
   const [newTeam, setNewTeam] = useState("");
 
   async function post(body: unknown, okMsg?: string): Promise<boolean> {
@@ -214,11 +215,34 @@ export function UsersAdmin({
                     {m.id !== selfId && (
                       <button
                         onClick={() => post({ action: "set_active", userId: m.id, active: !m.active }, m.active ? "Usuário desativado." : "Usuário ativado.")}
-                        className={cn("text-xs font-medium", m.active ? "text-rose-500 hover:text-rose-400" : "text-emerald-600 hover:text-emerald-500")}
+                        className={cn("text-xs font-medium", m.active ? "text-amber-600 hover:text-amber-500" : "text-emerald-600 hover:text-emerald-500")}
                       >
                         {m.active ? "Desativar" : "Ativar"}
                       </button>
                     )}
+                    {m.id !== selfId &&
+                      (delFor === m.id ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted">Excluir?</span>
+                          <button
+                            disabled={busy}
+                            onClick={async () => {
+                              const ok = await post({ action: "delete", userId: m.id }, "Usuário excluído.");
+                              if (ok) setDelFor(null);
+                            }}
+                            className="text-xs font-semibold text-rose-500 hover:text-rose-400 disabled:opacity-60"
+                          >
+                            Sim, excluir
+                          </button>
+                          <button onClick={() => setDelFor(null)} className="text-xs text-muted hover:text-ink">
+                            Não
+                          </button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setDelFor(m.id)} className="text-xs font-medium text-rose-500 hover:text-rose-400">
+                          Excluir
+                        </button>
+                      ))}
                   </div>
                 </td>
               </tr>

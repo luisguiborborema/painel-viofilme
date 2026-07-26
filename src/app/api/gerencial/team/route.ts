@@ -31,7 +31,8 @@ export async function POST(req: Request) {
       | "reset_password"
       | "set_active"
       | "send_reset_email"
-      | "create_team";
+      | "create_team"
+      | "delete";
     mode?: "password" | "invite";
     userId?: string;
     email?: string;
@@ -180,6 +181,24 @@ export async function POST(req: Request) {
       const { error } = await admin.auth.admin.updateUserById(body.userId, {
         ban_duration: body.active ? "none" : "876000h",
       });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "delete") {
+      if (!body.userId) {
+        return NextResponse.json({ error: "userId ausente" }, { status: 400 });
+      }
+      if (body.userId === user.id) {
+        return NextResponse.json(
+          { error: "você não pode excluir a si mesmo" },
+          { status: 400 },
+        );
+      }
+      // Hard delete no Auth; a linha em profiles cai por cascade (0001).
+      const { error } = await admin.auth.admin.deleteUser(body.userId);
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
