@@ -37,8 +37,6 @@ type FieldRow = {
   position: number;
 };
 
-const DELIVERY_TYPES = new Set(["Arte", "Vídeo", "Copy", "Tráfego"]);
-
 function str(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
@@ -133,7 +131,8 @@ export async function POST(req: Request) {
 
   // ————————————————————————————————— destino: ENTREGAS —————————————————————————————————
   if (String(form.destination) === "entregas") {
-    const type = DELIVERY_TYPES.has(String(form.task_type)) ? String(form.task_type) : "Arte";
+    // Tipo personalizável: usa o que o formulário definiu (fallback "Arte").
+    const type = str(form.task_type) || "Arte";
     const comments = briefingText
       ? [{ author: "Formulário", text: `📋 Briefing "${source}":\n${briefingText}`, createdAt: now }]
       : [];

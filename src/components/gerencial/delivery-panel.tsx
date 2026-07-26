@@ -53,12 +53,14 @@ const VIEWS: { key: View; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "cliente", label: "Entregas por cliente", icon: UserSquare2 },
 ];
 
-const TYPE_COLOR: Record<TaskType, string> = {
-  Arte: "bg-sky-500/15 text-sky-500",
-  Vídeo: "bg-rose-500/15 text-rose-500",
-  Copy: "bg-violet-500/15 text-violet-500",
-  Tráfego: "bg-amber-500/15 text-amber-600",
-};
+// Cores por tipo. Map (não Record) porque o tipo agora pode ser personalizado
+// pelos formulários — tipos fora dos padrões caem no fallback neutro.
+const TYPE_COLOR = new Map<string, string>([
+  ["Arte", "bg-sky-500/15 text-sky-500"],
+  ["Vídeo", "bg-rose-500/15 text-rose-500"],
+  ["Copy", "bg-violet-500/15 text-violet-500"],
+  ["Tráfego", "bg-amber-500/15 text-amber-600"],
+]);
 
 const ORIGINS: TaskOrigin[] = ["Linha editorial", "Projeto", "Tarefa avulsa"];
 const CLIENT_PALETTE = ["#2a63c9", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0284c7", "#be185d", "#0f766e"];
@@ -878,7 +880,7 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
             <span className={cn("h-1.5 w-1.5 rounded-full", prio.dot)} /> {prio.label}
           </span>
         )}
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR[t.type])}>{t.type}</span>
+        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR.get(t.type) ?? "bg-subtle text-muted")}>{t.type}</span>
         {t.stage !== "done" && staleDays >= 5 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
             <Pause className="h-2.5 w-2.5" /> parada {staleDays}d

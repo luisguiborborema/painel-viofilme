@@ -348,11 +348,18 @@ function FormEditor({
             </label>
             <label className="text-xs">
               <span className="mb-0.5 block font-medium text-muted">Tipo da tarefa</span>
-              <select value={taskType} onChange={(e) => setTaskType(e.target.value)} className={inputCls}>
+              <input
+                value={taskType}
+                onChange={(e) => setTaskType(e.target.value)}
+                list={`tasktypes-${form.id}`}
+                placeholder="Ex.: Arte, Motion, Edição de vídeo…"
+                className={inputCls}
+              />
+              <datalist id={`tasktypes-${form.id}`}>
                 {TASK_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t} />
                 ))}
-              </select>
+              </datalist>
             </label>
           </>
         )}
