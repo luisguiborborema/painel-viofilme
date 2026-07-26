@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -9,12 +9,15 @@ import {
   Bell,
   LayoutGrid,
   List,
+  Pause,
   Plus,
   RotateCcw,
+  Search,
   ShieldAlert,
   Snowflake,
   Trash2,
   UserX,
+  X,
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +41,7 @@ import {
   type CrmLead,
   type CrmLeadCard,
   type CrmStage,
+  type LeadPriority,
   type Pipeline,
   type Stage,
   type StageRequirement,
@@ -403,6 +407,15 @@ function LoseModal({
 
 type PipelineView = "kanban" | "lista" | "forecast" | "arquivados";
 
+// Classe compartilhada dos selects da barra de filtros (estilo Sprint board).
+const FILTER_CLS =
+  "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400";
+
+/** Responsáveis do negócio (nomes). Fallback: [owner]. Multi conta p/ cada um. */
+function respNamesOf(c: CrmLeadCard): string[] {
+  return c.assignees?.length ? c.assignees : c.owner ? [c.owner] : [];
+}
+
 export function CrmPipeline({
   cards: initial,
   pipelines = [DEFAULT_PIPELINE],
@@ -436,6 +449,15 @@ export function CrmPipeline({
   const [newFunil, setNewFunil] = useState("");
   const [creatingFunil, setCreatingFunil] = useState(false);
   const [view, setView] = useState<PipelineView>("kanban");
+  // Barra de filtros (estilo Sprint board / Painel de Entregas).
+  const [assignee, setAssignee] = useState<string | null>(null);
+  const [companyF, setCompanyF] = useState<string | null>(null);
+  const [sourceF, setSourceF] = useState<string | null>(null);
+  const [stageF, setStageF] = useState<string | null>(null);
+  const [priorityF, setPriorityF] = useState<LeadPriority | null>(null);
+  const [stuckOnly, setStuckOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showMetrics, setShowMetrics] = useState(false);
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
   const [pipelineId, setPipelineId] = useState(defaultId);
@@ -466,6 +488,35 @@ export function CrmPipeline({
       /* ignore */
     }
   }, [pipelineId, mine, tagFilter, view]);
+
+  // Deep-link: hidrata os filtros da barra a partir da URL ao montar (compartilhável).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (p.get("q")) setSearch(p.get("q")!);
+    if (p.get("resp")) setAssignee(p.get("resp"));
+    if (p.get("cli")) setCompanyF(p.get("cli"));
+    if (p.get("origem")) setSourceF(p.get("origem"));
+    if (p.get("etapa")) setStageF(p.get("etapa"));
+    if (p.get("prio")) setPriorityF(p.get("prio") as LeadPriority);
+    if (p.get("parado") === "1") setStuckOnly(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Espelha os filtros da barra → URL (replaceState; preserva outros params).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const put = (k: string, v: string) => (v ? p.set(k, v) : p.delete(k));
+    put("q", search.trim());
+    put("resp", assignee ?? "");
+    put("cli", companyF ?? "");
+    put("origem", sourceF ?? "");
+    put("etapa", stageF ?? "");
+    put("prio", priorityF ?? "");
+    put("parado", stuckOnly ? "1" : "");
+    const qs = p.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [search, assignee, companyF, sourceF, stageF, priorityF, stuckOnly]);
   const pipeline = pipelines.find((p) => p.id === pipelineId) ?? pipelines[0] ?? DEFAULT_PIPELINE;
   const stages = pipeline.stages;
   const [blocked, setBlocked] = useState<{
@@ -474,20 +525,67 @@ export function CrmPipeline({
     missing: StageRequirement[];
   } | null>(null);
 
-  const assigneesOf = (c: CrmLeadCard) =>
-    c.assignees?.length ? c.assignees : c.owner ? [c.owner] : [];
+  const assigneesOf = respNamesOf;
 
   const closedKeys = new Set(stages.filter((s) => s.kind !== "open").map((s) => s.key));
+  const wonKeys = new Set(stages.filter((s) => s.kind === "won").map((s) => s.key));
+  const lostKeys = new Set(stages.filter((s) => s.kind === "lost").map((s) => s.key));
   const inThisPipeline = (c: CrmLeadCard) => (c.pipelineId || defaultId) === pipelineId;
   const frozenCount = cards.filter((c) => inThisPipeline(c) && Boolean(c.frozenAt)).length;
+
+  // Opções dos filtros — derivadas dos próprios negócios (só mostra o que existe).
+  const companyName = useMemo(() => {
+    const m = new Map(companies.map((c) => [c.id, c.name]));
+    return (id?: string) => (id ? m.get(id) ?? null : null);
+  }, [companies]);
+  const owners = useMemo(
+    () => [...new Set([...team, ...cards.flatMap(respNamesOf)])].filter(Boolean).sort(),
+    [team, cards],
+  );
+  const companyOptions = useMemo(() => {
+    const ids = [...new Set(cards.map((c) => c.companyId).filter(Boolean) as string[])];
+    return ids
+      .map((id) => ({ id, name: companyName(id) }))
+      .filter((o): o is { id: string; name: string } => Boolean(o.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [cards, companyName]);
+  const sourceOptions = useMemo(
+    () => [...new Set(cards.map((c) => c.source).filter(Boolean) as string[])].sort(),
+    [cards],
+  );
+
+  const term = search.trim().toLowerCase();
   const visibleCards = cards.filter(
     (c) =>
       inThisPipeline(c) &&
       (showFrozen ? Boolean(c.frozenAt) : !c.frozenAt) &&
       (!tagFilter || c.tags?.includes(tagFilter)) &&
-      (!mine || assigneesOf(c).includes(currentUser)),
+      (!mine || assigneesOf(c).includes(currentUser)) &&
+      (!assignee || assigneesOf(c).includes(assignee)) &&
+      (!companyF || c.companyId === companyF) &&
+      (!sourceF || c.source === sourceF) &&
+      (!stageF || c.stage === stageF) &&
+      (!priorityF || c.priority === priorityF) &&
+      (!stuckOnly || c.rot === "stale") &&
+      (!term ||
+        c.name.toLowerCase().includes(term) ||
+        (c.contactName ?? "").toLowerCase().includes(term) ||
+        (companyName(c.companyId) ?? "").toLowerCase().includes(term)),
   );
   const isReservoir = stages[0]?.key === STAGE_RESERVOIR; // funil Pré-venda (SDR)
+
+  const activeFilters =
+    (assignee ? 1 : 0) + (companyF ? 1 : 0) + (sourceF ? 1 : 0) + (stageF ? 1 : 0) +
+    (priorityF ? 1 : 0) + (stuckOnly ? 1 : 0) + (term ? 1 : 0);
+  function clearFilters() {
+    setSearch("");
+    setAssignee(null);
+    setCompanyF(null);
+    setSourceF(null);
+    setStageF(null);
+    setPriorityF(null);
+    setStuckOnly(false);
+  }
 
   function addLead(lead: CrmLead) {
     setShowNew(false);
@@ -778,6 +876,7 @@ export function CrmPipeline({
         />
       ) : (
         <>
+      {/* Linha 1 — contexto do funil (seletor, novo funil, resumo) + Métricas */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {pipelines.length > 1 && (
@@ -819,63 +918,137 @@ export function CrmPipeline({
             em aberto
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {currentUser && (
-            <button
-              onClick={() => setMine((m) => !m)}
-              className={
-                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors " +
-                (mine ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong")
-              }
-            >
-              Meus negócios
-            </button>
-          )}
-          {(frozenCount > 0 || showFrozen) && (
-            <button
-              onClick={() => setShowFrozen((f) => !f)}
-              className={
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors " +
-                (showFrozen ? "bg-sky-600 text-white" : "bg-subtle text-muted hover:bg-subtle-strong")
-              }
-              title="Negócios congelados/arquivados"
-            >
-              <Snowflake className="h-3.5 w-3.5" /> Congelados
-              {frozenCount > 0 && (
-                <span className={cn("rounded-full px-1.5 text-[10px]", showFrozen ? "bg-white/25" : "bg-surface")}>
-                  {frozenCount}
-                </span>
-              )}
-            </button>
-          )}
-          {tags.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setTagFilter(null)}
-                className={
-                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors " +
-                  (tagFilter === null ? "bg-ink text-surface" : "bg-subtle text-muted hover:bg-subtle-strong")
-                }
-              >
-                Todas
-              </button>
-              {tags.map((t) => (
+        <button
+          onClick={() => setShowMetrics(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          <BarChart3 className="h-3.5 w-3.5" /> Métricas
+        </button>
+      </div>
+
+      {/* Linha 2 — barra de filtros (estilo Sprint board) */}
+      <div className="flex flex-wrap items-center gap-2">
+        {currentUser && (
+          <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+            {([["meu", "Meu"], ["time", "Time"]] as const).map(([k, label]) => {
+              const active = k === "meu" ? mine : !mine;
+              return (
                 <button
-                  key={t.id}
-                  onClick={() => setTagFilter((cur) => (cur === t.id ? null : t.id))}
-                  className="rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity"
-                  style={{
-                    backgroundColor: `${t.color}22`,
-                    color: t.color,
-                    opacity: tagFilter && tagFilter !== t.id ? 0.4 : 1,
-                  }}
+                  key={k}
+                  onClick={() => setMine(k === "meu")}
+                  className={cn(
+                    "rounded-md px-3 py-1 text-xs font-semibold transition-colors",
+                    active ? "bg-brand-600 text-white" : "text-muted hover:text-ink",
+                  )}
                 >
-                  {t.name}
+                  {label}
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        )}
+        <select value={assignee ?? ""} onChange={(e) => setAssignee(e.target.value || null)} className={FILTER_CLS}>
+          <option value="">Todos responsáveis</option>
+          {owners.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        <select value={companyF ?? ""} onChange={(e) => setCompanyF(e.target.value || null)} className={FILTER_CLS}>
+          <option value="">Todos clientes</option>
+          {companyOptions.map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+        </select>
+        <select value={sourceF ?? ""} onChange={(e) => setSourceF(e.target.value || null)} className={FILTER_CLS}>
+          <option value="">Todas origens</option>
+          {sourceOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={stageF ?? ""} onChange={(e) => setStageF(e.target.value || null)} className={FILTER_CLS}>
+          <option value="">Todas etapas</option>
+          {stages.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
+        <select
+          value={priorityF ?? ""}
+          onChange={(e) => setPriorityF((e.target.value as LeadPriority) || null)}
+          className={FILTER_CLS}
+        >
+          <option value="">Toda prioridade</option>
+          {LEAD_PRIORITIES.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setStuckOnly((v) => !v)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
+            stuckOnly ? "border-rose-400 bg-rose-50 text-rose-600" : "border-line text-muted hover:text-ink",
           )}
+          title="Negócios parados (sem movimento há muitos dias)"
+        >
+          <Pause className="h-3.5 w-3.5" /> Parados
+        </button>
+        {(frozenCount > 0 || showFrozen) && (
+          <button
+            onClick={() => setShowFrozen((f) => !f)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium",
+              showFrozen ? "border-sky-400 bg-sky-50 text-sky-600" : "border-line text-muted hover:text-ink",
+            )}
+            title="Negócios congelados/arquivados"
+          >
+            <Snowflake className="h-3.5 w-3.5" /> Congelados
+            {frozenCount > 0 && (
+              <span className={cn("rounded-full px-1.5 text-[10px]", showFrozen ? "bg-sky-500/20" : "bg-subtle")}>
+                {frozenCount}
+              </span>
+            )}
+          </button>
+        )}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar negócio ou contato…"
+            className="w-40 rounded-lg border border-line bg-surface py-1.5 pl-7 pr-2 text-xs text-ink outline-none focus:border-brand-400 sm:w-52"
+          />
         </div>
+        {activeFilters > 0 && (
+          <button onClick={clearFilters} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
+            <X className="h-3.5 w-3.5" /> limpar ({activeFilters})
+          </button>
+        )}
+        {tags.length > 0 && (
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={() => setTagFilter(null)}
+              className={
+                "rounded-full px-2.5 py-1 text-xs font-medium transition-colors " +
+                (tagFilter === null ? "bg-ink text-surface" : "bg-subtle text-muted hover:bg-subtle-strong")
+              }
+            >
+              Todas
+            </button>
+            {tags.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTagFilter((cur) => (cur === t.id ? null : t.id))}
+                className="rounded-full px-2.5 py-1 text-xs font-semibold transition-opacity"
+                style={{
+                  backgroundColor: `${t.color}22`,
+                  color: t.color,
+                  opacity: tagFilter && tagFilter !== t.id ? 0.4 : 1,
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {showFrozen && (
@@ -1050,8 +1223,186 @@ export function CrmPipeline({
           </div>
         </div>
       )}
+
+      {showMetrics && (
+        <PipelineMetricsModal
+          cards={cards.filter((c) => inThisPipeline(c) && !c.frozenAt)}
+          wonKeys={wonKeys}
+          lostKeys={lostKeys}
+          onClose={() => setShowMetrics(false)}
+        />
+      )}
         </>
       )}
+    </div>
+  );
+}
+
+type PipeMetricPeriod = "semana" | "mes" | "tudo";
+function pipeInPeriod(iso: string | undefined, period: PipeMetricPeriod): boolean {
+  if (period === "tudo") return true;
+  if (!iso) return false;
+  const days = period === "semana" ? 7 : 30;
+  return new Date(iso).getTime() >= Date.now() - days * 86_400_000;
+}
+
+function PipeRankTable({
+  title,
+  rows,
+  max,
+  tone,
+  fmt,
+}: {
+  title: string;
+  rows: { name: string; v: number }[];
+  max: number;
+  tone: string;
+  fmt?: (v: number) => string;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-canvas p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</p>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted">Sem dados no período.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {rows.slice(0, 6).map((r) => (
+            <li key={r.name} className="flex items-center gap-2">
+              <span className="w-24 shrink-0 truncate text-xs text-ink" title={r.name}>
+                {r.name}
+              </span>
+              <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-subtle">
+                <span
+                  className={cn("absolute inset-y-0 left-0 rounded-full", tone)}
+                  style={{ width: `${Math.max(6, (r.v / max) * 100)}%` }}
+                />
+              </span>
+              <span className="w-16 shrink-0 text-right text-xs font-semibold text-ink">
+                {fmt ? fmt(r.v) : r.v}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PipelineMetricsModal({
+  cards,
+  wonKeys,
+  lostKeys,
+  onClose,
+}: {
+  cards: CrmLeadCard[];
+  wonKeys: Set<string>;
+  lostKeys: Set<string>;
+  onClose: () => void;
+}) {
+  const [period, setPeriod] = useState<PipeMetricPeriod>("mes");
+
+  const m = useMemo(() => {
+    const isOpen = (c: CrmLeadCard) => !wonKeys.has(c.stage) && !lostKeys.has(c.stage);
+    const open = cards.filter(isOpen);
+    const won = cards.filter((c) => wonKeys.has(c.stage) && pipeInPeriod(c.wonAt, period));
+    const lost = cards.filter((c) => lostKeys.has(c.stage) && pipeInPeriod(c.lostAt, period));
+    const stuck = open.filter((c) => c.rot === "stale");
+
+    const wip = new Map<string, number>();
+    const value = new Map<string, number>();
+    const wonBy = new Map<string, number>();
+    const stuckBy = new Map<string, number>();
+    for (const c of open)
+      for (const n of respNamesOf(c)) {
+        wip.set(n, (wip.get(n) ?? 0) + 1);
+        value.set(n, (value.get(n) ?? 0) + c.monthlyValue);
+      }
+    for (const c of won) for (const n of respNamesOf(c)) wonBy.set(n, (wonBy.get(n) ?? 0) + 1);
+    for (const c of stuck) for (const n of respNamesOf(c)) stuckBy.set(n, (stuckBy.get(n) ?? 0) + 1);
+
+    const rank = (map: Map<string, number>) =>
+      [...map.entries()].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v);
+    const totalWonLost = won.length + lost.length;
+    return {
+      kpis: {
+        abertos: open.length,
+        valor: open.reduce((s, c) => s + c.monthlyValue, 0),
+        ganhos: won.length,
+        conversao: totalWonLost ? Math.round((won.length / totalWonLost) * 100) : 0,
+      },
+      byWip: rank(wip),
+      byValue: rank(value),
+      byWon: rank(wonBy),
+      byStuck: rank(stuckBy),
+    };
+  }, [cards, wonKeys, lostKeys, period]);
+
+  const maxWip = Math.max(1, ...m.byWip.map((r) => r.v));
+  const maxValue = Math.max(1, ...m.byValue.map((r) => r.v));
+  const maxWon = Math.max(1, ...m.byWon.map((r) => r.v));
+  const maxStuck = Math.max(1, ...m.byStuck.map((r) => r.v));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+            <BarChart3 className="h-4 w-4 text-brand-500" /> Produtividade do funil
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-xs">
+              {(["semana", "mes", "tudo"] as PipeMetricPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 font-medium",
+                    period === p ? "bg-brand-600 text-white" : "text-muted hover:text-ink",
+                  )}
+                >
+                  {p === "semana" ? "7 dias" : p === "mes" ? "30 dias" : "Tudo"}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={onClose}
+              title="Fechar"
+              aria-label="Fechar"
+              className="rounded-lg p-1 text-muted hover:bg-subtle"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Em aberto", value: String(m.kpis.abertos), tone: "text-ink" },
+            { label: "Valor em aberto", value: formatBRL(m.kpis.valor), tone: "text-brand-600" },
+            { label: "Ganhos no período", value: String(m.kpis.ganhos), tone: "text-emerald-600" },
+            { label: "Conversão", value: `${m.kpis.conversao}%`, tone: "text-sky-600" },
+          ].map((k) => (
+            <div key={k.label} className="rounded-xl border border-line bg-canvas p-3">
+              <p className={cn("text-xl font-bold", k.tone)}>{k.value}</p>
+              <p className="text-[11px] text-muted">{k.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PipeRankTable title="Negócios em aberto" rows={m.byWip} max={maxWip} tone="bg-brand-500" />
+          <PipeRankTable title="Valor em aberto" rows={m.byValue} max={maxValue} tone="bg-emerald-500" fmt={formatBRL} />
+          <PipeRankTable title="Ganhos no período" rows={m.byWon} max={maxWon} tone="bg-sky-500" />
+          <PipeRankTable title="Parados por pessoa" rows={m.byStuck} max={maxStuck} tone="bg-rose-500" />
+        </div>
+        <p className="mt-3 text-[11px] text-muted">
+          Ganhos e conversão consideram o período (data de ganho/perda). Em aberto e parados são a foto
+          atual do funil. Um negócio com vários responsáveis conta para cada um.
+        </p>
+      </div>
     </div>
   );
 }
