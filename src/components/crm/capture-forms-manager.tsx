@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -9,9 +10,11 @@ import {
   ExternalLink,
   FormInput,
   GripVertical,
+  Inbox,
   Loader2,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   FORM_FIELD_MAPS,
@@ -59,6 +62,7 @@ export function CaptureFormsManager({
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [showResp, setShowResp] = useState<CaptureForm | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -139,6 +143,13 @@ export function CaptureFormsManager({
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={() => setShowResp(f)}
+                className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle"
+              >
+                <Inbox className="h-3.5 w-3.5" /> Respostas
+                {typeof f.submissions === "number" && f.submissions > 0 && ` (${f.submissions})`}
+              </button>
+              <button
                 onClick={() => setOpen((o) => (o === f.id ? null : f.id))}
                 className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle"
               >
@@ -181,6 +192,113 @@ export function CaptureFormsManager({
         <EmptyState icon={FormInput}>Nenhum formulário ainda. Crie o primeiro acima.</EmptyState>
       )}
       {busy && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
+
+      {showResp && <SubmissionsModal form={showResp} onClose={() => setShowResp(null)} />}
+    </div>
+  );
+}
+
+type Submission = {
+  id: string;
+  values: Record<string, unknown>;
+  leadId: string | null;
+  taskId: string | null;
+  createdAt: string;
+};
+
+function SubmissionsModal({ form, onClose }: { form: CaptureForm; onClose: () => void }) {
+  const [subs, setSubs] = useState<Submission[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/crm/capture-forms?formId=${encodeURIComponent(form.id)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive) setSubs((j.submissions as Submission[]) ?? []);
+      })
+      .catch(() => {
+        if (alive) setSubs([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [form.id]);
+
+  const labelOf = (key: string) => form.fields.find((f) => f.fieldKey === key)?.label ?? key;
+  function entriesOf(values: Record<string, unknown>) {
+    const ordered = form.fields.map((f) => f.fieldKey);
+    const extra = Object.keys(values).filter((k) => !ordered.includes(k));
+    return [...ordered, ...extra]
+      .map((k) => [k, values[k]] as const)
+      .filter(([, v]) => v != null && String(v).trim() !== "");
+  }
+  function fmtDate(iso: string) {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? iso : d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="min-w-0">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+              <Inbox className="h-4 w-4 text-brand-500" /> Respostas · {form.name}
+            </h3>
+            <p className="text-xs text-muted">{subs == null ? "carregando…" : `${subs.length} envio(s)`}</p>
+          </div>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="rounded-lg p-1 text-muted hover:bg-subtle">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {subs == null ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted" />
+          </div>
+        ) : subs.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line px-3 py-8 text-center text-sm text-muted">
+            Nenhuma resposta ainda. Compartilhe o link do formulário.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {subs.map((s) => {
+              const entries = entriesOf(s.values);
+              return (
+                <li key={s.id} className="rounded-xl border border-line bg-canvas p-3">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted">{fmtDate(s.createdAt)}</span>
+                    {s.leadId ? (
+                      <Link href={`/gerencial/crm/${s.leadId}`} className="text-[11px] font-medium text-brand-600 hover:underline">
+                        Abrir negócio →
+                      </Link>
+                    ) : s.taskId ? (
+                      <Link href={`/gerencial/entregas?task=${s.taskId}`} className="text-[11px] font-medium text-brand-600 hover:underline">
+                        Abrir tarefa →
+                      </Link>
+                    ) : null}
+                  </div>
+                  {entries.length === 0 ? (
+                    <p className="text-xs text-muted">(sem dados)</p>
+                  ) : (
+                    <dl className="space-y-1">
+                      {entries.map(([k, v]) => (
+                        <div key={k} className="flex gap-2 text-xs">
+                          <dt className="shrink-0 font-medium text-muted">{labelOf(k)}:</dt>
+                          <dd className="min-w-0 break-words text-ink">{String(v)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

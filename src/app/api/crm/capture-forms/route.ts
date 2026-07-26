@@ -78,6 +78,33 @@ function slugify(s: string): string {
   );
 }
 
+/** Respostas (envios) de um formulário — leitura (gerencial). */
+export async function GET(req: Request) {
+  const user = await getSession();
+  if (!user || user.role !== "gerencial") {
+    return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  }
+  const formId = new URL(req.url).searchParams.get("formId");
+  if (!formId || !isSupabaseConfigured()) {
+    return NextResponse.json({ submissions: [] });
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_form_submissions")
+    .select("id, values, created_lead_id, created_task_id, created_at")
+    .eq("form_id", formId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const submissions = (data ?? []).map((r) => ({
+    id: String(r.id),
+    values: (r.values && typeof r.values === "object" ? r.values : {}) as Record<string, unknown>,
+    leadId: r.created_lead_id == null ? null : String(r.created_lead_id),
+    taskId: r.created_task_id == null ? null : String(r.created_task_id),
+    createdAt: String(r.created_at),
+  }));
+  return NextResponse.json({ submissions });
+}
+
 /** CRUD dos formulários de captura (gerencial). */
 export async function POST(req: Request) {
   const user = await getSession();
