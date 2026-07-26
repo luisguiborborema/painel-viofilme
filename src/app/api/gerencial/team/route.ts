@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { hasFullAccess } from "@/lib/access";
+import { isAdminTier, tierHasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 
@@ -8,16 +8,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Gestão de usuários gerenciais (somente Gestor — acesso total).
- * action: "create" | "update".
+ * Gestão de usuários gerenciais (somente Admin).
+ * action: "create" | "update" | "reset_password" | "set_active" |
+ *         "send_reset_email" | "create_team".
  */
 export async function POST(req: Request) {
   const user = await getSession();
-  if (
-    !user ||
-    user.role !== "gerencial" ||
-    !hasFullAccess(user.allowedSections)
-  ) {
+  if (!user || user.role !== "gerencial" || !isAdminTier(user.tier)) {
     return NextResponse.json({ error: "não autorizado" }, { status: 403 });
   }
   if (!isSupabaseConfigured() || !hasServiceRole()) {
@@ -33,15 +30,18 @@ export async function POST(req: Request) {
       | "update"
       | "reset_password"
       | "set_active"
-      | "send_reset_email";
+      | "send_reset_email"
+      | "create_team";
     mode?: "password" | "invite";
     userId?: string;
     email?: string;
     name?: string;
     password?: string;
     teamRole?: string;
+    tier?: string;
     allowedSections?: string[] | null;
     whatsapp?: string;
+    squadId?: string | null;
     active?: boolean;
   };
   try {
@@ -53,9 +53,14 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const redirectTo = appUrl ? `${appUrl}/definir-senha` : undefined;
-  // Gestor = acesso total → allowed_sections null.
-  const allowed =
-    body.teamRole === "gestor" ? null : (body.allowedSections ?? []);
+  // Perfil (tier) define o acesso. Admin/Gestor = acesso total (null).
+  const tier = body.tier ?? (body.teamRole === "gestor" ? "gestor" : "colaborador");
+  const allowed = tierHasFullAccess(tier) ? null : (body.allowedSections ?? []);
+  // team_role legado: mantém "gestor" para acesso total, senão "custom".
+  const teamRole = tierHasFullAccess(tier) ? "gestor" : "custom";
+  const squadId = body.squadId ? body.squadId : null;
+  const whatsappDigits =
+    body.whatsapp !== undefined ? body.whatsapp.replace(/\D/g, "") || null : undefined;
 
   try {
     if (body.action === "create") {
@@ -98,8 +103,11 @@ export async function POST(req: Request) {
           full_name: body.name.trim(),
           role: "gerencial",
           client_id: null,
-          team_role: body.teamRole ?? "custom",
+          team_role: teamRole,
+          profile_tier: tier,
           allowed_sections: allowed,
+          squad_id: squadId,
+          whatsapp: whatsappDigits ?? null,
         },
         { onConflict: "id" },
       );
@@ -113,15 +121,34 @@ export async function POST(req: Request) {
       const { error } = await admin
         .from("profiles")
         .update({
-          team_role: body.teamRole ?? "custom",
+          ...(body.name?.trim() ? { full_name: body.name.trim() } : {}),
+          team_role: teamRole,
+          profile_tier: tier,
           allowed_sections: allowed,
-          whatsapp: body.whatsapp !== undefined ? body.whatsapp.replace(/\D/g, "") || null : undefined,
+          squad_id: squadId,
+          whatsapp: whatsappDigits,
         })
         .eq("id", body.userId);
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "create_team") {
+      const name = body.name?.trim();
+      if (!name) {
+        return NextResponse.json({ error: "informe o nome do time" }, { status: 400 });
+      }
+      const { data, error } = await admin
+        .from("squads")
+        .insert({ name })
+        .select("id")
+        .single();
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, id: data.id });
     }
 
     if (body.action === "reset_password") {

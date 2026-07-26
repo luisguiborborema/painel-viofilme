@@ -43,6 +43,9 @@ export async function POST(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
+  if (user.readOnly) {
+    return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
+  }
 
   let b: Body;
   try {

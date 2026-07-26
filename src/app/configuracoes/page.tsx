@@ -1,9 +1,9 @@
-import { Bell, Palette, Settings, UserRound } from "lucide-react";
+import Link from "next/link";
+import { Bell, Palette, Settings, ShieldCheck, UserRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { ROLE_LABEL } from "@/lib/auth/types";
-import { hasFullAccess } from "@/lib/access";
-import { listTeam } from "@/lib/auth/team";
+import { isAdminTier } from "@/lib/access";
 import { isPushConfigured, VAPID_PUBLIC_KEY } from "@/lib/push/config";
 import { isWhatsappConfigured } from "@/lib/whatsapp/config";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -13,7 +13,6 @@ import { ThemeToggle } from "@/components/theme/theme-provider";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { WhatsappTest } from "@/components/settings/whatsapp-test";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
-import { TeamAccess } from "@/components/settings/team-access";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 
 function SectionHeader({
@@ -40,8 +39,7 @@ function SectionHeader({
 
 export default async function Configuracoes() {
   const user = await getSession();
-  const isGestor = user?.role === "gerencial" && hasFullAccess(user.allowedSections);
-  const team = isGestor ? await listTeam() : [];
+  const isAdmin = user?.role === "gerencial" && isAdminTier(user.tier);
 
   // Preferências de notificação (categorias silenciadas) do usuário atual.
   let mutedCategories: string[] = [];
@@ -94,10 +92,20 @@ export default async function Configuracoes() {
         )}
       </Card>
 
-      {/* Equipe & acessos (só Gestor) */}
-      {isGestor && user && (
+      {/* Usuários & acessos — agora numa página dedicada (só admin). */}
+      {isAdmin && (
         <Card className="p-5">
-          <TeamAccess team={team} selfId={user.id} />
+          <SectionHeader
+            icon={ShieldCheck}
+            title="Usuários & acessos"
+            subtitle="Crie usuários, defina perfil (admin/gestor/colaborador/viewer), WhatsApp e time."
+          />
+          <Link
+            href="/gerencial/usuarios"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <ShieldCheck className="h-4 w-4" /> Gerenciar usuários
+          </Link>
         </Card>
       )}
 

@@ -82,7 +82,36 @@ export const TEAM_TEMPLATES: TeamTemplate[] = [
   { value: "custom", label: "Personalizado", sections: [] },
 ];
 
-/** Acesso total? (Gestor) */
+/**
+ * Perfil do usuário (tier). Define o nível de acesso de forma nomeada:
+ *  - admin       → tudo + gerencia usuários
+ *  - gestor      → todas as abas (sem gerenciar usuários)
+ *  - colaborador → abas escolhidas (allowed_sections), pode editar
+ *  - viewer      → abas escolhidas, SOMENTE LEITURA
+ */
+export type ProfileTier = "admin" | "gestor" | "colaborador" | "viewer";
+
+export const PROFILE_TIERS: { value: ProfileTier; label: string; hint: string }[] = [
+  { value: "admin", label: "Admin", hint: "Acesso total + gerencia usuários" },
+  { value: "gestor", label: "Gestor", hint: "Vê e edita todas as abas" },
+  { value: "colaborador", label: "Colaborador", hint: "Acesso às abas escolhidas" },
+  { value: "viewer", label: "Viewer", hint: "Somente leitura das abas escolhidas" },
+];
+
+/** Tiers com acesso a todas as seções (allowed_sections = null). */
+export function tierHasFullAccess(tier?: string | null): boolean {
+  return tier === "admin" || tier === "gestor";
+}
+/** Só o admin gerencia usuários. */
+export function isAdminTier(tier?: string | null): boolean {
+  return tier === "admin";
+}
+/** Viewer = somente leitura (bloqueia escrita). */
+export function isReadOnlyTier(tier?: string | null): boolean {
+  return tier === "viewer";
+}
+
+/** Acesso total? (Gestor/Admin) */
 export function hasFullAccess(allowed?: string[] | null): boolean {
   return allowed == null;
 }

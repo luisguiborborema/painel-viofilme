@@ -25,10 +25,11 @@ import {
   Database,
   SlidersHorizontal,
   FileText,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
-import { canAccessSection, type SectionKey } from "@/lib/access";
+import { canAccessSection, isAdminTier, type SectionKey } from "@/lib/access";
 
 export type NavItem = {
   label: string;
@@ -38,6 +39,8 @@ export type NavItem = {
   section?: SectionKey;
   /** Visível se o usuário tiver QUALQUER uma destas seções (rotas combinadas). */
   anySection?: SectionKey[];
+  /** Só para admin (ex.: gestão de usuários). */
+  adminOnly?: boolean;
 };
 
 /** Grupo (Aba) do menu: um cabeçalho + seus itens (sub-abas). */
@@ -96,6 +99,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
       { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
+      { label: "Usuários", href: "/gerencial/usuarios", icon: ShieldCheck, adminOnly: true },
     ],
   },
   {
@@ -120,6 +124,7 @@ const CLIENTE_GROUPS: NavGroup[] = [
 ];
 
 function itemVisible(user: SessionUser, item: NavItem): boolean {
+  if (item.adminOnly) return isAdminTier(user.tier);
   if (item.section) return canAccessSection(user.allowedSections, item.section);
   if (item.anySection) {
     return item.anySection.some((s) => canAccessSection(user.allowedSections, s));

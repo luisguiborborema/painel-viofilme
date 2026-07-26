@@ -18,6 +18,12 @@ export type SessionUser = {
   teamRole?: string | null;
   /** Função comercial (sdr/closer/gestor) — define a lente do Dashboard Comercial. */
   commercialRole?: string | null;
+  /** Perfil (tier): admin | gestor | colaborador | viewer. */
+  tier?: string | null;
+  /** Viewer = somente leitura (bloqueia ações de escrita). */
+  readOnly?: boolean;
+  /** Admin = pode gerenciar usuários. */
+  isAdmin?: boolean;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {

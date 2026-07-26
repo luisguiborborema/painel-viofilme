@@ -63,6 +63,28 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     clientName = (c as { name: string | null } | null)?.name ?? null;
   }
 
+  const allowedSections =
+    (profile?.allowed_sections as string[] | null | undefined) ?? null;
+  // Perfil (tier) numa query SEPARADA e tolerante: se a coluna ainda não existe
+  // (migration 0086 pendente), o erro fica isolado e NÃO derruba a sessão para
+  // 'cliente'. Fallback: acesso total → admin; senão colaborador.
+  let tier: string;
+  if (role === "gerencial") {
+    const { data: t, error: tErr } = await db
+      .from("profiles")
+      .select("profile_tier")
+      .eq("id", userId)
+      .maybeSingle();
+    tier = !tErr
+      ? ((t?.profile_tier as string | null | undefined) ??
+        (allowedSections == null ? "admin" : "colaborador"))
+      : allowedSections == null
+        ? "admin"
+        : "colaborador";
+  } else {
+    tier = "colaborador";
+  }
+
   return {
     id: userId,
     email: userEmail,
@@ -71,11 +93,13 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     clientId: profile?.client_id ?? null,
     clientName,
     avatarUrl,
-    allowedSections:
-      (profile?.allowed_sections as string[] | null | undefined) ?? null,
+    allowedSections,
     teamRole: (profile?.team_role as string | null | undefined) ?? null,
     commercialRole:
       (profile?.commercial_role as string | null | undefined) ?? "gestor",
+    tier,
+    readOnly: tier === "viewer",
+    isAdmin: tier === "admin",
   };
 });
 
