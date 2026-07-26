@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { SessionUser } from "@/lib/auth/types";
 
 export type AuditInput = {
   userId?: string | null;
@@ -37,4 +38,19 @@ export async function logEvent(e: AuditInput): Promise<void> {
   } catch {
     /* best-effort: monitoramento nunca derruba a ação principal */
   }
+}
+
+/** Atalho: registra um evento já preenchendo quem/painel a partir da sessão. */
+export async function logFromUser(
+  user: Pick<SessionUser, "id" | "name" | "email" | "role"> | null | undefined,
+  e: { action: string; area: string; target?: string | null; detail?: string | null; meta?: Record<string, unknown> },
+): Promise<void> {
+  if (!user) return;
+  await logEvent({
+    userId: user.id,
+    userName: user.name,
+    userEmail: user.email,
+    panel: user.role === "cliente" ? "cliente" : "gerencial",
+    ...e,
+  });
 }

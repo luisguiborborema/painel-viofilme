@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isAdminTier, tierHasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,15 @@ export async function POST(req: Request) {
   const squadId = body.squadId ? body.squadId : null;
   const whatsappDigits =
     body.whatsapp !== undefined ? body.whatsapp.replace(/\D/g, "") || null : undefined;
+
+  // Auditoria: registra a ação administrativa (quem gerencia usuários/times).
+  if (body.action && body.action !== "send_reset_email") {
+    await logFromUser(user, {
+      action: body.action,
+      area: "Usuários",
+      target: body.name ?? body.email ?? body.userId ?? body.teamId ?? null,
+    });
+  }
 
   try {
     if (body.action === "create") {

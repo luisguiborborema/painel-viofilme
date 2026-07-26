@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Activity, BarChart3, Clock, Search, Users, X } from "lucide-react";
+import { Activity, BarChart3, Clock, Download, Search, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { actionLabel } from "@/lib/audit/labels";
 
@@ -118,6 +118,29 @@ export function MonitoringView({ events, analytics }: { events: AuditRow[]; anal
     setSearch("");
   }
 
+  function exportCsv() {
+    const header = ["Quando", "Quem", "Email", "Painel", "Ação", "Onde", "Detalhes"];
+    const rows = filtered.map((e) => [
+      fmtDate(e.createdAt),
+      e.userName ?? "",
+      e.userEmail ?? "",
+      e.panel,
+      actionLabel(e.action),
+      e.area ?? "",
+      e.detail ?? e.target ?? "",
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "monitoramento.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const maxHour = Math.max(1, ...analytics.byHour);
 
   return (
@@ -192,6 +215,12 @@ export function MonitoringView({ events, analytics }: { events: AuditRow[]; anal
                 <X className="h-3.5 w-3.5" /> limpar ({activeFilters})
               </button>
             )}
+            <button
+              onClick={exportCsv}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { logEvent } from "@/lib/audit/log";
+import { logEvent, logFromUser } from "@/lib/audit/log";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -184,6 +184,7 @@ export async function POST(req: Request) {
     // Cascata (interações, tarefas, deal_contacts, histórico) já cai por FK.
     const { error } = await supabase.from("crm_leads").delete().eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "delete", area: "Comercial", target: body.id });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -246,6 +247,7 @@ export async function POST(req: Request) {
       lead_id: body.id, channel: "system", author: user.name,
       body: `❄️ Negócio congelado${body.reason ? ` — ${body.reason}` : ""}`,
     });
+    await logFromUser(user, { action: "freeze", area: "Comercial", target: body.id, detail: body.reason ?? null });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -259,6 +261,7 @@ export async function POST(req: Request) {
     await supabase.from("crm_interactions").insert({
       lead_id: body.id, channel: "system", body: "♻️ Negócio reativado", author: user.name,
     });
+    await logFromUser(user, { action: "unfreeze", area: "Comercial", target: body.id });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -306,6 +309,7 @@ export async function POST(req: Request) {
         lead_id: body.id, channel: "system", author: user.name,
         body: `🤝 Bastão passado — aceito na qualificação${parecer ? `: ${parecer}` : ""}`,
       });
+      await logFromUser(user, { action: "handoff", area: "Comercial", target: body.id, detail: "aceito" });
       return NextResponse.json({ ok: true, persisted: true, pipelineId: PIPELINE_VENDAS_ID, stage: first?.key ?? "vnd_analise" });
     }
 
@@ -339,6 +343,7 @@ export async function POST(req: Request) {
       lead_id: body.id, channel: "system", author: user.name,
       body: `🚫 Bastão recusado — feedback: ${parecer || "—"}`,
     });
+    await logFromUser(user, { action: "handoff", area: "Comercial", target: body.id, detail: "recusado" });
     return NextResponse.json({ ok: true, persisted: true, stage: "perdido" });
   }
 

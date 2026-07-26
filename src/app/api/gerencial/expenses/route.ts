@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { EXPENSE_CATEGORIES } from "@/lib/data/gerfinance";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
   const action = b.action ?? "create";
+  await logFromUser(user, { action, area: "Financeiro", target: b.description ?? b.id ?? null });
 
   if (action === "delete") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });

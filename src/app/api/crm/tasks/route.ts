@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { logFromUser } from "@/lib/audit/log";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -106,6 +107,7 @@ export async function POST(req: Request) {
         });
       }
     }
+    await logFromUser(user, { action: action === "done" ? "done" : "update", area: "Atividades", target: b.taskId, detail: action === "done" ? "concluída" : "reaberta" });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
     if (!b.taskId) return NextResponse.json({ error: "taskId ausente" }, { status: 400 });
     const { error } = await supabase.from("crm_tasks").delete().eq("id", b.taskId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "delete", area: "Atividades", target: b.taskId });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -287,5 +290,6 @@ export async function POST(req: Request) {
       .eq("id", b.leadId);
   }
 
+  await logFromUser(user, { action: "create", area: "Atividades", target: b.title?.trim() ?? null });
   return NextResponse.json({ ok: true, persisted: true, id: data.id });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,7 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: true, persisted: false });
   }
+  await logFromUser(user, { action, area: "Formulários", target: b.name ?? b.id ?? null });
   const supabase = await createClient();
 
   if (action === "delete") {

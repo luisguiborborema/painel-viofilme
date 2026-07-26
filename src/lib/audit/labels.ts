@@ -11,6 +11,20 @@ export const ACTION_LABELS: Record<string, string> = {
   move: "Moveu",
   delete: "Excluiu",
   update: "Atualizou",
+  comment: "Comentou",
+  freeze: "Congelou",
+  unfreeze: "Reativou",
+  handoff: "Passou o bastão",
+  done: "Concluiu",
+  pay: "Baixou pagamento",
+  unpay: "Estornou",
+  create_team: "Criou time",
+  update_team: "Editou time",
+  delete_team: "Excluiu time",
+  reset_password: "Redefiniu senha",
+  set_active: "Ativou/desativou",
+  send_reset_email: "Enviou link de senha",
+  "save-fields": "Editou campos",
 };
 
 export function actionLabel(a: string): string {

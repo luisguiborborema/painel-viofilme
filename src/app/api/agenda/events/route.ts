@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { createEvent, updateEvent, deleteEvent } from "@/lib/google/calendar";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
   }
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
+  await logFromUser(user, { action: b.action ?? "create", area: "Agenda", target: b.title ?? b.id ?? null });
 
   if (b.action === "delete") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });

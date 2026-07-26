@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { logEvent } from "@/lib/audit/log";
+import { logEvent, logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -144,6 +144,7 @@ export async function POST(req: Request) {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const { error } = await supabase.from("delivery_tasks").delete().eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "delete", area: "Tarefas", target: b.id });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -191,6 +192,7 @@ export async function POST(req: Request) {
       .update({ assignees: list, assignee: list[0] ?? null, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "update", area: "Tarefas", target: b.id, detail: `responsáveis: ${list.join(", ") || "—"}` });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -203,6 +205,7 @@ export async function POST(req: Request) {
       .update({ priority: b.priority, urgent: b.priority === "urgente", updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "update", area: "Tarefas", target: b.id, detail: `prioridade: ${b.priority}` });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -325,6 +328,7 @@ export async function POST(req: Request) {
       .update({ comments: next, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "comment", area: "Tarefas", target: b.id });
     return NextResponse.json({ ok: true, persisted: true, id: entry.id });
   }
 
@@ -382,5 +386,6 @@ export async function POST(req: Request) {
     .select("id")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logFromUser(user, { action: "create", area: "Tarefas", target: title });
   return NextResponse.json({ ok: true, persisted: true, id: data.id });
 }
