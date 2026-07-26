@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Plus, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Check, Loader2, Plus, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PROFILE_TIERS, SECTIONS, type ProfileTier, type SectionKey } from "@/lib/access";
 import type { SquadRow, TeamMemberRow } from "@/lib/auth/team";
+import { TabNav } from "@/components/ui/tab-nav";
 import { toast } from "@/components/ui/toast";
 
 const inputCls =
@@ -36,7 +37,7 @@ function fmtPhone(w: string | null) {
 
 export function UsersAdmin({
   team,
-  squads: initialSquads,
+  squads,
   selfId,
 }: {
   team: TeamMemberRow[];
@@ -44,13 +45,12 @@ export function UsersAdmin({
   selfId: string;
 }) {
   const router = useRouter();
-  const [squads, setSquads] = useState(initialSquads);
+  const [view, setView] = useState<"usuarios" | "times">("usuarios");
   const [modal, setModal] = useState<{ mode: "create" } | { mode: "edit"; user: TeamMemberRow } | null>(null);
   const [busy, setBusy] = useState(false);
   const [pwFor, setPwFor] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState("");
   const [delFor, setDelFor] = useState<string | null>(null);
-  const [newTeam, setNewTeam] = useState("");
 
   async function post(body: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -73,31 +73,21 @@ export function UsersAdmin({
     }
   }
 
-  async function createTeam() {
-    const name = newTeam.trim();
-    if (!name) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/gerencial/team", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create_team", name }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "falha");
-      setSquads((prev) => [...prev, { id: String(json.id), name }].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewTeam("");
-      toast("Time criado.", "success");
-      router.refresh();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "erro", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
+      <TabNav
+        tabs={[
+          { key: "usuarios", label: "Usuários", count: team.length },
+          { key: "times", label: "Times", count: squads.length },
+        ]}
+        active={view}
+        onChange={(k) => setView(k as "usuarios" | "times")}
+      />
+
+      {view === "times" ? (
+        <TeamsManager squads={squads} post={post} busy={busy} />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-subtle text-muted">
@@ -108,28 +98,12 @@ export function UsersAdmin({
             <p className="text-xs text-muted">Nome, contato, perfil de acesso e time de cada pessoa.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <input
-              value={newTeam}
-              onChange={(e) => setNewTeam(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && createTeam()}
-              placeholder="+ Novo time"
-              className="h-9 w-28 rounded-xl border border-dashed border-line bg-surface px-2.5 text-xs text-ink outline-none transition-all focus:w-40 focus:border-brand-400"
-            />
-            {newTeam.trim() && (
-              <button onClick={createTeam} disabled={busy} className="h-9 shrink-0 rounded-lg bg-brand-600 px-2 text-white hover:bg-brand-700 disabled:opacity-60">
-                <Plus className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => setModal({ mode: "create" })}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <Plus className="h-4 w-4" /> Novo usuário
-          </button>
-        </div>
+        <button
+          onClick={() => setModal({ mode: "create" })}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Novo usuário
+        </button>
       </div>
 
       {/* Tabela */}
@@ -250,6 +224,8 @@ export function UsersAdmin({
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
       {modal && (
         <UserModal
@@ -294,6 +270,7 @@ function UserModal({
   );
 
   const needsSections = tier === "colaborador" || tier === "viewer";
+  const teamSections = squads.find((s) => s.id === squadId)?.defaultSections ?? [];
   const valid =
     name.trim() && (isEdit || (email.trim() && (mode === "invite" || password.length >= 6)));
 
@@ -406,7 +383,18 @@ function UserModal({
 
           {needsSections ? (
             <div>
-              <span className="mb-1.5 block text-xs font-medium text-muted">Abas que este usuário vê</span>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium text-muted">Abas que este usuário vê</span>
+                {teamSections.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSections(new Set(teamSections as SectionKey[]))}
+                    className="text-[11px] font-medium text-brand-600 hover:underline"
+                  >
+                    Usar telas do time ({teamSections.length})
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {SECTIONS.map((s) => {
                   const on = sections.has(s.key);
@@ -450,6 +438,155 @@ function UserModal({
             {isEdit ? "Salvar" : "Criar usuário"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamsManager({
+  squads,
+  post,
+  busy,
+}: {
+  squads: SquadRow[];
+  post: (body: unknown, okMsg?: string) => Promise<boolean>;
+  busy: boolean;
+}) {
+  const [newName, setNewName] = useState("");
+
+  async function create() {
+    const name = newName.trim();
+    if (!name) return;
+    const ok = await post({ action: "create_team", name, defaultSections: [] }, "Time criado.");
+    if (ok) setNewName("");
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-end gap-2 rounded-2xl border border-line bg-surface p-3">
+        <label className="flex-1">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Novo time</span>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && create()}
+            placeholder="Ex.: Social, Tráfego, Design"
+            className={inputCls}
+          />
+        </label>
+        <button
+          onClick={create}
+          disabled={busy || !newName.trim()}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          <Plus className="h-4 w-4" /> Criar time
+        </button>
+      </div>
+
+      {squads.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-line px-3 py-8 text-center text-sm text-muted">
+          Nenhum time ainda. Crie o primeiro acima.
+        </p>
+      )}
+      {squads.map((s) => (
+        <TeamRow key={s.id} squad={s} post={post} busy={busy} />
+      ))}
+    </div>
+  );
+}
+
+function TeamRow({
+  squad,
+  post,
+  busy,
+}: {
+  squad: SquadRow;
+  post: (body: unknown, okMsg?: string) => Promise<boolean>;
+  busy: boolean;
+}) {
+  const [name, setName] = useState(squad.name);
+  const [sections, setSections] = useState<Set<SectionKey>>(
+    new Set((squad.defaultSections ?? []) as SectionKey[]),
+  );
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  function toggle(key: SectionKey) {
+    setSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-line bg-surface p-4">
+      <div className="flex items-center gap-2">
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls + " max-w-xs"} />
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => post({ action: "update_team", teamId: squad.id, name: name.trim() || squad.name, defaultSections: [...sections] }, "Time salvo.")}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            <Check className="h-4 w-4" /> Salvar
+          </button>
+          {confirmDel ? (
+            <span className="flex items-center gap-1.5 text-xs">
+              <span className="text-muted">Excluir?</span>
+              <button
+                disabled={busy}
+                onClick={async () => {
+                  const ok = await post({ action: "delete_team", teamId: squad.id }, "Time excluído.");
+                  if (ok) setConfirmDel(false);
+                }}
+                className="font-semibold text-rose-500 hover:text-rose-400 disabled:opacity-60"
+              >
+                Sim
+              </button>
+              <button onClick={() => setConfirmDel(false)} className="text-muted hover:text-ink">Não</button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmDel(true)}
+              className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500"
+              title="Excluir time"
+              aria-label="Excluir time"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <span className="mb-1.5 block text-xs font-medium text-muted">
+          Telas padrão — abas de visualização deste time
+        </span>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          {SECTIONS.map((sec) => {
+            const on = sections.has(sec.key);
+            return (
+              <button
+                key={sec.key}
+                type="button"
+                onClick={() => toggle(sec.key)}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-colors",
+                  on ? "border-brand-400 bg-brand-500/10 text-ink" : "border-line bg-surface text-muted hover:text-ink",
+                )}
+              >
+                <span className={cn("flex h-4 w-4 items-center justify-center rounded border", on ? "border-brand-400 bg-brand-500 text-white" : "border-line")}>
+                  {on && <Check className="h-3 w-3" />}
+                </span>
+                {sec.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted">
+          Preset aplicado ao criar/editar um usuário deste time (botão “Usar telas do time”).
+        </p>
       </div>
     </div>
   );

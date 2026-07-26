@@ -14,14 +14,21 @@ export type TeamMemberRow = {
   active: boolean;
 };
 
-export type SquadRow = { id: string; name: string };
+export type SquadRow = { id: string; name: string; defaultSections: string[] | null };
 
 /** Times (squads) para o seletor de usuários. Só com service-role. */
 export async function listSquads(): Promise<SquadRow[]> {
   if (!isSupabaseConfigured() || !hasServiceRole()) return [];
   const admin = createAdminClient();
-  const { data } = await admin.from("squads").select("id, name").order("name", { ascending: true });
-  return (data ?? []).map((s) => ({ id: String(s.id), name: String(s.name ?? "Time") }));
+  const { data } = await admin
+    .from("squads")
+    .select("id, name, default_sections")
+    .order("name", { ascending: true });
+  return (data ?? []).map((s) => ({
+    id: String(s.id),
+    name: String(s.name ?? "Time"),
+    defaultSections: (s.default_sections as string[] | null) ?? null,
+  }));
 }
 
 /** Lista os usuários gerenciais (perfil + e-mail/status via Auth). Só com service-role. */

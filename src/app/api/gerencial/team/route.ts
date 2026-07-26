@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       | "set_active"
       | "send_reset_email"
       | "create_team"
+      | "update_team"
+      | "delete_team"
       | "delete";
     mode?: "password" | "invite";
     userId?: string;
@@ -43,6 +45,8 @@ export async function POST(req: Request) {
     allowedSections?: string[] | null;
     whatsapp?: string;
     squadId?: string | null;
+    teamId?: string;
+    defaultSections?: string[] | null;
     active?: boolean;
   };
   try {
@@ -143,13 +147,44 @@ export async function POST(req: Request) {
       }
       const { data, error } = await admin
         .from("squads")
-        .insert({ name })
+        .insert({
+          name,
+          default_sections: Array.isArray(body.defaultSections) ? body.defaultSections : null,
+        })
         .select("id")
         .single();
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       return NextResponse.json({ ok: true, id: data.id });
+    }
+
+    if (body.action === "update_team") {
+      if (!body.teamId) {
+        return NextResponse.json({ error: "teamId ausente" }, { status: 400 });
+      }
+      const patch: Record<string, unknown> = {};
+      if (body.name != null) patch.name = body.name.trim();
+      if (body.defaultSections !== undefined) {
+        patch.default_sections = Array.isArray(body.defaultSections) ? body.defaultSections : null;
+      }
+      const { error } = await admin.from("squads").update(patch).eq("id", body.teamId);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "delete_team") {
+      if (!body.teamId) {
+        return NextResponse.json({ error: "teamId ausente" }, { status: 400 });
+      }
+      // FKs em profiles/clients usam on delete set null (0058) — nada quebra.
+      const { error } = await admin.from("squads").delete().eq("id", body.teamId);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
     }
 
     if (body.action === "reset_password") {
