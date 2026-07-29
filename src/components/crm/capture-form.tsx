@@ -72,7 +72,7 @@ export function CaptureForm({
 
   if (done) {
     return (
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
         <div className="bg-brand-700 px-6 py-5">
           <LogoHorizontal className="h-6 text-white" />
         </div>
@@ -86,7 +86,7 @@ export function CaptureForm({
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
+    <form onSubmit={submit} className="w-full max-w-2xl overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
       {/* Faixa de marca */}
       <div className="relative overflow-hidden bg-brand-700 px-6 py-6 text-white">
         <div
@@ -98,74 +98,76 @@ export function CaptureForm({
         <p className="mt-1 text-sm text-white/70">{description || "Preencha os campos abaixo — leva poucos minutos."}</p>
       </div>
 
-      {/* Campos */}
-      <div className="space-y-4 p-6">
-        {activeFields.map((f) => {
-          const val = values[f.fieldKey] ?? "";
-          const req = f.required ? <span className="text-rose-500"> *</span> : null;
+      {/* Campos — 2 colunas no desktop; textarea/checkbox ocupam a linha inteira */}
+      <div className="p-6 sm:p-8">
+        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+          {activeFields.map((f) => {
+            const val = values[f.fieldKey] ?? "";
+            const req = f.required ? <span className="text-rose-500"> *</span> : null;
 
-          if (f.fieldType === "checkbox") {
-            return (
-              <label key={f.fieldKey} className="flex items-center gap-2 text-sm text-ink">
+            if (f.fieldType === "checkbox") {
+              return (
+                <label key={f.fieldKey} className="flex items-center gap-2 text-sm text-ink sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={val === "true"}
+                    onChange={(e) => set(f.fieldKey, e.target.checked ? "true" : "")}
+                    className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500/30"
+                  />
+                  {f.label}
+                  {req}
+                </label>
+              );
+            }
+
+            let control;
+            if (f.fieldType === "textarea") {
+              control = (
+                <textarea value={val} onChange={(e) => set(f.fieldKey, e.target.value)} rows={3} className={inputCls + " resize-none"} required={f.required} />
+              );
+            } else if (f.fieldType === "select") {
+              control = (
+                <select value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className={inputCls} required={f.required}>
+                  <option value="">Selecione…</option>
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              );
+            } else {
+              const type =
+                f.fieldType === "email" ? "email" : f.fieldType === "number" ? "number" : f.fieldType === "date" ? "date" : f.fieldType === "url" ? "url" : "text";
+              control = (
                 <input
-                  type="checkbox"
-                  checked={val === "true"}
-                  onChange={(e) => set(f.fieldKey, e.target.checked ? "true" : "")}
-                  className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500/30"
+                  type={type}
+                  inputMode={f.fieldType === "phone" ? "tel" : undefined}
+                  value={val}
+                  onChange={(e) => set(f.fieldKey, e.target.value)}
+                  placeholder={f.fieldType === "phone" ? "5527999998888" : undefined}
+                  className={inputCls}
+                  required={f.required}
                 />
-                {f.label}
-                {req}
+              );
+            }
+
+            return (
+              <label key={f.fieldKey} className={"flex flex-col" + (f.fieldType === "textarea" ? " sm:col-span-2" : "")}>
+                <span className="mb-1.5 text-sm font-medium text-ink">{f.label}{req}</span>
+                <span className="mt-auto">{control}</span>
               </label>
             );
-          }
+          })}
 
-          let control;
-          if (f.fieldType === "textarea") {
-            control = (
-              <textarea value={val} onChange={(e) => set(f.fieldKey, e.target.value)} rows={3} className={inputCls + " resize-none"} required={f.required} />
-            );
-          } else if (f.fieldType === "select") {
-            control = (
-              <select value={val} onChange={(e) => set(f.fieldKey, e.target.value)} className={inputCls} required={f.required}>
-                <option value="">Selecione…</option>
-                {f.options.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            );
-          } else {
-            const type =
-              f.fieldType === "email" ? "email" : f.fieldType === "number" ? "number" : f.fieldType === "date" ? "date" : f.fieldType === "url" ? "url" : "text";
-            control = (
-              <input
-                type={type}
-                inputMode={f.fieldType === "phone" ? "tel" : undefined}
-                value={val}
-                onChange={(e) => set(f.fieldKey, e.target.value)}
-                placeholder={f.fieldType === "phone" ? "5527999998888" : undefined}
-                className={inputCls}
-                required={f.required}
-              />
-            );
-          }
+          {/* Honeypot: escondido para humanos, preenchido por bots */}
+          <input value={website} onChange={(e) => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+        </div>
 
-          return (
-            <label key={f.fieldKey} className="block">
-              <span className="mb-1.5 block text-sm font-medium text-ink">{f.label}{req}</span>
-              {control}
-            </label>
-          );
-        })}
-
-        {/* Honeypot: escondido para humanos, preenchido por bots */}
-        <input value={website} onChange={(e) => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
-
-        {error && <p className="text-xs text-rose-500">Ops, algo deu errado. Confira os campos e tente de novo.</p>}
+        {error && <p className="mt-4 text-xs text-rose-500">Ops, algo deu errado. Confira os campos e tente de novo.</p>}
 
         <button
           type="submit"
           disabled={busy || missingRequired}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+          className="mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Enviar
