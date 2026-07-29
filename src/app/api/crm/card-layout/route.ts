@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 /** Salva o layout do card do negócio. Só Gestor (acesso total). */
 export async function POST(req: Request) {
   const user = await getSession();
+  if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial" || !hasFullAccess(user.allowedSections)) {
     return NextResponse.json({ error: "não autorizado" }, { status: 403 });
   }

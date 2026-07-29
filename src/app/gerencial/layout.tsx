@@ -24,6 +24,12 @@ export default async function GerencialLayout({
 
   return (
     <AppShell user={user}>
+      {user.readOnly && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+          Modo somente leitura — você pode visualizar tudo, mas ações de criar, editar e excluir ficam desativadas.
+        </div>
+      )}
       {children}
       <AiChat clientName={user.name} scope="gerencial" />
       <Toaster />

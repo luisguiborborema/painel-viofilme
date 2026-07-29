@@ -21,6 +21,7 @@ const int = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round
 /** Define (upsert) a meta de um vendedor num mês. Só Gestor (acesso total). */
 export async function POST(req: Request) {
   const user = await getSession();
+  if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial" || !hasFullAccess(user.allowedSections)) {
     return NextResponse.json({ error: "não autorizado" }, { status: 403 });
   }

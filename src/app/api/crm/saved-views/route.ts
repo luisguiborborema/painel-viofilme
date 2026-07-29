@@ -20,6 +20,7 @@ type Body = {
 /** CRUD das visões salvas (filtros nomeados de Pessoas/Empresas). */
 export async function POST(req: Request) {
   const user = await getSession();
+  if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }

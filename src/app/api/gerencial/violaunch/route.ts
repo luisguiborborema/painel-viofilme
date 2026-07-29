@@ -32,6 +32,7 @@ async function projectId(supabase: Awaited<ReturnType<typeof createClient>>, cli
 /** Persiste o estado do VioLaunch (status de passos/gates, checklists, blocos). */
 export async function POST(req: Request) {
   const user = await getSession();
+  if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }

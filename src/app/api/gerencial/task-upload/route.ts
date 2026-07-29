@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 /** Upload de anexo de comentário (bucket wa-media/task-files). Gerencial-only. */
 export async function POST(req: Request) {
   const user = await getSession();
+  if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
