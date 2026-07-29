@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { trigger } from "@/lib/push/triggers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
 
   const { data: form } = await admin
     .from("crm_capture_forms")
-    .select("id, owner, source, active, destination, pipeline_id, stage_id, client_id, task_type")
+    .select("id, name, owner, source, active, destination, pipeline_id, stage_id, client_id, task_type")
     .eq("slug", slug)
     .maybeSingle();
   if (!form || !form.active) {
@@ -172,6 +173,9 @@ export async function POST(req: Request) {
       values,
       created_task_id: task.id,
     });
+    await trigger
+      .formSubmission({ formName: String(form.name ?? source), title, destination: "entregas" })
+      .catch(() => {});
     return json({ ok: true, persisted: true });
   }
 
@@ -197,13 +201,24 @@ export async function POST(req: Request) {
     companyId = co.id as string;
   }
 
-  // Contato primário.
-  const { data: contact } = await admin
-    .from("crm_contacts")
-    .insert({ company_id: companyId, name: contactName, phone, email, is_primary: true, owner })
-    .select("id")
-    .single();
-  const contactId = contact?.id as string | undefined;
+  // Contato: reaproveita por e-mail/telefone (dedup) antes de criar um novo.
+  let contactId: string | undefined;
+  if (email) {
+    const { data } = await admin.from("crm_contacts").select("id").eq("email", email).limit(1).maybeSingle();
+    if (data) contactId = data.id as string;
+  }
+  if (!contactId && phone) {
+    const { data } = await admin.from("crm_contacts").select("id").eq("phone", phone).limit(1).maybeSingle();
+    if (data) contactId = data.id as string;
+  }
+  if (!contactId) {
+    const { data: contact } = await admin
+      .from("crm_contacts")
+      .insert({ company_id: companyId, name: contactName, phone, email, is_primary: true, owner })
+      .select("id")
+      .single();
+    contactId = contact?.id as string | undefined;
+  }
 
   // Funil/etapa de destino (do formulário; fallback: default + 1ª aberta).
   let pipelineId = (form.pipeline_id as string | null) || null;
@@ -262,5 +277,8 @@ export async function POST(req: Request) {
     values,
     created_lead_id: deal.id,
   });
+  await trigger
+    .formSubmission({ formName: String(form.name ?? source), title, destination: "crm" })
+    .catch(() => {});
   return json({ ok: true, persisted: true });
 }

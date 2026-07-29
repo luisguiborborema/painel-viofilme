@@ -98,6 +98,15 @@ export const trigger = {
       url: args.url ?? "/gerencial/crm",
     }),
 
+  /** Novo briefing/lead recebido via formulário público → notifica a equipe. */
+  formSubmission: (args: { formName: string; title: string; destination: "crm" | "entregas" }) =>
+    toManagement({
+      category: "requests",
+      title: `📋 Novo ${args.destination === "entregas" ? "briefing (tarefa)" : "briefing/lead"} — ${args.formName}`,
+      body: args.title || "Formulário preenchido.",
+      url: args.destination === "entregas" ? "/gerencial/entregas" : "/gerencial/comercial/pipeline",
+    }),
+
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {

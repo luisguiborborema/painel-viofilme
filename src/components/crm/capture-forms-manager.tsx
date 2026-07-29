@@ -13,6 +13,7 @@ import {
   Inbox,
   Loader2,
   Plus,
+  QrCode,
   Sparkles,
   Trash2,
   X,
@@ -64,6 +65,7 @@ export function CaptureFormsManager({
   const [copied, setCopied] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [showResp, setShowResp] = useState<CaptureForm | null>(null);
+  const [shareOpen, setShareOpen] = useState<string | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -182,7 +184,16 @@ export function CaptureFormsManager({
             <a href={`/captura/${f.slug}`} target="_blank" rel="noreferrer" className="text-muted hover:text-ink" title="Abrir">
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
+            <button
+              onClick={() => setShareOpen((s) => (s === f.id ? null : f.id))}
+              className="text-muted hover:text-ink"
+              title="QR code e incorporar"
+            >
+              <QrCode className="h-3.5 w-3.5" />
+            </button>
           </div>
+
+          {shareOpen === f.id && <SharePanel url={`${origin}/captura/${f.slug}`} name={f.name} />}
 
           {open === f.id && (
             <FormEditor key={f.id} form={f} team={team} pipelines={pipelines} clients={clients} />
@@ -195,6 +206,43 @@ export function CaptureFormsManager({
       {busy && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
 
       {showResp && <SubmissionsModal form={showResp} onClose={() => setShowResp(null)} />}
+    </div>
+  );
+}
+
+function SharePanel({ url, name }: { url: string; name: string }) {
+  const [copied, setCopied] = useState(false);
+  const embed = `<iframe src="${url}" width="100%" height="640" style="border:0;border-radius:12px" title="${name}"></iframe>`;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(url)}`;
+  return (
+    <div className="mt-2 flex flex-col gap-3 rounded-lg border border-line bg-canvas p-3 sm:flex-row">
+      <div className="flex flex-col items-center gap-1">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={qr} alt="QR code do formulário" width={140} height={140} className="rounded-lg border border-line bg-white p-1" />
+        <a href={qr} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-brand-600 hover:underline">baixar QR</a>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="mb-1 text-[11px] font-medium text-muted">Incorporar no site (iframe)</p>
+        <textarea
+          readOnly
+          value={embed}
+          rows={3}
+          onFocus={(e) => e.currentTarget.select()}
+          className={inputCls + " resize-none font-mono text-[11px]"}
+        />
+        <button
+          onClick={() =>
+            navigator.clipboard?.writeText(embed).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            })
+          }
+          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "copiado" : "copiar código"}
+        </button>
+      </div>
     </div>
   );
 }
