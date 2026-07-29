@@ -13,6 +13,7 @@ import {
   Inbox,
   Loader2,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -330,8 +331,57 @@ function FormEditor({
     form.fields.map((f, i) => ({ ...f, uid: i })),
   );
   const [saving, setSaving] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   const stages = pipelines.find((p) => p.id === pipelineId)?.stages ?? [];
+
+  async function generateAi() {
+    const p = aiText.trim();
+    if (!p || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/crm/capture-forms/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: p, destination }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.ok === false) throw new Error(j.reason ?? j.error ?? "falha");
+      const gen = (j.fields ?? []) as Array<{
+        label: string;
+        fieldType: FormFieldType;
+        required: boolean;
+        mapTo: FormFieldMap;
+        options: { value: string; label: string }[];
+      }>;
+      const base = uid.current;
+      uid.current += gen.length;
+      setFields((prev) => [
+        ...prev,
+        ...gen.map((f, i) => ({
+          uid: base + i,
+          id: "",
+          fieldKey: "",
+          label: f.label,
+          fieldType: f.fieldType,
+          options: f.options ?? [],
+          required: f.required,
+          mapTo: f.mapTo,
+          position: prev.length + i,
+          active: true,
+        })),
+      ]);
+      setAiOpen(false);
+      setAiText("");
+      toast(`${gen.length} campo(s) gerado(s). Revise e salve.`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "erro", "error");
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   function addField() {
     setFields((prev) => [
@@ -501,10 +551,44 @@ function FormEditor({
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <p className="text-xs font-semibold text-ink">Campos do formulário</p>
-          <button onClick={addField} className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle">
-            <Plus className="h-3.5 w-3.5" /> Adicionar campo
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setAiOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-lg border border-brand-400 bg-brand-500/10 px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-500/15"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Gerar com IA
+            </button>
+            <button onClick={addField} className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle">
+              <Plus className="h-3.5 w-3.5" /> Adicionar campo
+            </button>
+          </div>
         </div>
+
+        {aiOpen && (
+          <div className="mb-2 rounded-lg border border-brand-400/50 bg-brand-500/5 p-2.5">
+            <p className="mb-1.5 text-[11px] font-medium text-muted">
+              Cole suas perguntas (uma por linha) ou descreva o formulário. A IA escolhe o tipo, obrigatoriedade e opções.
+            </p>
+            <textarea
+              value={aiText}
+              onChange={(e) => setAiText(e.target.value)}
+              rows={4}
+              placeholder={"Ex.:\nQual o nome da empresa?\nQual o público-alvo?\nOrçamento mensal? (até 5k, 5-15k, +15k)\nData de início desejada"}
+              className={inputCls + " resize-y"}
+            />
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <button onClick={() => setAiOpen(false)} className="text-xs text-muted hover:text-ink">Cancelar</button>
+              <button
+                onClick={generateAi}
+                disabled={aiBusy || !aiText.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Gerar campos
+              </button>
+            </div>
+          </div>
+        )}
 
         {fields.length === 0 && (
           <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
