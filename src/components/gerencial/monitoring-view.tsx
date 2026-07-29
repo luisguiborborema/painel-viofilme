@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Activity, BarChart3, Clock, Download, Search, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { actionLabel } from "@/lib/audit/labels";
+import { actionLabel, isoDaysAgo } from "@/lib/audit/labels";
 
 export type AuditRow = {
   id: string;
@@ -85,16 +85,18 @@ export function MonitoringView({ events, analytics }: { events: AuditRow[]; anal
   const [userF, setUserF] = useState("");
   const [actionF, setActionF] = useState("");
   const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState<"7" | "30" | "tudo">("tudo");
 
   const areas = useMemo(() => [...new Set(events.map((e) => e.area).filter(Boolean) as string[])].sort(), [events]);
   const users = useMemo(() => [...new Set(events.map((e) => e.userName).filter(Boolean) as string[])].sort(), [events]);
   const actions = useMemo(() => [...new Set(events.map((e) => e.action))].sort(), [events]);
 
   const term = search.trim().toLowerCase();
-  const filtered = useMemo(
-    () =>
-      events.filter(
+  const filtered = useMemo(() => {
+    const cutoff = period === "tudo" ? "" : isoDaysAgo(Number(period));
+    return events.filter(
         (e) =>
+          (!cutoff || e.createdAt >= cutoff) &&
           (!panel || e.panel === panel) &&
           (!area || e.area === area) &&
           (!userF || e.userName === userF) &&
@@ -105,9 +107,8 @@ export function MonitoringView({ events, analytics }: { events: AuditRow[]; anal
             (e.area ?? "").toLowerCase().includes(term) ||
             (e.target ?? "").toLowerCase().includes(term) ||
             (e.detail ?? "").toLowerCase().includes(term)),
-      ),
-    [events, panel, area, userF, actionF, term],
-  );
+      );
+  }, [events, period, panel, area, userF, actionF, term]);
 
   const activeFilters = (panel ? 1 : 0) + (area ? 1 : 0) + (userF ? 1 : 0) + (actionF ? 1 : 0) + (term ? 1 : 0);
   function clear() {
@@ -189,6 +190,11 @@ export function MonitoringView({ events, analytics }: { events: AuditRow[]; anal
           <h2 className="mr-2 text-sm font-semibold text-ink">Linha do tempo de eventos</h2>
           <span className="text-xs text-muted">{filtered.length} evento(s)</span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select value={period} onChange={(e) => setPeriod(e.target.value as "7" | "30" | "tudo")} className={FILTER_CLS}>
+              <option value="tudo">Todo período</option>
+              <option value="7">Últimos 7 dias</option>
+              <option value="30">Últimos 30 dias</option>
+            </select>
             <select value={panel} onChange={(e) => setPanel(e.target.value)} className={FILTER_CLS}>
               <option value="">Todos os painéis</option>
               <option value="gerencial">Gerencial</option>

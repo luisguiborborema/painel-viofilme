@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: false, enabled: false, reason: "Publicação indisponível no modo demo." });
   }
+  await logFromUser(user, { action: "create", area: "Conteúdo", target: b.id, detail: "publicou post" });
   const supabase = await createClient();
 
   const { data: post } = await supabase

@@ -6,6 +6,7 @@ import { trigger } from "@/lib/push/triggers";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import { isDue, type UpdateMetric } from "@/lib/data/recurring";
+import { purgeOldAuditEvents } from "@/lib/audit/log";
 import { formatCompact, formatNumber } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -181,7 +182,16 @@ export async function GET(request: NextRequest) {
     crmOverdue: 0,
     updatesSent: 0,
     updatesFailed: 0,
+    auditPageviewsPurged: 0,
+    auditEventsPurged: 0,
   };
+
+  // 0) Retenção do monitoramento (limpa navegação antiga; best-effort).
+  {
+    const purged = await purgeOldAuditEvents();
+    result.auditPageviewsPurged = purged.pageviews;
+    result.auditEventsPurged = purged.events;
+  }
 
   // 1) Lembretes de reunião (dados reais) --------------------------------
   if (isSupabaseConfigured() && hasServiceRole()) {

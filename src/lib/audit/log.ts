@@ -40,6 +40,39 @@ export async function logEvent(e: AuditInput): Promise<void> {
   }
 }
 
+/**
+ * Retenção: apaga navegação (pageview) com +90 dias e qualquer evento com
+ * +365 dias. Best-effort; chamado pelo cron diário. Retorna quantos removeu.
+ */
+export async function purgeOldAuditEvents(): Promise<{ pageviews: number; events: number }> {
+  if (!isSupabaseConfigured() || !hasServiceRole()) return { pageviews: 0, events: 0 };
+  const admin = createAdminClient();
+  const pv90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  const all365 = new Date(Date.now() - 365 * 86_400_000).toISOString();
+  let pageviews = 0;
+  let events = 0;
+  try {
+    const { count } = await admin
+      .from("audit_events")
+      .delete({ count: "exact" })
+      .eq("action", "pageview")
+      .lt("created_at", pv90);
+    pageviews = count ?? 0;
+  } catch {
+    /* ignore */
+  }
+  try {
+    const { count } = await admin
+      .from("audit_events")
+      .delete({ count: "exact" })
+      .lt("created_at", all365);
+    events = count ?? 0;
+  } catch {
+    /* ignore */
+  }
+  return { pageviews, events };
+}
+
 /** Atalho: registra um evento já preenchendo quem/painel a partir da sessão. */
 export async function logFromUser(
   user: Pick<SessionUser, "id" | "name" | "email" | "role"> | null | undefined,
