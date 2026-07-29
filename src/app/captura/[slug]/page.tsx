@@ -44,15 +44,8 @@ export default async function CapturePage({
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center gap-5 overflow-hidden bg-canvas p-4">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-64"
-        style={{ background: "radial-gradient(60% 100% at 50% 0%, rgba(37,99,235,0.08), transparent)" }}
-      />
+    <main className="min-h-screen bg-canvas">
       <CaptureForm slug={slug} title={title} description={description} fields={fields} />
-      <p className="text-xs text-muted">
-        Powered by <span className="font-semibold text-ink">Viofilme</span> · viofilme.com.br
-      </p>
     </main>
   );
 }

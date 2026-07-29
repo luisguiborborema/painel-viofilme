@@ -25,6 +25,33 @@ const LEGACY_FIELDS: PublicField[] = [
   { fieldKey: "message", label: "Como podemos ajudar?", fieldType: "textarea", required: false, options: [] },
 ];
 
+/** Faixa de marca — largura total da tela (responsiva). */
+function BrandHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="relative w-full overflow-hidden bg-brand-700 text-white">
+      <div
+        className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full"
+        style={{ background: "radial-gradient(closest-side, #e9fc8933, transparent)" }}
+      />
+      <div className="mx-auto w-full max-w-2xl px-5 py-7 sm:px-6 sm:py-9">
+        <LogoHorizontal className="h-6 text-white sm:h-7" />
+        {title && <h1 className="mt-4 text-xl font-bold leading-tight sm:text-2xl">{title}</h1>}
+        {description !== undefined && (
+          <p className="mt-1 text-sm text-white/70">{description || "Preencha os campos abaixo — leva poucos minutos."}</p>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="px-4 py-6 text-center text-xs text-muted">
+      Powered by <span className="font-semibold text-ink">Viofilme</span> · viofilme.com.br
+    </footer>
+  );
+}
+
 export function CaptureForm({
   slug,
   title,
@@ -72,42 +99,34 @@ export function CaptureForm({
 
   if (done) {
     return (
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
-        <div className="bg-brand-700 px-6 py-5">
-          <LogoHorizontal className="h-6 text-white" />
+      <div className="flex min-h-screen flex-col">
+        <BrandHeader title="" />
+        <div className="flex flex-1 items-center justify-center px-5 py-12 text-center">
+          <div>
+            <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
+            <h1 className="mt-4 text-xl font-bold text-ink">Recebemos suas respostas!</h1>
+            <p className="mt-1 text-sm text-muted">Em breve nossa equipe dá sequência. Obrigado. 💙</p>
+          </div>
         </div>
-        <div className="p-10 text-center">
-          <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-          <h1 className="mt-4 text-xl font-bold text-ink">Recebemos suas respostas!</h1>
-          <p className="mt-1 text-sm text-muted">Em breve nossa equipe dá sequência. Obrigado. 💙</p>
-        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-2xl overflow-hidden rounded-2xl border border-line bg-surface shadow-xl">
-      {/* Faixa de marca */}
-      <div className="relative overflow-hidden bg-brand-700 px-6 py-6 text-white">
-        <div
-          className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full"
-          style={{ background: "radial-gradient(closest-side, #e9fc8933, transparent)" }}
-        />
-        <LogoHorizontal className="h-6 text-white" />
-        <h1 className="mt-4 text-xl font-bold leading-tight">{title}</h1>
-        <p className="mt-1 text-sm text-white/70">{description || "Preencha os campos abaixo — leva poucos minutos."}</p>
-      </div>
+    <form onSubmit={submit} className="flex min-h-screen flex-col">
+      <BrandHeader title={title} description={description} />
 
-      {/* Campos — 2 colunas no desktop; textarea/checkbox ocupam a linha inteira */}
-      <div className="p-6 sm:p-8">
-        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+      {/* Campos — coluna única (uma pergunta por linha), centralizada e responsiva */}
+      <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-6">
+        <div className="space-y-5">
           {activeFields.map((f) => {
             const val = values[f.fieldKey] ?? "";
             const req = f.required ? <span className="text-rose-500"> *</span> : null;
 
             if (f.fieldType === "checkbox") {
               return (
-                <label key={f.fieldKey} className="flex items-center gap-2 text-sm text-ink sm:col-span-2">
+                <label key={f.fieldKey} className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={val === "true"}
@@ -123,7 +142,7 @@ export function CaptureForm({
             let control;
             if (f.fieldType === "textarea") {
               control = (
-                <textarea value={val} onChange={(e) => set(f.fieldKey, e.target.value)} rows={3} className={inputCls + " resize-none"} required={f.required} />
+                <textarea value={val} onChange={(e) => set(f.fieldKey, e.target.value)} rows={4} className={inputCls + " resize-none"} required={f.required} />
               );
             } else if (f.fieldType === "select") {
               control = (
@@ -151,9 +170,9 @@ export function CaptureForm({
             }
 
             return (
-              <label key={f.fieldKey} className={"flex flex-col" + (f.fieldType === "textarea" ? " sm:col-span-2" : "")}>
-                <span className="mb-1.5 text-sm font-medium text-ink">{f.label}{req}</span>
-                <span className="mt-auto">{control}</span>
+              <label key={f.fieldKey} className="block">
+                <span className="mb-1.5 block text-sm font-medium text-ink">{f.label}{req}</span>
+                {control}
               </label>
             );
           })}
@@ -173,6 +192,8 @@ export function CaptureForm({
           Enviar
         </button>
       </div>
+
+      <Footer />
     </form>
   );
 }
