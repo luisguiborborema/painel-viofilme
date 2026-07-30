@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
+import { ReadOnlyProvider } from "./read-only-context";
 import { visibleNav } from "@/lib/nav";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import type { SessionUser } from "@/lib/auth/types";
@@ -47,7 +48,9 @@ export function AppShell({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar user={user} groups={groups} onOpenSearch={() => setSearchOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
+          <ReadOnlyProvider value={Boolean(user.readOnly)}>{children}</ReadOnlyProvider>
+        </main>
       </div>
       {searchOpen && (
         <CommandPalette

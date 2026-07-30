@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
+import { useReadOnly } from "@/components/shell/read-only-context";
 import {
   DEFAULT_PIPELINE,
   toCard,
@@ -437,6 +438,7 @@ export function CrmPipeline({
   lostReasons?: string[];
 }) {
   const router = useRouter();
+  const readOnly = useReadOnly();
   const [cards, setCards] = useState(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<CrmStage | null>(null);
@@ -828,12 +830,14 @@ export function CrmPipeline({
             <Archive className="h-3.5 w-3.5" /> Arquivados
           </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" /> Novo negócio
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Novo negócio
+          </button>
+        )}
       </div>
 
       {showNew && (

@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { DeliveryFieldsManager } from "./delivery-fields-manager";
 import { TaskFicha } from "./linha-editorial";
 import { toast } from "@/components/ui/toast";
+import { useReadOnly } from "@/components/shell/read-only-context";
 // TaskUniversal aposentado (C1.1): todas as telas usam a ficha canônica (TaskFicha).
 import { cn } from "@/lib/utils";
 import {
@@ -358,6 +359,7 @@ export function DeliveryPanel({
   config?: DeliveryConfig;
 }) {
   const router = useRouter();
+  const readOnly = useReadOnly();
   const [items, setItems] = useState(initial);
   const [config, setConfig] = useState<DeliveryConfig>(initialConfig);
   const [showConfig, setShowConfig] = useState(false);
@@ -693,24 +695,28 @@ export function DeliveryPanel({
         >
           <BarChart3 className="h-3.5 w-3.5" /> Métricas
         </button>
-        <button
-          onClick={() => setShowConfig(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" /> Capacidade
-        </button>
-        <button
-          onClick={() => setShowFields(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-        >
-          <Settings2 className="h-3.5 w-3.5" /> Campos
-        </button>
-        <button
-          onClick={() => setShowNew((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" /> Nova tarefa
-        </button>
+        {!readOnly && (
+          <>
+            <button
+              onClick={() => setShowConfig(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Capacidade
+            </button>
+            <button
+              onClick={() => setShowFields(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+            >
+              <Settings2 className="h-3.5 w-3.5" /> Campos
+            </button>
+            <button
+              onClick={() => setShowNew((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" /> Nova tarefa
+            </button>
+          </>
+        )}
       </div>
       {showFields && <DeliveryFieldsManager onClose={() => setShowFields(false)} />}
       {showConfig && (

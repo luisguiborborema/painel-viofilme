@@ -29,6 +29,7 @@ import {
   type Pipeline,
 } from "@/lib/data/crm";
 import { toast } from "@/components/ui/toast";
+import { useReadOnly } from "@/components/shell/read-only-context";
 import { EmptyState } from "./settings-ui";
 
 const inputCls =
@@ -59,6 +60,7 @@ export function CaptureFormsManager({
   clients?: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const readOnly = useReadOnly();
   const [name, setName] = useState("");
   const [destination, setDestination] = useState<FormDestination>("crm");
   const [busy, setBusy] = useState(false);
@@ -94,6 +96,7 @@ export function CaptureFormsManager({
 
   return (
     <div className="space-y-3">
+      {!readOnly && (
       <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-line bg-surface p-3">
         <label className="flex-1">
           <span className="mb-0.5 block text-[11px] font-medium text-muted">Novo formulário / briefing</span>
@@ -120,6 +123,7 @@ export function CaptureFormsManager({
           <Plus className="h-4 w-4" /> Criar
         </button>
       </div>
+      )}
 
       {forms.map((f) => (
         <div key={f.id} className="rounded-2xl border border-line bg-surface p-4">
