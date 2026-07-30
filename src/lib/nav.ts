@@ -1,5 +1,6 @@
 import {
   Activity,
+  TrendingUp,
   LayoutDashboard,
   Users,
   Megaphone,
@@ -97,6 +98,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     icon: Building2,
     items: [
       { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
+      { label: "Painel Executivo", href: "/gerencial/painel-executivo", icon: TrendingUp, section: "visao-geral" },
       { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
       { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
