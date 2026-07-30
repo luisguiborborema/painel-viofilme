@@ -36,10 +36,22 @@ export async function getSchedulingLinks(ownerId: string): Promise<SchedulingLin
   const supabase = await createClient();
   const { data } = await supabase
     .from("scheduling_links")
-    .select("id,url,label,active")
+    .select("id,url,label,active,slug,duration_min,buffer_min,days_ahead,availability")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
-  return (data ?? []).map((r) => ({ id: String(r.id), url: String(r.url), label: String(r.label), active: Boolean(r.active) }));
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    url: r.url ? String(r.url) : null,
+    label: String(r.label),
+    active: Boolean(r.active),
+    slug: r.slug ? String(r.slug) : null,
+    durationMin: r.duration_min != null ? Number(r.duration_min) : 30,
+    bufferMin: r.buffer_min != null ? Number(r.buffer_min) : 0,
+    daysAhead: r.days_ahead != null ? Number(r.days_ahead) : 14,
+    availability: Array.isArray(r.availability)
+      ? (r.availability as { day: number; start: string; end: string }[])
+      : [],
+  }));
 }
 
 export async function getCalendarEvents(ownerId: string, fromIso: string, toIso: string): Promise<CalendarEvent[]> {

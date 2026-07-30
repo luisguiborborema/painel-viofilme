@@ -548,42 +548,133 @@ function RoutineConfig({ blocks, templates, onClose, onChanged }: {
 
 /* ── Links de agendamento ──────────────────────────────── */
 
+const WDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
 function LinksPanel({ links, onClose, onChanged }: { links: SchedulingLink[]; onClose: () => void; onChanged: () => void }) {
-  const [url, setUrl] = useState("");
-  const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [dur, setDur] = useState(30);
+  const [ahead, setAhead] = useState(14);
+  const [days, setDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("18:00");
+  const [url, setUrl] = useState("");
+  const [extLabel, setExtLabel] = useState("");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
   function post(body: unknown) {
     return fetch("/api/agenda/scheduling-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
-  async function add() { if (!url.trim()) return; setBusy(true); await post({ action: "create", url: url.trim(), label: label.trim() }).catch(() => {}); setBusy(false); setUrl(""); setLabel(""); onChanged(); }
+  async function addNative() {
+    if (!title.trim() || days.size === 0) return;
+    setBusy(true);
+    const availability = [...days].sort().map((day) => ({ day, start, end }));
+    await post({ action: "create", native: true, label: title.trim(), durationMin: dur, daysAhead: ahead, availability }).catch(() => {});
+    setBusy(false);
+    setTitle("");
+    onChanged();
+  }
+  async function addExternal() {
+    if (!url.trim()) return;
+    setBusy(true);
+    await post({ action: "create", url: url.trim(), label: extLabel.trim() }).catch(() => {});
+    setBusy(false);
+    setUrl("");
+    setExtLabel("");
+    onChanged();
+  }
   async function del(id: string) { setBusy(true); await post({ action: "delete", id }).catch(() => {}); setBusy(false); onChanged(); }
+  function copyNative(l: SchedulingLink) {
+    navigator.clipboard?.writeText(`${origin}/agendar/${l.slug}`).then(() => {
+      setCopied(l.id);
+      setTimeout(() => setCopied((c) => (c === l.id ? null : c)), 1500);
+    });
+  }
+  function toggleDay(d: number) {
+    setDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+      <div className="relative z-10 max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold text-ink">Links de agendamento</h2>
           <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle"><X className="h-4 w-4" /></button>
         </div>
-        <p className="mb-3 text-xs text-muted">Links tipo Calendly pro lead marcar sozinho. Cole a URL do seu agendador.</p>
+
         <div className="mb-3 space-y-1.5">
           {links.length === 0 && <p className="py-3 text-center text-xs text-muted">Nenhum link ainda.</p>}
           {links.map((l) => (
             <div key={l.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{l.label}</p>
-                <p className="truncate text-[11px] text-muted">{l.url}</p>
+                <p className="truncate text-[11px] text-muted">
+                  {l.slug ? `${origin}/agendar/${l.slug} · ${l.durationMin ?? 30}min` : l.url}
+                </p>
               </div>
-              <a href={l.url} target="_blank" rel="noreferrer" className="shrink-0 text-brand-600 hover:text-brand-700"><ExternalLink className="h-4 w-4" /></a>
+              {l.slug ? (
+                <button onClick={() => copyNative(l)} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">
+                  {copied === l.id ? "copiado" : "copiar"}
+                </button>
+              ) : (
+                <a href={l.url ?? "#"} target="_blank" rel="noreferrer" className="shrink-0 text-brand-600 hover:text-brand-700"><ExternalLink className="h-4 w-4" /></a>
+              )}
               <button onClick={() => del(l.id)} className="shrink-0 text-muted hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
         </div>
-        <div className="space-y-2 rounded-xl border border-line bg-canvas p-3">
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Rótulo (ex.: Diagnóstico 30min)" className={inputCls} />
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://calendly.com/…" className={inputCls} />
-          <button onClick={add} disabled={busy || !url.trim()} className="w-full rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50">+ Adicionar link</button>
+
+        <div className="mb-3 space-y-2 rounded-xl border border-brand-400/40 bg-brand-500/5 p-3">
+          <p className="text-xs font-semibold text-ink">Nova agenda (o lead marca sozinho aqui no painel)</p>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex.: Diagnóstico 30min)" className={inputCls} />
+          <div className="flex gap-2">
+            <label className="flex-1 text-[11px] text-muted">
+              Duração
+              <select value={dur} onChange={(e) => setDur(Number(e.target.value))} className={inputCls}>
+                {[15, 30, 45, 60].map((d) => <option key={d} value={d}>{d} min</option>)}
+              </select>
+            </label>
+            <label className="flex-1 text-[11px] text-muted">
+              Janela (dias)
+              <input type="number" min={1} max={90} value={ahead} onChange={(e) => setAhead(Number(e.target.value))} className={inputCls} />
+            </label>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] text-muted">Dias disponíveis</p>
+            <div className="flex flex-wrap gap-1">
+              {WDAYS.map((w, i) => (
+                <button key={i} type="button" onClick={() => toggleDay(i)} className={"rounded-md border px-2 py-1 text-xs font-medium " + (days.has(i) ? "border-brand-500 bg-brand-500 text-white" : "border-line text-muted hover:text-ink")}>
+                  {w}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted">
+            Das
+            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink" />
+            às
+            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink" />
+          </div>
+          <button onClick={addNative} disabled={busy || !title.trim() || days.size === 0} className="w-full rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+            + Criar agenda
+          </button>
         </div>
+
+        <details className="rounded-xl border border-line bg-canvas p-3">
+          <summary className="cursor-pointer text-xs font-medium text-muted">Ou adicionar um link externo (Calendly, etc.)</summary>
+          <div className="mt-2 space-y-2">
+            <input value={extLabel} onChange={(e) => setExtLabel(e.target.value)} placeholder="Rótulo" className={inputCls} />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://calendly.com/…" className={inputCls} />
+            <button onClick={addExternal} disabled={busy || !url.trim()} className="w-full rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-subtle disabled:opacity-50">+ Adicionar link externo</button>
+          </div>
+        </details>
       </div>
     </div>
   );

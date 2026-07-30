@@ -31,7 +31,46 @@ export type CalendarEvent = {
   googleEventId?: string;
 };
 
-export type SchedulingLink = { id: string; url: string; label: string; active: boolean };
+/** Janela semanal de disponibilidade (day: 0=dom..6=sáb). */
+export type AvailWindow = { day: number; start: string; end: string };
+
+export type SchedulingLink = {
+  id: string;
+  url?: string | null; // link externo (Calendly de terceiros) — opcional
+  label: string;
+  active: boolean;
+  // Agendador nativo:
+  slug?: string | null;
+  durationMin?: number;
+  bufferMin?: number;
+  daysAhead?: number;
+  availability?: AvailWindow[];
+};
+
+const toMin = (hhmm: string): number => {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  return (h || 0) * 60 + (m || 0);
+};
+const fromMin = (min: number): string =>
+  `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/** Gera os horários candidatos de um dia (dateISO="YYYY-MM-DD") a partir das janelas. */
+export function slotsForDate(
+  avail: AvailWindow[],
+  durationMin: number,
+  bufferMin: number,
+  dateISO: string,
+): string[] {
+  const dow = new Date(`${dateISO}T12:00:00`).getDay();
+  const step = Math.max(5, durationMin + Math.max(0, bufferMin));
+  const out: string[] = [];
+  for (const w of avail.filter((x) => x.day === dow)) {
+    const s = toMin(w.start);
+    const e = toMin(w.end);
+    for (let m = s; m + durationMin <= e; m += step) out.push(fromMin(m));
+  }
+  return out;
+}
 
 /** Tipos de atividade da rotina (alimentam o gráfico de tempo reservado). */
 export const ROUTINE_ACTIVITIES: { key: string; label: string; color: string }[] = [

@@ -116,6 +116,15 @@ export const trigger = {
       url: "/gerencial/comercial/documentos",
     }),
 
+  /** Reunião agendada via link público → notifica a equipe. */
+  bookingCreated: (args: { label: string; name: string; email?: string; when: string }) =>
+    toManagement({
+      category: "meetings",
+      title: `📅 Reunião agendada — ${args.label}`,
+      body: `${args.name}${args.email ? ` (${args.email})` : ""} · ${args.when}`,
+      url: "/gerencial/agenda",
+    }),
+
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {
