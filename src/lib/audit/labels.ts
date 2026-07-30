@@ -16,6 +16,7 @@ export const ACTION_LABELS: Record<string, string> = {
   unfreeze: "Reativou",
   handoff: "Passou o bastão",
   done: "Concluiu",
+  sign: "Assinou",
   pay: "Baixou pagamento",
   unpay: "Estornou",
   create_team: "Criou time",

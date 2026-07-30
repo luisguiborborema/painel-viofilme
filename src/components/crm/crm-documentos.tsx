@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BadgePercent,
+  Check,
   Download,
   ExternalLink,
   FileSignature,
   FileText,
   Layers,
+  Link2,
   Pencil,
   Plus,
   Send,
@@ -131,6 +133,16 @@ function PropostasPanel({ docs, team }: { docs: CrmDocument[]; team: string[] })
   const [quick, setQuick] = useState<QuickFilter>("todos");
   const [owner, setOwner] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  function copySignLink(d: CrmDocument) {
+    if (!d.publicToken) return;
+    const url = `${window.location.origin}/proposta/${d.publicToken}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(d.id);
+      setTimeout(() => setCopied((c) => (c === d.id ? null : c)), 1500);
+    });
+  }
 
   const rows = useMemo(() => {
     return docs.filter((d) => {
@@ -241,7 +253,10 @@ function PropostasPanel({ docs, team }: { docs: CrmDocument[]; team: string[] })
                   <td className="px-3 py-2.5 text-xs text-muted">
                     <div>criado {fmtDate(d.createdAt)}</div>
                     {d.signedAt ? (
-                      <div className="text-emerald-600">assinado {fmtDate(d.signedAt)}</div>
+                      <div className="text-emerald-600">
+                        assinado {fmtDate(d.signedAt)}
+                        {d.signedByName ? ` · ${d.signedByName}` : ""}
+                      </div>
                     ) : d.expiresAt ? (
                       <div className={expired ? "text-red-600" : ""}>vence {fmtDate(d.expiresAt)}</div>
                     ) : d.sentAt ? (
@@ -264,6 +279,16 @@ function PropostasPanel({ docs, team }: { docs: CrmDocument[]; team: string[] })
                           title="Enviar para assinatura"
                         >
                           <Send className="h-4 w-4" />
+                        </button>
+                      )}
+                      {d.publicToken && d.status !== "signed" && (
+                        <button
+                          type="button"
+                          onClick={() => copySignLink(d)}
+                          className="text-muted hover:text-brand-600"
+                          title="Copiar link de assinatura (e-sign)"
+                        >
+                          {copied === d.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Link2 className="h-4 w-4" />}
                         </button>
                       )}
                       <select

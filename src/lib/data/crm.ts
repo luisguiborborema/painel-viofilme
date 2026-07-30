@@ -147,6 +147,9 @@ export type CrmDocument = {
   signedAt?: string;
   expiresAt?: string;
   createdAt: string;
+  /** Assinatura (e-sign): token do link público + quem assinou. */
+  publicToken?: string;
+  signedByName?: string;
 };
 
 export const CRM_DOCUMENT_KINDS: { key: string; label: string }[] = [

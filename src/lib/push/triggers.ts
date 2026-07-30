@@ -107,6 +107,15 @@ export const trigger = {
       url: args.destination === "entregas" ? "/gerencial/entregas" : "/gerencial/comercial/pipeline",
     }),
 
+  /** Proposta/contrato assinado pelo cliente → notifica a equipe. */
+  documentSigned: (args: { title: string; signer: string; dealName?: string }) =>
+    toManagement({
+      category: "requests",
+      title: `✍️ Assinado — ${args.title}`,
+      body: `${args.signer} assinou${args.dealName ? ` · ${args.dealName}` : ""}.`,
+      url: "/gerencial/comercial/documentos",
+    }),
+
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {

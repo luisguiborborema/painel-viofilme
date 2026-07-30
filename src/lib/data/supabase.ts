@@ -2167,7 +2167,7 @@ export async function sbGetCrmDocuments(opts?: {
   let q = supabase
     .from("crm_documents")
     .select(
-      "id,deal_id,company_id,title,url,file_name,file_type,file_size,kind,status,value,owner,content,template_id,external_id,sent_at,viewed_at,signed_at,expires_at,created_at",
+      "id,deal_id,company_id,title,url,file_name,file_type,file_size,kind,status,value,owner,content,template_id,external_id,sent_at,viewed_at,signed_at,expires_at,created_at,public_token,signed_by_name",
     )
     .order("created_at", { ascending: false });
   if (opts?.dealId) q = q.eq("deal_id", opts.dealId);
@@ -2205,6 +2205,8 @@ export async function sbGetCrmDocuments(opts?: {
     signedAt: r.signed_at ? String(r.signed_at) : undefined,
     expiresAt: r.expires_at ? String(r.expires_at) : undefined,
     createdAt: String(r.created_at),
+    publicToken: r.public_token ? String(r.public_token) : undefined,
+    signedByName: r.signed_by_name ? String(r.signed_by_name) : undefined,
   }));
 }
 
