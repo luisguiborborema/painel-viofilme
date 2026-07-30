@@ -16,6 +16,8 @@ type FieldInput = {
   mapTo?: string;
   position?: number;
   active?: boolean;
+  showIfKey?: string | null;
+  showIfValue?: string | null;
 };
 
 type Body = {
@@ -45,6 +47,7 @@ const FIELD_TYPES = new Set([
   "url",
   "email",
   "phone",
+  "section",
 ]);
 const FIELD_MAPS = new Set([
   "title",
@@ -146,16 +149,20 @@ export async function POST(req: Request) {
         if (!label) return null;
         const fieldType = FIELD_TYPES.has(String(f.fieldType)) ? String(f.fieldType) : "text";
         const mapTo = FIELD_MAPS.has(String(f.mapTo)) ? String(f.mapTo) : "custom";
+        const isSection = fieldType === "section";
         return {
           form_id: b.id,
           field_key: slugifyKey(f.fieldKey || label, `campo_${i + 1}`),
           label,
           field_type: fieldType,
-          options: Array.isArray(f.options) ? f.options : [],
-          required: Boolean(f.required),
-          map_to: mapTo,
+          options: !isSection && Array.isArray(f.options) ? f.options : [],
+          required: !isSection && Boolean(f.required),
+          map_to: isSection ? "custom" : mapTo,
           position: typeof f.position === "number" ? f.position : i,
           active: f.active !== false,
+          show_if_key: isSection || !f.showIfKey ? null : String(f.showIfKey),
+          show_if_value:
+            isSection || f.showIfValue == null || f.showIfValue === "" ? null : String(f.showIfValue),
         };
       })
       .filter(Boolean) as Record<string, unknown>[];

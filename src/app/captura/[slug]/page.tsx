@@ -28,7 +28,7 @@ export default async function CapturePage({
 
     const { data: rows } = await admin
       .from("crm_form_fields")
-      .select("field_key,label,field_type,required,options")
+      .select("field_key,label,field_type,required,options,show_if_key,show_if_value")
       .eq("form_id", data.id)
       .eq("active", true)
       .order("position", { ascending: true });
@@ -40,6 +40,8 @@ export default async function CapturePage({
       options: Array.isArray(r.options)
         ? (r.options as { value: string; label: string }[])
         : [],
+      showIfKey: r.show_if_key == null ? null : String(r.show_if_key),
+      showIfValue: r.show_if_value == null ? null : String(r.show_if_value),
     }));
   }
 

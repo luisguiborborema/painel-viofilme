@@ -411,7 +411,7 @@ function FormEditor({
         ...gen.map((f, i) => ({
           uid: base + i,
           id: "",
-          fieldKey: "",
+          fieldKey: `campo_${base + i}`,
           label: f.label,
           fieldType: f.fieldType,
           options: f.options ?? [],
@@ -432,14 +432,33 @@ function FormEditor({
   }
 
   function addField() {
+    const u = uid.current++;
     setFields((prev) => [
       ...prev,
       {
-        uid: uid.current++,
+        uid: u,
         id: "",
-        fieldKey: "",
+        fieldKey: `campo_${u}`,
         label: "",
         fieldType: "text",
+        options: [],
+        required: false,
+        mapTo: "custom",
+        position: prev.length,
+        active: true,
+      },
+    ]);
+  }
+  function addSection() {
+    const u = uid.current++;
+    setFields((prev) => [
+      ...prev,
+      {
+        uid: u,
+        id: "",
+        fieldKey: `secao_${u}`,
+        label: "",
+        fieldType: "section",
         options: [],
         required: false,
         mapTo: "custom",
@@ -497,6 +516,8 @@ function FormEditor({
         mapTo: f.mapTo,
         position: i,
         active: f.active,
+        showIfKey: f.showIfKey ?? null,
+        showIfValue: f.showIfValue ?? null,
       })),
     });
     setSaving(false);
@@ -606,6 +627,9 @@ function FormEditor({
             >
               <Sparkles className="h-3.5 w-3.5" /> Gerar com IA
             </button>
+            <button onClick={addSection} className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle">
+              <Plus className="h-3.5 w-3.5" /> Seção
+            </button>
             <button onClick={addField} className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle">
               <Plus className="h-3.5 w-3.5" /> Adicionar campo
             </button>
@@ -645,7 +669,30 @@ function FormEditor({
         )}
 
         <div className="space-y-2">
-          {fields.map((f) => (
+          {fields.map((f) => {
+            // Linha de SEÇÃO (divisória/título).
+            if (f.fieldType === "section") {
+              return (
+                <div key={f.uid} className="flex items-center gap-2 rounded-lg border border-brand-400/40 bg-brand-500/5 p-2">
+                  <button onClick={() => move(f.uid, -1)} className="text-muted hover:text-ink" title="Subir" aria-label="Subir">
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="rounded bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">SEÇÃO</span>
+                  <input
+                    value={f.label}
+                    onChange={(e) => patchField(f.uid, { label: e.target.value })}
+                    placeholder="Título da seção (ex.: Sobre a marca)"
+                    className={inputCls + " flex-1 font-semibold"}
+                  />
+                  <button onClick={() => removeField(f.uid)} className="rounded p-1 text-muted hover:bg-rose-500/10 hover:text-rose-500" title="Remover" aria-label="Remover">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            }
+            const condSources = fields.filter((x) => x.fieldType !== "section" && x.uid !== f.uid && x.label.trim());
+            const ctrl = f.showIfKey ? fields.find((x) => x.fieldKey === f.showIfKey) : undefined;
+            return (
             <div key={f.uid} className="rounded-lg border border-line bg-surface p-2">
               <div className="flex items-center gap-2">
                 <div className="flex flex-col text-muted">
@@ -724,8 +771,48 @@ function FormEditor({
                   </button>
                 </div>
               )}
+              {/* Condicional: mostrar este campo só se outro campo tiver um valor. */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+                <span>Mostrar se</span>
+                <select
+                  value={f.showIfKey ?? ""}
+                  onChange={(e) =>
+                    patchField(f.uid, {
+                      showIfKey: e.target.value || null,
+                      showIfValue: e.target.value ? (f.showIfValue ?? "") : null,
+                    })
+                  }
+                  className={selCls}
+                >
+                  <option value="">— sempre visível —</option>
+                  {condSources.map((x) => (
+                    <option key={x.uid} value={x.fieldKey}>{x.label}</option>
+                  ))}
+                </select>
+                {f.showIfKey && (
+                  <>
+                    <span>=</span>
+                    {ctrl?.fieldType === "select" ? (
+                      <select value={f.showIfValue ?? ""} onChange={(e) => patchField(f.uid, { showIfValue: e.target.value })} className={selCls}>
+                        <option value="">valor…</option>
+                        {ctrl.options.map((o) => (
+                          <option key={o.label} value={o.label}>{o.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={f.showIfValue ?? ""}
+                        onChange={(e) => patchField(f.uid, { showIfValue: e.target.value })}
+                        placeholder={ctrl?.fieldType === "checkbox" ? "true" : "valor"}
+                        className={inputCls + " w-28 py-1"}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {!hasTitle && fields.length > 0 && (

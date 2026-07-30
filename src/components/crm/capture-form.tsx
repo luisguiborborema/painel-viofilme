@@ -10,6 +10,8 @@ export type PublicField = {
   fieldType: string;
   required: boolean;
   options: { value: string; label: string }[];
+  showIfKey?: string | null;
+  showIfValue?: string | null;
 };
 
 const inputCls =
@@ -74,7 +76,13 @@ export function CaptureForm({
     setValues((prev) => ({ ...prev, [key]: v }));
   }
 
-  const missingRequired = activeFields.some((f) => f.required && !((values[f.fieldKey] ?? "").trim()));
+  // Condicional: um campo só aparece se o campo `showIfKey` tiver valor = `showIfValue`.
+  const visible = (f: PublicField) =>
+    !f.showIfKey || (values[f.showIfKey] ?? "") === (f.showIfValue ?? "");
+
+  const missingRequired = activeFields.some(
+    (f) => f.fieldType !== "section" && f.required && visible(f) && !((values[f.fieldKey] ?? "").trim()),
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -121,6 +129,17 @@ export function CaptureForm({
       <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 sm:px-6">
         <div className="space-y-5">
           {activeFields.map((f) => {
+            // Seção: divisória/título (sem input).
+            if (f.fieldType === "section") {
+              return (
+                <h2 key={f.fieldKey} className="border-b border-line pb-1.5 pt-2 text-base font-bold text-ink first:pt-0">
+                  {f.label}
+                </h2>
+              );
+            }
+            // Condicional: só renderiza se a condição estiver satisfeita.
+            if (!visible(f)) return null;
+
             const val = values[f.fieldKey] ?? "";
             const req = f.required ? <span className="text-rose-500"> *</span> : null;
 

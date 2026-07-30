@@ -36,6 +36,8 @@ type FieldRow = {
   required: boolean;
   map_to: string;
   position: number;
+  show_if_key?: string | null;
+  show_if_value?: string | null;
 };
 
 function str(v: unknown): string {
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
 
   const { data: fieldsData } = await admin
     .from("crm_form_fields")
-    .select("field_key,label,field_type,required,map_to,position")
+    .select("field_key,label,field_type,required,map_to,position,show_if_key,show_if_value")
     .eq("form_id", form.id)
     .eq("active", true)
     .order("position", { ascending: true });
@@ -119,6 +121,12 @@ export async function POST(req: Request) {
   const custom: Record<string, unknown> = {};
   const briefing: string[] = [];
   for (const f of effectiveFields) {
+    // Seção: divisória, não coleta valor.
+    if (f.field_type === "section") continue;
+    // Condicional: campo oculto (condição não satisfeita) não é obrigatório nem coletado.
+    const vis = !f.show_if_key || str(values[f.show_if_key]) === str(f.show_if_value);
+    if (!vis) continue;
+
     const raw = values[f.field_key];
     const v = str(raw);
     if (f.required && !v) {

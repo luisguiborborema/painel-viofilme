@@ -2383,7 +2383,7 @@ export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
   if (ids.length) {
     const { data: fields } = await supabase
       .from("crm_form_fields")
-      .select("id,form_id,field_key,label,field_type,options,required,map_to,position,active")
+      .select("id,form_id,field_key,label,field_type,options,required,map_to,position,active,show_if_key,show_if_value")
       .in("form_id", ids)
       .order("position", { ascending: true });
     for (const f of fields ?? []) {
@@ -2398,6 +2398,8 @@ export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
         mapTo: String(f.map_to ?? "custom") as FormField["mapTo"],
         position: Number(f.position ?? 0),
         active: Boolean(f.active),
+        showIfKey: f.show_if_key == null ? null : String(f.show_if_key),
+        showIfValue: f.show_if_value == null ? null : String(f.show_if_value),
       });
       fieldsByForm.set(String(f.form_id), list);
     }

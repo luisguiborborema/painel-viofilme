@@ -1369,7 +1369,8 @@ export type FormFieldType =
   | "checkbox"
   | "url"
   | "email"
-  | "phone";
+  | "phone"
+  | "section"; // divisória/título (sem input)
 
 /** Para onde o valor do campo vai no card criado (senão vira campo custom). */
 export type FormFieldMap =
@@ -1390,6 +1391,9 @@ export type FormField = {
   mapTo: FormFieldMap;
   position: number;
   active: boolean;
+  /** Condicional: só mostra se o campo `showIfKey` tiver valor = `showIfValue`. */
+  showIfKey?: string | null;
+  showIfValue?: string | null;
 };
 
 export const FORM_FIELD_TYPES: { key: FormFieldType; label: string }[] = [
