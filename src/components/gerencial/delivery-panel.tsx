@@ -378,6 +378,7 @@ export function DeliveryPanel({
   const [priorityF, setPriorityF] = useState<DeliveryPriority | null>(null);
   const [stuckOnly, setStuckOnly] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
+  const [groupBy, setGroupBy] = useState<"none" | "assignee" | "priority" | "client">("none");
   const [selected, setSelected] = useState<DeliveryTask | null>(null);
 
   // Deep-link: hidrata os filtros da URL ao montar (compartilhável).
@@ -670,6 +671,19 @@ export function DeliveryPanel({
             </>
           )}
         </div>
+        {view === "kanban" && (
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value as "none" | "assignee" | "priority" | "client")}
+            className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+            title="Agrupar o kanban em raias"
+          >
+            <option value="none">Agrupar: nenhum</option>
+            <option value="assignee">Agrupar: responsável</option>
+            <option value="priority">Agrupar: prioridade</option>
+            <option value="client">Agrupar: cliente</option>
+          </select>
+        )}
         {mode === "meu" && !meId && (
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
@@ -722,7 +736,7 @@ export function DeliveryPanel({
       )}
 
       {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} {...shared} />}
-      {view === "kanban" && <Kanban tasks={filtered} onStage={setStage} {...shared} />}
+      {view === "kanban" && <Kanban tasks={filtered} onStage={setStage} groupBy={groupBy} {...shared} />}
       {view === "calendario" && <Calendario tasks={filtered} {...shared} />}
       {view === "timeline" && <Timeline tasks={filtered} durations={config.typeDurations} {...shared} />}
       {view === "workload" && <Workload tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} />}
@@ -1089,23 +1103,59 @@ function Geral({ tasks, onDrill, cap }: {
 }
 
 // --- Kanban (ENT05-07) -------------------------------------------------------
-function Kanban({ tasks, onStage, openTask, clientColor }: {
+/** Agrupa tarefas em raias (swimlanes) por responsável, prioridade ou cliente. */
+function groupTasks(
+  tasks: DeliveryTask[],
+  dim: "assignee" | "priority" | "client",
+): { key: string; label: string; tasks: DeliveryTask[] }[] {
+  const map = new Map<string, DeliveryTask[]>();
+  const push = (k: string, t: DeliveryTask) => {
+    const a = map.get(k) ?? [];
+    a.push(t);
+    map.set(k, a);
+  };
+  if (dim === "priority") {
+    for (const t of tasks) push(t.priority ?? "media", t);
+    return DELIVERY_PRIORITIES.filter((p) => map.has(p.key)).map((p) => ({
+      key: p.key,
+      label: p.label,
+      tasks: map.get(p.key)!,
+    }));
+  }
+  if (dim === "assignee") {
+    for (const t of tasks) push(t.assignees?.[0] ?? t.assignee ?? "__none__", t);
+    const keys = [...map.keys()].sort((a, b) =>
+      (a === "__none__" ? "zzz" : memberName(a)).localeCompare(b === "__none__" ? "zzz" : memberName(b)),
+    );
+    return keys.map((k) => ({ key: k, label: k === "__none__" ? "Sem responsável" : memberName(k), tasks: map.get(k)! }));
+  }
+  for (const t of tasks) push(t.client || "__none__", t);
+  const keys = [...map.keys()].sort((a, b) =>
+    (a === "__none__" ? "zzz" : a).localeCompare(b === "__none__" ? "zzz" : b),
+  );
+  return keys.map((k) => ({ key: k, label: k === "__none__" ? "Sem cliente" : k, tasks: map.get(k)! }));
+}
+
+function Kanban({ tasks, onStage, openTask, clientColor, groupBy }: {
   tasks: DeliveryTask[];
   onStage: (id: string, s: TaskStage) => void;
+  groupBy: "none" | "assignee" | "priority" | "client";
 } & Shared) {
   const [dragId, setDragId] = useState<string | null>(null);
-  const [over, setOver] = useState<TaskStage | null>(null);
-  return (
+  const [over, setOver] = useState<string | null>(null);
+
+  const board = (subset: DeliveryTask[], laneKey: string) => (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {TASK_STAGES.map((s) => {
-        const col = tasks.filter((t) => t.stage === s.key);
+        const col = subset.filter((t) => t.stage === s.key);
+        const overKey = `${laneKey}::${s.key}`;
         return (
           <div
             key={s.key}
-            onDragOver={(e) => { e.preventDefault(); setOver(s.key); }}
-            onDragLeave={() => setOver((c) => (c === s.key ? null : c))}
+            onDragOver={(e) => { e.preventDefault(); setOver(overKey); }}
+            onDragLeave={() => setOver((c) => (c === overKey ? null : c))}
             onDrop={() => { if (dragId) onStage(dragId, s.key); setDragId(null); setOver(null); }}
-            className={cn("rounded-2xl p-2.5 transition-colors", over === s.key ? "bg-brand-50" : "bg-subtle")}
+            className={cn("rounded-2xl p-2.5 transition-colors", over === overKey ? "bg-brand-50" : "bg-subtle")}
           >
             <div className="mb-2 flex items-center justify-between px-1">
               <span className="text-sm font-semibold text-ink">{s.label}</span>
@@ -1120,6 +1170,24 @@ function Kanban({ tasks, onStage, openTask, clientColor }: {
           </div>
         );
       })}
+    </div>
+  );
+
+  if (groupBy === "none") return board(tasks, "");
+
+  const groups = groupTasks(tasks, groupBy);
+  if (groups.length === 0) return board(tasks, "");
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <div className="mb-2 flex items-center gap-2 border-b border-line pb-1">
+            <span className="text-sm font-bold text-ink">{g.label}</span>
+            <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[11px] font-medium text-muted">{g.tasks.length}</span>
+          </div>
+          {board(g.tasks, g.key)}
+        </div>
+      ))}
     </div>
   );
 }
