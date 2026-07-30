@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
+  Bookmark,
   CalendarDays,
   Clock,
   KanbanSquare,
@@ -418,6 +419,60 @@ export function DeliveryPanel({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- abre a task do deep-link uma vez
     if (t) setSelected(t);
   }, [initial]);
+
+  // Views salvas (conjuntos de filtros nomeados) — por usuário.
+  const [views, setViews] = useState<{ id: string; name: string; filters: Record<string, unknown> }[]>([]);
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  useEffect(() => {
+    fetch("/api/gerencial/delivery-views")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.views) setViews(j.views);
+      })
+      .catch(() => {});
+  }, []);
+  function currentFilters(): Record<string, unknown> {
+    return { mode, assignee, origin, client, search, stageF, priorityF, stuckOnly };
+  }
+  function applyView(f: Record<string, unknown>) {
+    setMode(f.mode === "meu" ? "meu" : "time");
+    setAssignee((f.assignee as string) ?? null);
+    setOrigin((f.origin as TaskOrigin) ?? null);
+    setClient((f.client as string) ?? null);
+    setSearch((f.search as string) ?? "");
+    setStageF((f.stageF as TaskStage) ?? null);
+    setPriorityF((f.priorityF as DeliveryPriority) ?? null);
+    setStuckOnly(Boolean(f.stuckOnly));
+    setViewsOpen(false);
+  }
+  async function saveView() {
+    const name = newViewName.trim();
+    if (!name) return;
+    const filters = currentFilters();
+    const res = await fetch("/api/gerencial/delivery-views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", name, filters }),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+    if (res?.id) {
+      setViews((v) => [...v, { id: String(res.id), name, filters }]);
+      setNewViewName("");
+      toast("View salva.", "success");
+    } else {
+      toast("Não foi possível salvar a view.", "error");
+    }
+  }
+  async function deleteView(id: string) {
+    setViews((v) => v.filter((x) => x.id !== id));
+    await fetch("/api/gerencial/delivery-views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    }).catch(() => {});
+  }
   const [drill, setDrill] = useState<{ title: string; list: DeliveryTask[] } | null>(null);
 
   const meId = useMemo(() => {
@@ -571,6 +626,50 @@ export function DeliveryPanel({
             <X className="h-3.5 w-3.5" /> limpar ({activeFilters})
           </button>
         )}
+        <div className="relative">
+          <button
+            onClick={() => setViewsOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <Bookmark className="h-3.5 w-3.5" /> Views{views.length > 0 && ` (${views.length})`}
+          </button>
+          {viewsOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setViewsOpen(false)} />
+              <div className="absolute left-0 z-20 mt-2 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
+                <p className="px-1 pb-1 text-[11px] font-medium text-muted">Views salvas</p>
+                {views.length === 0 ? (
+                  <p className="px-1 py-2 text-xs text-muted">Nenhuma view. Salve os filtros atuais abaixo.</p>
+                ) : (
+                  <ul className="mb-2 space-y-0.5">
+                    {views.map((v) => (
+                      <li key={v.id} className="flex items-center gap-1">
+                        <button onClick={() => applyView(v.filters)} className="flex-1 truncate rounded-md px-2 py-1 text-left text-xs text-ink hover:bg-subtle">
+                          {v.name}
+                        </button>
+                        <button onClick={() => deleteView(v.id)} title="Excluir view" aria-label="Excluir view" className="rounded p-1 text-muted hover:bg-rose-500/10 hover:text-rose-500">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex items-center gap-1 border-t border-line pt-2">
+                  <input
+                    value={newViewName}
+                    onChange={(e) => setNewViewName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveView()}
+                    placeholder="Nome da view atual"
+                    className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                  <button onClick={saveView} disabled={!newViewName.trim()} className="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         {mode === "meu" && !meId && (
           <span className="text-xs text-amber-600">Seu usuário não está no time de produção.</span>
         )}
