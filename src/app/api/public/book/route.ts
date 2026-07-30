@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { slotsForDate, type AvailWindow } from "@/lib/data/agenda";
+import { createEvent } from "@/lib/google/calendar";
 import { logEvent } from "@/lib/audit/log";
 import { trigger } from "@/lib/push/triggers";
 
@@ -123,14 +124,39 @@ export async function POST(req: Request) {
   });
   if (conflict) return json({ error: "esse horário acabou de ser reservado — escolha outro" }, 409);
 
-  const { error } = await admin.from("calendar_events").insert({
-    owner_id: link.owner_id,
-    title: `${link.label}: ${name}`,
-    type: "meeting",
-    start_at: startIso,
-    end_at: endIso,
-  });
+  const { data: ins, error } = await admin
+    .from("calendar_events")
+    .insert({
+      owner_id: link.owner_id,
+      title: `${link.label}: ${name}`,
+      type: "meeting",
+      start_at: startIso,
+      end_at: endIso,
+    })
+    .select("id")
+    .single();
   if (error) return json({ error: "falha ao agendar" }, 500);
+
+  // Google Calendar (best-effort): cria o evento com Meet + convida o lead.
+  // Guarda o id/meet no evento local (dedupe na agenda + exibe o Meet).
+  let meetLink: string | undefined;
+  try {
+    const desc = [email && `E-mail: ${email}`, phone && `WhatsApp: ${phone}`].filter(Boolean).join("\n");
+    const gr = await createEvent({
+      summary: `${link.label}: ${name}`,
+      description: desc || undefined,
+      startIso,
+      endIso,
+      attendees: email ? [email] : [],
+      addMeet: true,
+    });
+    if (gr.event?.id) {
+      meetLink = gr.event.hangoutLink;
+      await admin.from("calendar_events").update({ google_event_id: gr.event.id, meet_link: meetLink ?? null }).eq("id", ins.id);
+    }
+  } catch {
+    /* Google não conectado / falhou — segue com o evento local. */
+  }
 
   const when = new Date(startIso).toLocaleString("pt-BR", { timeZone: TZ, dateStyle: "short", timeStyle: "short" });
   await trigger.bookingCreated({ label: String(link.label), name, email, when }).catch(() => {});
@@ -145,5 +171,5 @@ export async function POST(req: Request) {
     meta: { email, phone },
   });
 
-  return json({ ok: true, when });
+  return json({ ok: true, when, meetLink });
 }

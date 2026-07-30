@@ -126,9 +126,12 @@ export function AgendaClient({
 
   // Reuniões unificadas (próprias + Google).
   const meetings: Meeting[] = useMemo(() => {
-    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own", type: e.type }));
+    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own", type: e.type, link: e.meetLink }));
+    // Dedupe: eventos criados por agendamento têm par local + Google (mesmo id) —
+    // mostra só o local (que já carrega o Meet).
+    const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
     const g: Meeting[] = googleEvents
-      .filter((e) => e.start && !e.allDay)
+      .filter((e) => e.start && !e.allDay && !linkedGoogleIds.has(e.id))
       .map((e) => ({
         id: e.id,
         title: e.summary,

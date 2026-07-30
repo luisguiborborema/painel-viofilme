@@ -46,6 +46,7 @@ export function BookingForm({ link }: { link: BookingLink }) {
   const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [meet, setMeet] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export function BookingForm({ link }: { link: BookingLink }) {
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "falha");
       setDone(j.when ?? "");
+      setMeet(j.meetLink ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "erro");
       // recarrega os slots (pode ter havido conflito)
@@ -113,6 +115,16 @@ export function BookingForm({ link }: { link: BookingLink }) {
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
             <h2 className="mt-4 text-xl font-bold text-ink">Reunião agendada!</h2>
             <p className="mt-1 text-sm text-muted">{done ? `${done} · ` : ""}Você e nossa equipe receberão a confirmação.</p>
+            {meet && (
+              <a
+                href={meet}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                <CalendarCheck className="h-4 w-4" /> Entrar no Google Meet
+              </a>
+            )}
           </div>
         ) : dates.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line px-4 py-10 text-center text-sm text-muted">

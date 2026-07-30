@@ -29,6 +29,7 @@ export type CalendarEvent = {
   endAt?: string;
   dealId?: string;
   googleEventId?: string;
+  meetLink?: string;
 };
 
 /** Janela semanal de disponibilidade (day: 0=dom..6=sáb). */
