@@ -2372,7 +2372,7 @@ export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
   const { data } = await supabase
     .from("crm_capture_forms")
     .select(
-      "id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description",
+      "id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description,views",
     )
     .order("created_at", { ascending: true });
   const forms = data ?? [];
@@ -2433,6 +2433,7 @@ export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
     description: r.description == null ? undefined : String(r.description),
     fields: fieldsByForm.get(String(r.id)) ?? [],
     submissions: countByForm.get(String(r.id)) ?? 0,
+    views: Number(r.views ?? 0),
   }));
 }
 

@@ -21,7 +21,9 @@ import {
 import {
   FORM_FIELD_MAPS,
   FORM_FIELD_TYPES,
+  FORM_TEMPLATES,
   type CaptureForm,
+  type FormTemplate,
   type FormDestination,
   type FormField,
   type FormFieldMap,
@@ -68,6 +70,53 @@ export function CaptureFormsManager({
   const [open, setOpen] = useState<string | null>(null);
   const [showResp, setShowResp] = useState<CaptureForm | null>(null);
   const [shareOpen, setShareOpen] = useState<string | null>(null);
+  const [tplOpen, setTplOpen] = useState(false);
+
+  async function duplicate(id: string) {
+    setBusy(true);
+    await post({ action: "duplicate", id });
+    setBusy(false);
+    toast("Formulário duplicado (cópia inativa).", "success");
+    router.refresh();
+  }
+
+  async function createFromTemplate(tpl: FormTemplate) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/crm/capture-forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", name: tpl.name, destination: tpl.destination }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.id) throw new Error(j.error ?? "falha");
+      await fetch("/api/crm/capture-forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save-fields",
+          id: j.id,
+          fields: tpl.fields.map((f, i) => ({
+            label: f.label,
+            fieldType: f.fieldType,
+            required: Boolean(f.required),
+            mapTo: f.mapTo ?? "custom",
+            options: f.options ?? [],
+            position: i,
+            active: true,
+          })),
+        }),
+      });
+      toast(`"${tpl.name}" criado a partir do modelo. Revise e ative.`, "success");
+      setTplOpen(false);
+      router.refresh();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "erro", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -122,6 +171,33 @@ export function CaptureFormsManager({
         >
           <Plus className="h-4 w-4" /> Criar
         </button>
+        <div className="relative">
+          <button
+            onClick={() => setTplOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            <Sparkles className="h-4 w-4 text-brand-500" /> Modelos
+          </button>
+          {tplOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setTplOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                <p className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted">Criar a partir de um modelo</p>
+                {FORM_TEMPLATES.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => createFromTemplate(t)}
+                    disabled={busy}
+                    className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-subtle disabled:opacity-60"
+                  >
+                    <span className="block text-sm font-medium text-ink">{t.name}</span>
+                    <span className="block text-[11px] text-muted">{t.description} · {t.fields.length} campos</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       )}
 
@@ -146,6 +222,8 @@ export function CaptureFormsManager({
               <p className="text-xs text-muted">
                 Origem: {f.source} · {f.fields.length} campo(s)
                 {typeof f.submissions === "number" && f.submissions > 0 && ` · ${f.submissions} envio(s)`}
+                {typeof f.views === "number" && f.views > 0 &&
+                  ` · ${f.views} visita(s) · ${Math.round(((f.submissions ?? 0) / f.views) * 100)}% conversão`}
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -169,6 +247,16 @@ export function CaptureFormsManager({
               >
                 {f.active ? "Desativar" : "Ativar"}
               </button>
+              {!readOnly && (
+                <button
+                  onClick={() => duplicate(f.id)}
+                  disabled={busy}
+                  className="rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-60"
+                  title="Duplicar formulário"
+                >
+                  Duplicar
+                </button>
+              )}
               <button
                 onClick={() => act({ action: "delete", id: f.id })}
                 className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500"

@@ -21,7 +21,7 @@ type FieldInput = {
 };
 
 type Body = {
-  action?: "create" | "update" | "delete" | "save-fields";
+  action?: "create" | "update" | "delete" | "save-fields" | "duplicate";
   id?: string;
   name?: string;
   slug?: string;
@@ -139,6 +139,48 @@ export async function POST(req: Request) {
     const { error } = await supabase.from("crm_capture_forms").delete().eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "duplicate") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { data: src } = await supabase
+      .from("crm_capture_forms")
+      .select("name,owner,source,destination,pipeline_id,stage_id,client_id,task_type,description")
+      .eq("id", b.id)
+      .maybeSingle();
+    if (!src) return NextResponse.json({ error: "formulário não encontrado" }, { status: 404 });
+    let slug = slugify(`${src.name}-copia`);
+    const { data: all } = await supabase.from("crm_capture_forms").select("slug");
+    const taken = new Set((all ?? []).map((r) => String(r.slug)));
+    const base = slug;
+    let i = 2;
+    while (taken.has(slug)) slug = `${base}-${i++}`;
+    const { data: nf, error } = await supabase
+      .from("crm_capture_forms")
+      .insert({
+        name: `${src.name} (cópia)`,
+        slug,
+        owner: src.owner,
+        source: src.source,
+        active: false, // a cópia começa inativa
+        destination: src.destination,
+        pipeline_id: src.pipeline_id,
+        stage_id: src.stage_id,
+        client_id: src.client_id,
+        task_type: src.task_type,
+        description: src.description,
+      })
+      .select("id")
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: fields } = await supabase
+      .from("crm_form_fields")
+      .select("field_key,label,field_type,options,required,map_to,position,active,show_if_key,show_if_value")
+      .eq("form_id", b.id);
+    if (fields?.length) {
+      await supabase.from("crm_form_fields").insert(fields.map((f) => ({ ...f, form_id: nf.id })));
+    }
+    return NextResponse.json({ ok: true, id: nf.id });
   }
 
   if (action === "save-fields") {

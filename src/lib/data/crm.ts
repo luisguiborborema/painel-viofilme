@@ -1432,7 +1432,76 @@ export type CaptureForm = {
   description?: string;
   fields: FormField[];
   submissions?: number;
+  views?: number;
 };
+
+/** Modelos prontos de briefing (client-safe) — criam um formulário pré-montado. */
+export type FormTemplate = {
+  key: string;
+  name: string;
+  description: string;
+  destination: FormDestination;
+  fields: {
+    label: string;
+    fieldType: FormFieldType;
+    required?: boolean;
+    mapTo?: FormFieldMap;
+    options?: { value: string; label: string }[];
+  }[];
+};
+
+const opt = (...vs: string[]) => vs.map((v) => ({ value: v, label: v }));
+
+export const FORM_TEMPLATES: FormTemplate[] = [
+  {
+    key: "site",
+    name: "Briefing de Site",
+    description: "Descoberta para criação/refação de site ou e-commerce.",
+    destination: "crm",
+    fields: [
+      { label: "Nome da empresa/marca", fieldType: "text", required: true, mapTo: "company" },
+      { label: "Seu nome", fieldType: "text", required: true, mapTo: "contact_name" },
+      { label: "WhatsApp para contato", fieldType: "phone", required: true, mapTo: "contact_phone" },
+      { label: "Qual o objetivo principal do site?", fieldType: "textarea", required: true },
+      { label: "Quem é o público-alvo?", fieldType: "textarea" },
+      { label: "Já tem site hoje? Qual o endereço?", fieldType: "url" },
+      { label: "Cite 2-3 sites que você admira e por quê", fieldType: "textarea" },
+      { label: "Possui identidade visual/manual da marca?", fieldType: "select", options: opt("Sim", "Não", "Parcial") },
+    ],
+  },
+  {
+    key: "social",
+    name: "Briefing de Social Media",
+    description: "Onboarding para gestão de redes sociais.",
+    destination: "crm",
+    fields: [
+      { label: "Nome da empresa/marca", fieldType: "text", required: true, mapTo: "company" },
+      { label: "Seu nome", fieldType: "text", required: true, mapTo: "contact_name" },
+      { label: "E-mail", fieldType: "email", mapTo: "contact_email" },
+      { label: "@ do Instagram", fieldType: "text" },
+      { label: "Tom de voz da marca", fieldType: "textarea" },
+      { label: "Quais redes vamos gerenciar?", fieldType: "select", options: opt("Instagram", "Instagram + Facebook", "Instagram + TikTok", "Todas") },
+      { label: "Principais concorrentes", fieldType: "textarea" },
+      { label: "O que NÃO pode aparecer no conteúdo?", fieldType: "textarea" },
+    ],
+  },
+  {
+    key: "trafego",
+    name: "Briefing de Tráfego Pago",
+    description: "Setup para campanhas de mídia paga.",
+    destination: "crm",
+    fields: [
+      { label: "Nome da empresa/marca", fieldType: "text", required: true, mapTo: "company" },
+      { label: "Seu nome", fieldType: "text", required: true, mapTo: "contact_name" },
+      { label: "WhatsApp", fieldType: "phone", mapTo: "contact_phone" },
+      { label: "Objetivo da campanha", fieldType: "select", required: true, options: opt("Vendas", "Leads", "Alcance/Reconhecimento", "Tráfego para o site") },
+      { label: "Investimento mensal previsto", fieldType: "select", options: opt("Até R$1.000", "R$1.000–R$5.000", "R$5.000–R$15.000", "Acima de R$15.000") },
+      { label: "Quais plataformas?", fieldType: "select", options: opt("Meta (Face/Insta)", "Google", "Meta + Google", "TikTok") },
+      { label: "Já tem pixel/GA instalado?", fieldType: "select", options: opt("Sim", "Não", "Não sei") },
+      { label: "Link do site/página de destino", fieldType: "url" },
+    ],
+  },
+];
 
 export const MOCK_CAPTURE_FORMS: CaptureForm[] = [
   {

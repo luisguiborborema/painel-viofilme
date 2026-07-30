@@ -26,6 +26,12 @@ export default async function CapturePage({
     title = String(data.name);
     description = data.description ? String(data.description) : undefined;
 
+    // Conta a visita (best-effort) para a taxa de conversão.
+    await admin.rpc("increment_form_views", { p_slug: slug }).then(
+      () => {},
+      () => {},
+    );
+
     const { data: rows } = await admin
       .from("crm_form_fields")
       .select("field_key,label,field_type,required,options,show_if_key,show_if_value")
