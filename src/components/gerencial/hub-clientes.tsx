@@ -412,7 +412,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                   <td className="px-3 py-2.5 text-right">
                     {c.semaforo.late > 0 ? (
                       <Link
-                        href={`/gerencial/clientes/${c.id}?tab=tarefas`}
+                        href={`/gerencial/clientes/${c.id}/tarefas`}
                         title="Ver tarefas atrasadas do cliente"
                         className="font-semibold text-rose-500 underline-offset-2 hover:underline"
                       >

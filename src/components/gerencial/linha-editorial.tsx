@@ -1602,7 +1602,7 @@ export function LinhaEditorial({
               <div className="absolute right-0 z-20 mt-1 max-h-72 w-52 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
                 {lineId && (
                   <button
-                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${lineId}`); }}
+                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}/editorial?le=${lineId}`); }}
                     className="block w-full rounded-lg bg-subtle px-3 py-2 text-left text-sm font-medium text-ink"
                   >
                     {data.month} <span className="text-[11px] text-muted">(atual)</span>
@@ -1614,7 +1614,7 @@ export function LinhaEditorial({
                 {data.history.map((h) => (
                   <button
                     key={h.id}
-                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${h.id}`); }}
+                    onClick={() => { setShowHistory(false); router.push(`/gerencial/clientes/${clientId}/editorial?le=${h.id}`); }}
                     className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-subtle"
                   >
                     {h.month}
@@ -1712,12 +1712,12 @@ export function LinhaEditorial({
           data={data}
           clientId={clientId}
           drafts={drafts}
-          onResume={(draftId) => { setNovaLE(false); router.push(`/gerencial/clientes/${clientId}?tab=le&le=${draftId}`); }}
+          onResume={(draftId) => { setNovaLE(false); router.push(`/gerencial/clientes/${clientId}/editorial?le=${draftId}`); }}
           onClose={() => setNovaLE(false)}
           onDone={(newId) => {
             setNovaLE(false);
             // Fluxo unificado: já abre a nova LE com o editor do cabeçalho aberto.
-            if (newId) router.push(`/gerencial/clientes/${clientId}?tab=le&le=${newId}&edit=1`);
+            if (newId) router.push(`/gerencial/clientes/${clientId}/editorial?le=${newId}&edit=1`);
             else router.refresh();
           }}
         />
