@@ -36,13 +36,18 @@ const crmType = (t: string) => (t === "textarea" ? "text" : CRM_TYPES.has(t) ? t
 const deliveryType = (t: string) =>
   t === "email" || t === "phone" ? "text" : DELIVERY_TYPES.has(t) ? t : "text";
 
+// Mapeamentos que controlam campos nativos da TAREFA (não viram propriedade).
+const TASK_CONTROL = new Set(["priority", "client", "due"]);
+
 export async function registerFormProperties(
   db: SupabaseClient,
   destination: "crm" | "entregas",
   fields: FieldLike[],
 ): Promise<void> {
+  // Toda pergunta vira propriedade do card, exceto seções e os controles de
+  // tarefa (prioridade/cliente/prazo, que já viram campos nativos).
   const custom = fields.filter(
-    (f) => f.map_to === "custom" && f.field_type !== "section" && f.field_key && f.label,
+    (f) => !TASK_CONTROL.has(f.map_to) && f.field_type !== "section" && f.field_key && f.label,
   );
   if (!custom.length) return;
 

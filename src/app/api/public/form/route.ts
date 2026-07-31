@@ -165,11 +165,12 @@ export async function POST(req: Request) {
     if (f.required && !v) {
       return json({ error: `campo obrigatório: ${f.label}` }, { status: 400 });
     }
+    const isControl = f.map_to === "priority" || f.map_to === "client" || f.map_to === "due";
     if (f.map_to && f.map_to !== "custom") {
       if (v) mapped[f.map_to] = v;
-    } else if (v) {
-      custom[f.field_key] = raw;
     }
+    // Toda resposta (menos os controles de tarefa) também vira propriedade do card.
+    if (v && !isControl) custom[f.field_key] = raw;
     if (v) briefing.push(`• ${f.label}: ${v}`);
   }
 
