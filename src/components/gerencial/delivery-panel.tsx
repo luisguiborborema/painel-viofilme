@@ -135,14 +135,22 @@ function DeliveryConfigModal({
 }) {
   const [cap, setCap] = useState(config.capacityPerDay);
   const [durations, setDurations] = useState<Record<string, number>>(config.typeDurations);
+  const [defaults, setDefaults] = useState<Record<string, { assignee: string; slaDays: number }>>(
+    config.typeDefaults ?? {},
+  );
   const [saving, setSaving] = useState(false);
 
   async function save() {
     setSaving(true);
-    const next: DeliveryConfig = { capacityPerDay: cap, typeDurations: durations };
+    const next: DeliveryConfig = { capacityPerDay: cap, typeDurations: durations, typeDefaults: defaults };
     await postConfig({ action: "set-capacity", capacityPerDay: cap });
     for (const [type, minutes] of Object.entries(durations)) {
       await postConfig({ action: "set-duration", type, minutes });
+      const def = defaults[type];
+      if (def) {
+        await postConfig({ action: "set-default-assignee", type, assignee: def.assignee });
+        await postConfig({ action: "set-sla", type, days: def.slaDays });
+      }
     }
     onChange(next);
     setSaving(false);
@@ -170,25 +178,68 @@ function DeliveryConfigModal({
           <span className="ml-2 text-xs text-muted">alerta: âmbar em {cap + 1}, vermelho em {cap + 2}+</span>
         </label>
 
-        <p className="mb-1 text-xs font-medium text-muted">Duração padrão por tipo — min (ENT10, Timeline)</p>
+        <p className="mb-1 text-xs font-medium text-muted">Padrões por tipo — duração, responsável e prazo (SLA)</p>
+        <p className="mb-2 text-[11px] text-muted">
+          Responsável e SLA são aplicados às tarefas criadas por formulário/briefing quando o
+          formulário não define um dono.
+        </p>
         <div className="space-y-2">
-          {Object.entries(durations).map(([type, min]) => (
-            <div key={type} className="flex items-center gap-3">
-              <span className="w-20 text-sm text-ink">{type}</span>
-              <input
-                type="number"
-                min={5}
-                max={600}
-                step={5}
-                value={min}
-                onChange={(e) =>
-                  setDurations((d) => ({ ...d, [type]: Math.max(5, Math.min(600, Number(e.target.value) || 5)) }))
-                }
-                className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-              />
-              <span className="text-xs text-muted">min</span>
-            </div>
-          ))}
+          {Object.keys(durations).map((type) => {
+            const def = defaults[type] ?? { assignee: "", slaDays: 0 };
+            return (
+              <div key={type} className="rounded-lg border border-line p-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="w-16 text-sm font-medium text-ink">{type}</span>
+                  <label className="flex items-center gap-1 text-xs text-muted">
+                    <input
+                      type="number"
+                      min={5}
+                      max={600}
+                      step={5}
+                      value={durations[type]}
+                      onChange={(e) =>
+                        setDurations((d) => ({ ...d, [type]: Math.max(5, Math.min(600, Number(e.target.value) || 5)) }))
+                      }
+                      className="w-20 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+                    />
+                    min
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-muted">
+                    SLA
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={def.slaDays}
+                      onChange={(e) =>
+                        setDefaults((d) => ({
+                          ...d,
+                          [type]: { ...def, slaDays: Math.max(0, Math.min(60, Number(e.target.value) || 0)) },
+                        }))
+                      }
+                      className="w-16 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+                    />
+                    dias úteis
+                  </label>
+                </div>
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+                  Responsável padrão
+                  <select
+                    value={def.assignee}
+                    onChange={(e) =>
+                      setDefaults((d) => ({ ...d, [type]: { ...def, assignee: e.target.value } }))
+                    }
+                    className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
+                  >
+                    <option value="">— (usa o dono do formulário)</option>
+                    {OPS_TEAM.map((m) => (
+                      <option key={m.id} value={m.name}>{m.name} · {m.role}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">

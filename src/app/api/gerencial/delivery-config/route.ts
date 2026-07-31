@@ -17,10 +17,12 @@ export async function GET() {
 }
 
 type Body = {
-  action?: "set-capacity" | "set-duration";
+  action?: "set-capacity" | "set-duration" | "set-default-assignee" | "set-sla";
   capacityPerDay?: number;
   type?: string;
   minutes?: number;
+  assignee?: string;
+  days?: number;
 };
 
 /** Ajusta capacidade (ENT12) ou duração default de um tipo (ENT10). */
@@ -58,6 +60,27 @@ export async function POST(req: Request) {
       .eq("name", b.type.trim());
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true, type: b.type.trim(), minutes: min });
+  }
+
+  if (b.action === "set-default-assignee") {
+    if (!b.type?.trim()) return NextResponse.json({ error: "tipo ausente" }, { status: 400 });
+    const { error } = await supabase
+      .from("task_types")
+      .update({ default_assignee: b.assignee?.trim() || null })
+      .eq("name", b.type.trim());
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (b.action === "set-sla") {
+    if (!b.type?.trim()) return NextResponse.json({ error: "tipo ausente" }, { status: 400 });
+    const days = Math.max(0, Math.min(60, Math.round(Number(b.days) || 0)));
+    const { error } = await supabase
+      .from("task_types")
+      .update({ sla_days: days || null })
+      .eq("name", b.type.trim());
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, type: b.type.trim(), days });
   }
 
   return NextResponse.json({ error: "ação desconhecida" }, { status: 400 });

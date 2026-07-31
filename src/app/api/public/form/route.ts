@@ -44,6 +44,29 @@ function str(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
 
+/** Normaliza texto livre de prioridade → enum do Painel de Entregas. */
+function normalizePriority(v: string): "baixa" | "media" | "alta" | "urgente" | null {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (/(urgent|crít|crit|asap)/.test(s)) return "urgente";
+  if (/(alta|high|prior)/.test(s)) return "alta";
+  if (/(baixa|low)/.test(s)) return "baixa";
+  if (/(m[eé]dia|normal|medium|padr)/.test(s)) return "media";
+  return null;
+}
+
+/** Soma dias úteis a uma data ISO e devolve "AAAA-MM-DD". */
+function addBusinessDays(fromIso: string, days: number): string {
+  const d = new Date(fromIso);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Endpoint PÚBLICO de envio de formulários/briefings (/captura/<slug>).
  * Sem sessão: usa service-role, valida o slug e cria um card no destino do
@@ -153,6 +176,38 @@ export async function POST(req: Request) {
   if (String(form.destination) === "entregas") {
     // Tipo personalizável: usa o que o formulário definiu (fallback "Arte").
     const type = str(form.task_type) || "Arte";
+
+    // Padrões do tipo (responsável padrão + SLA) — herdados quando o form não define.
+    const { data: typeRow } = await admin
+      .from("task_types")
+      .select("default_assignee, sla_days")
+      .eq("name", type)
+      .maybeSingle();
+    const slaDays = Number((typeRow as { sla_days?: number | null } | null)?.sla_days) || 0;
+    const typeAssignee = str((typeRow as { default_assignee?: string | null } | null)?.default_assignee);
+
+    // Responsável: dono do formulário → responsável padrão do tipo.
+    const assignee = owner || typeAssignee || null;
+
+    // Prioridade: campo mapeado como "priority" → média.
+    const priority = normalizePriority(mapped.priority ?? "") ?? "media";
+
+    // Cliente: do formulário → resolvido pelo nome (campo mapeado como "client").
+    let clientId = (form.client_id as string | null) || null;
+    if (!clientId && mapped.client) {
+      const { data: cli } = await admin
+        .from("clients")
+        .select("id")
+        .ilike("name", mapped.client)
+        .maybeSingle();
+      if (cli) clientId = cli.id as string;
+    }
+
+    // Prazo: campo "due" (data) → SLA do tipo (dias úteis) → sem prazo.
+    const dueRaw = mapped.due ?? "";
+    const dueFromField = /^\d{4}-\d{2}-\d{2}/.test(dueRaw) ? dueRaw.slice(0, 10) : "";
+    const dueDate = dueFromField || (slaDays > 0 ? addBusinessDays(now, slaDays) : null);
+
     const comments = briefingText
       ? [{ author: "Formulário", text: `📋 Briefing "${source}":\n${briefingText}`, createdAt: now }]
       : [];
@@ -160,14 +215,16 @@ export async function POST(req: Request) {
       .from("delivery_tasks")
       .insert({
         title,
-        client_id: (form.client_id as string | null) || null,
+        client_id: clientId,
         type,
         origin: "Tarefa avulsa",
-        assignee: owner,
-        assignees: owner ? [owner] : [],
+        assignee,
+        assignees: assignee ? [assignee] : [],
         requester: contactName || null,
-        priority: "media",
+        priority,
         stage: "todo",
+        due_date: dueDate,
+        delivery_date: dueDate,
         custom_fields: custom,
         comments,
         created_by: null,

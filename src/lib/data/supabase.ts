@@ -1440,18 +1440,25 @@ export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
 export async function sbGetDeliveryConfig(): Promise<DeliveryConfig> {
   const supabase = await createClient();
   const [typesRes, setRes] = await Promise.all([
-    supabase.from("task_types").select("name, default_duration_min").order("sort"),
+    supabase.from("task_types").select("name, default_duration_min, default_assignee, sla_days").order("sort"),
     supabase.from("delivery_settings").select("capacity_per_day").eq("id", 1).maybeSingle(),
   ]);
   const typeDurations: Record<string, number> = { ...DELIVERY_CONFIG_FALLBACK.typeDurations };
-  for (const t of (typesRes.data ?? []) as { name: string; default_duration_min: number | null }[]) {
+  const typeDefaults: Record<string, { assignee: string; slaDays: number }> = {};
+  for (const t of (typesRes.data ?? []) as {
+    name: string;
+    default_duration_min: number | null;
+    default_assignee: string | null;
+    sla_days: number | null;
+  }[]) {
     typeDurations[t.name] = Number(t.default_duration_min ?? 60);
+    typeDefaults[t.name] = { assignee: t.default_assignee ?? "", slaDays: Number(t.sla_days ?? 0) };
   }
   const capacityPerDay = Number(
     (setRes.data as { capacity_per_day: number | null } | null)?.capacity_per_day ??
       DELIVERY_CONFIG_FALLBACK.capacityPerDay,
   );
-  return { capacityPerDay, typeDurations };
+  return { capacityPerDay, typeDurations, typeDefaults };
 }
 
 // --- Hub de Clientes / health (clients + payments + tasks + atividade) -------

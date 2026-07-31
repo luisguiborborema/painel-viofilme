@@ -1382,6 +1382,9 @@ export type FormFieldMap =
   | "contact_email"
   | "contact_phone"
   | "company"
+  | "priority"
+  | "client"
+  | "due"
   | "custom";
 
 export type FormField = {
@@ -1418,6 +1421,9 @@ export const FORM_FIELD_MAPS: { key: FormFieldMap; label: string }[] = [
   { key: "contact_email", label: "E-mail do contato" },
   { key: "contact_phone", label: "Telefone do contato" },
   { key: "company", label: "Empresa" },
+  { key: "priority", label: "Prioridade (tarefa)" },
+  { key: "client", label: "Cliente (tarefa)" },
+  { key: "due", label: "Prazo/data de entrega (tarefa)" },
 ];
 
 export type CaptureForm = {

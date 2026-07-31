@@ -647,11 +647,14 @@ export const TASK_TYPE_DURATIONS: Record<TaskType, number> = {
 export type DeliveryConfig = {
   capacityPerDay: number;
   typeDurations: Record<string, number>;
+  /** Padrões por tipo (criação via formulário): responsável + SLA (dias úteis). */
+  typeDefaults?: Record<string, { assignee: string; slaDays: number }>;
 };
 
 export const DELIVERY_CONFIG_FALLBACK: DeliveryConfig = {
   capacityPerDay: DELIVERY_CAPACITY_PER_DAY,
   typeDurations: { ...TASK_TYPE_DURATIONS },
+  typeDefaults: {},
 };
 
 /**
