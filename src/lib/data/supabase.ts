@@ -2764,6 +2764,7 @@ type EditorialLineRow = {
   moodboard: unknown;
   built_by: string | null;
   internally_approved_by: string | null;
+  public_approval_token: string | null;
 };
 type EditorialPostRow = {
   id: string;
@@ -2787,6 +2788,9 @@ type EditorialPostRow = {
   delivery_date: string | null;
   delivery_overridden: boolean | null;
   commemorative_date: string | null;
+  client_status: string | null;
+  client_feedback: string | null;
+  client_reviewed_at: string | null;
 };
 
 const dash2 = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
@@ -2797,7 +2801,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   let linesQuery = supabase
     .from("editorial_lines")
-    .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by")
+    .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by, public_approval_token")
     .eq("client_id", clientId);
   // Retomar rascunho: quando um lineId é pedido, carrega aquela LE; senão, a mais recente.
   linesQuery = lineId
@@ -2835,7 +2839,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   const { data: postsData } = await supabase
     .from("editorial_posts")
-    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes, post_date_iso, delivery_date, delivery_overridden, commemorative_date")
+    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes, post_date_iso, delivery_date, delivery_overridden, commemorative_date, client_status, client_feedback, client_reviewed_at")
     .eq("line_id", line.id)
     .order("n");
 
@@ -2881,11 +2885,18 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     deliveryDate: p.delivery_date ?? undefined,
     deliveryOverridden: !!p.delivery_overridden,
     commemorativeDate: p.commemorative_date ?? undefined,
+    clientStatus:
+      p.client_status === "approved" || p.client_status === "changes"
+        ? p.client_status
+        : "pending",
+    clientFeedback: p.client_feedback ?? undefined,
+    clientReviewedAt: p.client_reviewed_at ?? undefined,
   }));
 
   return {
     id: line.id,
     clientName,
+    approvalToken: line.public_approval_token ?? undefined,
     month: line.month ?? periodLabel(),
     objetivo: line.objetivo ?? "",
     builtBy: line.built_by ?? undefined,

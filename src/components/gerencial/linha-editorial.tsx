@@ -197,7 +197,22 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
             <Clapperboard className="h-3 w-3" /> VioDay
           </span>
         )}
+        {post.clientStatus === "approved" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+            <Check className="h-3 w-3" /> Cliente aprovou
+          </span>
+        )}
+        {post.clientStatus === "changes" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+            <MessageSquare className="h-3 w-3" /> Ajuste pedido
+          </span>
+        )}
       </div>
+      {post.clientStatus === "changes" && post.clientFeedback && (
+        <p className="mt-1.5 line-clamp-2 rounded-lg bg-amber-500/5 px-2 py-1 text-[11px] italic text-amber-700">
+          “{post.clientFeedback}”
+        </p>
+      )}
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-2.5">
         {taskStage ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
@@ -1535,6 +1550,7 @@ export function LinhaEditorial({
   const [novaLE, setNovaLE] = useState(false);
   const [editing, setEditing] = useState(false);
   const [taskByPost, setTaskByPost] = useState<Record<number, string>>({});
+  const [copiedApproval, setCopiedApproval] = useState(false);
 
   // Fluxo unificado: ao criar uma LE (navegação com ?edit=1), abre o editor do
   // cabeçalho automaticamente (uma vez), sem exigir o clique em "Editar".
@@ -1637,6 +1653,27 @@ export function LinhaEditorial({
           >
             <Presentation className="h-4 w-4" /> Apresentar ao cliente
           </a>
+          {data.approvalToken && (
+            <button
+              onClick={() => {
+                const origin = typeof window !== "undefined" ? window.location.origin : "";
+                navigator.clipboard
+                  ?.writeText(`${origin}/aprovar/${data.approvalToken}`)
+                  .then(() => {
+                    setCopiedApproval(true);
+                    setTimeout(() => setCopiedApproval(false), 1500);
+                  });
+              }}
+              title="Copia o link público para o cliente aprovar/pedir ajustes nos posts"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+            >
+              {copiedApproval ? (
+                <><Check className="h-4 w-4 text-emerald-500" /> Link copiado</>
+              ) : (
+                <><Link2 className="h-4 w-4" /> Enviar p/ aprovação</>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

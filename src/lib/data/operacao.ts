@@ -422,6 +422,10 @@ export type EditorialPost = {
   commentsCount?: number;
   /** Checklist de entrega salvo na task (para reidratar a ficha). */
   checklist?: { label: string; done: boolean }[];
+  /** Decisão do cliente no link público de aprovação. */
+  clientStatus?: "pending" | "approved" | "changes";
+  clientFeedback?: string;
+  clientReviewedAt?: string;
 };
 
 export type EditorialPillar = { name: string; posts: number; color: string };
@@ -450,6 +454,8 @@ export type EditorialLine = {
   pillars: EditorialPillar[];
   posts: EditorialPost[];
   history: { id: string; month: string }[];
+  /** Token do link público de aprovação pelo cliente (/aprovar/<token>). */
+  approvalToken?: string;
 };
 
 // --- Central de Relatórios (V3) ---------------------------------------------

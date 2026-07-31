@@ -125,6 +125,28 @@ export const trigger = {
       url: "/gerencial/agenda",
     }),
 
+  /** Cliente aprovou/pediu ajuste num post da linha editorial → notifica a equipe. */
+  editorialClientDecision: (args: {
+    clientId: string;
+    lineId: string;
+    clientName: string;
+    month: string;
+    postTitle: string;
+    decision: "approved" | "changes";
+    feedback?: string;
+  }) =>
+    toManagement({
+      category: "content",
+      title:
+        args.decision === "approved"
+          ? `✅ Post aprovado — ${args.clientName}`
+          : `📝 Ajuste pedido — ${args.clientName}`,
+      body:
+        `${args.month} · "${args.postTitle}"` +
+        (args.decision === "changes" && args.feedback ? `: ${args.feedback.slice(0, 80)}` : ""),
+      url: `/gerencial/clientes/${args.clientId}/editorial?le=${args.lineId}`,
+    }),
+
   // --- para o CLIENTE ------------------------------------------------------
   contentAwaitingApproval: (clientId: string, title?: string) =>
     toClient(clientId, {
