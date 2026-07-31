@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useReadOnly } from "@/components/shell/read-only-context";
 import {
   CalendarDays,
   Check,
@@ -14,6 +15,7 @@ import {
   Layers,
   Link2,
   Loader2,
+  MessageCircle,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -108,6 +110,40 @@ export function AgendaClient({
   const [newAt, setNewAt] = useState<Date | null>(null);
   const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
 
+  // Link público de agendamento (Calendly-like) para enviar ao cliente.
+  const readOnly = useReadOnly();
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const nativeLink = initialLinks.find((l) => l.slug);
+  const bookingUrl = nativeLink ? `${origin}/agendar/${nativeLink.slug}` : "";
+  const [copiedLink, setCopiedLink] = useState(false);
+  const ensuredRef = useRef(false);
+
+  // Sem link nativo ainda? Gera um padrão automaticamente (idempotente no server)
+  // e recarrega — o usuário não precisa configurar nada.
+  useEffect(() => {
+    if (nativeLink || readOnly || ensuredRef.current) return;
+    ensuredRef.current = true;
+    fetch("/api/agenda/scheduling-links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ensure-default" }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j?.ok) router.refresh(); })
+      .catch(() => {});
+  }, [nativeLink, readOnly, router]);
+
+  function copyBooking() {
+    if (!bookingUrl) return;
+    navigator.clipboard?.writeText(bookingUrl).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1500);
+    });
+  }
+  const waHref = bookingUrl
+    ? `https://wa.me/?text=${encodeURIComponent(`Olá! Agende um horário comigo por aqui: ${bookingUrl}`)}`
+    : "#";
+
   useEffect(() => {
     // Hidrata preferências do cliente (localStorage) após montar.
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -188,6 +224,55 @@ export function AgendaClient({
           </button>
         </div>
       </div>
+
+      {/* Link de agendamento — pronto pra enviar ao cliente */}
+      {(nativeLink || !readOnly) && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand-400/40 bg-brand-500/5 px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-ink">Link de agendamento — envie ao cliente</p>
+            {nativeLink ? (
+              <p className="truncate text-[11px] text-muted">{bookingUrl}</p>
+            ) : (
+              <p className="inline-flex items-center gap-1 text-[11px] text-muted">
+                <Loader2 className="h-3 w-3 animate-spin" /> Preparando seu link…
+              </p>
+            )}
+          </div>
+          {nativeLink && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copyBooking}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+              >
+                {copiedLink ? (
+                  <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copiado</>
+                ) : (
+                  <><Copy className="h-3.5 w-3.5" /> Copiar</>
+                )}
+              </button>
+              <a
+                href={waHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+              </a>
+              {!readOnly && (
+                <button
+                  onClick={() => setShowLinks(true)}
+                  className="text-[11px] font-medium text-muted hover:text-ink hover:underline"
+                >
+                  configurar
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Banner Google (casca) */}
       {!googleConnected && (

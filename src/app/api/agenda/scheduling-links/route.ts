@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type Avail = { day: number; start: string; end: string };
 type Body = {
-  action?: "create" | "update" | "delete";
+  action?: "create" | "update" | "delete" | "ensure-default";
   id?: string;
   url?: string;
   label?: string;
@@ -57,6 +57,47 @@ export async function POST(req: Request) {
   }
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
+
+  // Garante um link nativo padrão para o usuário (idempotente): se já existe
+  // um link nativo, devolve; senão cria Seg–Sex 09–18h, 30min, 14 dias.
+  if (b.action === "ensure-default") {
+    const { data: existing } = await supabase
+      .from("scheduling_links")
+      .select("id, slug")
+      .eq("owner_id", user.id)
+      .not("slug", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ ok: true, id: existing[0].id, slug: existing[0].slug, created: false });
+    }
+    const first = user.name?.trim().split(/\s+/)[0];
+    const label = first ? `Agendar com ${first}` : "Agendar comigo";
+    let slug = slugify(label);
+    const { data: all } = await supabase.from("scheduling_links").select("slug");
+    const taken = new Set((all ?? []).map((r) => (r.slug ? String(r.slug) : "")).filter(Boolean));
+    const base = slug;
+    let i = 2;
+    while (taken.has(slug)) slug = `${base}-${i++}`;
+    const availability: Avail[] = [1, 2, 3, 4, 5].map((day) => ({ day, start: "09:00", end: "18:00" }));
+    const { data, error } = await supabase
+      .from("scheduling_links")
+      .insert({
+        owner_id: user.id,
+        label,
+        active: true,
+        slug,
+        url: null,
+        duration_min: 30,
+        buffer_min: 0,
+        days_ahead: 14,
+        availability,
+      })
+      .select("id, slug")
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, id: data.id, slug: data.slug, created: true });
+  }
 
   if (b.action === "delete") {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
