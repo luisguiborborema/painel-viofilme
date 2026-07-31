@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LogoHorizontal } from "@/components/brand/logo";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
@@ -99,37 +99,45 @@ export function Sidebar({
             const active = isActive(item.href);
             const Icon = item.icon;
 
-            // Hub de Clientes dentro de um cliente: cabeçalho + abas aninhadas.
+            // Hub de Clientes dentro de um cliente: link + flyout (hover) com as
+            // abas do cliente. O pl-2 faz a ponte de hover sem gap.
             if (item.href === CLIENTES_HREF && clientTabs.length > 0) {
               return (
-                <div key={item.href} className="space-y-1">
+                <div key={item.href} className="group/hub relative">
                   <Link
                     href={item.href}
-                    className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/15"
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                      active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
+                    )}
                   >
                     <Icon className="h-[18px] w-[18px] shrink-0" />
                     {item.label}
+                    <ChevronRight className="ml-auto h-4 w-4 opacity-60" />
                   </Link>
-                  <div className="ml-4 space-y-0.5 border-l border-white/15 pl-3">
-                    {clientTabs.map((t) => {
-                      const TIcon = t.icon;
-                      const tActive = tabActive(t.href);
-                      return (
-                        <Link
-                          key={t.href}
-                          href={t.href}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-                            tActive
-                              ? "bg-white text-brand-700 shadow-sm"
-                              : "text-white/70 hover:bg-white/10 hover:text-white",
-                          )}
-                        >
-                          <TIcon className="h-4 w-4 shrink-0" />
-                          {t.label}
-                        </Link>
-                      );
-                    })}
+                  <div className="absolute left-full top-0 z-50 hidden pl-2 group-hover/hub:block">
+                    <div className="min-w-56 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+                      <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        Abas do cliente
+                      </p>
+                      {clientTabs.map((t) => {
+                        const TIcon = t.icon;
+                        const tActive = tabActive(t.href);
+                        return (
+                          <Link
+                            key={t.href}
+                            href={t.href}
+                            className={cn(
+                              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+                              tActive ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
+                            )}
+                          >
+                            <TIcon className="h-4 w-4 shrink-0" />
+                            {t.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
