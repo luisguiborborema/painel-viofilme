@@ -252,6 +252,7 @@ export function PostFicha({
   onCreated,
   onAdd,
   onSaved,
+  extraProps,
 }: {
   post: EditorialPost;
   clientId: string;
@@ -268,6 +269,8 @@ export function PostFicha({
   onCreated: (n: number, taskId: string) => void;
   onAdd: (p: EditorialPost) => void;
   onSaved: (p: EditorialPost) => void;
+  /** Propriedades vindas do formulário/briefing (read-only), rotuladas. */
+  extraProps?: { label: string; value: string }[];
 }) {
   const isDelivery = variant === "delivery";
   const router = useRouter();
@@ -706,6 +709,22 @@ export function PostFicha({
                 className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
               />
             </div>
+
+            {extraProps && extraProps.length > 0 && (
+              <div>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">
+                  Propriedades do briefing
+                </p>
+                <dl className="divide-y divide-line rounded-xl border border-line">
+                  {extraProps.map((p) => (
+                    <div key={p.label} className="flex items-start justify-between gap-3 px-3 py-2">
+                      <dt className="shrink-0 text-xs font-medium text-muted">{p.label}</dt>
+                      <dd className="whitespace-pre-wrap break-words text-right text-sm text-ink">{p.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
           </div>
 
           {/* Direita · execução */}
@@ -991,6 +1010,31 @@ export function TaskFicha({
   onClose: () => void;
   onStage?: (id: string, stage: TaskStage) => void;
 }) {
+  // Rótulos das propriedades custom (delivery_form_fields) para exibir os
+  // valores gravados em custom_fields (ex.: respostas de um formulário).
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const cf = task.customFields;
+    if (!cf || Object.keys(cf).length === 0) return;
+    let alive = true;
+    fetch("/api/gerencial/delivery-fields", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j?.fields) return;
+        const map: Record<string, string> = {};
+        for (const f of j.fields as { fieldKey: string; label: string }[]) map[f.fieldKey] = f.label;
+        setLabels(map);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [task.customFields]);
+
+  const extraProps = Object.entries(task.customFields ?? {})
+    .map(([k, v]) => ({ label: labels[k] ?? k, value: v == null ? "" : String(v) }))
+    .filter((p) => p.value.trim());
+
   return (
     <PostFicha
       post={deliveryTaskToPost(task)}
@@ -1002,6 +1046,7 @@ export function TaskFicha({
       leLabel={task.client}
       mode="view"
       variant="delivery"
+      extraProps={extraProps}
       onClose={onClose}
       onCreated={() => {}}
       onAdd={() => {}}

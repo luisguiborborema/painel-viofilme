@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { logFromUser } from "@/lib/audit/log";
+import { registerFormProperties } from "@/lib/data/form-properties";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,9 @@ const FIELD_MAPS = new Set([
   "contact_email",
   "contact_phone",
   "company",
+  "priority",
+  "client",
+  "due",
   "custom",
 ]);
 
@@ -225,6 +229,18 @@ export async function POST(req: Request) {
       const { error: insErr } = await supabase.from("crm_form_fields").insert(rows);
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
     }
+    // As perguntas "custom" viram propriedades do card (negócio/tarefa).
+    const { data: formRow } = await supabase
+      .from("crm_capture_forms")
+      .select("destination")
+      .eq("id", b.id)
+      .maybeSingle();
+    const destination = String(formRow?.destination) === "entregas" ? "entregas" : "crm";
+    await registerFormProperties(
+      supabase,
+      destination,
+      rows as unknown as Parameters<typeof registerFormProperties>[2],
+    ).catch(() => {});
     return NextResponse.json({ ok: true, count: rows.length });
   }
 

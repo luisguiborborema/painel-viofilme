@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
+import { registerFormProperties } from "@/lib/data/form-properties";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ type FieldRow = {
   position: number;
   show_if_key?: string | null;
   show_if_value?: string | null;
+  options?: unknown;
 };
 
 function str(v: unknown): string {
@@ -122,7 +124,7 @@ export async function POST(req: Request) {
 
   const { data: fieldsData } = await admin
     .from("crm_form_fields")
-    .select("field_key,label,field_type,required,map_to,position,show_if_key,show_if_value")
+    .select("field_key,label,field_type,required,map_to,position,show_if_key,show_if_value,options")
     .eq("form_id", form.id)
     .eq("active", true)
     .order("position", { ascending: true });
@@ -138,6 +140,14 @@ export async function POST(req: Request) {
     { field_key: "message", label: "Mensagem", field_type: "textarea", required: false, map_to: "custom", position: 4 },
   ];
   const effectiveFields = fields.length ? fields : LEGACY_FIELDS;
+
+  // Garante que as perguntas "custom" existam como propriedades do card
+  // (negócio/tarefa) — cobre formulários criados antes desta regra.
+  await registerFormProperties(
+    admin,
+    String(form.destination) === "entregas" ? "entregas" : "crm",
+    effectiveFields,
+  ).catch(() => {});
 
   // Mapeia valores por destino do campo + valida obrigatórios.
   const mapped: Record<string, string> = {};
