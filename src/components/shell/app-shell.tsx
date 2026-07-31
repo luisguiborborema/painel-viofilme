@@ -6,6 +6,7 @@ import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
 import { ReadOnlyProvider } from "./read-only-context";
 import { visibleNav } from "@/lib/nav";
+import { hasFullAccess, canAccessSection } from "@/lib/access";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import type { SessionUser } from "@/lib/auth/types";
 
@@ -17,6 +18,12 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const groups = visibleNav(user);
+  // Perfil operacional (sem Financeiro/Comercial) não vê a aba Metas do cliente
+  // no submenu lateral — mesma regra do gating da página /metas.
+  const clientTabsOpOnly =
+    !hasFullAccess(user.allowedSections) &&
+    !canAccessSection(user.allowedSections, "financeiro") &&
+    !canAccessSection(user.allowedSections, "crm");
   const [collapsed, setCollapsed] = usePersistentState("vio-sidebar-collapsed", false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -43,6 +50,7 @@ export function AppShell({
       <Sidebar
         groups={groups}
         role={user.role}
+        clientTabsOpOnly={clientTabsOpOnly}
         collapsed={collapsed}
         onToggle={() => setCollapsed((c) => !c)}
       />
