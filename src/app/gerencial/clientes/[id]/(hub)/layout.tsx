@@ -10,7 +10,7 @@ import {
 
 // Abas de trabalho pesado onde a ficha do cliente vem recolhida por padrão
 // (dá foco ao conteúdo da aba). O usuário expande a ficha quando quiser.
-const COLLAPSIBLE_TABS = ["editorial"];
+const COLLAPSIBLE_TABS = ["editorial", "vioday", "criativos", "documentos"];
 
 function initialsOf(name: string): string {
   return name
