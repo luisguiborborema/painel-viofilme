@@ -28,6 +28,7 @@ import {
   SlidersHorizontal,
   FileText,
   ShieldCheck,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -74,6 +75,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     title: "Operacional",
     icon: Boxes,
     items: [
+      { label: "Meu dia", href: "/gerencial/meu-dia", icon: Sun },
       { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
       { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
       { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
