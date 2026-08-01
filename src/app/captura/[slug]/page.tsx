@@ -7,10 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function CapturePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ client?: string }>;
 }) {
   const { slug } = await params;
+  const { client } = await searchParams;
   let title = "Fale com a gente";
   let description: string | undefined;
   let fields: PublicField[] = [];
@@ -53,7 +56,7 @@ export default async function CapturePage({
 
   return (
     <main className="min-h-screen bg-canvas">
-      <CaptureForm slug={slug} title={title} description={description} fields={fields} />
+      <CaptureForm slug={slug} title={title} description={description} fields={fields} client={client} />
     </main>
   );
 }

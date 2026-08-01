@@ -82,19 +82,27 @@ export async function POST(req: Request) {
   // Corpo: JSON { slug, values:{field_key:valor}, website } ou form-urlencoded.
   let slug = "";
   let website = "";
+  let clientParam = "";
   let values: Record<string, unknown> = {};
   const ct = req.headers.get("content-type") ?? "";
   try {
     if (ct.includes("application/json")) {
-      const b = (await req.json()) as { slug?: string; website?: string; values?: Record<string, unknown> };
+      const b = (await req.json()) as {
+        slug?: string;
+        website?: string;
+        client?: string;
+        values?: Record<string, unknown>;
+      };
       slug = str(b.slug);
       website = str(b.website);
+      clientParam = str(b.client);
       values = b.values && typeof b.values === "object" ? b.values : {};
     } else {
       const form = await req.formData();
       for (const [k, v] of form.entries()) {
         if (k === "slug") slug = str(v);
         else if (k === "website") website = str(v);
+        else if (k === "client") clientParam = str(v);
         else values[k] = String(v);
       }
     }
@@ -176,9 +184,28 @@ export async function POST(req: Request) {
 
   const owner = (form.owner as string | null) ?? null;
   const source = (form.source as string | null) ?? "Formulário";
-  const title =
+
+  // Formulário vinculado a um cliente via URL (?client=<id>): o card criado
+  // recebe o nome "<nome do form> · <cliente>" e fica preso àquele cliente.
+  let linkedClientId: string | null = null;
+  let linkedClientName = "";
+  if (clientParam) {
+    const { data: cli } = await admin
+      .from("clients")
+      .select("id, name")
+      .eq("id", clientParam)
+      .maybeSingle();
+    if (cli) {
+      linkedClientId = String(cli.id);
+      linkedClientName = String(cli.name ?? "");
+    }
+  }
+
+  const formName = String(form.name ?? source);
+  const baseTitle =
     mapped.title || mapped.company || mapped.contact_name || effectiveFields.map((f) => str(values[f.field_key])).find(Boolean) || source;
-  const contactName = mapped.contact_name || mapped.company || title;
+  const title = linkedClientName ? `${formName} · ${linkedClientName}` : baseTitle;
+  const contactName = mapped.contact_name || mapped.company || baseTitle;
   const email = mapped.contact_email || null;
   const phone = mapped.contact_phone ? mapped.contact_phone.replace(/\D/g, "") : null;
   const briefingText = briefing.length ? briefing.join("\n") : "";
@@ -203,8 +230,8 @@ export async function POST(req: Request) {
     // Prioridade: campo mapeado como "priority" → média.
     const priority = normalizePriority(mapped.priority ?? "") ?? "media";
 
-    // Cliente: do formulário → resolvido pelo nome (campo mapeado como "client").
-    let clientId = (form.client_id as string | null) || null;
+    // Cliente: da URL (?client) → do formulário → resolvido pelo nome (campo "client").
+    let clientId = linkedClientId ?? (form.client_id as string | null) ?? null;
     if (!clientId && mapped.client) {
       const { data: cli } = await admin
         .from("clients")
@@ -256,7 +283,8 @@ export async function POST(req: Request) {
   }
 
   // ————————————————————————————————— destino: COMERCIAL (crm) —————————————————————————————————
-  const companyName = mapped.company || contactName || title;
+  // Vinculado a um cliente → agrupa o negócio sob a empresa daquele cliente.
+  const companyName = linkedClientName || mapped.company || contactName || baseTitle;
 
   // Empresa (reaproveita por nome).
   let companyId: string;

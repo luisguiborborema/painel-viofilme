@@ -92,11 +92,33 @@ export async function GET(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
-  const formId = new URL(req.url).searchParams.get("formId");
-  if (!formId || !isSupabaseConfigured()) {
-    return NextResponse.json({ submissions: [] });
+  const sp = new URL(req.url).searchParams;
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ submissions: [], forms: [] });
   }
   const supabase = await createClient();
+
+  // Lista dos formulários ativos (para enviar a um cliente com link vinculado).
+  if (sp.get("list")) {
+    const { data } = await supabase
+      .from("crm_capture_forms")
+      .select("id, name, slug, destination")
+      .eq("active", true)
+      .not("slug", "is", null)
+      .order("name", { ascending: true });
+    const forms = (data ?? []).map((f) => ({
+      id: String(f.id),
+      name: String(f.name),
+      slug: String(f.slug),
+      destination: String(f.destination) === "entregas" ? "entregas" : "crm",
+    }));
+    return NextResponse.json({ forms });
+  }
+
+  const formId = sp.get("formId");
+  if (!formId) {
+    return NextResponse.json({ submissions: [] });
+  }
   const { data } = await supabase
     .from("crm_form_submissions")
     .select("id, values, created_lead_id, created_task_id, created_at")

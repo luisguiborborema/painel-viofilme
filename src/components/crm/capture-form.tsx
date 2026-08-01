@@ -59,11 +59,14 @@ export function CaptureForm({
   title,
   description,
   fields = [],
+  client,
 }: {
   slug: string;
   title: string;
   description?: string;
   fields?: PublicField[];
+  /** Cliente vinculado via URL (?client=<id>) — o card criado fica preso a ele. */
+  client?: string;
 }) {
   const activeFields = fields.length ? fields : LEGACY_FIELDS;
   const [values, setValues] = useState<Record<string, string>>({});
@@ -93,7 +96,7 @@ export function CaptureForm({
       const res = await fetch("/api/public/form", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, values, website }),
+        body: JSON.stringify({ slug, values, website, client }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "falha");
