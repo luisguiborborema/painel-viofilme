@@ -1441,7 +1441,7 @@ export async function sbGetDeliveryConfig(): Promise<DeliveryConfig> {
   const supabase = await createClient();
   const [typesRes, setRes] = await Promise.all([
     supabase.from("task_types").select("name, default_duration_min, default_assignee, sla_days").order("sort"),
-    supabase.from("delivery_settings").select("capacity_per_day").eq("id", 1).maybeSingle(),
+    supabase.from("delivery_settings").select("capacity_per_day, card_fields").eq("id", 1).maybeSingle(),
   ]);
   const typeDurations: Record<string, number> = { ...DELIVERY_CONFIG_FALLBACK.typeDurations };
   const typeDefaults: Record<string, { assignee: string; slaDays: number }> = {};
@@ -1454,11 +1454,16 @@ export async function sbGetDeliveryConfig(): Promise<DeliveryConfig> {
     typeDurations[t.name] = Number(t.default_duration_min ?? 60);
     typeDefaults[t.name] = { assignee: t.default_assignee ?? "", slaDays: Number(t.sla_days ?? 0) };
   }
+  const settings = setRes.data as
+    | { capacity_per_day: number | null; card_fields: unknown }
+    | null;
   const capacityPerDay = Number(
-    (setRes.data as { capacity_per_day: number | null } | null)?.capacity_per_day ??
-      DELIVERY_CONFIG_FALLBACK.capacityPerDay,
+    settings?.capacity_per_day ?? DELIVERY_CONFIG_FALLBACK.capacityPerDay,
   );
-  return { capacityPerDay, typeDurations, typeDefaults };
+  const cardFields = Array.isArray(settings?.card_fields)
+    ? (settings.card_fields as string[])
+    : undefined;
+  return { capacityPerDay, typeDurations, typeDefaults, cardFields };
 }
 
 // --- Hub de Clientes / health (clients + payments + tasks + atividade) -------

@@ -649,9 +649,11 @@ export function PostFicha({
               {canonicalTitle}
             </h1>
           )}
-          <p className="mt-1 text-[11px] font-semibold text-violet-500">
-            ✨ Nome sugerido pelo padrão [Cliente] FORMATO: Título — editável
-          </p>
+          {!isDelivery && (
+            <p className="mt-1 text-[11px] font-semibold text-violet-500">
+              ✨ Nome sugerido pelo padrão [Cliente] FORMATO: Título — editável
+            </p>
+          )}
         </div>
 
         {/* Corpo em 2 colunas (+ atividade deslizável) */}
@@ -751,24 +753,28 @@ export function PostFicha({
             </div>
 
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Formato</span>
-                <select value={format} onChange={(e) => setFormat(e.target.value as EditorialFormat)} className={metaSelect}>
-                  {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
-              {/* Box de datas (C3): postagem manda, entrega calcula */}
-              <div className="rounded-lg border border-line bg-surface p-2.5">
+              {!isDelivery && (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-ink">Data de postagem</span>
-                  <input
-                    type="date"
-                    value={postDateIso}
-                    onChange={(e) => setPostDateIso(e.target.value)}
-                    className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400"
-                  />
+                  <span className="text-xs text-muted">Formato</span>
+                  <select value={format} onChange={(e) => setFormat(e.target.value as EditorialFormat)} className={metaSelect}>
+                    {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
+              )}
+              {/* Box de datas (C3): postagem manda, entrega calcula (só editorial) */}
+              <div className="rounded-lg border border-line bg-surface p-2.5">
+                {!isDelivery && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-ink">Data de postagem</span>
+                    <input
+                      type="date"
+                      value={postDateIso}
+                      onChange={(e) => setPostDateIso(e.target.value)}
+                      className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400"
+                    />
+                  </div>
+                )}
+                <div className={cn("flex items-center justify-between gap-2", !isDelivery && "mt-2")}>
                   <span className="text-xs text-muted">Prazo de entrega</span>
                   <div className="flex items-center gap-1.5">
                     {deliveryOverridden ? (
@@ -792,21 +798,23 @@ export function PostFicha({
                     </button>
                   </div>
                 </div>
-                {!deliveryOverridden && <p className="mt-1 text-[10px] text-muted">Quarta da semana anterior à postagem.</p>}
+                {!isDelivery && !deliveryOverridden && <p className="mt-1 text-[10px] text-muted">Quarta da semana anterior à postagem.</p>}
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Data comemorativa</span>
-                <select
-                  value={commemorative}
-                  onChange={(e) => setCommemorative(e.target.value)}
-                  disabled={dates.length === 0}
-                  title={dates.length === 0 ? "Adicione datas no cabeçalho da LE (Editar)" : undefined}
-                  className={cn(metaSelect, "disabled:opacity-60")}
-                >
-                  <option value="">Sem data comemorativa</option>
-                  {dates.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
+              {!isDelivery && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted">Data comemorativa</span>
+                  <select
+                    value={commemorative}
+                    onChange={(e) => setCommemorative(e.target.value)}
+                    disabled={dates.length === 0}
+                    title={dates.length === 0 ? "Adicione datas no cabeçalho da LE (Editar)" : undefined}
+                    className={cn(metaSelect, "disabled:opacity-60")}
+                  >
+                    <option value="">Sem data comemorativa</option>
+                    {dates.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted">Prioridade</span>
                 <div className="flex gap-1">
@@ -817,20 +825,26 @@ export function PostFicha({
                   ))}
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Pilar</span>
-                <input value={pillar} onChange={(e) => setPillar(e.target.value)} placeholder="Sem pilar" className="w-40 rounded-lg border border-line bg-surface px-2 py-1 text-right text-xs text-ink outline-none focus:border-brand-400" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Direção de arte</span>
-                <select value={art} onChange={(e) => setArt(e.target.value as ArtDirection)} className={metaSelect}>
-                  {ART_DIRECTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted">Origem</span>
-                <span className="text-xs font-medium text-ink/80">Linha editorial</span>
-              </div>
+              {!isDelivery && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted">Pilar</span>
+                  <input value={pillar} onChange={(e) => setPillar(e.target.value)} placeholder="Sem pilar" className="w-40 rounded-lg border border-line bg-surface px-2 py-1 text-right text-xs text-ink outline-none focus:border-brand-400" />
+                </div>
+              )}
+              {!isDelivery && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted">Direção de arte</span>
+                  <select value={art} onChange={(e) => setArt(e.target.value as ArtDirection)} className={metaSelect}>
+                    {ART_DIRECTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              )}
+              {!isDelivery && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted">Origem</span>
+                  <span className="text-xs font-medium text-ink/80">Linha editorial</span>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted">Tipo</span>
                 <select value={taskType} onChange={(e) => changeType(e.target.value as TaskType)} disabled={!taskId} title={!taskId ? "Gere a task de produção" : undefined} className={cn(metaSelect, "disabled:opacity-50")}>

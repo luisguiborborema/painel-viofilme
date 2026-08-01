@@ -649,6 +649,8 @@ export type DeliveryConfig = {
   typeDurations: Record<string, number>;
   /** Padrões por tipo (criação via formulário): responsável + SLA (dias úteis). */
   typeDefaults?: Record<string, { assignee: string; slaDays: number }>;
+  /** Campos principais exibidos no card (padrão da equipe). */
+  cardFields?: string[];
 };
 
 export const DELIVERY_CONFIG_FALLBACK: DeliveryConfig = {

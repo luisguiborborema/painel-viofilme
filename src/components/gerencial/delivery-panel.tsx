@@ -13,8 +13,11 @@ import {
   Pause,
   Plus,
   Search,
+  CheckSquare,
+  LayoutGrid,
   Settings2,
   SlidersHorizontal,
+  Square,
   Users,
   UserSquare2,
   X,
@@ -28,6 +31,13 @@ import { toast } from "@/components/ui/toast";
 import { useReadOnly } from "@/components/shell/read-only-context";
 // TaskUniversal aposentado (C1.1): todas as telas usam a ficha canônica (TaskFicha).
 import { cn } from "@/lib/utils";
+import {
+  DELIVERY_CARD_FIELDS,
+  DEFAULT_CARD_FIELDS,
+  clearUserCardFields,
+  readUserCardFields,
+  writeUserCardFields,
+} from "@/lib/data/delivery-card-fields";
 import {
   DELIVERY_CONFIG_FALLBACK,
   DELIVERY_TODAY_ISO,
@@ -421,6 +431,17 @@ export function DeliveryPanel({
   }, [initial]);
   const [showNew, setShowNew] = useState(false);
   const [showFields, setShowFields] = useState(false);
+  const [showCardFields, setShowCardFields] = useState(false);
+  // Campos exibidos no card: padrão da equipe (config) — depois o override do
+  // usuário (localStorage) é aplicado no cliente para evitar mismatch de hidratação.
+  const [cardFields, setCardFields] = useState<string[]>(
+    initialConfig.cardFields?.length ? initialConfig.cardFields : DEFAULT_CARD_FIELDS,
+  );
+  useEffect(() => {
+    const u = readUserCardFields();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- aplica override do usuário só no cliente
+    if (u) setCardFields(u);
+  }, []);
   const [view, setView] = useState<View>("geral");
   const [mode, setMode] = useState<"meu" | "time">("time");
   const [assignee, setAssignee] = useState<string | null>(null);
@@ -568,7 +589,7 @@ export function DeliveryPanel({
     void postDelivery({ action: "set-stage", id, stage });
   }
 
-  const shared = { openTask: setSelected, clientColor };
+  const shared = { openTask: setSelected, clientColor, cardFields };
 
   return (
     <div className="space-y-4">
@@ -746,6 +767,13 @@ export function DeliveryPanel({
         >
           <BarChart3 className="h-3.5 w-3.5" /> Métricas
         </button>
+        <button
+          onClick={() => setShowCardFields(true)}
+          title="Escolher quais propriedades aparecem no card"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+        >
+          <LayoutGrid className="h-3.5 w-3.5" /> Campos do card
+        </button>
         {!readOnly && (
           <>
             <button
@@ -769,6 +797,25 @@ export function DeliveryPanel({
           </>
         )}
       </div>
+      {showCardFields && (
+        <CardFieldsModal
+          fields={cardFields}
+          readOnly={readOnly}
+          onApply={(f) => {
+            setCardFields(f);
+            writeUserCardFields(f);
+          }}
+          onResetTeam={() => {
+            clearUserCardFields();
+            setCardFields(config.cardFields?.length ? config.cardFields : DEFAULT_CARD_FIELDS);
+          }}
+          onSaveTeam={(f) => {
+            void postConfig({ action: "set-card-fields", fields: f });
+            setConfig((c) => ({ ...c, cardFields: f }));
+          }}
+          onClose={() => setShowCardFields(false)}
+        />
+      )}
       {showFields && <DeliveryFieldsManager onClose={() => setShowFields(false)} />}
       {showConfig && (
         <DeliveryConfigModal
@@ -997,7 +1044,7 @@ function NewDeliveryTask({
   );
 }
 
-type Shared = { openTask: (t: DeliveryTask) => void; clientColor: (c: string) => string };
+type Shared = { openTask: (t: DeliveryTask) => void; clientColor: (c: string) => string; cardFields: string[] };
 
 function taskCardBorder(t: DeliveryTask, staleDays: number): string {
   if (t.stage !== "done" && staleDays >= 5) return "border-l-rose-500";
@@ -1007,10 +1054,87 @@ function taskCardBorder(t: DeliveryTask, staleDays: number): string {
   return "border-l-brand-400";
 }
 
-function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
+// Escolha das propriedades exibidas no card (por usuário + padrão da equipe).
+function CardFieldsModal({
+  fields,
+  readOnly,
+  onApply,
+  onResetTeam,
+  onSaveTeam,
+  onClose,
+}: {
+  fields: string[];
+  readOnly: boolean;
+  onApply: (f: string[]) => void;
+  onResetTeam: () => void;
+  onSaveTeam: (f: string[]) => void;
+  onClose: () => void;
+}) {
+  const [sel, setSel] = useState<string[]>(fields);
+  const toggle = (key: string) =>
+    setSel((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink">Campos do card</h3>
+          <button onClick={onClose} title="Fechar" aria-label="Fechar" className="text-muted hover:text-ink"><X className="h-4 w-4" /></button>
+        </div>
+        <p className="mb-3 text-[11px] text-muted">
+          Escolha as propriedades que aparecem no card. Vale só para você; um gestor pode salvar como padrão da equipe.
+        </p>
+        <div className="max-h-72 space-y-0.5 overflow-y-auto">
+          {DELIVERY_CARD_FIELDS.map((f) => {
+            const on = sel.includes(f.key);
+            return (
+              <button
+                key={f.key}
+                onClick={() => toggle(f.key)}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-subtle"
+              >
+                {on ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-muted" />}
+                <span className={on ? "text-ink" : "text-muted"}>{f.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {!readOnly && (
+              <button
+                onClick={() => { onSaveTeam(sel); onClose(); }}
+                title="Definir como padrão para toda a equipe"
+                className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+              >
+                Salvar padrão da equipe
+              </button>
+            )}
+            <button
+              onClick={() => { onResetTeam(); onClose(); }}
+              title="Voltar ao padrão da equipe"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:text-ink"
+            >
+              Restaurar padrão
+            </button>
+          </div>
+          <button
+            onClick={() => { onApply(sel); onClose(); }}
+            className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+          >
+            Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({ t, openTask, clientColor, cardFields, draggable, onDragStart }: {
   t: DeliveryTask;
   openTask: (t: DeliveryTask) => void;
   clientColor: (c: string) => string;
+  cardFields: string[];
   draggable?: boolean;
   onDragStart?: () => void;
 }) {
@@ -1023,6 +1147,47 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
 
   const names = (t.assignees?.length ? t.assignees : [t.assignee]).filter(Boolean).map(memberName);
   const prio = DELIVERY_PRIORITIES.find((x) => x.key === (t.priority ?? "media"));
+
+  // Chip por campo escolhido (só quando há valor). "assignee" já é o avatar.
+  const chip = (key: string) => {
+    if (key === "assignee") return null;
+    const def = DELIVERY_CARD_FIELDS.find((f) => f.key === key);
+    const val = def?.get(t) ?? "";
+    if (!val) return null;
+    if (key === "priority") {
+      return prio ? (
+        <span key={key} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", prio.chip)}>
+          <span className={cn("h-1.5 w-1.5 rounded-full", prio.dot)} /> {prio.label}
+        </span>
+      ) : null;
+    }
+    if (key === "type") {
+      return (
+        <span key={key} className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR.get(t.type) ?? "bg-subtle text-muted")}>
+          {val}
+        </span>
+      );
+    }
+    if (key === "deliveryDate") {
+      return (
+        <span key={key} className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", t.late ? "bg-rose-500/15 text-rose-500" : "bg-subtle text-muted")}>
+          {t.late ? `⚠ ${val}` : val}
+        </span>
+      );
+    }
+    if (key === "client") {
+      return (
+        <span key={key} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: clientColor(t.client) }} /> {val}
+        </span>
+      );
+    }
+    return (
+      <span key={key} title={def?.label} className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">
+        {val}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -1038,27 +1203,15 @@ function TaskCard({ t, openTask, clientColor, draggable, onDragStart }: {
         <p className="text-sm font-semibold text-ink">{t.title}</p>
         {names.length > 0 && <AvatarStack names={names} />}
       </div>
-      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: clientColor(t.client) }} />
-        {t.client}
-      </p>
-      {t.requester && <p className="mt-0.5 text-[11px] text-muted">Pedido por {t.requester}</p>}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {prio && (
-          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", prio.chip)}>
-            <span className={cn("h-1.5 w-1.5 rounded-full", prio.dot)} /> {prio.label}
-          </span>
-        )}
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", TYPE_COLOR.get(t.type) ?? "bg-subtle text-muted")}>{t.type}</span>
+        {cardFields.map(chip)}
         {t.stage !== "done" && staleDays >= 5 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
             <Pause className="h-2.5 w-2.5" /> parada {staleDays}d
           </span>
         )}
       </div>
-
-      <p className={cn("mt-2 text-[11px]", t.late ? "font-semibold text-rose-500" : "text-muted")}>{t.dueLabel}</p>
     </div>
   );
 }
@@ -1193,7 +1346,7 @@ function groupTasks(
   return keys.map((k) => ({ key: k, label: k === "__none__" ? "Sem cliente" : k, tasks: map.get(k)! }));
 }
 
-function Kanban({ tasks, onStage, openTask, clientColor, groupBy }: {
+function Kanban({ tasks, onStage, openTask, clientColor, cardFields, groupBy }: {
   tasks: DeliveryTask[];
   onStage: (id: string, s: TaskStage) => void;
   groupBy: "none" | "assignee" | "priority" | "client";
@@ -1220,7 +1373,7 @@ function Kanban({ tasks, onStage, openTask, clientColor, groupBy }: {
             </div>
             <div className="space-y-2">
               {col.map((t) => (
-                <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} draggable onDragStart={() => setDragId(t.id)} />
+                <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} cardFields={cardFields} draggable onDragStart={() => setDragId(t.id)} />
               ))}
               {col.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted">—</p>}
             </div>
@@ -1250,7 +1403,7 @@ function Kanban({ tasks, onStage, openTask, clientColor, groupBy }: {
 }
 
 // --- Calendário (ENT08-09) — por data de entrega, cor por cliente ------------
-function Calendario({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } & Shared) {
+function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: DeliveryTask[] } & Shared) {
   const [sub, setSub] = useState<"dia" | "semana" | "mes">("semana");
   const [dayIdx, setDayIdx] = useState(DELIVERY_TODAY_IDX);
 
@@ -1279,7 +1432,7 @@ function Calendario({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } 
           ))}
         </div>
         <div className="space-y-2">
-          {day.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} />)}
+          {day.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} cardFields={cardFields} />)}
           {day.length === 0 && <Card className="p-8 text-center text-sm text-muted">Sem entregas neste dia.</Card>}
         </div>
       </div>
@@ -1297,7 +1450,7 @@ function Calendario({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } 
               <div key={wd} className={cn("rounded-2xl border p-2.5", i === DELIVERY_TODAY_IDX ? "border-brand-400 bg-brand-50/40" : "border-line bg-surface")}>
                 <p className="mb-2 px-1 text-sm font-semibold text-ink">{wd}{i === DELIVERY_TODAY_IDX ? " · hoje" : ""}</p>
                 <div className="space-y-2">
-                  {day.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} />)}
+                  {day.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} cardFields={cardFields} />)}
                   {day.length === 0 && <p className="px-1 py-3 text-center text-xs text-muted">—</p>}
                 </div>
               </div>
@@ -1457,7 +1610,7 @@ function Workload({ tasks, onDrill, cap }: { tasks: DeliveryTask[]; onDrill: (d:
 }
 
 // --- Entregas por cliente (ENT14-15) — kanban por cliente + janela -----------
-function PorCliente({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } & Shared) {
+function PorCliente({ tasks, openTask, clientColor, cardFields }: { tasks: DeliveryTask[] } & Shared) {
   const [win, setWin] = useState<"dia" | "semana" | "mes">("semana");
   const today = new Date(DELIVERY_TODAY_ISO);
   const inWin = (t: DeliveryTask) => {
@@ -1493,7 +1646,7 @@ function PorCliente({ tasks, openTask, clientColor }: { tasks: DeliveryTask[] } 
                   <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] text-muted">{col.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {col.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} />)}
+                  {col.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} cardFields={cardFields} />)}
                 </div>
               </div>
             );

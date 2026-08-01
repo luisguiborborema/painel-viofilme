@@ -17,12 +17,13 @@ export async function GET() {
 }
 
 type Body = {
-  action?: "set-capacity" | "set-duration" | "set-default-assignee" | "set-sla";
+  action?: "set-capacity" | "set-duration" | "set-default-assignee" | "set-sla" | "set-card-fields";
   capacityPerDay?: number;
   type?: string;
   minutes?: number;
   assignee?: string;
   days?: number;
+  fields?: string[];
 };
 
 /** Ajusta capacidade (ENT12) ou duração default de um tipo (ENT10). */
@@ -70,6 +71,15 @@ export async function POST(req: Request) {
       .eq("name", b.type.trim());
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  if (b.action === "set-card-fields") {
+    const fields = Array.isArray(b.fields) ? b.fields.filter((f) => typeof f === "string").slice(0, 20) : [];
+    const { error } = await supabase
+      .from("delivery_settings")
+      .upsert({ id: 1, card_fields: fields, updated_at: now }, { onConflict: "id" });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, fields });
   }
 
   if (b.action === "set-sla") {
