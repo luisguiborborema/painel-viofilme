@@ -657,9 +657,9 @@ export function PostFicha({
         </div>
 
         {/* Corpo em 2 colunas (+ atividade deslizável) */}
-        <div className={cn("grid grid-cols-1", activityOpen ? "lg:grid-cols-[1fr_300px_320px]" : "lg:grid-cols-[1fr_300px]")}>
+        <div className={cn("grid grid-cols-1", activityOpen ? "lg:grid-cols-[minmax(0,1fr)_300px_320px]" : "lg:grid-cols-[minmax(0,1fr)_300px]")}>
           {/* Esquerda · conteúdo */}
-          <div className="space-y-5 px-6 py-5">
+          <div className="min-w-0 space-y-5 px-6 py-5">
             {narrativa && narrativa !== "—" && (
               <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-600">Narrativa herdada</p>
@@ -719,9 +719,9 @@ export function PostFicha({
                 </p>
                 <dl className="divide-y divide-line rounded-xl border border-line">
                   {extraProps.map((p) => (
-                    <div key={p.label} className="flex items-start justify-between gap-3 px-3 py-2">
-                      <dt className="shrink-0 text-xs font-medium text-muted">{p.label}</dt>
-                      <dd className="whitespace-pre-wrap break-words text-right text-sm text-ink">{p.value}</dd>
+                    <div key={p.label} className="px-3 py-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{p.label}</dt>
+                      <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-ink/90">{p.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -730,7 +730,7 @@ export function PostFicha({
           </div>
 
           {/* Direita · execução */}
-          <div className="space-y-5 border-t border-line bg-subtle/40 px-5 py-5 lg:border-l lg:border-t-0">
+          <div className="min-w-0 space-y-5 border-t border-line bg-subtle/40 px-5 py-5 lg:border-l lg:border-t-0">
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Estágio</p>
               <select value={stage ?? ""} onChange={(e) => changeStage(e.target.value as TaskStage)} disabled={!taskId} className={cn(field, "px-2 disabled:opacity-60")}>
