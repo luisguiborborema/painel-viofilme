@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
+  FileBarChart,
   FileText,
   FolderOpen,
   Loader2,
@@ -129,6 +130,15 @@ export function ClientQuickActions({
           </>
         )}
       </div>
+      <a
+        href={`/api/relatorio/pdf?clientId=${clientId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={base}
+        title="Relatório mensal de resultados (PDF)"
+      >
+        <FileBarChart className="h-3.5 w-3.5" /> Relatório do mês
+      </a>
       {wa && (
         <a
           href={`https://wa.me/${wa}`}
