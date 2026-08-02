@@ -13,6 +13,7 @@
  */
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import type { ClientRequests, RequestStatus } from "./requests";
 import type {
   AccountMetricPoint,
@@ -3033,6 +3034,47 @@ export async function sbGetClientFormSubmissions(
       entries,
     };
   });
+}
+
+/**
+ * Hub de Marca do cliente (portal) — dados REAIS ou vazios (sem mock).
+ * Acessos/ativos ainda não têm tabela → vazios (o portal mostra estado vazio).
+ * Equipe = responsável real da conta (CS) + atendimento institucional.
+ */
+export async function sbGetBrandHub(clientId: string): Promise<import("./queries").BrandHub> {
+  const supabase = await createClient();
+  const { data: c } = await supabase
+    .from("clients")
+    .select("name, cs_responsavel")
+    .eq("id", clientId)
+    .maybeSingle();
+  const name = c?.name ? String(c.name) : "Drive de marca";
+  const ini = (s: string) =>
+    s.replace(/[^A-Za-zÀ-ú ]/g, "").split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+
+  const team: import("./types").TeamMember[] = [];
+  const cs = c?.cs_responsavel ? String(c.cs_responsavel).trim() : "";
+  if (cs && cs !== "—") {
+    team.push({
+      id: "cs",
+      name: cs,
+      role: "Responsável pela conta",
+      area: "Atendimento e alinhamento",
+      initials: ini(cs) || "CS",
+      whatsapp: "",
+    });
+  }
+  const agencyWa = (WHATSAPP_NOTIFY_NUMBERS[0] ?? "").replace(/\D/g, "");
+  team.push({
+    id: "atendimento",
+    name: "Viofilme · Atendimento",
+    role: "Atendimento",
+    area: "Dúvidas gerais · Financeiro · Contratos",
+    initials: "VF",
+    whatsapp: agencyWa ? `https://wa.me/${agencyWa}` : "",
+  });
+
+  return { driveName: name, accesses: [], assets: [], team, activity: [] };
 }
 
 export async function sbGetEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {

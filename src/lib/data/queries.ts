@@ -776,6 +776,7 @@ export type BrandHub = {
 };
 
 export async function getBrandHub(clientId: string): Promise<BrandHub> {
+  if (isSupabaseConfigured()) return sb.sbGetBrandHub(clientId);
   const client = CLIENTS.find((c) => c.id === clientId);
 
   const accesses: AccessItem[] = [

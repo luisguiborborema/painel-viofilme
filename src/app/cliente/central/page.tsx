@@ -47,11 +47,17 @@ export default async function ClienteCentral({
       {/* Cofre de acessos */}
       <section className="space-y-3">
         <SectionLabel>Cofre de acessos</SectionLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {hub.accesses.map((item) => (
-            <AccessCard key={item.id} item={item} />
-          ))}
-        </div>
+        {hub.accesses.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {hub.accesses.map((item) => (
+              <AccessCard key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <Card className="p-6 text-center text-sm text-muted">
+            Nenhum acesso cadastrado ainda. Fale com seu atendimento para liberar os acessos das plataformas.
+          </Card>
+        )}
       </section>
 
       {/* Ativos de marca */}
@@ -78,8 +84,9 @@ export default async function ClienteCentral({
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
             <span>
-              {hub.assets.length} ativos · atualizado em jun/26 pela equipe de
-              design
+              {hub.assets.length > 0
+                ? `${hub.assets.length} ativos disponíveis`
+                : "Os ativos da marca ficam no Drive — solicite novos à equipe."}
             </span>
             <button className="inline-flex items-center gap-1 font-medium text-brand-300 hover:text-brand-200">
               <HelpCircle className="h-3.5 w-3.5" /> Como são atualizados?
@@ -101,7 +108,13 @@ export default async function ClienteCentral({
       {/* Log de atividades */}
       <section className="space-y-3">
         <SectionLabel>Log de atividades</SectionLabel>
-        <ActivityLog items={hub.activity} />
+        {hub.activity.length > 0 ? (
+          <ActivityLog items={hub.activity} />
+        ) : (
+          <Card className="p-6 text-center text-sm text-muted">
+            Sem atividade recente por aqui.
+          </Card>
+        )}
       </section>
     </div>
   );
