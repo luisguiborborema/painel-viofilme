@@ -6,6 +6,8 @@ import { RESPONSIBLE_ROLES, TASK_STAGES } from "@/lib/data/operacao";
 import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
+import { ClientFormsCard } from "@/components/gerencial/client-forms-card";
+import { getClientFormSubmissions } from "@/lib/data/queries";
 import { cn } from "@/lib/utils";
 import {
   getClientDetailCached,
@@ -41,10 +43,11 @@ export default async function ResumoPage({
   const d = await getClientDetailCached(id);
   if (!d) notFound();
   const c = d.client;
-  const [ops, portal, clientTasks] = await Promise.all([
+  const [ops, portal, clientTasks, formSubs] = await Promise.all([
     getClientOpsCached(id),
     getClientPortalCached(id),
     getClientTasksCached(c.name),
+    getClientFormSubmissions(id),
   ]);
   const config = buildClientConfig(portal, d);
 
@@ -145,6 +148,8 @@ export default async function ResumoPage({
           </dl>
         </Card>
       </div>
+
+      {formSubs.length > 0 && <ClientFormsCard subs={formSubs} />}
 
       <NpsCard
         clientId={id}

@@ -2929,6 +2929,56 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
   };
 }
 
+/** Respostas de formulário atribuídas a um cliente (para o Resumo do Hub). */
+export async function sbGetClientFormSubmissions(
+  clientId: string,
+): Promise<import("./forms-types").ClientFormSubmission[]> {
+  const supabase = await createClient();
+  const { data: subs } = await supabase
+    .from("crm_form_submissions")
+    .select("id, form_id, values, created_lead_id, created_task_id, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  const rows = (subs ?? []) as {
+    id: string;
+    form_id: string | null;
+    values: unknown;
+    created_lead_id: string | null;
+    created_task_id: string | null;
+    created_at: string;
+  }[];
+  if (rows.length === 0) return [];
+
+  const formIds = [...new Set(rows.map((r) => r.form_id).filter((x): x is string => !!x))];
+  const [formsRes, fieldsRes] = await Promise.all([
+    supabase.from("crm_capture_forms").select("id, name").in("id", formIds),
+    supabase.from("crm_form_fields").select("form_id, field_key, label").in("form_id", formIds),
+  ]);
+  const nameById = new Map(
+    (formsRes.data ?? []).map((f) => [String(f.id), String(f.name)]),
+  );
+  const labelByKey = new Map<string, string>();
+  for (const f of (fieldsRes.data ?? []) as { form_id: string; field_key: string; label: string }[]) {
+    labelByKey.set(`${f.form_id}:${f.field_key}`, String(f.label));
+  }
+
+  return rows.map((r) => {
+    const values = (r.values && typeof r.values === "object" ? r.values : {}) as Record<string, unknown>;
+    const entries = Object.entries(values)
+      .filter(([, v]) => String(v ?? "").trim())
+      .map(([k, v]) => ({ label: labelByKey.get(`${r.form_id}:${k}`) ?? k, value: String(v) }));
+    return {
+      id: String(r.id),
+      formName: r.form_id ? nameById.get(String(r.form_id)) ?? "Formulário" : "Formulário",
+      createdAt: String(r.created_at),
+      taskId: r.created_task_id ? String(r.created_task_id) : null,
+      leadId: r.created_lead_id ? String(r.created_lead_id) : null,
+      entries,
+    };
+  });
+}
+
 export async function sbGetEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
   const supabase = await createClient();
   const { data } = await supabase

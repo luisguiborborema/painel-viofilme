@@ -693,6 +693,14 @@ export async function getEditorialDrafts(clientId: string): Promise<EditorialDra
   return [];
 }
 
+/** Respostas de formulário atribuídas a um cliente (Resumo do Hub). */
+export async function getClientFormSubmissions(
+  clientId: string,
+): Promise<import("./forms-types").ClientFormSubmission[]> {
+  if (isSupabaseConfigured()) return sb.sbGetClientFormSubmissions(clientId);
+  return [];
+}
+
 /** Entregáveis do contrato por formato (slots da Criar LE). */
 export async function getClientDeliverables(clientId: string) {
   if (isSupabaseConfigured()) return sb.sbGetClientDeliverables(clientId);
