@@ -20,6 +20,7 @@ create index if not exists asaas_subscriptions_client_idx
 
 alter table public.asaas_subscriptions enable row level security;
 
+drop policy if exists "gerencial gerencia assinaturas" on public.asaas_subscriptions;
 create policy "gerencial gerencia assinaturas" on public.asaas_subscriptions
   for all using (public.app_role() = 'gerencial')
   with check (public.app_role() = 'gerencial');
