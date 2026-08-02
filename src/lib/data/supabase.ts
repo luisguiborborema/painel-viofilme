@@ -1384,6 +1384,112 @@ type DeliveryRow = {
   clients: { name: string | null } | { name: string | null }[] | null;
 };
 
+/** Visão C-Level (Painel Executivo/Visão geral) a partir de dados REAIS. */
+export async function sbGetCLevel(): Promise<import("./queries").CLevel> {
+  const supabase = await createClient();
+  const now = new Date();
+  const brl = (n: number) => `R$ ${Math.round(n).toLocaleString("pt-BR")}`;
+  const initials = (s: string) =>
+    s.replace(/[^A-Za-zÀ-ú ]/g, "").split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+
+  const [fin, hub, leads, tasks] = await Promise.all([
+    sbGetGerFinance(),
+    sbGetHubClientsOps(),
+    sbGetCrmLeads(),
+    sbGetDeliveryTasks(),
+  ]);
+
+  const activeClients = hub.filter((h) => h.status === "ativo").length;
+  const atRisk = hub.filter((h) => h.atRisk).length;
+
+  const kpis: import("./queries").CLevelKpi[] = [
+    { iconKey: "mrr", label: "MRR", value: brl(fin.kpis.mrr), delta: fin.kpis.mrrDelta, deltaTone: "neutral", note: "Receita recorrente", noteTone: "muted" },
+    { iconKey: "clients", label: "Clientes ativos", value: String(activeClients), delta: atRisk > 0 ? `${atRisk} em risco` : "carteira saudável", deltaTone: atRisk > 0 ? "bad" : "good", note: `${hub.length} no total`, noteTone: "muted" },
+    { iconKey: "margin", label: "Margem", value: `${Math.round(fin.dre.margin)}%`, delta: `meta ${Math.round(fin.dre.metaMargin)}%`, deltaTone: fin.dre.margin >= fin.dre.metaMargin ? "good" : "bad", note: "Lucro / receita", noteTone: "muted" },
+  ];
+
+  const overdueTasks = tasks.filter((t) => t.stage !== "done" && t.late).length;
+  const approvalTasks = tasks.filter((t) => t.stage === "approval").length;
+  const alerts: import("./queries").CLevelAlert[] = [];
+  if (atRisk > 0) alerts.push({ id: "churn", kind: "churn", title: `${atRisk} cliente(s) em risco`, detail: "Health baixo — priorize o CS.", actionLabel: "Ver clientes" });
+  if (overdueTasks > 0) alerts.push({ id: "prod", kind: "production", title: `${overdueTasks} entrega(s) atrasada(s)`, detail: "Produção fora do prazo.", actionLabel: "Ver entregas" });
+  if (fin.receiptStatus.overdue > 0) alerts.push({ id: "fin", kind: "contracts", title: `${brl(fin.receiptStatus.overdue)} em atraso`, detail: "Faturas vencidas a cobrar.", actionLabel: "Ver financeiro" });
+  if (approvalTasks > 0) alerts.push({ id: "pipe", kind: "pipeline", title: `${approvalTasks} aguardando aprovação`, detail: "Entregas paradas no cliente.", actionLabel: "Ver entregas" });
+
+  // MRR histórico (6 meses, por payments) + novos clientes/mês.
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1)).toISOString().slice(0, 10);
+  const [paysRes, cliRes] = await Promise.all([
+    supabase.from("payments").select("value, due_date").gte("due_date", from),
+    supabase.from("clients").select("created_at"),
+  ]);
+  const mrrByMonth = new Map<string, number>();
+  for (const p of (paysRes.data ?? []) as { value: number | null; due_date: string | null }[]) {
+    const ym = String(p.due_date ?? "").slice(0, 7);
+    if (ym) mrrByMonth.set(ym, (mrrByMonth.get(ym) ?? 0) + Number(p.value ?? 0));
+  }
+  const novosByMonth = new Map<string, number>();
+  for (const c of (cliRes.data ?? []) as { created_at: string | null }[]) {
+    const ym = String(c.created_at ?? "").slice(0, 7);
+    if (ym) novosByMonth.set(ym, (novosByMonth.get(ym) ?? 0) + 1);
+  }
+  const mrrHistory = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + i, 1));
+    const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    return { month: MESES[d.getUTCMonth()].slice(0, 3), mrr: Math.round(mrrByMonth.get(ym) ?? 0), novos: novosByMonth.get(ym) ?? 0 };
+  });
+
+  const accountsHealth = [...hub].sort((a, z) => a.healthScore - z.healthScore).slice(0, 8).map((h) => ({ name: h.name, score: h.healthScore }));
+
+  // Carga do time: tarefas ativas por responsável (nomes reais).
+  const loadByPerson = new Map<string, number>();
+  for (const t of tasks) {
+    if (t.stage === "done") continue;
+    const who = t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : [];
+    for (const w of who) if (w) loadByPerson.set(w, (loadByPerson.get(w) ?? 0) + 1);
+  }
+  const CAP = 12;
+  const teamLoad = [...loadByPerson.entries()].sort((a, z) => z[1] - a[1]).slice(0, 6).map(([name, count]) => ({
+    name, area: "", initials: initials(name), sub: `${count} tarefa${count === 1 ? "" : "s"} ativa${count === 1 ? "" : "s"}`, allocated: count, capacity: CAP,
+  }));
+
+  const dre = {
+    grossMRR: fin.dre.grossRevenue, deductions: fin.dre.taxes, netRevenue: fin.dre.netRevenue,
+    salaries: fin.dre.salaries, tools: fin.dre.tools, commissions: fin.dre.commissions,
+    netProfit: fin.dre.netProfit, margin: fin.dre.margin, metaMargin: fin.dre.metaMargin,
+  };
+
+  // Pipeline (CRM real).
+  const openStages = [
+    { key: "prospeccao", name: "Prospecção" },
+    { key: "reuniao", name: "Reunião" },
+    { key: "proposta", name: "Proposta" },
+    { key: "negociacao", name: "Negociação" },
+  ];
+  const openLeads = leads.filter((l) => l.stage !== "ganho" && l.stage !== "perdido" && !l.frozenAt);
+  const stages = openStages.map((s) => {
+    const rows = openLeads.filter((l) => l.stage === s.key);
+    return { name: s.name, count: rows.length, value: rows.reduce((sum, l) => sum + Number(l.monthlyValue ?? 0), 0) };
+  });
+  const total = stages.reduce((s, st) => s + st.value, 0);
+  const weighted = Math.round(openLeads.reduce((sum, l) => sum + Number(l.monthlyValue ?? 0) * (Number(l.probability ?? 0) / 100), 0));
+  const won = leads.filter((l) => l.stage === "ganho").length;
+  const lost = leads.filter((l) => l.stage === "perdido").length;
+  const conversionRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : 0;
+
+  const paceRecent = mrrHistory.slice(-3).reduce((s, m) => s + m.novos, 0) / 3;
+  const scaleGoal = {
+    active: activeClients, target: activeClients, metaDate: "—",
+    pct: 100, currentPace: Math.round(paceRecent * 10) / 10, neededPace: 0, projection: activeClients, gap: "—",
+  };
+
+  const pl = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
+  return {
+    periodLabel: pl.charAt(0).toUpperCase() + pl.slice(1),
+    kpis, alerts, mrrHistory, scaleGoal, accountsHealth, teamLoad, dre,
+    pipeline: { stages, total, weighted, conversionRate },
+  };
+}
+
 export async function sbGetDeliveryTasks(): Promise<DeliveryTask[]> {
   const supabase = await createClient();
   const { data } = await supabase

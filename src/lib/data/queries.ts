@@ -888,6 +888,7 @@ export type CLevel = {
 };
 
 export async function getCLevel(): Promise<CLevel> {
+  if (isSupabaseConfigured()) return sb.sbGetCLevel();
   return {
     periodLabel: "junho 2026 · Iago & Flávio",
     kpis: [

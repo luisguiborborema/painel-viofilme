@@ -3,7 +3,6 @@ import { CLevelHeader } from "@/components/gerencial/clevel-header";
 import { KpiCard } from "@/components/gerencial/kpi-card";
 import { CLevelAlertBanner } from "@/components/gerencial/clevel-alert";
 import { MrrChartCard } from "@/components/gerencial/mrr-chart-card";
-import { ScaleGoalCard } from "@/components/gerencial/scale-goal-card";
 import { AccountsHealthCard } from "@/components/gerencial/accounts-health-card";
 import { TeamLoadCard } from "@/components/gerencial/team-load-card";
 import { DreCard } from "@/components/gerencial/dre-card";
@@ -30,13 +29,8 @@ export default async function GerencialDashboard() {
         ))}
       </div>
 
-      {/* MRR + meta de escala */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <MrrChartCard data={c.mrrHistory} />
-        </div>
-        <ScaleGoalCard goal={c.scaleGoal} />
-      </div>
+      {/* MRR histórico */}
+      <MrrChartCard data={c.mrrHistory} />
 
       {/* Resumos operacionais */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
