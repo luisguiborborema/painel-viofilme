@@ -1031,7 +1031,27 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     .limit(400);
 
   const rows = (data ?? []) as unknown as GerPaymentRow[];
-  if (!rows.length) return base; // sem cobranças ainda → mantém o mock
+
+  // MRR real = soma das assinaturas ativas (valor contratado, normalizado p/ mês).
+  const { data: subsData } = await supabase
+    .from("asaas_subscriptions")
+    .select("value, cycle, status");
+  const CYCLE_TO_MONTH: Record<string, number> = {
+    WEEKLY: 4.345,
+    BIWEEKLY: 2.1725,
+    MONTHLY: 1,
+    QUARTERLY: 1 / 3,
+    SEMIANNUALLY: 1 / 6,
+    YEARLY: 1 / 12,
+  };
+  const activeSubs = (subsData ?? []).filter((s) => (s.status ?? "ACTIVE") === "ACTIVE");
+  const subMrr = activeSubs.reduce(
+    (sum, s) => sum + Number(s.value ?? 0) * (CYCLE_TO_MONTH[String(s.cycle ?? "MONTHLY")] ?? 1),
+    0,
+  );
+  const hasSubs = activeSubs.length > 0;
+
+  if (!rows.length && !hasSubs) return base; // sem cobranças nem assinaturas → mock
 
   const now = new Date();
   const todayMs = now.getTime();
@@ -1222,13 +1242,19 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   const c0 = cashflow[0];
   const cashflowNote = `${c0.month} · entradas R$ ${c0.entradas.toLocaleString("pt-BR")} · saídas R$ ${c0.saidas.toLocaleString("pt-BR")} · saldo previsto R$ ${c0.saldo.toLocaleString("pt-BR")}`;
 
+  // Quando há assinaturas ativas, o MRR vem do valor contratado (recorrente).
+  const mrrFinal = hasSubs ? Math.round(subMrr) : Math.round(mrr);
+  const mrrDeltaFinal = hasSubs
+    ? `${activeSubs.length} assinatura${activeSubs.length === 1 ? "" : "s"} ativa${activeSubs.length === 1 ? "" : "s"}`
+    : mrrDelta;
+
   return {
     ...base,
     periodLabel: periodLabel(now),
     kpis: {
       ...base.kpis,
-      mrr: Math.round(mrr),
-      mrrDelta,
+      mrr: mrrFinal,
+      mrrDelta: mrrDeltaFinal,
       forecast30: Math.round(forecast30),
       forecastNote: `${openCount} cobrança${openCount === 1 ? "" : "s"} em aberto`,
       overdue: Math.round(overdue),
@@ -1251,9 +1277,11 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       received: Math.round(received),
       open: Math.round(openTotal),
     },
-    revenue: hasExp
-      ? { mrr: grossRevenue, projetos: 0, outros: 0, mrrPct: grossRevenue > 0 ? 100 : 0 }
-      : base.revenue,
+    revenue: hasSubs
+      ? { mrr: mrrFinal, projetos: 0, outros: 0, mrrPct: 100 }
+      : hasExp
+        ? { mrr: grossRevenue, projetos: 0, outros: 0, mrrPct: grossRevenue > 0 ? 100 : 0 }
+        : base.revenue,
     expenses,
     dre: hasExp ? dreReal : base.dre,
     topExpenses: topExpensesReal.length ? topExpensesReal : base.topExpenses,
