@@ -7,7 +7,9 @@ import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientFormsCard } from "@/components/gerencial/client-forms-card";
+import { ClientBillingCard } from "@/components/gerencial/client-billing-card";
 import { getClientFormSubmissions } from "@/lib/data/queries";
+import { isAsaasApiConfigured } from "@/lib/asaas/client";
 import { cn } from "@/lib/utils";
 import {
   getClientDetailCached,
@@ -150,6 +152,8 @@ export default async function ResumoPage({
       </div>
 
       {formSubs.length > 0 && <ClientFormsCard subs={formSubs} />}
+
+      {isAsaasApiConfigured() && <ClientBillingCard clientId={id} />}
 
       <NpsCard
         clientId={id}
