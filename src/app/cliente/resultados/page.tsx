@@ -96,6 +96,17 @@ export default async function ClienteResultados() {
     <div className="space-y-4">
       <OrganicHeader />
 
+      <div className="flex justify-end">
+        <a
+          href={`/api/relatorio/pdf?clientId=${user.clientId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-subtle"
+        >
+          Baixar relatório do mês (PDF)
+        </a>
+      </div>
+
       {/* ORG01–03 + ORG05: carrossel de métricas → gráfico + carrossel de formatos */}
       <MetricSection
         metrics={metrics}

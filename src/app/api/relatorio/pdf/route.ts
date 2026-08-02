@@ -23,11 +23,17 @@ function periodLabel(): string {
 /** Relatório mensal do cliente (resultados + entregas) em PDF. */
 export async function GET(req: NextRequest) {
   const user = await getSession();
-  if (!user || user.role !== "gerencial") {
-    return new Response("não autorizado", { status: 401 });
-  }
+  if (!user) return new Response("não autorizado", { status: 401 });
   const clientId = req.nextUrl.searchParams.get("clientId") ?? "";
   if (!clientId) return new Response("clientId ausente", { status: 400 });
+  // Cliente só baixa o próprio relatório; gerencial baixa qualquer um.
+  if (user.role === "cliente") {
+    if (!user.clientId || user.clientId !== clientId) {
+      return new Response("não autorizado", { status: 403 });
+    }
+  } else if (user.role !== "gerencial") {
+    return new Response("não autorizado", { status: 401 });
+  }
 
   const [summary, detail, portal, hubOps] = await Promise.all([
     getReportSummaryView(clientId),

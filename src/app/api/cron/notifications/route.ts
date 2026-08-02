@@ -444,5 +444,28 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 1h) Relatório mensal (dia 1º): avisa cada cliente recorrente que o
+  // relatório do mês está disponível no portal (push + WhatsApp + in-app).
+  if (isSupabaseConfigured() && hasServiceRole()) {
+    const now = new Date();
+    if (now.getUTCDate() === 1) {
+      const admin = createAdminClient();
+      const p = now.toLocaleDateString("pt-BR", {
+        month: "long",
+        year: "numeric",
+        timeZone: "America/Sao_Paulo",
+      });
+      const label = p.charAt(0).toUpperCase() + p.slice(1);
+      const { data: cls } = await admin.from("clients").select("id, contract_model").limit(500);
+      let sent = 0;
+      for (const c of cls ?? []) {
+        if (String(c.contract_model ?? "recorrente") === "pontual") continue;
+        await trigger.reportReady(String(c.id), label).catch(() => {});
+        sent++;
+      }
+      result.monthlyReports = sent;
+    }
+  }
+
   return NextResponse.json({ ok: true, ...result });
 }
