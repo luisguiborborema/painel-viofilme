@@ -94,7 +94,7 @@ export type GerFinance = {
     metaMargin: number;
   };
   topExpenses: { label: string; value: number }[];
-  marginByClient: { name: string; pct: number }[];
+  revenueByClient: { name: string; value: number }[];
   expenses: Expense[];
 };
 
@@ -159,11 +159,11 @@ export function getGerFinance(): GerFinance {
       { label: "Ferramentas", value: 1420 },
       { label: "Comissões", value: 960 },
     ],
-    marginByClient: [
-      { name: "Rede Farmácia BH", pct: 62 },
-      { name: "Rest. Sabor do Mar", pct: 48 },
-      { name: "Advocacia Menezes", pct: 44 },
-      { name: "Academia FitBody", pct: 29 },
+    revenueByClient: [
+      { name: "Rede Farmácia BH", value: 8900 },
+      { name: "Rest. Sabor do Mar", value: 6400 },
+      { name: "Advocacia Menezes", value: 4800 },
+      { name: "Academia FitBody", value: 3200 },
     ],
     expenses: [
       { id: "e1", description: "Folha de pagamento — equipe", category: "salarios", amount: 12800, dueDate: "2026-07-05", paidDate: "2026-07-05", status: "paid", recurring: true, vendor: null },

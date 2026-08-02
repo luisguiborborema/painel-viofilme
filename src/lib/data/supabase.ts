@@ -1070,6 +1070,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   let mrrPrev = 0;
   let openCount = 0;
   const overdueByClient = new Map<string, { name: string; value: number; maxDays: number }>();
+  const revByClient = new Map<string, number>();
 
   const receivables: Receivable[] = rows.map((r, i) => {
     const value = Number(r.value ?? 0);
@@ -1101,8 +1102,10 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       }
       if (daysDelta >= 0 && daysDelta <= 30) forecast30 += value;
     }
-    if (due.startsWith(ymNow)) mrr += value;
-    else if (due.startsWith(ymPrev)) mrrPrev += value;
+    if (due.startsWith(ymNow)) {
+      mrr += value;
+      revByClient.set(name, (revByClient.get(name) ?? 0) + value);
+    } else if (due.startsWith(ymPrev)) mrrPrev += value;
 
     let status: Receivable["status"];
     let statusKey: Receivable["statusKey"];
@@ -1281,6 +1284,12 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       : hasExp
         ? { mrr: grossRevenue, projetos: 0, outros: 0, mrrPct: grossRevenue > 0 ? 100 : 0 }
         : base.revenue,
+    revenueByClient: revByClient.size
+      ? [...revByClient.entries()]
+          .sort((a, z) => z[1] - a[1])
+          .slice(0, 8)
+          .map(([name, value]) => ({ name, value: Math.round(value) }))
+      : base.revenueByClient,
     expenses,
     dre: hasExp ? dreReal : base.dre,
     topExpenses: topExpensesReal.length ? topExpensesReal : base.topExpenses,

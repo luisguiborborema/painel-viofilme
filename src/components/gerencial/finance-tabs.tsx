@@ -919,28 +919,31 @@ function Dre({ data }: { data: GerFinance }) {
         </Card>
 
         <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">
-            Margem por cliente
-          </h2>
-          <ul className="space-y-2.5">
-            {data.marginByClient.map((m) => (
-              <li key={m.name} className="flex items-center gap-3">
-                <span className="w-36 truncate text-sm text-ink">{m.name}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle-strong">
-                  <div
-                    className={cn(
-                      "h-full rounded-full",
-                      m.pct >= 45 ? "bg-emerald-400" : m.pct >= 35 ? "bg-amber-400" : "bg-rose-400",
-                    )}
-                    style={{ width: `${m.pct}%` }}
-                  />
-                </div>
-                <span className="w-10 text-right text-sm font-semibold text-ink">
-                  {m.pct}%
-                </span>
-              </li>
-            ))}
-          </ul>
+          <h2 className="mb-1 text-sm font-semibold text-ink">Receita por cliente</h2>
+          <p className="mb-3 text-xs text-muted">Faturamento do mês por cliente (Asaas).</p>
+          {data.revenueByClient.length === 0 ? (
+            <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">Sem cobranças no mês ainda.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {data.revenueByClient.map((m, i) => {
+                const max = data.revenueByClient[0]?.value || 1;
+                return (
+                  <li key={m.name} className="flex items-center gap-3">
+                    <span className="w-36 truncate text-sm text-ink">{m.name}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle-strong">
+                      <div
+                        className={cn("h-full rounded-full", i === 0 ? "bg-brand-500" : "bg-brand-400/70")}
+                        style={{ width: `${Math.round((m.value / max) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-20 text-right text-sm font-semibold text-ink">
+                      {formatBRL(m.value)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Card>
       </div>
     </div>
