@@ -297,7 +297,7 @@ export function CaptureFormsManager({
       )}
       {busy && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
 
-      {showResp && <SubmissionsModal form={showResp} onClose={() => setShowResp(null)} />}
+      {showResp && <SubmissionsModal form={showResp} clients={clients} onClose={() => setShowResp(null)} />}
     </div>
   );
 }
@@ -344,11 +344,35 @@ type Submission = {
   values: Record<string, unknown>;
   leadId: string | null;
   taskId: string | null;
+  clientId: string | null;
   createdAt: string;
 };
 
-function SubmissionsModal({ form, onClose }: { form: CaptureForm; onClose: () => void }) {
+function SubmissionsModal({
+  form,
+  clients,
+  onClose,
+}: {
+  form: CaptureForm;
+  clients: { id: string; name: string }[];
+  onClose: () => void;
+}) {
   const [subs, setSubs] = useState<Submission[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function attribute(subId: string, clientId: string) {
+    setBusy(subId);
+    setSubs((prev) => (prev ? prev.map((s) => (s.id === subId ? { ...s, clientId: clientId || null } : s)) : prev));
+    try {
+      await fetch("/api/crm/capture-forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "attribute-submission", id: subId, clientId: clientId || null }),
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -421,6 +445,21 @@ function SubmissionsModal({ form, onClose }: { form: CaptureForm; onClose: () =>
                         Abrir tarefa →
                       </Link>
                     ) : null}
+                  </div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-medium text-muted">Cliente:</span>
+                    <select
+                      value={s.clientId ?? ""}
+                      onChange={(e) => attribute(s.id, e.target.value)}
+                      disabled={busy === s.id}
+                      className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-brand-400 disabled:opacity-60"
+                    >
+                      <option value="">— não atribuído</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    {busy === s.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />}
                   </div>
                   {entries.length === 0 ? (
                     <p className="text-xs text-muted">(sem dados)</p>

@@ -22,7 +22,7 @@ type FieldInput = {
 };
 
 type Body = {
-  action?: "create" | "update" | "delete" | "save-fields" | "duplicate";
+  action?: "create" | "update" | "delete" | "save-fields" | "duplicate" | "attribute-submission";
   id?: string;
   name?: string;
   slug?: string;
@@ -121,7 +121,7 @@ export async function GET(req: Request) {
   }
   const { data } = await supabase
     .from("crm_form_submissions")
-    .select("id, values, created_lead_id, created_task_id, created_at")
+    .select("id, values, created_lead_id, created_task_id, client_id, created_at")
     .eq("form_id", formId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -130,6 +130,7 @@ export async function GET(req: Request) {
     values: (r.values && typeof r.values === "object" ? r.values : {}) as Record<string, unknown>,
     leadId: r.created_lead_id == null ? null : String(r.created_lead_id),
     taskId: r.created_task_id == null ? null : String(r.created_task_id),
+    clientId: r.client_id == null ? null : String(r.client_id),
     createdAt: String(r.created_at),
   }));
   return NextResponse.json({ submissions });
@@ -164,6 +165,39 @@ export async function POST(req: Request) {
     if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const { error } = await supabase.from("crm_capture_forms").delete().eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Atribui uma resposta a um cliente e vincula o card criado (tarefa/negócio).
+  if (action === "attribute-submission") {
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const clientId = b.clientId?.trim() || null;
+    const { data: sub } = await supabase
+      .from("crm_form_submissions")
+      .select("created_task_id, created_lead_id")
+      .eq("id", b.id)
+      .maybeSingle();
+    await supabase.from("crm_form_submissions").update({ client_id: clientId }).eq("id", b.id);
+    if (!sub) return NextResponse.json({ ok: true });
+
+    if (sub.created_task_id) {
+      // Tarefa: vincula direto ao cliente.
+      await supabase.from("delivery_tasks").update({ client_id: clientId }).eq("id", sub.created_task_id);
+    } else if (sub.created_lead_id && clientId) {
+      // Negócio: agrupa sob a empresa do cliente (encontra ou cria por nome).
+      const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+      const name = cli?.name ? String(cli.name) : "";
+      if (name) {
+        let companyId: string | null = null;
+        const { data: co } = await supabase.from("crm_companies").select("id").ilike("name", name).maybeSingle();
+        if (co) companyId = String(co.id);
+        else {
+          const { data: nc } = await supabase.from("crm_companies").insert({ name }).select("id").single();
+          companyId = nc?.id ? String(nc.id) : null;
+        }
+        if (companyId) await supabase.from("crm_leads").update({ company_id: companyId }).eq("id", sub.created_lead_id);
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 
