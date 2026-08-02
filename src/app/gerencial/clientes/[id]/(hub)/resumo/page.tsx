@@ -130,9 +130,9 @@ export default async function ResumoPage({
             Serviços, entregáveis e responsáveis da conta — o status do mês fica no topo.
           </p>
           <dl className="space-y-2.5 text-sm">
-            <Row2 label="Serviços" value={ops?.services.join(" · ") ?? ops?.plan ?? d.plan} />
+            <Row2 label="Serviços" value={ops && ops.services.length ? ops.services.join(" · ") : "—"} />
             <Row2 label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
-            {ops && RESPONSIBLE_ROLES.map((r) => (
+            {ops && RESPONSIBLE_ROLES.filter((r) => ops.responsibles[r.key]?.trim()).map((r) => (
               <Row2 key={r.key} label={r.label} value={ops.responsibles[r.key]} />
             ))}
           </dl>

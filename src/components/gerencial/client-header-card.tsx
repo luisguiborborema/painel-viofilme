@@ -201,7 +201,7 @@ export function ClientHeaderCard({
       {/* Responsáveis por função (HUB06) */}
       <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4">
         {ops &&
-          RESPONSIBLE_ROLES.map((r) => (
+          RESPONSIBLE_ROLES.filter((r) => ops.responsibles[r.key]?.trim()).map((r) => (
             <div key={r.key} className="flex items-center gap-2">
               <span
                 title={ops.responsibles[r.key]}
@@ -222,7 +222,7 @@ export function ClientHeaderCard({
       </div>
 
       <div className="mt-4 grid grid-cols-2 items-end gap-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-4">
-        <Stat label="Serviços" value={ops?.services.join(" · ") ?? ops?.plan ?? d.plan} />
+        <Stat label="Serviços" value={ops && ops.services.length ? ops.services.join(" · ") : "—"} />
         <Stat label="Entregáveis do mês" value={ops?.deliverables ?? "—"} />
         {ops ? (
           <EntregasBar done={ops.monthDone} approval={ops.monthApproval} total={ops.monthTotal} />

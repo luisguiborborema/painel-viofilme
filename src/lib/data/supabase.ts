@@ -62,8 +62,6 @@ import {
   type VLResource,
 } from "./violaunch";
 import {
-  servicesForPlan,
-  deliverablesForPlan,
   responsiblesFor,
   semaforoFrom,
   leToneFrom,
@@ -1503,7 +1501,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes] = await Promise.all([
+  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes] = await Promise.all([
     supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
@@ -1514,7 +1512,31 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
     supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
     supabase.from("nps_surveys").select("client_id, score, created_at").order("created_at", { ascending: false }),
     supabase.from("editorial_lines").select("client_id, month, stage"),
+    supabase.from("client_services").select("client_id, services(name)"),
+    supabase.from("client_deliverables").select("client_id, format, monthly_qty"),
   ]);
+
+  // Serviços e entregáveis REAIS por cliente (não fabricados pelo plano).
+  const servicesByClient = new Map<string, string[]>();
+  for (const s of (csRes.data ?? []) as { client_id: string; services: unknown }[]) {
+    const svc = Array.isArray(s.services) ? s.services[0] : s.services;
+    const nm = (svc as { name?: string } | null)?.name;
+    if (!nm) continue;
+    const arr = servicesByClient.get(s.client_id) ?? [];
+    if (!arr.includes(String(nm))) arr.push(String(nm));
+    servicesByClient.set(s.client_id, arr);
+  }
+  const deliverablesByClient = new Map<string, string>();
+  const delRows = new Map<string, { format: string; qty: number }[]>();
+  for (const d of (cdRes.data ?? []) as { client_id: string; format: string; monthly_qty: number }[]) {
+    const arr = delRows.get(d.client_id) ?? [];
+    arr.push({ format: String(d.format), qty: Number(d.monthly_qty ?? 0) });
+    delRows.set(d.client_id, arr);
+  }
+  for (const [cid, arr] of delRows) {
+    const s = arr.filter((x) => x.qty > 0).map((x) => `${x.qty} ${x.format}`).join(" · ");
+    if (s) deliverablesByClient.set(cid, s);
+  }
 
   // HUB06.1 — "LE do próximo mês" montada? Existe editorial_line do mês seguinte
   // fora do estágio de rascunho. Casa o mês por texto ("Julho 2026"/"Julho/2026").
@@ -1569,6 +1591,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
     const nps = npsByClient.get(cid) ?? null;
     const h = clientHealth(overdueDays, posts30, t.filter((x) => x.late).length, nps);
     const plan = planFromFee(fee);
+    const isPontual = String(c.contract_model ?? "recorrente") === "pontual";
     const createdMs = c.created_at ? Date.parse(c.created_at) : NaN;
     const isNew = !Number.isNaN(createdMs) && now.getTime() - createdMs < 30 * dayMs;
     const status: HubStatus = isNew ? "onboarding" : "ativo";
@@ -1591,13 +1614,18 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       squadId: c.squad_id ?? "sq-1",
       squadName:
         (Array.isArray(c.squads) ? c.squads[0]?.name : c.squads?.name) ?? "Produção",
-      responsibles: responsiblesFor(idx),
-      services: servicesForPlan(plan),
-      deliverables: deliverablesForPlan(plan),
+      // Perfil pontual (VioProjects/e-commerce) não segue o modelo social: sem
+      // os 4 papéis fixos nem o ciclo editorial mensal.
+      responsibles: isPontual
+        ? { social: "", performance: "", designer: "", copy: "" }
+        : responsiblesFor(idx),
+      services: servicesByClient.get(cid) ?? [],
+      deliverables: deliverablesByClient.get(cid) ?? "—",
       monthTotal: t.length,
       monthDone: t.filter((x) => x.stage === "done").length,
       monthApproval: t.filter((x) => x.stage === "approval").length,
       leNextMonth: (() => {
+        if (isPontual) return { status: "—", date: "", tone: "neutral" as const };
         const mounted = leMountedByClient.has(cid);
         const st = mounted ? ("montada" as const) : ("pendente" as const);
         return {

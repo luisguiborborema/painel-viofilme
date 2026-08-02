@@ -144,7 +144,8 @@ export type HubResponsibles = Record<ResponsibleRole, string>;
  */
 export type LeTone = "ok" | "neutral" | "warn" | "late";
 export type LeNextMonth = {
-  status: "montada" | "pendente";
+  /** "—" = não se aplica (ex.: cliente pontual/projeto, sem ciclo editorial). */
+  status: "montada" | "pendente" | "—";
   date?: string;
   tone: LeTone;
 };
