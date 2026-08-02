@@ -381,7 +381,7 @@ function SubmissionsModal({ form, onClose }: { form: CaptureForm; onClose: () =>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl"
+        className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -425,11 +425,13 @@ function SubmissionsModal({ form, onClose }: { form: CaptureForm; onClose: () =>
                   {entries.length === 0 ? (
                     <p className="text-xs text-muted">(sem dados)</p>
                   ) : (
-                    <dl className="space-y-1">
+                    <dl className="divide-y divide-line rounded-lg border border-line bg-surface">
                       {entries.map(([k, v]) => (
-                        <div key={k} className="flex gap-2 text-xs">
-                          <dt className="shrink-0 font-medium text-muted">{labelOf(k)}:</dt>
-                          <dd className="min-w-0 break-words text-ink">{String(v)}</dd>
+                        <div key={k} className="px-3 py-2">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{labelOf(k)}</dt>
+                          <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm text-ink/90">
+                            {String(v).trim() || "—"}
+                          </dd>
                         </div>
                       ))}
                     </dl>
