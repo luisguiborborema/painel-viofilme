@@ -136,10 +136,12 @@ async function postConfig(body: unknown): Promise<boolean> {
 // Editor de capacidade (ENT12) + durações por tipo (ENT10). Persiste na config.
 function DeliveryConfigModal({
   config,
+  team,
   onClose,
   onChange,
 }: {
   config: DeliveryConfig;
+  team: string[];
   onClose: () => void;
   onChange: (c: DeliveryConfig) => void;
 }) {
@@ -242,8 +244,8 @@ function DeliveryConfigModal({
                     className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
                   >
                     <option value="">— (usa o dono do formulário)</option>
-                    {OPS_TEAM.map((m) => (
-                      <option key={m.id} value={m.name}>{m.name} · {m.role}</option>
+                    {(team.length ? team : OPS_TEAM.map((m) => m.name)).map((n) => (
+                      <option key={n} value={n}>{n}</option>
                     ))}
                   </select>
                 </label>
@@ -820,6 +822,7 @@ export function DeliveryPanel({
       {showConfig && (
         <DeliveryConfigModal
           config={config}
+          team={team}
           onClose={() => setShowConfig(false)}
           onChange={setConfig}
         />
