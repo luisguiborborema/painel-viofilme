@@ -284,6 +284,16 @@ export function PostFicha({
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
+  // Equipe real (profiles) para os seletores de responsável; OPS_TEAM é fallback.
+  const [team, setTeam] = useState<string[]>(() => OPS_TEAM.map((m) => m.name));
+  useEffect(() => {
+    fetch("/api/gerencial/team", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (Array.isArray(j?.team) && j.team.length) setTeam(j.team as string[]);
+      })
+      .catch(() => {});
+  }, []);
   const [priority, setPriority] = useState<"normal" | "urgente">(post.priority ?? "normal");
   const prazo = post.date !== "—" ? post.date : "";
   // Duas datas (C3): postagem manda, entrega calcula (quarta da semana anterior).
@@ -744,11 +754,11 @@ export function PostFicha({
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Responsável</p>
               <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={cn(field, "px-2")}>
                 <option value="">—</option>
-                {OPS_TEAM.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {[...new Set([...team, assignee].filter(Boolean))].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
               <select value={secondary} onChange={(e) => setSecondary(e.target.value)} className={cn(field, "mt-1.5 px-2 text-xs text-muted")}>
                 <option value="">+ responsável secundário</option>
-                {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {[...new Set([...team, secondary].filter(Boolean))].filter((n) => n !== assignee).map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
 
@@ -856,7 +866,7 @@ export function PostFicha({
                 <span className="text-xs text-muted">Solicitante</span>
                 <select value={requesterC} onChange={(e) => changeRequesterC(e.target.value)} disabled={!taskId} title={!taskId ? "Gere a task de produção" : undefined} className={cn(metaSelect, "disabled:opacity-50")}>
                   <option value="">—</option>
-                  {OPS_TEAM.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                  {[...new Set([...team, requesterC].filter(Boolean))].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
             </div>
@@ -868,11 +878,11 @@ export function PostFicha({
                 <p className="text-[11px] text-muted">Gere a task de produção para adicionar colaboradores.</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
-                  {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => {
-                    const on = collabs.includes(m.id);
+                  {team.filter((n) => n !== assignee).map((n) => {
+                    const on = collabs.includes(n);
                     return (
-                      <button key={m.id} onClick={() => toggleCollab(m.id)} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", on ? "border-brand-400 bg-brand-500/10 text-ink" : "border-line text-muted hover:text-ink")}>
-                        {m.name}
+                      <button key={n} onClick={() => toggleCollab(n)} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", on ? "border-brand-400 bg-brand-500/10 text-ink" : "border-line text-muted hover:text-ink")}>
+                        {n}
                       </button>
                     );
                   })}

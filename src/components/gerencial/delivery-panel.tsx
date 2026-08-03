@@ -552,11 +552,8 @@ export function DeliveryPanel({
   }
   const [drill, setDrill] = useState<{ title: string; list: DeliveryTask[] } | null>(null);
 
-  const meId = useMemo(() => {
-    if (!meName) return null;
-    const m = OPS_TEAM.find((x) => meName.toLowerCase().includes(x.name.split(" ")[0].toLowerCase()));
-    return m?.id ?? null;
-  }, [meName]);
+  // Responsável agora é o NOME (normalizado); "meu" filtra pelo nome do usuário.
+  const meId = useMemo(() => meName?.trim() || null, [meName]);
 
   const allClients = useMemo(
     () => [...new Set(items.map((t) => t.client))].sort(),
@@ -636,8 +633,8 @@ export function DeliveryPanel({
           className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
         >
           <option value="">Todos responsáveis</option>
-          {OPS_TEAM.map((m) => (
-            <option key={m.id} value={m.id}>{m.name}</option>
+          {(team.length ? team : OPS_TEAM.map((m) => m.name)).map((n) => (
+            <option key={n} value={n}>{n}</option>
           ))}
         </select>
         <select

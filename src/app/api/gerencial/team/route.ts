@@ -4,9 +4,20 @@ import { isAdminTier, tierHasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { logFromUser } from "@/lib/audit/log";
+import { getAttendants } from "@/lib/data/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Nomes da equipe real (profiles gerenciais) — para os seletores de responsável. */
+export async function GET() {
+  const user = await getSession();
+  if (!user || user.role !== "gerencial") {
+    return NextResponse.json({ team: [] }, { status: 401 });
+  }
+  const attendants = await getAttendants();
+  return NextResponse.json({ team: attendants.map((a) => a.name).filter(Boolean) });
+}
 
 /**
  * Gestão de usuários gerenciais (somente Admin).
