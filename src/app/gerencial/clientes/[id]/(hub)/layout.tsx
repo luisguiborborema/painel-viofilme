@@ -5,6 +5,7 @@ import { ClientNav } from "@/components/gerencial/client-nav";
 import {
   getClientDetailCached,
   getClientOpsCached,
+  getClientOpOnly,
   getClientPortalCached,
 } from "@/lib/data/client-detail";
 
@@ -33,9 +34,10 @@ export default async function ClienteLayout({
   const d = await getClientDetailCached(id);
   if (!d) notFound();
 
-  const [ops, portal] = await Promise.all([
+  const [ops, portal, opOnly] = await Promise.all([
     getClientOpsCached(id),
     getClientPortalCached(id),
+    getClientOpOnly(),
   ]);
 
   const sem = ops?.semaforo;
@@ -50,6 +52,7 @@ export default async function ClienteLayout({
   return (
     <div className="space-y-4">
       <ClientNav
+        opOnly={opOnly}
         header={
           <ClientHeaderCollapse
             name={d.client.name}
