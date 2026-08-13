@@ -21,6 +21,7 @@ import {
   Phone,
   Plus,
   RefreshCw,
+  Save,
   SkipForward,
   SquareCheck,
   Target,
@@ -116,6 +117,17 @@ function savePref(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* ignore */ }
 }
 
+/** Visão salva de tarefas (preset de filtros), estilo HubSpot — por usuário. */
+type SavedTaskView = {
+  name: string;
+  scope: "meu" | "time";
+  ownerSel: string;
+  temporal: Temporal;
+  types: string[];
+  priority: string;
+  pipeline: string;
+};
+
 /* ── API helper ────────────────────────────────────────── */
 function postTask(body: unknown) {
   // withToast: falha vira aviso ao usuário (não some sem avisar).
@@ -155,21 +167,87 @@ export function CrmActivities({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [drawer, setDrawer] = useState<{ task?: TaskItem; create?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Escopo (HubSpot): minhas x do time + filtro por responsável.
+  const [scope, setScope] = useState<"meu" | "time">(() => loadPref("atv-scope", "meu"));
+  const [ownerSel, setOwnerSel] = useState<string>("all");
+  // Visões salvas (por usuário, localStorage) — abas estilo HubSpot.
+  const [views, setViews] = useState<SavedTaskView[]>([]);
+  const [activeView, setActiveView] = useState<string | null>(null);
 
   useEffect(() => savePref("atv-view", view), [view]);
   useEffect(() => savePref("atv-temporal", temporal), [temporal]);
+  useEffect(() => savePref("atv-scope", scope), [scope]);
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const raw = localStorage.getItem("atv-views");
+      if (raw) setViews(JSON.parse(raw) as SavedTaskView[]);
+    } catch {
+      /* ignore */
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
 
   const isMine = (t: TaskItem) => {
     const a = t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : [];
     return a.length ? a.includes(currentUser) : t.owner === currentUser;
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mine = useMemo(() => items.filter(isMine), [items, currentUser]);
+  const ownersOf = (t: TaskItem) =>
+    t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : t.owner ? [t.owner] : [];
+  // Escopo: responsável específico > minhas/do time. isMine depende de currentUser (já nas deps).
+  const scoped = useMemo(() => {
+    if (ownerSel !== "all") return items.filter((t) => ownersOf(t).includes(ownerSel));
+    if (scope === "meu") return items.filter(isMine);
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, ownerSel, scope, currentUser]);
+
+  function persistViews(next: SavedTaskView[]) {
+    setViews(next);
+    try {
+      localStorage.setItem("atv-views", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function saveCurrentView() {
+    const name = window.prompt("Nome da visão salva:");
+    if (!name?.trim()) return;
+    const v: SavedTaskView = {
+      name: name.trim(),
+      scope,
+      ownerSel,
+      temporal,
+      types: [...typeSel],
+      priority,
+      pipeline: pipelineSel,
+    };
+    persistViews([...views.filter((x) => x.name !== v.name), v]);
+    setActiveView(v.name);
+  }
+  function applyView(v: SavedTaskView) {
+    setScope(v.scope);
+    setOwnerSel(v.ownerSel);
+    setTemporal(v.temporal);
+    setTypeSel(new Set(v.types));
+    setPriority(v.priority);
+    setPipelineSel(v.pipeline);
+    setActiveView(v.name);
+  }
+  function resetView() {
+    setOwnerSel("all");
+    setScope("meu");
+    setTemporal("todas");
+    setTypeSel(new Set());
+    setPriority("all");
+    setPipelineSel("all");
+    setActiveView(null);
+  }
 
   // Filtro base (tipo/prioridade/pipeline/busca) — sem o temporal.
   const baseFiltered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return mine.filter((t) => {
+    return scoped.filter((t) => {
       if (typeSel.size > 0 && !typeSel.has(typeOf(t))) return false;
       if (priority !== "all" && (t.priority ?? "media") !== priority) return false;
       if (pipelineSel !== "all" && (t.pipelineId ?? "") !== pipelineSel) return false;
@@ -179,7 +257,7 @@ export function CrmActivities({
       }
       return true;
     });
-  }, [mine, typeSel, priority, pipelineSel, search]);
+  }, [scoped, typeSel, priority, pipelineSel, search]);
 
   const filtered = useMemo(
     () => baseFiltered.filter((t) => matchesTemporal(t, temporal, now, custom)).sort(byPriorityThenTime),
@@ -252,7 +330,7 @@ export function CrmActivities({
   const toggleSel = (id: string) =>
     setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  const overdueCount = mine.filter((t) => isOverdue(t, now)).length;
+  const overdueCount = scoped.filter((t) => isOverdue(t, now)).length;
   const focoQueue = baseFiltered
     .filter((t) => t.status === "pending" && (isOverdue(t, now) || (t.dueDate && sameDay(new Date(t.dueDate), now)) || !t.dueDate))
     .sort(byPriorityThenTime);
@@ -304,6 +382,29 @@ export function CrmActivities({
             <Plus className="h-4 w-4" /> Atividade
           </button>
         </div>
+      </div>
+
+      {/* Visões salvas (abas estilo HubSpot) */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-line">
+        <TaskViewTab active={activeView === null} onClick={resetView} label="Todas as tarefas" />
+        {views.map((v) => (
+          <TaskViewTab
+            key={v.name}
+            active={activeView === v.name}
+            onClick={() => applyView(v)}
+            onDelete={() => {
+              persistViews(views.filter((x) => x.name !== v.name));
+              if (activeView === v.name) setActiveView(null);
+            }}
+            label={v.name}
+          />
+        ))}
+        <button
+          onClick={saveCurrentView}
+          className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-subtle"
+        >
+          <Save className="h-3.5 w-3.5" /> Salvar visão
+        </button>
       </div>
 
       {/* Filtro temporal */}
@@ -364,6 +465,26 @@ export function CrmActivities({
             <button onClick={() => setTypeSel(new Set())} className="rounded-full px-2 py-1 text-xs text-muted hover:text-ink">limpar</button>
           )}
         </div>
+        <div className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-xs">
+          {([["meu", "Minhas"], ["time", "Do time"]] as const).map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => { setScope(k); setOwnerSel("all"); }}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-semibold transition-colors",
+                ownerSel === "all" && scope === k ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        {team.length > 0 && (
+          <select value={ownerSel} onChange={(e) => setOwnerSel(e.target.value)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
+            <option value="all">Todos responsáveis</option>
+            {team.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        )}
         <select value={priority} onChange={(e) => setPriority(e.target.value)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
           <option value="all">Toda prioridade</option>
           <option value="alta">Alta</option>
@@ -1063,4 +1184,38 @@ function TaskDrawer({ task, create, deals, team, currentUser, scripts, onClose, 
 /* ── Vazio ─────────────────────────────────────────────── */
 function Empty({ label = "Nada por aqui 🎉" }: { label?: string }) {
   return <p className="rounded-2xl border border-dashed border-line py-12 text-center text-sm text-muted">{label}</p>;
+}
+
+/* ── Aba de visão salva (estilo HubSpot) ───────────────── */
+function TaskViewTab({
+  active,
+  onClick,
+  label,
+  onDelete,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  onDelete?: () => void;
+}) {
+  return (
+    <span
+      className={cn(
+        "group -mb-px inline-flex shrink-0 items-center gap-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+        active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+      )}
+    >
+      <button type="button" onClick={onClick}>{label}</button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+          title="Excluir visão"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
+  );
 }
