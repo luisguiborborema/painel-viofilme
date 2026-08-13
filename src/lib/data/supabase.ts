@@ -2765,6 +2765,25 @@ export async function sbGetCrmWorkflows(): Promise<Workflow[]> {
   }));
 }
 
+/** Contadores de inscrições por workflow (histórico de execução). Tolerante. */
+export async function sbGetWorkflowStats(): Promise<
+  Record<string, { active: number; done: number; canceled: number }>
+> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("crm_workflow_enrollments").select("workflow_id,status");
+  if (!data) return {};
+  const out: Record<string, { active: number; done: number; canceled: number }> = {};
+  for (const r of data) {
+    const id = String(r.workflow_id);
+    out[id] ??= { active: 0, done: 0, canceled: 0 };
+    const s = String(r.status);
+    if (s === "active") out[id].active++;
+    else if (s === "done") out[id].done++;
+    else if (s === "canceled") out[id].canceled++;
+  }
+  return out;
+}
+
 // ── Atendimento: inbox WhatsApp ──────────────────────────────────────────────
 
 import type {

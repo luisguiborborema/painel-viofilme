@@ -57,10 +57,12 @@ export function CrmSettings({
   canEditStructural = false,
   propertyGroups = [],
   workflows = [],
+  workflowStats = {},
 }: {
   properties: PropertyDef[];
   propertyGroups?: PropertyGroup[];
   workflows?: Workflow[];
+  workflowStats?: Record<string, { active: number; done: number; canceled: number }>;
   pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
@@ -122,6 +124,7 @@ export function CrmSettings({
       node: (
         <WorkflowManager
           workflows={workflows}
+          stats={workflowStats}
           stageOptions={stageOptions}
           team={team}
           dealProps={properties

@@ -23,16 +23,20 @@ function post(body: unknown) {
 const inputCls =
   "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
 
+type WorkflowStats = Record<string, { active: number; done: number; canceled: number }>;
+
 export function WorkflowManager({
   workflows,
   stageOptions,
   dealProps,
   team = [],
+  stats = {},
 }: {
   workflows: Workflow[];
   stageOptions: { key: string; label: string }[];
   dealProps: { key: string; label: string }[];
   team?: string[];
+  stats?: WorkflowStats;
 }) {
   const router = useRouter();
 
@@ -65,7 +69,7 @@ export function WorkflowManager({
       ) : (
         <div className="space-y-3">
           {workflows.map((wf) => (
-            <WorkflowCard key={wf.id} wf={wf} stageOptions={stageOptions} dealProps={dealProps} team={team} />
+            <WorkflowCard key={wf.id} wf={wf} stageOptions={stageOptions} dealProps={dealProps} team={team} stat={stats[wf.id]} />
           ))}
         </div>
       )}
@@ -78,11 +82,13 @@ function WorkflowCard({
   stageOptions,
   dealProps,
   team,
+  stat,
 }: {
   wf: Workflow;
   stageOptions: { key: string; label: string }[];
   dealProps: { key: string; label: string }[];
   team: string[];
+  stat?: { active: number; done: number; canceled: number };
 }) {
   const router = useRouter();
   const [name, setName] = useState(wf.name);
@@ -154,6 +160,14 @@ function WorkflowCard({
           </button>
         </div>
       </div>
+
+      {stat && (stat.active + stat.done + stat.canceled) > 0 && (
+        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted">
+          <span>▶ {stat.active} ativa{stat.active === 1 ? "" : "s"}</span>
+          <span className="text-emerald-600">✓ {stat.done} concluída{stat.done === 1 ? "" : "s"}</span>
+          {stat.canceled > 0 && <span className="text-rose-500">✕ {stat.canceled} cancelada{stat.canceled === 1 ? "" : "s"}</span>}
+        </p>
+      )}
 
       {/* Gatilho */}
       <div className="mt-3 rounded-xl border border-line bg-canvas p-3">

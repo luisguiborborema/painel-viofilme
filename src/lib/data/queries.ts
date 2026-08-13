@@ -1724,6 +1724,13 @@ export async function getCrmWorkflows(): Promise<Workflow[]> {
   return [];
 }
 
+export async function getWorkflowStats(): Promise<
+  Record<string, { active: number; done: number; canceled: number }>
+> {
+  if (isSupabaseConfigured()) return sb.sbGetWorkflowStats();
+  return {};
+}
+
 export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
   const [companies, contacts, deals] = await Promise.all([
     getCrmCompanies(),
