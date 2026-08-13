@@ -693,6 +693,12 @@ export async function getEditorialDrafts(clientId: string): Promise<EditorialDra
   return [];
 }
 
+/** Sugestões de ajustes do time (feedback board). */
+export async function getSuggestions(): Promise<import("./suggestions").Suggestion[]> {
+  if (isSupabaseConfigured()) return sb.sbGetSuggestions();
+  return [];
+}
+
 /** Respostas de formulário atribuídas a um cliente (Resumo do Hub). */
 export async function getClientFormSubmissions(
   clientId: string,

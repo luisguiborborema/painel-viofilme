@@ -3192,6 +3192,28 @@ export async function sbGetBrandHub(clientId: string): Promise<import("./queries
   return { driveName: name, accesses: [], assets: [], team, activity: [] };
 }
 
+/** Sugestões de ajustes do time (feedback board). */
+export async function sbGetSuggestions(): Promise<import("./suggestions").Suggestion[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("suggestions")
+    .select("id, author_id, author_name, title, description, status, attachments, created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    authorId: r.author_id ? String(r.author_id) : "",
+    authorName: r.author_name ? String(r.author_name) : "—",
+    title: String(r.title ?? ""),
+    description: r.description ? String(r.description) : "",
+    status: String(r.status ?? "aberta"),
+    attachments: Array.isArray(r.attachments)
+      ? (r.attachments as import("./suggestions").SuggestionAttachment[])
+      : [],
+    createdAt: String(r.created_at),
+  }));
+}
+
 export async function sbGetEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
   const supabase = await createClient();
   const { data } = await supabase

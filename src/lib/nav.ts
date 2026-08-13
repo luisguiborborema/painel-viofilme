@@ -29,6 +29,7 @@ import {
   FileText,
   ShieldCheck,
   Sun,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -111,7 +112,10 @@ const GERENCIAL_GROUPS: NavGroup[] = [
   {
     title: "Conta",
     icon: CircleUser,
-    items: [{ label: "Configurações", href: "/configuracoes", icon: Settings }],
+    items: [
+      { label: "Sugestões", href: "/gerencial/sugestoes", icon: Lightbulb },
+      { label: "Configurações", href: "/configuracoes", icon: Settings },
+    ],
   },
 ];
 
