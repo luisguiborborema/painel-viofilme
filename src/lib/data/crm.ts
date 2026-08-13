@@ -442,13 +442,22 @@ export type PropertyGroup = {
 
 /* ── Workflows (fluxos de automação estilo HubSpot) ────────────────────── */
 
-export type WorkflowActionType = "delay" | "task" | "whatsapp" | "notify" | "set_property";
+export type WorkflowActionType =
+  | "delay"
+  | "task"
+  | "whatsapp"
+  | "notify"
+  | "set_property"
+  | "set_stage"
+  | "assign_owner";
 
 export const WORKFLOW_ACTION_TYPES: { key: WorkflowActionType; label: string }[] = [
   { key: "task", label: "Criar tarefa" },
   { key: "whatsapp", label: "Enviar WhatsApp" },
   { key: "notify", label: "Notificar equipe" },
   { key: "set_property", label: "Definir propriedade" },
+  { key: "set_stage", label: "Mover para etapa" },
+  { key: "assign_owner", label: "Atribuir responsável" },
   { key: "delay", label: "Espera (delay)" },
 ];
 

@@ -29,9 +29,22 @@ export async function enrollWorkflows(opts: {
     return Boolean(cfg.stageKey) && cfg.stageKey === opts.stageKey;
   });
   if (!matched.length) return;
+
+  // Anti-duplicação: não reinscreve num workflow que já tem inscrição ATIVA
+  // para este negócio (evita filas duplicadas ao re-entrar na etapa).
+  const { data: existing } = await admin
+    .from("crm_workflow_enrollments")
+    .select("workflow_id")
+    .eq("object_id", opts.objectId)
+    .eq("status", "active")
+    .in("workflow_id", matched.map((w) => w.id));
+  const activeSet = new Set((existing ?? []).map((e) => String(e.workflow_id)));
+  const toEnroll = matched.filter((w) => !activeSet.has(String(w.id)));
+  if (!toEnroll.length) return;
+
   const nowIso = new Date().toISOString();
   await admin.from("crm_workflow_enrollments").insert(
-    matched.map((w) => ({
+    toEnroll.map((w) => ({
       workflow_id: w.id,
       object_id: opts.objectId,
       status: "active",
@@ -94,6 +107,23 @@ async function runWorkflowAction(
       if (!key) return { status: "skipped", detail: "sem propriedade" };
       const props = (deal.properties as Record<string, unknown> | null) ?? {};
       await admin.from("crm_leads").update({ properties: { ...props, [key]: config.value } }).eq("id", dealId);
+      return { status: "ok" };
+    }
+    case "set_stage": {
+      const stageKey = String(config.stageKey || "");
+      if (!stageKey) return { status: "skipped", detail: "sem etapa" };
+      // Update cru da etapa — NÃO reengata gatilhos stage_enter (evita loop).
+      await admin
+        .from("crm_leads")
+        .update({ stage: stageKey, stage_changed_at: new Date().toISOString() })
+        .eq("id", dealId);
+      await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "system", body: `↦ Movido para etapa (workflow).` });
+      return { status: "ok" };
+    }
+    case "assign_owner": {
+      const owner = String(config.owner || "").trim();
+      if (!owner) return { status: "skipped", detail: "sem responsável" };
+      await admin.from("crm_leads").update({ owner, assignees: [owner] }).eq("id", dealId);
       return { status: "ok" };
     }
     default:

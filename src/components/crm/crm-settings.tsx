@@ -123,6 +123,7 @@ export function CrmSettings({
         <WorkflowManager
           workflows={workflows}
           stageOptions={stageOptions}
+          team={team}
           dealProps={properties
             .filter((p) => p.objectType === "deal")
             .map((p) => ({ key: p.key, label: p.label }))}

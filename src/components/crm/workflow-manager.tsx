@@ -27,10 +27,12 @@ export function WorkflowManager({
   workflows,
   stageOptions,
   dealProps,
+  team = [],
 }: {
   workflows: Workflow[];
   stageOptions: { key: string; label: string }[];
   dealProps: { key: string; label: string }[];
+  team?: string[];
 }) {
   const router = useRouter();
 
@@ -63,7 +65,7 @@ export function WorkflowManager({
       ) : (
         <div className="space-y-3">
           {workflows.map((wf) => (
-            <WorkflowCard key={wf.id} wf={wf} stageOptions={stageOptions} dealProps={dealProps} />
+            <WorkflowCard key={wf.id} wf={wf} stageOptions={stageOptions} dealProps={dealProps} team={team} />
           ))}
         </div>
       )}
@@ -75,10 +77,12 @@ function WorkflowCard({
   wf,
   stageOptions,
   dealProps,
+  team,
 }: {
   wf: Workflow;
   stageOptions: { key: string; label: string }[];
   dealProps: { key: string; label: string }[];
+  team: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState(wf.name);
@@ -181,7 +185,7 @@ function WorkflowCard({
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Então (ações)</p>
         <div className="space-y-2">
           {wf.actions.map((a, i) => (
-            <ActionRow key={a.id} action={a} index={i} dealProps={dealProps} />
+            <ActionRow key={a.id} action={a} index={i} dealProps={dealProps} stageOptions={stageOptions} team={team} />
           ))}
           {wf.actions.length === 0 && (
             <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
@@ -209,10 +213,14 @@ function ActionRow({
   action,
   index,
   dealProps,
+  stageOptions,
+  team,
 }: {
   action: WorkflowAction;
   index: number;
   dealProps: { key: string; label: string }[];
+  stageOptions: { key: string; label: string }[];
+  team: string[];
 }) {
   const router = useRouter();
   const [cfg, setCfg] = useState<Record<string, unknown>>(action.config ?? {});
@@ -297,6 +305,22 @@ function ActionRow({
             className={inputCls + " flex-1"}
           />
         </div>
+      )}
+      {action.actionType === "set_stage" && (
+        <select value={String(cfg.stageKey ?? "")} onChange={(e) => { const next = { ...cfg, stageKey: e.target.value }; setCfg(next); saveCfg(next); }} className={inputCls + " w-auto"}>
+          <option value="">Mover para etapa…</option>
+          {stageOptions.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
+      )}
+      {action.actionType === "assign_owner" && (
+        <select value={String(cfg.owner ?? "")} onChange={(e) => { const next = { ...cfg, owner: e.target.value }; setCfg(next); saveCfg(next); }} className={inputCls + " w-auto"}>
+          <option value="">Responsável…</option>
+          {team.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
       )}
     </div>
   );
