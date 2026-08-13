@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import type { Tag } from "@/lib/data/crm";
+import { cn } from "@/lib/utils";
 import {
   applyConditions,
   applyLens,
@@ -88,6 +89,7 @@ export function ListaShell<T extends RowBase>({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [activeView, setActiveView] = useState<string | null>(null);
 
   const noun = scope === "pessoas" ? "pessoa" : "empresa";
   const nounPlural = scope === "pessoas" ? "pessoas" : "empresas";
@@ -286,34 +288,40 @@ export function ListaShell<T extends RowBase>({
 
   return (
     <div className="space-y-3">
-      {/* Visões salvas */}
-      {(myViews.length > 0 || activeConditions.length > 0 || lens !== "todos") && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted">Visões:</span>
-          {myViews.map((v) => (
-            <span
-              key={v.id}
-              className="group inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1 text-xs text-ink"
-            >
-              <button type="button" onClick={() => loadView(v)} className="hover:text-brand-500">
-                {v.name}
-              </button>
-              <button type="button" onClick={() => deleteView(v.id)} className="text-muted hover:text-red-500">
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-          {(activeConditions.length > 0 || lens !== "todos") && (
-            <button
-              type="button"
-              onClick={saveView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-3 py-1 text-xs text-muted hover:border-brand-400 hover:text-brand-500"
-            >
-              <Save className="h-3 w-3" /> Salvar visão
-            </button>
-          )}
-        </div>
-      )}
+      {/* Visões salvas como abas (estilo HubSpot) */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-line">
+        <ViewTab
+          active={activeView === null}
+          onClick={() => {
+            setActiveView(null);
+            setConditions([]);
+            setLens("todos");
+            setShowConditions(false);
+          }}
+          label={`Todas as ${nounPlural}`}
+        />
+        {myViews.map((v) => (
+          <ViewTab
+            key={v.id}
+            active={activeView === v.id}
+            onClick={() => {
+              loadView(v);
+              setActiveView(v.id);
+            }}
+            onDelete={() => deleteView(v.id)}
+            label={v.name}
+          />
+        ))}
+        {(activeConditions.length > 0 || lens !== "todos") && (
+          <button
+            type="button"
+            onClick={saveView}
+            className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-subtle"
+          >
+            <Save className="h-3.5 w-3.5" /> Salvar visão
+          </button>
+        )}
+      </div>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -582,5 +590,41 @@ export function ListaShell<T extends RowBase>({
         </table>
       </div>
     </div>
+  );
+}
+
+/** Aba de visão salva (estilo HubSpot): sublinhado quando ativa, X ao passar o mouse. */
+function ViewTab({
+  active,
+  onClick,
+  label,
+  onDelete,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  onDelete?: () => void;
+}) {
+  return (
+    <span
+      className={cn(
+        "group -mb-px inline-flex shrink-0 items-center gap-1 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+        active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+      )}
+    >
+      <button type="button" onClick={onClick}>
+        {label}
+      </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+          title="Excluir visão"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
   );
 }

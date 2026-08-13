@@ -7,6 +7,7 @@ import {
   Building2,
   Calendar,
   ExternalLink,
+  KanbanSquare,
   Mail,
   Package,
   Phone,
@@ -14,7 +15,7 @@ import {
   Plus,
   Users,
 } from "lucide-react";
-import type { Company, Contact, CrmLead, Tag, TaskItem } from "@/lib/data/crm";
+import type { Company, Contact, CrmLead, CrmLeadCard, Pipeline, Tag, TaskItem } from "@/lib/data/crm";
 import {
   buildCompanyRows,
   buildPersonRows,
@@ -24,14 +25,16 @@ import {
   type PersonRow,
   type SavedView,
 } from "@/lib/data/listas";
+import type { Attendant } from "@/lib/data/inbox";
 import type { KnowledgeCategory, KnowledgePageCard, ServiceCatalog } from "@/lib/data/listas-server";
 import { ListaShell, type Col } from "./listas-shell";
+import { CrmList } from "./crm-list";
 import { TabNav } from "@/components/ui/tab-nav";
 import { NewContactModal } from "./new-contact-modal";
 import { NewCompanyModal } from "./new-company-modal";
 import { BulkTaskModal } from "./bulk-task-modal";
 
-type Sub = "pessoas" | "empresas" | "produtos" | "processos";
+type Sub = "negocios" | "pessoas" | "empresas" | "produtos" | "processos";
 
 function TagPills({ ids, tags }: { ids: string[]; tags: Tag[] }) {
   if (!ids?.length) return null;
@@ -107,9 +110,12 @@ export function CrmListas({
   contacts,
   companies,
   deals,
+  dealCards = [],
+  pipelines = [],
   tasks,
   tags,
   team,
+  teamMembers = [],
   currentUser = "",
   savedViews,
   serviceCatalog,
@@ -118,16 +124,19 @@ export function CrmListas({
   contacts: Contact[];
   companies: Company[];
   deals: CrmLead[];
+  dealCards?: CrmLeadCard[];
+  pipelines?: Pipeline[];
   tasks: TaskItem[];
   tags: Tag[];
   team: string[];
+  teamMembers?: Attendant[];
   currentUser?: string;
   savedViews: SavedView[];
   serviceCatalog: ServiceCatalog[];
   knowledge: { categories: KnowledgeCategory[]; pages: KnowledgePageCard[] };
 }) {
   const router = useRouter();
-  const [sub, setSub] = useState<Sub>("pessoas");
+  const [sub, setSub] = useState<Sub>("negocios");
   const [newPerson, setNewPerson] = useState(false);
   const [newCompany, setNewCompany] = useState(false);
   const [taskTargets, setTaskTargets] = useState<{ scope: "pessoas" | "empresas"; ids: string[]; count: number } | null>(null);
@@ -185,6 +194,7 @@ export function CrmListas({
   ];
 
   const TABS: { key: Sub; label: string; icon: typeof Users; count: number }[] = [
+    { key: "negocios", label: "Negócios", icon: KanbanSquare, count: deals.length },
     { key: "pessoas", label: "Pessoas", icon: Users, count: contacts.length },
     { key: "empresas", label: "Empresas", icon: Building2, count: companies.length },
     { key: "produtos", label: "Produtos", icon: Package, count: serviceCatalog.length },
@@ -195,6 +205,18 @@ export function CrmListas({
     <div className="space-y-4">
       {/* Sub-navegação das listas */}
       <TabNav tabs={TABS} active={sub} onChange={setSub} />
+
+      {sub === "negocios" && (
+        <CrmList
+          cards={dealCards}
+          pipelines={pipelines}
+          tags={tags}
+          companies={companies}
+          team={team}
+          teamMembers={teamMembers}
+          currentUser={currentUser}
+        />
+      )}
 
       {sub === "pessoas" && (
         <ListaShell
