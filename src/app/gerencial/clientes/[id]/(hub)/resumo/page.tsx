@@ -6,9 +6,10 @@ import { RESPONSIBLE_ROLES, TASK_STAGES } from "@/lib/data/operacao";
 import { NpsCard } from "@/components/gerencial/nps-card";
 import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
+import { ClientOperationCard } from "@/components/gerencial/client-operation-card";
 import { ClientFormsCard } from "@/components/gerencial/client-forms-card";
 import { ClientBillingCard } from "@/components/gerencial/client-billing-card";
-import { getClientFormSubmissions } from "@/lib/data/queries";
+import { getClientFormSubmissions, getClientDeliverables } from "@/lib/data/queries";
 import { isAsaasApiConfigured } from "@/lib/asaas/client";
 import { cn } from "@/lib/utils";
 import {
@@ -45,13 +46,16 @@ export default async function ResumoPage({
   const d = await getClientDetailCached(id);
   if (!d) notFound();
   const c = d.client;
-  const [ops, portal, clientTasks, formSubs] = await Promise.all([
+  const [ops, portal, clientTasks, formSubs, deliverables] = await Promise.all([
     getClientOpsCached(id),
     getClientPortalCached(id),
     getClientTasksCached(c.name),
     getClientFormSubmissions(id),
+    getClientDeliverables(id),
   ]);
   const config = buildClientConfig(portal, d);
+  const initialDeliverables: Record<string, number> = {};
+  for (const dv of deliverables) initialDeliverables[dv.format] = dv.monthlyQty;
 
   const lateTasks = clientTasks.filter((t) => t.late);
   const approvalTasks = clientTasks.filter((t) => t.stage === "approval");
@@ -180,6 +184,13 @@ export default async function ResumoPage({
           briefConcorrentes: d.briefing.concorrentes,
           briefRestricoes: d.briefing.restricoes,
         }}
+      />
+
+      <ClientOperationCard
+        clientId={id}
+        initialResponsibles={ops?.responsibles ?? {}}
+        initialServices={ops?.services ?? []}
+        initialDeliverables={initialDeliverables}
       />
 
       <ClientConfigCard clientId={id} initial={config} />

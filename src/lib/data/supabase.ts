@@ -63,7 +63,6 @@ import {
   type VLResource,
 } from "./violaunch";
 import {
-  responsiblesFor,
   semaforoFrom,
   leToneFrom,
   LE_DEADLINE_DAY,
@@ -119,6 +118,8 @@ type HubClientRow = {
   drive_folder_url?: string | null;
   squad_id?: string | null;
   squads?: { name: string | null } | { name: string | null }[] | null;
+  responsibles?: Record<string, string> | null;
+  services_list?: string[] | null;
 };
 
 const CLIENT_PROFILE_COLS =
@@ -1618,7 +1619,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
   const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes] = await Promise.all([
-    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), ${CLIENT_PROFILE_COLS}`).order("name"),
+    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), responsibles, services_list, ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
       .from("payments")
@@ -1697,7 +1698,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
     postsByClient.set(p.client_id, (postsByClient.get(p.client_id) ?? 0) + 1);
   }
 
-  return ((clientsRes.data ?? []) as HubClientRow[]).map((c, idx) => {
+  return ((clientsRes.data ?? []) as HubClientRow[]).map((c) => {
     const cid = String(c.id);
     const name = c.name ?? "Cliente";
     const fee = Number(c.monthly_fee ?? 0);
@@ -1730,12 +1731,19 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       squadId: c.squad_id ?? "sq-1",
       squadName:
         (Array.isArray(c.squads) ? c.squads[0]?.name : c.squads?.name) ?? "Produção",
-      // Perfil pontual (VioProjects/e-commerce) não segue o modelo social: sem
-      // os 4 papéis fixos nem o ciclo editorial mensal.
-      responsibles: isPontual
-        ? { social: "", performance: "", designer: "", copy: "" }
-        : responsiblesFor(idx),
-      services: servicesByClient.get(cid) ?? [],
+      // Responsáveis por função: config REAL do cliente (editável); vazio → some.
+      responsibles: (() => {
+        const r = (c.responsibles && typeof c.responsibles === "object" ? c.responsibles : {}) as Record<string, string>;
+        return {
+          social: r.social ?? "",
+          performance: r.performance ?? "",
+          designer: r.designer ?? "",
+          copy: r.copy ?? "",
+        };
+      })(),
+      services: Array.isArray(c.services_list) && c.services_list.length
+        ? c.services_list
+        : servicesByClient.get(cid) ?? [],
       deliverables: deliverablesByClient.get(cid) ?? "—",
       monthTotal: t.length,
       monthDone: t.filter((x) => x.stage === "done").length,
