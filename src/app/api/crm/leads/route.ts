@@ -14,6 +14,7 @@ import {
 import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import { resolveAssignee } from "@/lib/crm/assign";
+import { enrollWorkflows } from "@/lib/crm/workflow-engine";
 
 type SB = Awaited<ReturnType<typeof createClient>>;
 
@@ -454,6 +455,8 @@ export async function POST(req: Request) {
 
     // Automações do estágio (best-effort, não bloqueiam a resposta em caso de erro).
     await runStageAutomations(supabase, body.id, stageAutomations, user.name);
+    // Workflows: inscreve o negócio nos fluxos que disparam ao entrar nesta etapa.
+    await enrollWorkflows({ objectId: body.id, trigger: "stage_enter", stageKey: body.stage }).catch(() => {});
 
     await logEvent({
       userId: user.id,
@@ -573,6 +576,9 @@ export async function POST(req: Request) {
         .from("crm_deal_contacts")
         .insert({ deal_id: data.id, contact_id: contactId, is_primary: true });
     }
+
+    // Workflows: inscreve o novo negócio nos fluxos com gatilho "negócio criado".
+    await enrollWorkflows({ objectId: data.id, trigger: "created" }).catch(() => {});
 
     await logEvent({
       userId: user.id,
