@@ -18,6 +18,7 @@ import {
   Snowflake,
   Tags,
   Target,
+  Waypoints,
   Workflow,
   XCircle,
   Zap,
@@ -37,6 +38,7 @@ const ICONS: Record<string, LucideIcon> = {
   properties: SlidersHorizontal,
   tags: Tags,
   pipelines: GitBranch,
+  workflows: Waypoints,
   flows: Workflow,
   scripts: FileText,
   automation: Zap,
@@ -55,7 +57,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Personalização", keys: ["layout", "properties", "tags"] },
-  { title: "Funil", keys: ["pipelines", "flows", "scripts", "automation", "loss-reasons", "freeze-reasons"] },
+  { title: "Funil", keys: ["pipelines", "workflows", "flows", "scripts", "automation", "loss-reasons", "freeze-reasons"] },
   { title: "Rotina & Agenda", keys: ["routines", "scheduling"] },
   { title: "Metas & Score", keys: ["goals", "leadscore"] },
   { title: "Aquisição", keys: ["forms"] },

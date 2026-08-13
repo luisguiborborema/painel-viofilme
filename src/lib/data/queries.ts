@@ -1577,6 +1577,7 @@ import {
   type Tag,
   type PropertyDef,
   type PropertyGroup,
+  type Workflow,
   type CompanyDetail,
   type ContactDetail,
 } from "./crm";
@@ -1715,6 +1716,11 @@ export async function getCrmProperties(): Promise<PropertyDef[]> {
 
 export async function getCrmPropertyGroups(): Promise<PropertyGroup[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmPropertyGroups();
+  return [];
+}
+
+export async function getCrmWorkflows(): Promise<Workflow[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmWorkflows();
   return [];
 }
 

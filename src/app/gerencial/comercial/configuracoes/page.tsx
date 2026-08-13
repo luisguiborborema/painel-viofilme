@@ -7,6 +7,7 @@ import {
   getCrmTags,
   getCrmProperties,
   getCrmPropertyGroups,
+  getCrmWorkflows,
   getCrmPipelines,
   getAttendants,
   getCrmTaskFlows,
@@ -43,6 +44,7 @@ export default async function ConfiguracoesComercialPage() {
     getClients(),
     getCrmPropertyGroups(),
   ]);
+  const workflows = await getCrmWorkflows();
   const canEdit = hasFullAccess(user?.allowedSections ?? null);
 
   return (
@@ -51,6 +53,7 @@ export default async function ConfiguracoesComercialPage() {
       <CrmSettings
         properties={properties}
         propertyGroups={propertyGroups}
+        workflows={workflows}
         pipelines={pipelines}
         tags={tags}
         leads={leads}

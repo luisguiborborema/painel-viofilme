@@ -11,12 +11,14 @@ import {
   type Pipeline,
   type PropertyDef,
   type PropertyGroup,
+  type Workflow,
   type Tag,
   type TaskFlow,
   type CaptureForm,
 } from "@/lib/data/crm";
 import { CardLayoutManager } from "./card-layout-manager";
 import { PropertyManager } from "./property-manager";
+import { WorkflowManager } from "./workflow-manager";
 import { StageManager } from "./stage-manager";
 import { TagManager } from "./tag-manager";
 import { CrmImportExport } from "./crm-import-export";
@@ -54,9 +56,11 @@ export function CrmSettings({
   freezeReasons = [],
   canEditStructural = false,
   propertyGroups = [],
+  workflows = [],
 }: {
   properties: PropertyDef[];
   propertyGroups?: PropertyGroup[];
+  workflows?: Workflow[];
   pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
@@ -109,6 +113,21 @@ export function CrmSettings({
       description:
         "Campos extras para Empresas, Contatos e Negócios — como no HubSpot. Aparecem na ficha de cada objeto (e no bloco “Campos” do card).",
       node: <PropertyManager properties={properties} groups={propertyGroups} />,
+    },
+    {
+      key: "workflows",
+      label: "Fluxos de automação",
+      description:
+        "Workflows estilo HubSpot: quando um negócio entra numa etapa (ou é criado), rode uma sequência de ações — criar tarefa, WhatsApp, espera, definir propriedade, notificar.",
+      node: (
+        <WorkflowManager
+          workflows={workflows}
+          stageOptions={stageOptions}
+          dealProps={properties
+            .filter((p) => p.objectType === "deal")
+            .map((p) => ({ key: p.key, label: p.label }))}
+        />
+      ),
     },
     {
       key: "tags",

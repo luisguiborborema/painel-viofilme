@@ -440,6 +440,37 @@ export type PropertyGroup = {
   position: number;
 };
 
+/* ── Workflows (fluxos de automação estilo HubSpot) ────────────────────── */
+
+export type WorkflowActionType = "delay" | "task" | "whatsapp" | "notify" | "set_property";
+
+export const WORKFLOW_ACTION_TYPES: { key: WorkflowActionType; label: string }[] = [
+  { key: "task", label: "Criar tarefa" },
+  { key: "whatsapp", label: "Enviar WhatsApp" },
+  { key: "notify", label: "Notificar equipe" },
+  { key: "set_property", label: "Definir propriedade" },
+  { key: "delay", label: "Espera (delay)" },
+];
+
+export type WorkflowTriggerType = "stage_enter" | "created";
+
+export type WorkflowAction = {
+  id: string;
+  position: number;
+  actionType: WorkflowActionType;
+  config: Record<string, unknown>;
+};
+
+export type Workflow = {
+  id: string;
+  name: string;
+  objectType: CrmObjectType;
+  triggerType: WorkflowTriggerType;
+  triggerConfig: Record<string, unknown>;
+  isActive: boolean;
+  actions: WorkflowAction[];
+};
+
 export type Tag = { id: string; name: string; color: string };
 
 /** Operadores de um requisito de estágio. */

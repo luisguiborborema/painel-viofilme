@@ -2014,6 +2014,10 @@ import type {
   PropertyOption,
   CrmObjectType,
   PropertyFieldType,
+  Workflow,
+  WorkflowAction,
+  WorkflowActionType,
+  WorkflowTriggerType,
   LostReason,
   FreezeReason,
   TaskFlow,
@@ -2718,6 +2722,46 @@ export async function sbGetCrmPropertyGroups(): Promise<PropertyGroup[]> {
     objectType: (r.object_type as CrmObjectType) ?? "deal",
     name: String(r.name),
     position: Number(r.position ?? 0),
+  }));
+}
+
+export async function sbGetCrmWorkflows(): Promise<Workflow[]> {
+  const supabase = await createClient();
+  // Tolerante: se as tabelas de workflow ainda não existem (pré-0104), retorna [].
+  const wf = (
+    await supabase
+      .from("crm_workflows")
+      .select("id,name,object_type,trigger_type,trigger_config,is_active")
+      .order("created_at", { ascending: true })
+  ).data as Record<string, unknown>[] | null;
+  if (!wf) return [];
+  const acts =
+    ((
+      await supabase
+        .from("crm_workflow_actions")
+        .select("id,workflow_id,position,action_type,config")
+        .order("position", { ascending: true })
+    ).data as Record<string, unknown>[] | null) ?? [];
+  const byWf = new Map<string, WorkflowAction[]>();
+  for (const a of acts) {
+    const wid = String(a.workflow_id);
+    const list = byWf.get(wid) ?? [];
+    list.push({
+      id: String(a.id),
+      position: Number(a.position ?? 0),
+      actionType: (a.action_type as WorkflowActionType) ?? "task",
+      config: (a.config as Record<string, unknown>) ?? {},
+    });
+    byWf.set(wid, list);
+  }
+  return wf.map((w) => ({
+    id: String(w.id),
+    name: String(w.name),
+    objectType: (w.object_type as CrmObjectType) ?? "deal",
+    triggerType: (w.trigger_type as WorkflowTriggerType) ?? "stage_enter",
+    triggerConfig: (w.trigger_config as Record<string, unknown>) ?? {},
+    isActive: Boolean(w.is_active),
+    actions: (byWf.get(String(w.id)) ?? []).sort((a, b) => a.position - b.position),
   }));
 }
 
