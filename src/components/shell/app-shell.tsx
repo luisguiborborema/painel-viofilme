@@ -24,7 +24,8 @@ export function AppShell({
     !hasFullAccess(user.allowedSections) &&
     !canAccessSection(user.allowedSections, "financeiro") &&
     !canAccessSection(user.allowedSections, "crm");
-  const [collapsed, setCollapsed] = usePersistentState("vio-sidebar-collapsed", false);
+  // Padrão HubSpot: menu lateral minimizado (quem já tiver preferência salva mantém).
+  const [collapsed, setCollapsed] = usePersistentState("vio-sidebar-collapsed", true);
   const [searchOpen, setSearchOpen] = useState(false);
 
   // Atalhos globais: ⌘/Ctrl+K abre a busca, ⌘/Ctrl+B recolhe/expande o menu.

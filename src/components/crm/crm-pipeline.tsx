@@ -75,6 +75,15 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function MetricTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-[120px] flex-1 border-r border-line px-4 py-2.5 text-center last:border-r-0">
+      <p className="text-lg font-bold text-brand-600">{value}</p>
+      <p className="text-[11px] text-muted">{label}</p>
+    </div>
+  );
+}
+
 function LeadCard({
   card,
   allTags,
@@ -730,6 +739,9 @@ export function CrmPipeline({
   const openValue = openCards.reduce((s, c) => s + c.monthlyValue, 0);
   // Valor ponderado (estilo HubSpot): valor × probabilidade da etapa.
   const openWeighted = openCards.reduce((s, c) => s + c.monthlyValue * (c.probability / 100), 0);
+  const avgAge = openCards.length
+    ? Math.round(openCards.reduce((s, c) => s + c.daysInStage, 0) / openCards.length)
+    : 0;
 
   async function moveTo(stage: Stage) {
     const id = dragId;
@@ -926,12 +938,6 @@ export function CrmPipeline({
             )}
           </div>
           <SettingsShortcut section="pipelines" label="Configurar funil" />
-          <p className="text-sm text-muted">
-            {openCards.length}{" "}
-            negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
-            em aberto · pond.{" "}
-            <span className="font-semibold text-ink">{formatBRL(openWeighted)}</span>
-          </p>
         </div>
         <button
           onClick={() => setShowMetrics(true)}
@@ -939,6 +945,14 @@ export function CrmPipeline({
         >
           <BarChart3 className="h-3.5 w-3.5" /> Métricas
         </button>
+      </div>
+
+      {/* Faixa de métricas (estilo HubSpot): total · ponderado · aberto · idade média */}
+      <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
+        <MetricTile label="Valor total" value={formatBRL(openValue)} />
+        <MetricTile label="Valor ponderado" value={formatBRL(openWeighted)} />
+        <MetricTile label="Negócios em aberto" value={String(openCards.length)} />
+        <MetricTile label="Idade média" value={`${avgAge} dia${avgAge === 1 ? "" : "s"}`} />
       </div>
 
       {/* Linha 2 — barra de filtros (estilo Sprint board) */}
@@ -1110,13 +1124,6 @@ export function CrmPipeline({
                 </span>
               </div>
               {s.hint && <p className="mb-1 px-1 text-[10px] leading-tight text-muted">{s.hint}</p>}
-              {sum > 0 && (
-                <p className="mb-2 px-1 text-[11px] text-muted">
-                  <span className="font-semibold text-ink">{formatBRL(sum)}</span>
-                  {" · pond. "}
-                  {formatBRL(weighted)}
-                </p>
-              )}
               {showQuickAdd && <QuickAdd onAdd={(name) => quickAdd(name, s.id)} />}
               <div className="flex flex-1 flex-col gap-2">
                 {inStage.map((c) => (
@@ -1139,6 +1146,20 @@ export function CrmPipeline({
                     Arraste um card aqui
                   </p>
                 )}
+              </div>
+              {/* Rodapé da coluna (estilo HubSpot): valor total + ponderado. */}
+              <div className="mt-2 space-y-0.5 border-t border-line px-1 pt-2 text-[11px]">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-ink">{formatBRL(sum)}</span>
+                  <span className="text-muted">Valor total</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-muted">
+                    {formatBRL(weighted)}
+                    {s.probability != null ? ` (${s.probability}%)` : ""}
+                  </span>
+                  <span className="text-muted">Ponderado</span>
+                </div>
               </div>
             </div>
           );
