@@ -169,3 +169,56 @@ body {
 .playbook-prose th { background: var(--color-subtle); font-weight: 600; }
 .playbook-prose hr { border: none; border-top: 1px solid var(--color-line); margin: 1.2rem 0; }
 .playbook-prose img { max-width: 100%; border-radius: 0.5rem; }
+
+/* ===========================================================================
+   HUBSPOT SKIN — escopo do CRM (Comercial + fichas do negócio/contato/empresa).
+   Aplicado via classe .hs-crm nas cascas app/gerencial/comercial e /crm.
+   Redefine os tokens semânticos para a identidade do HubSpot (acento LARANJA
+   + neutros claros HubSpot). Mantém o dark mode: no escuro só o acento vira
+   laranja; os neutros seguem o tema escuro do painel. O resto do painel (azul)
+   fica intacto por estar fora deste escopo.
+   =========================================================================== */
+.hs-crm {
+  /* Acento laranja HubSpot */
+  --color-brand-50: #fff3ef;
+  --color-brand-100: #ffe2d8;
+  --color-brand-200: #ffc6b2;
+  --color-brand-300: #ffa588;
+  --color-brand-400: #ff8a63;
+  --color-brand-500: #ff7a59;
+  --color-brand-600: #ff5c35;
+  --color-brand-700: #e94f2b;
+  --color-brand-800: #c13f22;
+  --color-brand-900: #99321c;
+  --color-brand-950: #5c1e11;
+
+  /* Neutros claros HubSpot (slate/gray) */
+  --color-ink: #33475b;
+  --color-muted: #516f90;
+  --color-surface: #ffffff;
+  --color-canvas: #f5f8fa;
+  --color-line: #cbd6e2;
+  --color-subtle: #eaeff5;
+  --color-subtle-strong: #dfe7f0;
+}
+
+/* No escuro: mantém os neutros do painel, só o acento vira laranja. */
+.theme-dark .hs-crm {
+  --color-brand-50: #2a1a12;
+  --color-brand-100: #3a2016;
+  --color-brand-200: #6b3520;
+  --color-brand-300: #a34e2c;
+  --color-brand-400: #ff9a78;
+  --color-brand-500: #ff7a59;
+  --color-brand-600: #ff6a45;
+  --color-brand-700: #ff8560;
+  --color-brand-800: #ffa588;
+  --color-brand-900: #ffc6b2;
+  --color-brand-950: #ffe2d8;
+}
+
+/* Cantos discretos: o HubSpot usa cards menos arredondados que o padrão do app
+   (rounded-2xl/xl). Achatamos só no escopo do CRM — círculos (rounded-full)
+   e cantos pequenos ficam intactos. */
+.hs-crm .rounded-2xl { border-radius: 0.5rem; }
+.hs-crm .rounded-xl { border-radius: 0.375rem; }

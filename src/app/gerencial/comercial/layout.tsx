@@ -6,7 +6,7 @@ import { ComercialNav } from "@/components/crm/comercial-nav";
  */
 export default function ComercialLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div>
+    <div className="hs-crm">
       <ComercialNav />
       {children}
     </div>

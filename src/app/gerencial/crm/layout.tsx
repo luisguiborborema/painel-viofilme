@@ -11,9 +11,9 @@ export default function CrmLayout({
   modal: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="hs-crm">
       {children}
       {modal}
-    </>
+    </div>
   );
 }
