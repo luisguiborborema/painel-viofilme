@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Save,
   SkipForward,
+  SlidersHorizontal,
   SquareCheck,
   Target,
   Trash2,
@@ -117,6 +118,15 @@ function savePref(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* ignore */ }
 }
 
+/** Colunas ocultáveis da tabela de tarefas (Assunto é fixo). */
+const TASK_COLS: { key: string; label: string }[] = [
+  { key: "negocio", label: "Negócio" },
+  { key: "prioridade", label: "Prioridade" },
+  { key: "contato", label: "Contato" },
+  { key: "vencimento", label: "Vencimento" },
+  { key: "tipo", label: "Tipo" },
+];
+
 /** Visão salva de tarefas (preset de filtros), estilo HubSpot — por usuário. */
 type SavedTaskView = {
   name: string;
@@ -173,6 +183,9 @@ export function CrmActivities({
   // Visões salvas (por usuário, localStorage) — abas estilo HubSpot.
   const [views, setViews] = useState<SavedTaskView[]>([]);
   const [activeView, setActiveView] = useState<string | null>(null);
+  // Colunas ocultáveis da tabela (persistidas por usuário).
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
+  const [colsOpen, setColsOpen] = useState(false);
 
   useEffect(() => savePref("atv-view", view), [view]);
   useEffect(() => savePref("atv-temporal", temporal), [temporal]);
@@ -182,11 +195,27 @@ export function CrmActivities({
     try {
       const raw = localStorage.getItem("atv-views");
       if (raw) setViews(JSON.parse(raw) as SavedTaskView[]);
+      const rawCols = localStorage.getItem("atv-cols");
+      if (rawCols) setHiddenCols(new Set(JSON.parse(rawCols) as string[]));
     } catch {
       /* ignore */
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  function toggleCol(key: string) {
+    setHiddenCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem("atv-cols", JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   const isMine = (t: TaskItem) => {
     const a = t.assignees?.length ? t.assignees : t.assignee ? [t.assignee] : [];
@@ -503,6 +532,35 @@ export function CrmActivities({
           placeholder="Buscar lead ou contato…"
           className="ml-auto w-52 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
         />
+        {view === "lista" && (
+          <div className="relative">
+            <button
+              onClick={() => setColsOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Colunas
+            </button>
+            {colsOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setColsOpen(false)} />
+                <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                  <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Exibir colunas</p>
+                  {TASK_COLS.map((col) => (
+                    <label key={col.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ink hover:bg-subtle">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenCols.has(col.key)}
+                        onChange={() => toggleCol(col.key)}
+                        className="h-4 w-4 rounded border-line accent-brand-600"
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Barra de ações em massa */}
@@ -525,6 +583,7 @@ export function CrmActivities({
         <ListView
           items={filtered}
           now={now}
+          hidden={hiddenCols}
           selected={selected}
           onToggleSel={toggleSel}
           onToggleAll={() => setSelected(selected.size === filtered.length ? new Set() : new Set(filtered.map((t) => t.id)))}
@@ -587,10 +646,11 @@ export function CrmActivities({
 /* ── Lista ─────────────────────────────────────────────── */
 
 function ListView({
-  items, now, selected, onToggleSel, onToggleAll, onConclude, onReopen, onOpen,
+  items, now, hidden, selected, onToggleSel, onToggleAll, onConclude, onReopen, onOpen,
 }: {
   items: TaskItem[];
   now: Date;
+  hidden: Set<string>;
   selected: Set<string>;
   onToggleSel: (id: string) => void;
   onToggleAll: () => void;
@@ -598,20 +658,21 @@ function ListView({
   onReopen: (t: TaskItem) => void;
   onOpen: (t: TaskItem) => void;
 }) {
+  const show = (k: string) => !hidden.has(k);
   if (items.length === 0) return <Empty />;
   return (
     <div className="overflow-x-auto rounded-2xl border border-line">
-      <table className="w-full min-w-[880px] border-collapse text-sm">
+      <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line bg-canvas text-left text-xs text-muted">
             <th className="w-9 px-3 py-2.5"><input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={onToggleAll} className="h-4 w-4 rounded border-line accent-brand-600" /></th>
             <th className="w-9 px-2 py-2.5"></th>
             <th className="px-3 py-2.5 font-medium">Assunto</th>
-            <th className="px-3 py-2.5 font-medium">Negócio</th>
-            <th className="px-3 py-2.5 font-medium">Prioridade</th>
-            <th className="px-3 py-2.5 font-medium">Contato</th>
-            <th className="px-3 py-2.5 font-medium">Vencimento</th>
-            <th className="px-3 py-2.5 font-medium">Tipo</th>
+            {show("negocio") && <th className="px-3 py-2.5 font-medium">Negócio</th>}
+            {show("prioridade") && <th className="px-3 py-2.5 font-medium">Prioridade</th>}
+            {show("contato") && <th className="px-3 py-2.5 font-medium">Contato</th>}
+            {show("vencimento") && <th className="px-3 py-2.5 font-medium">Vencimento</th>}
+            {show("tipo") && <th className="px-3 py-2.5 font-medium">Tipo</th>}
           </tr>
         </thead>
         <tbody>
@@ -642,29 +703,39 @@ function ListView({
                     <span className="font-medium text-ink">{t.title}</span>
                   </span>
                 </td>
-                <td className="px-3 py-2.5">
-                  {t.leadId ? (
-                    <Link href={`/gerencial/crm/${t.leadId}`} onClick={(e) => e.stopPropagation()} className="text-muted hover:text-ink hover:underline">{t.dealName}</Link>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5">
-                  {pr && (t.priority === "alta" || t.priority === "urgente") && (
-                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", pr.chip)}><span className={cn("h-1.5 w-1.5 rounded-full", pr.dot)} /> {pr.label}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5 text-muted">
-                  {t.contactName ?? "—"}
-                  {t.contactPhone && <span className="block text-[11px]">{t.contactPhone}</span>}
-                </td>
-                <td className={cn("px-3 py-2.5", overdue ? "font-semibold text-rose-500" : "text-muted")}>
-                  {t.dueDate ? `${dayMonth(t.dueDate)} ${clockLabel(t.dueDate)}` : "—"}
-                  {dur > 0 && <span className="block text-[11px] text-muted">{dur} min</span>}
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className="inline-flex items-center gap-1 text-xs text-muted"><span className={cn("h-2 w-2 rounded-full", meta.dot)} /> {meta.label}</span>
-                </td>
+                {show("negocio") && (
+                  <td className="px-3 py-2.5">
+                    {t.leadId ? (
+                      <Link href={`/gerencial/crm/${t.leadId}`} onClick={(e) => e.stopPropagation()} className="text-muted hover:text-ink hover:underline">{t.dealName}</Link>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
+                )}
+                {show("prioridade") && (
+                  <td className="px-3 py-2.5">
+                    {pr && (t.priority === "alta" || t.priority === "urgente") && (
+                      <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", pr.chip)}><span className={cn("h-1.5 w-1.5 rounded-full", pr.dot)} /> {pr.label}</span>
+                    )}
+                  </td>
+                )}
+                {show("contato") && (
+                  <td className="px-3 py-2.5 text-muted">
+                    {t.contactName ?? "—"}
+                    {t.contactPhone && <span className="block text-[11px]">{t.contactPhone}</span>}
+                  </td>
+                )}
+                {show("vencimento") && (
+                  <td className={cn("px-3 py-2.5", overdue ? "font-semibold text-rose-500" : "text-muted")}>
+                    {t.dueDate ? `${dayMonth(t.dueDate)} ${clockLabel(t.dueDate)}` : "—"}
+                    {dur > 0 && <span className="block text-[11px] text-muted">{dur} min</span>}
+                  </td>
+                )}
+                {show("tipo") && (
+                  <td className="px-3 py-2.5">
+                    <span className="inline-flex items-center gap-1 text-xs text-muted"><span className={cn("h-2 w-2 rounded-full", meta.dot)} /> {meta.label}</span>
+                  </td>
+                )}
               </tr>
             );
           })}
