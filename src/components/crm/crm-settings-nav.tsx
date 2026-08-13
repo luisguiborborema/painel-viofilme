@@ -13,6 +13,7 @@ import {
   Link2,
   Package,
   Plug,
+  Search,
   SlidersHorizontal,
   Snowflake,
   Tags,
@@ -69,7 +70,10 @@ const GROUPS: { title: string; keys: string[] }[] = [
 export function CrmSettingsNav({ sections }: { sections: SettingsSection[] }) {
   const byKey = new Map(sections.map((s) => [s.key, s]));
   const [active, setActive] = useState(sections[0]?.key ?? "");
+  const [q, setQ] = useState("");
   const current = byKey.get(active) ?? sections[0];
+  const term = q.trim().toLowerCase();
+  const matches = (s: SettingsSection) => !term || s.label.toLowerCase().includes(term) || s.key.includes(term);
 
   // Âncora direta (§1): abre a seção pedida via #hash e reage a atalhos externos.
   useEffect(() => {
@@ -91,8 +95,17 @@ export function CrmSettingsNav({ sections }: { sections: SettingsSection[] }) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
       <nav className="shrink-0 space-y-5 lg:w-60">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar configuração…"
+            className="w-full rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        </div>
         {GROUPS.map((g) => {
-          const items = g.keys.map((k) => byKey.get(k)).filter(Boolean) as SettingsSection[];
+          const items = (g.keys.map((k) => byKey.get(k)).filter(Boolean) as SettingsSection[]).filter(matches);
           if (!items.length) return null;
           return (
             <div key={g.title}>
