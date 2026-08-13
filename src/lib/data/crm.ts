@@ -1617,6 +1617,83 @@ export type StageChange = {
   changedAt: string;
 };
 
+/* ── Stream de atividade unificado (timeline estilo HubSpot) ───────────── */
+
+export type ActivityKind =
+  | "note"
+  | "email"
+  | "call"
+  | "whatsapp"
+  | "task"
+  | "meeting"
+  | "stage"
+  | "system";
+
+export type ActivityEvent = {
+  id: string;
+  kind: ActivityKind;
+  at: string;
+  title?: string;
+  body?: string;
+  author?: string;
+  direction?: "in" | "out" | null;
+  done?: boolean;
+  priority?: LeadPriority;
+  taskType?: string;
+};
+
+/** Uma interação "system" que, na verdade, é uma reunião agendada. */
+function isMeetingInteraction(it: CrmInteraction): boolean {
+  return it.channel === "system" && /reuni|meet|agenda/i.test(it.body ?? "");
+}
+
+/**
+ * Mescla interações (canais), tarefas e histórico de etapa num único fluxo
+ * cronológico (mais recente primeiro), com um `kind` para filtrar por tipo na
+ * timeline (estilo HubSpot). Puro — sem I/O. Comentários internos ficam de
+ * fora de propósito (têm aba própria com threads/menções/reações).
+ */
+export function buildActivityStream(
+  interactions: CrmInteraction[],
+  tasks: CrmTask[] = [],
+  history: StageChange[] = [],
+): ActivityEvent[] {
+  const events: ActivityEvent[] = [];
+  for (const it of interactions) {
+    events.push({
+      id: `int-${it.id}`,
+      kind: isMeetingInteraction(it) ? "meeting" : (it.channel as ActivityKind),
+      at: it.createdAt,
+      body: it.body,
+      author: it.author,
+      direction: it.direction ?? null,
+    });
+  }
+  for (const t of tasks) {
+    const taskType = typeof t.properties?.type === "string" ? (t.properties.type as string) : "";
+    events.push({
+      id: `task-${t.id}`,
+      kind: taskType === "reuniao" ? "meeting" : "task",
+      at: t.doneAt ?? t.dueDate ?? t.createdAt,
+      title: t.title,
+      author: t.assignee ?? t.assignees?.[0],
+      done: t.status === "done",
+      priority: t.priority,
+      taskType,
+    });
+  }
+  for (const h of history) {
+    events.push({
+      id: `stage-${h.changedAt}-${h.toStage}`,
+      kind: "stage",
+      at: h.changedAt,
+      title: `${h.fromStage ? `${stageLabel(h.fromStage)} → ` : ""}${stageLabel(h.toStage)}`,
+      author: h.changedBy,
+    });
+  }
+  return events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+}
+
 /**
  * Tempo médio (dias) que os negócios passam em cada estágio, a partir do
  * histórico real de mudanças. Um estágio "entrado" em t fica ocupado até a

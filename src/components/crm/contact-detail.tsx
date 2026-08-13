@@ -14,6 +14,7 @@ import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { EditableFields } from "./editable-fields";
 import { DeleteButton } from "./delete-button";
+import { RecordHighlights } from "./record-highlights";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -37,6 +38,10 @@ export function ContactDetail({
   properties: PropertyDef[];
 }) {
   const contactProps = properties.filter((p) => p.objectType === "contact");
+  const openValue = deals
+    .filter((d) => d.stage !== "ganho" && d.stage !== "perdido")
+    .reduce((s, d) => s + d.monthlyValue, 0);
+  const wonCount = deals.filter((d) => d.stage === "ganho").length;
 
   return (
     <div className="space-y-4">
@@ -76,6 +81,14 @@ export function ContactDetail({
           confirmLabel={`Excluir “${contact.name}”?`}
         />
       </div>
+
+      <RecordHighlights
+        items={[
+          { label: "Negócios", value: deals.length },
+          { label: "Em aberto/mês", value: formatBRL(openValue) },
+          { label: "Ganhos", value: wonCount },
+        ]}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

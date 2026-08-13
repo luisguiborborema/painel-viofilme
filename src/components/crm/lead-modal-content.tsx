@@ -19,13 +19,14 @@ import {
   FileText,
   Flag,
   GitBranch,
-  History,
   Link2,
   ListTodo,
+  Mail,
   Maximize,
-  MessageSquare,
+  MessageCircle,
   Paperclip,
   PanelRight,
+  Phone,
   Plus,
   RefreshCw,
   Sparkles,
@@ -56,6 +57,10 @@ import {
   TRACKED_DOC_KINDS,
   CRM_DOCUMENT_KINDS,
   BANT_LABELS,
+  buildActivityStream,
+  type ActivityEvent,
+  type ActivityKind,
+  type Bant,
   type CardFieldSetting,
   type Company,
   type Contact,
@@ -79,9 +84,10 @@ import {
   LoseButton,
   ScoreCard,
   StageHistoryCard,
-  Timeline,
 } from "./lead-detail";
 import { TagPicker } from "./tag-picker";
+import { DealHighlights } from "./deal-highlights";
+import { DealContacts } from "./deal-contacts";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
 import { ProposalModal } from "./proposal-modal";
@@ -153,14 +159,16 @@ export function LeadModalContent({
   const [won, setWon] = useState(lead.stage === "ganho");
   const [copied, setCopied] = useState(false);
   const [stageErr, setStageErr] = useState<string | null>(null);
-  const [centerTab, setCenterTab] = useState<"trabalho" | "principal" | "qualificacao" | "negociacao">("trabalho");
-  const [rightTab, setRightTab] = useState<"timeline" | "movimentacoes" | "comentarios">("timeline");
   const [assignees, setAssignees] = useState<string[]>(
     lead.assignees?.length ? lead.assignees : lead.owner ? [lead.owner] : [],
   );
 
   const pendingTask = useMemo(() => tasks.find((t) => t.status === "pending"), [tasks]);
-  const doneTasks = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
+  // Timeline estilo HubSpot: fluxo único de interações + tarefas + etapas.
+  const activityStream = useMemo(
+    () => buildActivityStream(items, tasks, history),
+    [items, tasks, history],
+  );
 
   const pipeline =
     pipelines.find((p) => p.id === (lead.pipelineId ?? "")) ??
@@ -367,8 +375,6 @@ export function LeadModalContent({
       .catch(() => {});
   }
 
-  const noteItems = items.filter((it) => it.channel === "note");
-
   return (
     <div className="relative flex h-full w-full flex-col">
       {/* ── TOPO: breadcrumb + dias-na-etapa + chrome ─────────── */}
@@ -448,145 +454,73 @@ export function LeadModalContent({
         </div>
       </div>
 
-      {/* ── 3 ZONAS ───────────────────────────────────────────── */}
+      {/* ── Highlights (KPIs) ─────────────────────────────────── */}
+      <DealHighlights lead={lead} stages={stages} />
+
+      {/* ── 3 ZONAS: Sobre · Atividade · Associações ──────────── */}
       <div className={cn("flex min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col xl:flex-row")}>
-        {/* ESQUERDA — consulta */}
+        {/* ESQUERDA — Sobre este negócio */}
         <aside
           className={cn(
-            "shrink-0 space-y-1 border-line bg-canvas px-4 py-4",
-            layout === "side" ? "border-b" : "border-b xl:w-[248px] xl:overflow-y-auto xl:border-b-0 xl:border-r",
+            "shrink-0 border-line bg-canvas",
+            layout === "side" ? "border-b" : "border-b xl:w-[264px] xl:overflow-y-auto xl:border-b-0 xl:border-r",
           )}
         >
-          <MiniField icon={Users} label="Responsáveis">
-            <AssigneesControl assignees={assignees} team={teamMembers} onChange={saveAssignees} />
-          </MiniField>
-          <MiniField icon={TagIcon} label="Origem">
-            {lead.source || "—"}
-          </MiniField>
-          <MiniField icon={Circle} label="Estágio">
-            {currentStage?.label ?? stageLabel(lead.stage)}
-          </MiniField>
-          <MiniField icon={Target} label="Probabilidade">
-            {lead.probability}%
-          </MiniField>
-          <MiniField icon={Wallet} label="Valor estimado">
-            <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
-            <span className="text-muted">/mês</span>
-          </MiniField>
-          {pipelines.length > 1 && (
-            <MiniField icon={GitBranch} label="Funil">
-              {pipeline.name}
-            </MiniField>
-          )}
-          <div className="pt-1">
-            <ScoreCard lead={lead} />
-          </div>
-          <CadenceNotice lead={lead} isSdr={isSdr} />
-          <div className="pt-1">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Tags</p>
-            <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
-          </div>
-          {company && (
-            <Link
-              href={`/gerencial/crm/empresa/${company.id}`}
-              className="mt-2 flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 hover:bg-subtle"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                <Building2 className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink">{company.name}</p>
-                <p className="truncate text-xs text-muted">{company.segment ?? "Ver empresa"}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
-            </Link>
-          )}
+          <AboutPanel
+            lead={lead}
+            currentStage={currentStage}
+            pipeline={pipeline}
+            pipelines={pipelines}
+            assignees={assignees}
+            teamMembers={teamMembers}
+            tags={tags}
+            isSdr={isSdr}
+            company={company}
+            primaryContact={primaryContact}
+            documents={documents}
+            templates={templates}
+            onSaveAssignees={saveAssignees}
+            onSaveProp={saveProp}
+            onSaveObject={saveObject}
+          />
         </aside>
 
-        {/* CENTRO — área de trabalho (palco) */}
-        <div className={cn("flex min-w-0 flex-1 flex-col", layout === "side" ? "" : "xl:overflow-y-auto")}>
-          <div className="flex items-center gap-1 border-b border-line px-3 py-1.5">
-            <CenterTab active={centerTab === "trabalho"} onClick={() => setCenterTab("trabalho")} icon={ListTodo} label="Área de trabalho" />
-            <CenterTab active={centerTab === "principal"} onClick={() => setCenterTab("principal")} icon={Building2} label="Principal" />
-            <CenterTab active={centerTab === "qualificacao"} onClick={() => setCenterTab("qualificacao")} icon={Sparkles} label="Qualificação" />
-            <CenterTab active={centerTab === "negociacao"} onClick={() => setCenterTab("negociacao")} icon={Briefcase} label="Negociação" />
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-4 px-4 py-4">
-            {centerTab === "trabalho" && (
-              <WorkArea
-                pendingTask={pendingTask}
-                doneTasks={doneTasks}
-                stageKey={lead.stage}
-                notes={noteItems}
-                scripts={scripts}
-                dealId={lead.id}
-                documents={documents}
-                onComplete={completeTask}
-                onReschedule={rescheduleTask}
-                onNewTask={() => setShowFab(true)}
-              />
-            )}
-            {centerTab === "principal" && (
-              <PrincipalTab
-                company={company}
-                contact={primaryContact}
-                onSaveCompany={(fields, props) => company && saveObject("company", company.id, fields, props)}
-                onSaveContact={(fields, props) => primaryContact && saveObject("contact", primaryContact.id, fields, props)}
-              />
-            )}
-            {centerTab === "qualificacao" && <QualiTab lead={lead} onSave={saveProp} />}
-            {centerTab === "negociacao" && (
-              <NegoTab lead={lead} onSave={saveProp} documents={documents} templates={templates} />
-            )}
-          </div>
+        {/* CENTRO — Atividade (timeline estilo HubSpot) */}
+        <div className={cn("flex min-w-0 flex-1 flex-col", layout === "side" ? "" : "xl:overflow-hidden")}>
+          <ActivityCenter
+            lead={lead}
+            layout={layout}
+            stream={activityStream}
+            pendingTask={pendingTask}
+            stageKey={lead.stage}
+            scripts={scripts}
+            comments={comments}
+            currentUser={currentUser}
+            teamMembers={teamMembers}
+            onComplete={completeTask}
+            onReschedule={rescheduleTask}
+            onNewTask={() => setShowFab(true)}
+            onOpenSchedule={() => setShowSchedule(true)}
+            onPosted={pushLocal}
+            onBant={(bant) => setLead((l) => ({ ...l, bant: { ...l.bant, ...bant } }))}
+          />
         </div>
 
-        {/* DIREITA — timeline + movimentações */}
+        {/* DIREITA — Associações */}
         <aside
           className={cn(
             "flex shrink-0 flex-col border-line bg-canvas",
-            layout === "side" ? "h-[42vh] border-t" : "border-t xl:w-[372px] xl:border-l xl:border-t-0",
+            layout === "side" ? "border-t" : "border-t xl:w-[300px] xl:overflow-y-auto xl:border-l xl:border-t-0",
           )}
         >
-          <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
-            <ActivityTab active={rightTab === "timeline"} onClick={() => setRightTab("timeline")} icon={MessageSquare} label="Timeline" />
-            <ActivityTab active={rightTab === "movimentacoes"} onClick={() => setRightTab("movimentacoes")} icon={GitBranch} label="Movimentações" />
-            <ActivityTab active={rightTab === "comentarios"} onClick={() => setRightTab("comentarios")} icon={History} label="Comentários" badge={comments.length || undefined} />
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col">
-            {rightTab === "timeline" && (
-              <>
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <Timeline items={items} />
-                </div>
-                <div className="bg-surface">
-                  <Composer
-                    lead={lead}
-                    onPosted={(it) => pushLocal(it)}
-                    onBant={(bant) => setLead((l) => ({ ...l, bant: { ...l.bant, ...bant } }))}
-                  />
-                </div>
-              </>
-            )}
-            {rightTab === "movimentacoes" && (
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {history.length > 0 ? (
-                  <StageHistoryCard history={history} />
-                ) : (
-                  <p className="px-1 py-6 text-center text-sm text-muted">Sem movimentações de etapa ainda.</p>
-                )}
-              </div>
-            )}
-            {rightTab === "comentarios" && (
-              <LeadComments
-                leadId={lead.id}
-                initial={comments}
-                currentUser={currentUser}
-                team={teamMembers.map((m) => m.name)}
-              />
-            )}
-          </div>
+          <AssociationsPanel
+            lead={lead}
+            company={company}
+            dealContacts={dealContacts}
+            companyContacts={companyContacts}
+            documents={documents}
+            history={history}
+          />
         </aside>
       </div>
 
@@ -664,6 +598,394 @@ export function LeadModalContent({
   );
 }
 
+/* ── HubSpot record: Sobre · Atividade · Associações ───── */
+
+function Collapsible({
+  title,
+  icon: Icon,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  icon: typeof Circle;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-line">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-subtle/50"
+      >
+        <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <Icon className="h-3.5 w-3.5" /> {title}
+        </span>
+        <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} />
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
+}
+
+function AboutPanel({
+  lead,
+  currentStage,
+  pipeline,
+  pipelines,
+  assignees,
+  teamMembers,
+  tags,
+  isSdr,
+  company,
+  primaryContact,
+  documents,
+  templates,
+  onSaveAssignees,
+  onSaveProp,
+  onSaveObject,
+}: {
+  lead: CrmLead;
+  currentStage?: Stage;
+  pipeline: Pipeline;
+  pipelines: Pipeline[];
+  assignees: string[];
+  teamMembers: Attendant[];
+  tags: Tag[];
+  isSdr: boolean;
+  company: Company | null;
+  primaryContact: Contact | null;
+  documents: CrmDocument[];
+  templates: DocTemplate[];
+  onSaveAssignees: (next: string[]) => void;
+  onSaveProp: (key: string, value: unknown) => void;
+  onSaveObject: (
+    objectType: "company" | "contact",
+    id: string,
+    fields?: Record<string, unknown>,
+    properties?: Record<string, unknown>,
+  ) => void;
+}) {
+  return (
+    <div>
+      <div className="space-y-1 px-4 py-4">
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Sobre este negócio</p>
+        <MiniField icon={Users} label="Responsáveis">
+          <AssigneesControl assignees={assignees} team={teamMembers} onChange={onSaveAssignees} />
+        </MiniField>
+        <MiniField icon={TagIcon} label="Origem">{lead.source || "—"}</MiniField>
+        <MiniField icon={Circle} label="Estágio">{currentStage?.label ?? stageLabel(lead.stage)}</MiniField>
+        <MiniField icon={Target} label="Probabilidade">{lead.probability}%</MiniField>
+        <MiniField icon={Wallet} label="Valor estimado">
+          <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
+          <span className="text-muted">/mês</span>
+        </MiniField>
+        {pipelines.length > 1 && (
+          <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
+        )}
+        <div className="pt-1">
+          <ScoreCard lead={lead} />
+        </div>
+        <CadenceNotice lead={lead} isSdr={isSdr} />
+        <div className="pt-2">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Tags</p>
+          <TagPicker objectType="deal" id={lead.id} allTags={tags} initialIds={lead.tags ?? []} />
+        </div>
+      </div>
+
+      {(company || primaryContact) && (
+        <Collapsible title="Principal" icon={Building2}>
+          <PrincipalTab
+            company={company}
+            contact={primaryContact}
+            onSaveCompany={(fields, props) => company && onSaveObject("company", company.id, fields, props)}
+            onSaveContact={(fields, props) => primaryContact && onSaveObject("contact", primaryContact.id, fields, props)}
+          />
+        </Collapsible>
+      )}
+      <Collapsible title="Qualificação" icon={Sparkles}>
+        <QualiTab lead={lead} onSave={onSaveProp} />
+      </Collapsible>
+      <Collapsible title="Negociação" icon={Briefcase}>
+        <NegoTab lead={lead} onSave={onSaveProp} documents={documents} templates={templates} />
+      </Collapsible>
+    </div>
+  );
+}
+
+/* ── Zona central: timeline de atividade (abas + compositor) ── */
+
+const ACTIVITY_TABS: { key: string; label: string }[] = [
+  { key: "tudo", label: "Atividade" },
+  { key: "notas", label: "Notas" },
+  { key: "emails", label: "E-mails" },
+  { key: "ligacoes", label: "Ligações" },
+  { key: "tarefas", label: "Tarefas" },
+  { key: "reunioes", label: "Reuniões" },
+];
+
+const KIND_META: Record<ActivityKind, { icon: typeof Circle; color: string; label: string }> = {
+  note: { icon: StickyNote, color: "bg-subtle text-muted", label: "Nota" },
+  email: { icon: Mail, color: "bg-blue-500/15 text-blue-500", label: "E-mail" },
+  call: { icon: Phone, color: "bg-violet-500/15 text-violet-500", label: "Ligação" },
+  whatsapp: { icon: MessageCircle, color: "bg-emerald-500/15 text-emerald-500", label: "WhatsApp" },
+  task: { icon: ListTodo, color: "bg-brand-500/15 text-brand-500", label: "Tarefa" },
+  meeting: { icon: CalendarClock, color: "bg-amber-500/15 text-amber-600", label: "Reunião" },
+  stage: { icon: GitBranch, color: "bg-brand-500/15 text-brand-500", label: "Etapa" },
+  system: { icon: Sparkles, color: "bg-brand-500/15 text-brand-500", label: "Sistema" },
+};
+
+function filterStream(stream: ActivityEvent[], tab: string): ActivityEvent[] {
+  switch (tab) {
+    case "notas":
+      return stream.filter((e) => e.kind === "note");
+    case "emails":
+      return stream.filter((e) => e.kind === "email");
+    case "ligacoes":
+      return stream.filter((e) => e.kind === "call");
+    case "tarefas":
+      return stream.filter((e) => e.kind === "task");
+    case "reunioes":
+      return stream.filter((e) => e.kind === "meeting");
+    default:
+      return stream;
+  }
+}
+
+function ActivityCenter({
+  lead,
+  layout,
+  stream,
+  pendingTask,
+  stageKey,
+  scripts,
+  comments,
+  currentUser,
+  teamMembers,
+  onComplete,
+  onReschedule,
+  onNewTask,
+  onOpenSchedule,
+  onPosted,
+  onBant,
+}: {
+  lead: CrmLead;
+  layout: LeadModalLayout;
+  stream: ActivityEvent[];
+  pendingTask?: CrmTask;
+  stageKey: string;
+  scripts: DealScript[];
+  comments: CrmComment[];
+  currentUser: string;
+  teamMembers: Attendant[];
+  onComplete: (task: CrmTask, note: string) => void;
+  onReschedule: (task: CrmTask, dueIso: string) => void;
+  onNewTask: () => void;
+  onOpenSchedule: () => void;
+  onPosted: (it: Omit<CrmInteraction, "id" | "leadId" | "createdAt">) => void;
+  onBant: (bant: Bant) => void;
+}) {
+  const [tab, setTab] = useState<string>("tudo");
+  const events = tab === "comentarios" ? [] : filterStream(stream, tab);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Tarefa aberta em destaque */}
+      <div className="border-b border-line px-4 py-3">
+        {pendingTask ? (
+          <OpenTaskCard task={pendingTask} stageKey={stageKey} scripts={scripts} onComplete={onComplete} onReschedule={onReschedule} />
+        ) : (
+          <button
+            onClick={onNewTask}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-4 py-4 text-sm font-medium text-muted hover:bg-subtle"
+          >
+            <Plus className="h-4 w-4" /> Nenhuma tarefa aberta — criar próxima ação
+          </button>
+        )}
+      </div>
+
+      {/* Compositor unificado */}
+      <div className="border-b border-line bg-surface">
+        <div className="flex items-center gap-1.5 px-3 pt-2.5">
+          <span className="text-[11px] font-medium text-muted">Registrar:</span>
+          <button
+            onClick={onNewTask}
+            className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <ListTodo className="h-3.5 w-3.5" /> Tarefa
+          </button>
+          <button
+            onClick={onOpenSchedule}
+            className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <CalendarClock className="h-3.5 w-3.5" /> Reunião
+          </button>
+        </div>
+        <Composer lead={lead} onPosted={onPosted} onBant={onBant} />
+      </div>
+
+      {/* Abas de tipo */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-line px-2 py-1.5">
+        {ACTIVITY_TABS.map((t) => (
+          <ActivityTypeTab key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} label={t.label} />
+        ))}
+        <ActivityTypeTab
+          active={tab === "comentarios"}
+          onClick={() => setTab("comentarios")}
+          label="Comentários"
+          badge={comments.length || undefined}
+        />
+      </div>
+
+      {/* Conteúdo */}
+      <div className={cn("flex-1", layout === "side" ? "" : "min-h-0 overflow-y-auto")}>
+        {tab === "comentarios" ? (
+          <LeadComments leadId={lead.id} initial={comments} currentUser={currentUser} team={teamMembers.map((m) => m.name)} />
+        ) : (
+          <ActivityStreamList events={events} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActivityTypeTab({
+  active,
+  onClick,
+  label,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+        active ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+      )}
+    >
+      {label}
+      {badge ? (
+        <span className={cn("rounded-full px-1.5 text-[10px] font-semibold", active ? "bg-white/20" : "bg-subtle-strong text-muted")}>
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function ActivityStreamList({ events }: { events: ActivityEvent[] }) {
+  if (events.length === 0) {
+    return <p className="px-4 py-10 text-center text-sm text-muted">Nada por aqui ainda. Registre a primeira atividade acima.</p>;
+  }
+  return (
+    <div className="space-y-3 px-4 py-4">
+      {events.map((e) => {
+        const meta = KIND_META[e.kind];
+        const done = e.kind === "task" && e.done;
+        const Icon = done ? CheckCircle2 : meta.icon;
+        return (
+          <div key={e.id} className="flex gap-3">
+            <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", done ? "bg-emerald-500/15 text-emerald-500" : meta.color)}>
+              <Icon className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                <span className="font-medium text-ink">{e.author ?? meta.label}</span>
+                <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{meta.label}</span>
+                {e.direction && (
+                  <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{e.direction === "in" ? "recebido" : "enviado"}</span>
+                )}
+                <span>· {dayMonth(e.at)} {clockLabel(e.at)}</span>
+              </div>
+              {e.title && (
+                <p className={cn("mt-0.5 text-sm font-medium text-ink", done && "text-muted line-through")}>{e.title}</p>
+              )}
+              {e.body && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{e.body}</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Zona direita: associações ─────────────────────────── */
+
+function AssocSection({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: typeof Circle;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+        <Icon className="h-3.5 w-3.5" /> {title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function AssociationsPanel({
+  lead,
+  company,
+  dealContacts,
+  companyContacts,
+  documents,
+  history,
+}: {
+  lead: CrmLead;
+  company: Company | null;
+  dealContacts: Contact[];
+  companyContacts: Contact[];
+  documents: CrmDocument[];
+  history: StageChange[];
+}) {
+  return (
+    <div className="space-y-5 p-4">
+      <AssocSection title="Empresa" icon={Building2}>
+        {company ? (
+          <Link
+            href={`/gerencial/crm/empresa/${company.id}`}
+            className="flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 hover:bg-subtle"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+              <Building2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-ink">{company.name}</p>
+              <p className="truncate text-xs text-muted">{company.segment ?? "Ver empresa e negócios"}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+          </Link>
+        ) : (
+          <p className="rounded-xl border border-dashed border-line px-3 py-3 text-center text-xs text-muted">Sem empresa vinculada.</p>
+        )}
+      </AssocSection>
+
+      <DealContacts dealId={lead.id} initial={dealContacts} candidates={companyContacts} primaryContactId={lead.primaryContactId} />
+
+      <AssocSection title="Anexos" icon={Paperclip}>
+        <CrmDocuments dealId={lead.id} documents={documents} compact />
+      </AssocSection>
+
+      {history.length > 0 && (
+        <AssocSection title="Movimentações" icon={GitBranch}>
+          <StageHistoryCard history={history} />
+        </AssocSection>
+      )}
+    </div>
+  );
+}
+
 /* ── Zona esquerda ─────────────────────────────────────── */
 
 function MiniField({ icon: Icon, label, children }: { icon: typeof Circle; label: string; children: ReactNode }) {
@@ -713,80 +1035,7 @@ function DaysBadge({ iso }: { iso: string }) {
   );
 }
 
-/* ── Zona central: área de trabalho ────────────────────── */
-
-function WorkArea({
-  pendingTask,
-  doneTasks,
-  stageKey,
-  notes,
-  scripts,
-  dealId,
-  documents,
-  onComplete,
-  onReschedule,
-  onNewTask,
-}: {
-  pendingTask?: CrmTask;
-  doneTasks: CrmTask[];
-  stageKey: string;
-  notes: CrmInteraction[];
-  scripts: DealScript[];
-  dealId: string;
-  documents: CrmDocument[];
-  onComplete: (task: CrmTask, note: string) => void;
-  onReschedule: (task: CrmTask, dueIso: string) => void;
-  onNewTask: () => void;
-}) {
-  const [sub, setSub] = useState<"tarefas" | "anotacoes" | "arquivos">("tarefas");
-  return (
-    <div className="space-y-4">
-      {pendingTask ? (
-        <OpenTaskCard task={pendingTask} stageKey={stageKey} scripts={scripts} onComplete={onComplete} onReschedule={onReschedule} />
-      ) : (
-        <button
-          onClick={onNewTask}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-4 py-6 text-sm font-medium text-muted hover:bg-subtle"
-        >
-          <Plus className="h-4 w-4" /> Nenhuma tarefa aberta — criar próxima ação
-        </button>
-      )}
-
-      <div className="flex items-center gap-1 border-b border-line">
-        <SubTab active={sub === "tarefas"} onClick={() => setSub("tarefas")} icon={ListTodo} label="Tarefas" />
-        <SubTab active={sub === "anotacoes"} onClick={() => setSub("anotacoes")} icon={StickyNote} label="Anotações" />
-        <SubTab active={sub === "arquivos"} onClick={() => setSub("arquivos")} icon={Paperclip} label="Arquivos" />
-      </div>
-
-      {sub === "tarefas" && (
-        <div className="space-y-1.5">
-          {doneTasks.length === 0 && <p className="py-4 text-center text-sm text-muted">Sem tarefas concluídas ainda.</p>}
-          {doneTasks.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-              <span className="flex-1 text-muted line-through">{t.title}</span>
-              {t.dueDate && <span className="text-[11px] text-muted">{dayMonth(t.dueDate)}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-      {sub === "anotacoes" && (
-        <div className="space-y-2">
-          {notes.length === 0 && <p className="py-4 text-center text-sm text-muted">Sem anotações ainda.</p>}
-          {notes.map((n) => (
-            <div key={n.id} className="rounded-lg border border-line bg-surface px-3 py-2">
-              <p className="text-[11px] text-muted">
-                {n.author ?? "—"} · {dayMonth(n.createdAt)} {clockLabel(n.createdAt)}
-              </p>
-              <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{n.body}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      {sub === "arquivos" && <CrmDocuments dealId={dealId} documents={documents} compact />}
-    </div>
-  );
-}
+/* ── Zona central: tarefa aberta em destaque ───────────── */
 
 function OpenTaskCard({
   task,
@@ -1588,61 +1837,6 @@ function AssigneesControl({
         )}
       </div>
     </div>
-  );
-}
-
-function CenterTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Square; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
-        active ? "bg-subtle text-ink" : "text-muted hover:bg-subtle hover:text-ink",
-      )}
-    >
-      <Icon className="h-4 w-4" /> {label}
-    </button>
-  );
-}
-
-function SubTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Square; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-semibold transition-colors",
-        active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" /> {label}
-    </button>
-  );
-}
-
-function ActivityTab({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-  badge,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof Square;
-  label: string;
-  badge?: number;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors",
-        active ? "bg-subtle text-ink" : "text-muted hover:bg-subtle hover:text-ink",
-      )}
-    >
-      <Icon className="h-4 w-4" /> {label}
-      {badge != null && <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{badge}</span>}
-    </button>
   );
 }
 

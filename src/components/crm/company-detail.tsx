@@ -14,6 +14,7 @@ import { ObjectProperties } from "./object-properties";
 import { TagPicker } from "./tag-picker";
 import { EditableFields } from "./editable-fields";
 import { DeleteButton } from "./delete-button";
+import { RecordHighlights } from "./record-highlights";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -36,9 +37,9 @@ export function CompanyDetail({
   tags: Tag[];
   properties: PropertyDef[];
 }) {
-  const openValue = deals
-    .filter((d) => d.stage !== "ganho" && d.stage !== "perdido")
-    .reduce((s, d) => s + d.monthlyValue, 0);
+  const openDeals = deals.filter((d) => d.stage !== "ganho" && d.stage !== "perdido");
+  const openValue = openDeals.reduce((s, d) => s + d.monthlyValue, 0);
+  const wonCount = deals.filter((d) => d.stage === "ganho").length;
   const companyProps = properties.filter((p) => p.objectType === "company");
 
   return (
@@ -63,21 +64,22 @@ export function CompanyDetail({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {openValue > 0 && (
-            <div className="text-right">
-              <p className="text-lg font-bold text-ink">{formatBRL(openValue)}</p>
-              <p className="text-xs text-muted">em aberto/mês</p>
-            </div>
-          )}
-          <DeleteButton
-            endpoint="/api/crm/companies"
-            id={company.id}
-            redirectTo="/gerencial/comercial/listas"
-            confirmLabel={`Excluir “${company.name}”?`}
-          />
-        </div>
+        <DeleteButton
+          endpoint="/api/crm/companies"
+          id={company.id}
+          redirectTo="/gerencial/comercial/listas"
+          confirmLabel={`Excluir “${company.name}”?`}
+        />
       </div>
+
+      <RecordHighlights
+        items={[
+          { label: "Negócios", value: deals.length },
+          { label: "Em aberto/mês", value: formatBRL(openValue) },
+          { label: "Ganhos", value: wonCount },
+          { label: "Contatos", value: contacts.length },
+        ]}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Coluna principal: deals + contatos */}
