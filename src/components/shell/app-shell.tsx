@@ -46,7 +46,7 @@ export function AppShell({
   }, [setCollapsed]);
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex min-h-screen bg-canvas pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <Sidebar
         groups={groups}
         role={user.role}
@@ -56,7 +56,7 @@ export function AppShell({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar user={user} groups={groups} onOpenSearch={() => setSearchOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <main className="flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:p-8 lg:pb-[max(2rem,env(safe-area-inset-bottom))]">
           <ReadOnlyProvider value={Boolean(user.readOnly)}>{children}</ReadOnlyProvider>
         </main>
       </div>

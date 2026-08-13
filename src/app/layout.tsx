@@ -24,6 +24,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Ocupa a tela toda no PWA instalado; o conteúdo respeita o safe-area (notch).
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#2a63c9" },
     { media: "(prefers-color-scheme: dark)", color: "#0b1220" },

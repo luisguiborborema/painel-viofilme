@@ -34,7 +34,7 @@ export function Topbar({
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-line bg-surface/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:px-6">
       <button
         className="rounded-lg p-2 text-ink hover:bg-canvas lg:hidden"
         onClick={() => setMobileNav((v) => !v)}
@@ -114,7 +114,7 @@ export function Topbar({
 
       {/* Navegação mobile */}
       {mobileNav && (
-        <div className="absolute inset-x-0 top-16 z-20 border-b border-line bg-surface p-3 shadow-lg lg:hidden">
+        <div className="absolute inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-20 max-h-[calc(100vh-4rem-env(safe-area-inset-top))] overflow-y-auto border-b border-line bg-surface p-3 shadow-lg lg:hidden">
           <nav className="space-y-3">
             {groups.map((group, gi) => (
               <div key={group.title ?? `group-${gi}`} className="space-y-1">
