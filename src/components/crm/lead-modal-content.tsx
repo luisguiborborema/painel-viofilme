@@ -124,6 +124,7 @@ export function LeadModalContent({
   scripts = DEAL_SCRIPTS,
   documents = [],
   templates = [],
+  configuredScore = null,
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -144,6 +145,7 @@ export function LeadModalContent({
   scripts?: DealScript[];
   documents?: CrmDocument[];
   templates?: DocTemplate[];
+  configuredScore?: number | null;
 }) {
   const router = useRouter();
   const { layout, setLayout } = useLeadModalLayout();
@@ -468,6 +470,7 @@ export function LeadModalContent({
         >
           <AboutPanel
             lead={lead}
+            configuredScore={configuredScore}
             currentStage={currentStage}
             pipeline={pipeline}
             pipelines={pipelines}
@@ -630,6 +633,7 @@ function Collapsible({
 
 function AboutPanel({
   lead,
+  configuredScore = null,
   currentStage,
   pipeline,
   pipelines,
@@ -646,6 +650,7 @@ function AboutPanel({
   onSaveObject,
 }: {
   lead: CrmLead;
+  configuredScore?: number | null;
   currentStage?: Stage;
   pipeline: Pipeline;
   pipelines: Pipeline[];
@@ -682,6 +687,11 @@ function AboutPanel({
         </MiniField>
         {pipelines.length > 1 && (
           <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
+        )}
+        {configuredScore != null && (
+          <MiniField icon={Sparkles} label="Pontuação (regras)">
+            <span className="font-semibold">{configuredScore}</span> pts
+          </MiniField>
         )}
         <div className="pt-1">
           <ScoreCard lead={lead} />

@@ -440,6 +440,96 @@ export type PropertyGroup = {
   position: number;
 };
 
+/* ── Lead scoring configurável (regras → pontos), estilo HubSpot ────────── */
+
+export type ScoreRuleOp = "eq" | "neq" | "contains" | "gt" | "lt" | "filled" | "empty";
+
+export type LeadScoreRule = {
+  id: string;
+  label: string;
+  field: string; // nativo (monthly_value, probability, priority, source, stage, has_phone, has_email) ou chave de propriedade
+  op: ScoreRuleOp;
+  value: string;
+  points: number; // pode ser negativo (critério negativo do HubSpot)
+};
+
+export const SCORE_RULE_FIELDS: { key: string; label: string }[] = [
+  { key: "monthly_value", label: "Valor/mês" },
+  { key: "media_budget", label: "Verba de mídia" },
+  { key: "probability", label: "Probabilidade" },
+  { key: "priority", label: "Prioridade" },
+  { key: "source", label: "Origem" },
+  { key: "stage", label: "Etapa (chave)" },
+  { key: "has_phone", label: "Tem telefone" },
+  { key: "has_email", label: "Tem e-mail" },
+];
+
+export const SCORE_RULE_OPS: { key: ScoreRuleOp; label: string }[] = [
+  { key: "eq", label: "é" },
+  { key: "neq", label: "não é" },
+  { key: "contains", label: "contém" },
+  { key: "gt", label: "maior que" },
+  { key: "lt", label: "menor que" },
+  { key: "filled", label: "preenchido" },
+  { key: "empty", label: "vazio" },
+];
+
+function scoreFieldValue(lead: CrmLead, field: string): unknown {
+  switch (field) {
+    case "monthly_value":
+      return lead.monthlyValue;
+    case "media_budget":
+      return lead.mediaBudget;
+    case "probability":
+      return lead.probability;
+    case "priority":
+      return lead.priority;
+    case "source":
+      return lead.source;
+    case "stage":
+      return lead.stage;
+    case "has_phone":
+      return lead.contactPhone ? "sim" : "";
+    case "has_email":
+      return lead.contactEmail ? "sim" : "";
+    default:
+      return lead.properties?.[field];
+  }
+}
+
+function matchScoreRule(raw: unknown, op: ScoreRuleOp, target: string): boolean {
+  const s = raw == null ? "" : String(raw).toLowerCase();
+  const t = (target ?? "").toLowerCase();
+  const n = Number(raw);
+  const tn = Number(target);
+  switch (op) {
+    case "filled":
+      return s.trim() !== "";
+    case "empty":
+      return s.trim() === "";
+    case "neq":
+      return s !== t;
+    case "contains":
+      return s.includes(t);
+    case "gt":
+      return !Number.isNaN(n) && !Number.isNaN(tn) && n > tn;
+    case "lt":
+      return !Number.isNaN(n) && !Number.isNaN(tn) && n < tn;
+    case "eq":
+    default:
+      return s === t;
+  }
+}
+
+/** Soma os pontos das regras atendidas por um negócio. Puro. */
+export function computeScoreFromRules(lead: CrmLead, rules: LeadScoreRule[]): number {
+  let score = 0;
+  for (const r of rules) {
+    if (matchScoreRule(scoreFieldValue(lead, r.field), r.op, r.value)) score += r.points;
+  }
+  return score;
+}
+
 /* ── Workflows (fluxos de automação estilo HubSpot) ────────────────────── */
 
 export type WorkflowActionType =

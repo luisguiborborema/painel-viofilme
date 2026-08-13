@@ -12,6 +12,7 @@ import {
   type PropertyDef,
   type PropertyGroup,
   type Workflow,
+  type LeadScoreRule,
   type Tag,
   type TaskFlow,
   type CaptureForm,
@@ -27,7 +28,8 @@ import { ScriptsManager } from "./scripts-manager";
 import { AssignmentManager } from "./assignment-manager";
 import { CaptureFormsManager } from "./capture-forms-manager";
 import { DuplicatesManager } from "./duplicates-manager";
-import { ReasonsManager, ShortcutPanel, LeadScorePanel } from "./settings-extras";
+import { ReasonsManager, ShortcutPanel } from "./settings-extras";
+import { LeadScoreManager } from "./lead-score-manager";
 import { CrmSettingsNav, type SettingsSection } from "./crm-settings-nav";
 
 /** Seções estruturais: escondidas de quem não é gestor/C-level (§4 RBAC). */
@@ -58,11 +60,13 @@ export function CrmSettings({
   propertyGroups = [],
   workflows = [],
   workflowStats = {},
+  leadScoreRules = [],
 }: {
   properties: PropertyDef[];
   propertyGroups?: PropertyGroup[];
   workflows?: Workflow[];
   workflowStats?: Record<string, { active: number; done: number; canceled: number }>;
+  leadScoreRules?: LeadScoreRule[];
   pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
@@ -263,8 +267,13 @@ export function CrmSettings({
     {
       key: "leadscore",
       label: "Regras de lead score",
-      description: "Como o score é calculado (pesos e gatilhos).",
-      node: <LeadScorePanel />,
+      description: "Some pontos por critério (estilo HubSpot) — o total vira a Pontuação (regras) do negócio.",
+      node: (
+        <LeadScoreManager
+          initialRules={leadScoreRules}
+          dealProps={properties.filter((p) => p.objectType === "deal").map((p) => ({ key: p.key, label: p.label }))}
+        />
+      ),
     },
     {
       key: "import",

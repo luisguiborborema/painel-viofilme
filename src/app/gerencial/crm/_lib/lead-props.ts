@@ -15,7 +15,9 @@ import {
   getCrmPipelines,
   getCrmComments,
   getCardLayout,
+  getLeadScoreRules,
 } from "@/lib/data/queries";
+import { computeScoreFromRules } from "@/lib/data/crm";
 import { getSession } from "@/lib/auth/session";
 
 /**
@@ -38,7 +40,7 @@ export async function getLeadDetailProps(id: string) {
       getAttendants(),
       getCrmLostReasons(),
     ]);
-  const [flows, dealHistory, pipelines, comments, session, cardFields, scripts, documents, templates] = await Promise.all([
+  const [flows, dealHistory, pipelines, comments, session, cardFields, scripts, documents, templates, scoreRules] = await Promise.all([
     getCrmTaskFlows(),
     getDealHistory(id),
     getCrmPipelines(),
@@ -48,7 +50,9 @@ export async function getLeadDetailProps(id: string) {
     getCrmScripts(),
     getCrmDocuments({ dealId: id }),
     getDocTemplates(),
+    getLeadScoreRules(),
   ]);
+  const configuredScore = scoreRules.length ? computeScoreFromRules(lead, scoreRules) : null;
 
   // Contatos ASSOCIADOS ao negócio (via deal_contacts + o primário).
   const assocIds = new Set<string>();
@@ -77,5 +81,6 @@ export async function getLeadDetailProps(id: string) {
     scripts,
     documents,
     templates,
+    configuredScore,
   };
 }

@@ -1578,6 +1578,7 @@ import {
   type PropertyDef,
   type PropertyGroup,
   type Workflow,
+  type LeadScoreRule,
   type CompanyDetail,
   type ContactDetail,
 } from "./crm";
@@ -1729,6 +1730,11 @@ export async function getWorkflowStats(): Promise<
 > {
   if (isSupabaseConfigured()) return sb.sbGetWorkflowStats();
   return {};
+}
+
+export async function getLeadScoreRules(): Promise<LeadScoreRule[]> {
+  if (isSupabaseConfigured()) return sb.sbGetLeadScoreRules();
+  return [];
 }
 
 export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {
