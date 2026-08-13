@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowLeft,
   Check,
   CheckCheck,
   FileText,
@@ -318,9 +319,14 @@ export function InboxClient({
   const unassigned = conversations.filter((c) => !c.assignedTo && c.status !== "closed").length;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden border-t border-line">
-      {/* Coluna 1 — lista de conversas */}
-      <aside className="flex w-full max-w-xs flex-col border-r border-line bg-surface md:w-80">
+    <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-hidden border-t border-line">
+      {/* Coluna 1 — lista de conversas. No mobile alterna com o chat (esconde quando há conversa aberta). */}
+      <aside
+        className={cn(
+          "w-full flex-col border-r border-line bg-surface lg:flex lg:w-80 lg:shrink-0",
+          selected ? "hidden" : "flex",
+        )}
+      >
         <div className="border-b border-line p-3">
           <div className="mb-2 flex items-center gap-2">
             <MessagesSquare className="h-4 w-4 text-brand-600" />
@@ -426,8 +432,13 @@ export function InboxClient({
         </div>
       </aside>
 
-      {/* Coluna 2 — chat */}
-      <section className="flex min-w-0 flex-1 flex-col bg-canvas">
+      {/* Coluna 2 — chat. No mobile só aparece quando há conversa selecionada. */}
+      <section
+        className={cn(
+          "min-w-0 flex-1 flex-col bg-canvas lg:flex",
+          selected ? "flex" : "hidden",
+        )}
+      >
         {!selected ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted">
             <MessagesSquare className="h-10 w-10 opacity-40" />
@@ -436,13 +447,20 @@ export function InboxClient({
         ) : (
           <>
             <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-semibold text-emerald-600">
+              <div className="flex min-w-0 items-center gap-2">
+                <button
+                  onClick={() => setSelectedId(null)}
+                  aria-label="Voltar para conversas"
+                  className="-ml-1 shrink-0 rounded-lg p-1 text-muted hover:bg-subtle lg:hidden"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-semibold text-emerald-600">
                   {initials(conversationTitle(selected))}
                 </span>
-                <div>
-                  <p className="text-sm font-semibold text-ink">{conversationTitle(selected)}</p>
-                  <p className="text-xs text-muted">{formatPhone(selected.phone)}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">{conversationTitle(selected)}</p>
+                  <p className="truncate text-xs text-muted">{formatPhone(selected.phone)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -505,7 +523,7 @@ export function InboxClient({
               )}
             </div>
 
-            <div className="border-t border-line bg-surface p-3">
+            <div className="border-t border-line bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <input
                 ref={fileRef}
                 type="file"
