@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   ArrowUpDown,
   Check,
+  Columns3,
   Download,
   ListChecks,
   Search,
@@ -44,6 +45,17 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: "todos", label: "Todos" },
 ];
 
+// Colunas ocultáveis (Negócio é fixo). Persistido por usuário no localStorage.
+const HIDEABLE_COLS: { key: string; label: string }[] = [
+  { key: "empresa", label: "Empresa" },
+  { key: "stage", label: "Funil / Estágio" },
+  { key: "owner", label: "Responsável" },
+  { key: "value", label: "Valor" },
+  { key: "priority", label: "Prioridade" },
+  { key: "days", label: "Dias" },
+  { key: "next", label: "Próx. ação" },
+];
+
 export function CrmList({
   cards,
   pipelines = [],
@@ -78,6 +90,34 @@ export function CrmList({
   const [bulkTask, setBulkTask] = useState(false);
   const [losing, setLosing] = useState(false);
   const [loseReason, setLoseReason] = useState("");
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [colsOpen, setColsOpen] = useState(false);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const raw = localStorage.getItem("crm-list-cols");
+      if (raw) setHidden(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore */
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  function toggleCol(key: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem("crm-list-cols", JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+  const shows = (key: string) => !hidden.has(key);
 
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const stageMetaByKey = useMemo(() => {
@@ -140,6 +180,7 @@ export function CrmList({
   }, [rows, search, pipelineFilter, status, mine, tagFilter, sortKey, sortDir, currentUser]);
 
   const totalValue = filtered.reduce((s, c) => s + c.monthlyValue, 0);
+  const weightedValue = filtered.reduce((s, c) => s + c.monthlyValue * (c.probability / 100), 0);
   const allSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id));
 
   function toggleSort(key: SortKey) {
@@ -327,9 +368,36 @@ export function CrmList({
             ))}
           </select>
         )}
+        <div className="relative ml-auto">
+          <button
+            onClick={() => setColsOpen((o) => !o)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            <Columns3 className="h-4 w-4" /> Colunas
+          </button>
+          {colsOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setColsOpen(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Exibir colunas</p>
+                {HIDEABLE_COLS.map((col) => (
+                  <label key={col.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ink hover:bg-subtle">
+                    <input
+                      type="checkbox"
+                      checked={shows(col.key)}
+                      onChange={() => toggleCol(col.key)}
+                      className="h-4 w-4 rounded border-line accent-brand-600"
+                    />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <button
           onClick={() => exportCsv("todos")}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle"
         >
           <Download className="h-4 w-4" /> Exportar
         </button>
@@ -337,6 +405,8 @@ export function CrmList({
 
       <p className="text-sm text-muted">
         {filtered.length} negócios · <span className="font-semibold text-ink">{formatBRL(totalValue)}</span>
+        {" · pond. "}
+        <span className="font-semibold text-ink">{formatBRL(weightedValue)}</span>
       </p>
 
       {/* Barra de ações em massa */}
@@ -413,19 +483,21 @@ export function CrmList({
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-line accent-brand-600" />
               </th>
               <Th label="Negócio" onClick={() => toggleSort("name")} active={sortKey === "name"} dir={sortDir} />
-              <Th label="Empresa" onClick={() => toggleSort("empresa")} active={sortKey === "empresa"} dir={sortDir} />
-              <Th label="Funil / Estágio" onClick={() => toggleSort("stage")} active={sortKey === "stage"} dir={sortDir} />
-              <Th label="Responsável" onClick={() => toggleSort("owner")} active={sortKey === "owner"} dir={sortDir} />
-              <Th label="Valor" onClick={() => toggleSort("value")} active={sortKey === "value"} dir={sortDir} right />
-              <Th label="Prioridade" onClick={() => toggleSort("priority")} active={sortKey === "priority"} dir={sortDir} />
-              <Th label="Dias" onClick={() => toggleSort("days")} active={sortKey === "days"} dir={sortDir} right />
-              <th className="px-3 py-2.5">Próx. ação</th>
+              {shows("empresa") && <Th label="Empresa" onClick={() => toggleSort("empresa")} active={sortKey === "empresa"} dir={sortDir} />}
+              {shows("stage") && <Th label="Funil / Estágio" onClick={() => toggleSort("stage")} active={sortKey === "stage"} dir={sortDir} />}
+              {shows("owner") && <Th label="Responsável" onClick={() => toggleSort("owner")} active={sortKey === "owner"} dir={sortDir} />}
+              {shows("value") && <Th label="Valor" onClick={() => toggleSort("value")} active={sortKey === "value"} dir={sortDir} right />}
+              {shows("priority") && <Th label="Prioridade" onClick={() => toggleSort("priority")} active={sortKey === "priority"} dir={sortDir} />}
+              {shows("days") && <Th label="Dias" onClick={() => toggleSort("days")} active={sortKey === "days"} dir={sortDir} right />}
+              {shows("next") && <th className="px-3 py-2.5">Próx. ação</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-10 text-center text-muted">Nenhum negócio com esses filtros.</td>
+                <td colSpan={2 + HIDEABLE_COLS.filter((col) => shows(col.key)).length} className="px-3 py-10 text-center text-muted">
+                  Nenhum negócio com esses filtros.
+                </td>
               </tr>
             )}
             {filtered.map((c) => {
@@ -446,30 +518,38 @@ export function CrmList({
                     <p className="font-medium text-ink">{c.name}</p>
                     {c.contactName && <p className="text-xs text-muted">{c.contactName}</p>}
                   </td>
-                  <td className="px-3 py-2.5 text-ink">{companyName(c)}</td>
-                  <td className="px-3 py-2.5">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: m.color }} />
-                      <span className="text-ink">{m.label}</span>
-                    </span>
-                    <p className="text-[11px] text-muted">{m.pipeline}</p>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {owners.length ? <AvatarStack names={owners} team={teamMembers} /> : <span className="text-muted">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-ink">{formatBRL(c.monthlyValue)}</td>
-                  <td className="px-3 py-2.5">
-                    {pr && (
-                      <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", pr.chip)}>
-                        <span className={cn("h-1.5 w-1.5 rounded-full", pr.dot)} /> {pr.label}
+                  {shows("empresa") && <td className="px-3 py-2.5 text-ink">{companyName(c)}</td>}
+                  {shows("stage") && (
+                    <td className="px-3 py-2.5">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: m.color }} />
+                        <span className="text-ink">{m.label}</span>
                       </span>
-                    )}
-                  </td>
-                  <td className={cn("px-3 py-2.5 text-right", c.rot === "stale" ? "font-semibold text-rose-500" : "text-muted")}>
-                    {c.daysInStage}
-                    {(c.noShowCount ?? 0) > 0 && <span className="ml-1 text-[10px] text-rose-500">·{c.noShowCount}✕</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted">{c.nextTaskDue ? dayMonth(c.nextTaskDue) : "—"}</td>
+                      <p className="text-[11px] text-muted">{m.pipeline}</p>
+                    </td>
+                  )}
+                  {shows("owner") && (
+                    <td className="px-3 py-2.5">
+                      {owners.length ? <AvatarStack names={owners} team={teamMembers} /> : <span className="text-muted">—</span>}
+                    </td>
+                  )}
+                  {shows("value") && <td className="px-3 py-2.5 text-right font-semibold text-ink">{formatBRL(c.monthlyValue)}</td>}
+                  {shows("priority") && (
+                    <td className="px-3 py-2.5">
+                      {pr && (
+                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", pr.chip)}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", pr.dot)} /> {pr.label}
+                        </span>
+                      )}
+                    </td>
+                  )}
+                  {shows("days") && (
+                    <td className={cn("px-3 py-2.5 text-right", c.rot === "stale" ? "font-semibold text-rose-500" : "text-muted")}>
+                      {c.daysInStage}
+                      {(c.noShowCount ?? 0) > 0 && <span className="ml-1 text-[10px] text-rose-500">·{c.noShowCount}✕</span>}
+                    </td>
+                  )}
+                  {shows("next") && <td className="px-3 py-2.5 text-muted">{c.nextTaskDue ? dayMonth(c.nextTaskDue) : "—"}</td>}
                 </tr>
               );
             })}

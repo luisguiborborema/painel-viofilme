@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
   BarChart3,
   Bell,
+  CalendarClock,
   LayoutGrid,
   List,
   Pause,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/utils";
+import { dayMonth } from "@/lib/datetime";
 import { useReadOnly } from "@/components/shell/read-only-context";
 import {
   DEFAULT_PIPELINE,
@@ -171,10 +173,17 @@ function LeadCard({
           <TagChips ids={card.tags} tags={allTags} size="xs" />
         </div>
       )}
-      <p className="mt-2 text-sm font-bold text-ink">
-        {formatBRL(card.monthlyValue)}
-        <span className="text-xs font-normal text-muted">/mês</span>
-      </p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-ink">
+          {formatBRL(card.monthlyValue)}
+          <span className="text-xs font-normal text-muted">/mês</span>
+        </p>
+        {card.expectedCloseAt && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted" title="Fechamento previsto">
+            <CalendarClock className="h-3 w-3" /> {dayMonth(card.expectedCloseAt)}
+          </span>
+        )}
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {card.cadenceActive && (
           <span
@@ -717,9 +726,10 @@ export function CrmPipeline({
     router.refresh();
   }
 
-  const openValue = visibleCards
-    .filter((c) => !closedKeys.has(c.stage))
-    .reduce((s, c) => s + c.monthlyValue, 0);
+  const openCards = visibleCards.filter((c) => !closedKeys.has(c.stage));
+  const openValue = openCards.reduce((s, c) => s + c.monthlyValue, 0);
+  // Valor ponderado (estilo HubSpot): valor × probabilidade da etapa.
+  const openWeighted = openCards.reduce((s, c) => s + c.monthlyValue * (c.probability / 100), 0);
 
   async function moveTo(stage: Stage) {
     const id = dragId;
@@ -809,7 +819,7 @@ export function CrmPipeline({
               view === "lista" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
             )}
           >
-            <List className="h-3.5 w-3.5" /> Lista
+            <List className="h-3.5 w-3.5" /> Tabela
           </button>
           <button
             onClick={() => setView("forecast")}
@@ -917,9 +927,10 @@ export function CrmPipeline({
           </div>
           <SettingsShortcut section="pipelines" label="Configurar funil" />
           <p className="text-sm text-muted">
-            {visibleCards.filter((c) => !closedKeys.has(c.stage)).length}{" "}
+            {openCards.length}{" "}
             negócios · <span className="font-semibold text-ink">{formatBRL(openValue)}</span>{" "}
-            em aberto
+            em aberto · pond.{" "}
+            <span className="font-semibold text-ink">{formatBRL(openWeighted)}</span>
           </p>
         </div>
         <button
@@ -1067,6 +1078,7 @@ export function CrmPipeline({
         {stages.filter((s) => s.kind !== "lost").map((s, si) => {
           const inStage = visibleCards.filter((c) => c.stage === s.key);
           const sum = inStage.reduce((acc, c) => acc + c.monthlyValue, 0);
+          const weighted = inStage.reduce((acc, c) => acc + c.monthlyValue * (c.probability / 100), 0);
           // Adição rápida (Kommo) só no reservatório do outbound (1ª coluna do SDR).
           const showQuickAdd = si === 0 && isReservoir && !showFrozen;
           return (
@@ -1099,7 +1111,11 @@ export function CrmPipeline({
               </div>
               {s.hint && <p className="mb-1 px-1 text-[10px] leading-tight text-muted">{s.hint}</p>}
               {sum > 0 && (
-                <p className="mb-2 px-1 text-[11px] text-muted">{formatBRL(sum)}</p>
+                <p className="mb-2 px-1 text-[11px] text-muted">
+                  <span className="font-semibold text-ink">{formatBRL(sum)}</span>
+                  {" · pond. "}
+                  {formatBRL(weighted)}
+                </p>
               )}
               {showQuickAdd && <QuickAdd onAdd={(name) => quickAdd(name, s.id)} />}
               <div className="flex flex-1 flex-col gap-2">
