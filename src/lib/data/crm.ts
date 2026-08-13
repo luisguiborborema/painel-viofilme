@@ -425,6 +425,19 @@ export type PropertyDef = {
   options: PropertyOption[];
   position: number;
   isDefault: boolean;
+  // HubSpot (migração 0103) — opcionais, tolerantes se a migração não rodou.
+  groupId?: string | null;
+  description?: string;
+  required?: boolean;
+  isArchived?: boolean;
+};
+
+/** Grupo de propriedades (por objeto), estilo HubSpot. */
+export type PropertyGroup = {
+  id: string;
+  objectType: CrmObjectType;
+  name: string;
+  position: number;
 };
 
 export type Tag = { id: string; name: string; color: string };

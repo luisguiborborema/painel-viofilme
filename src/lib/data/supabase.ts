@@ -2010,6 +2010,7 @@ import type {
   Stage,
   Tag,
   PropertyDef,
+  PropertyGroup,
   PropertyOption,
   CrmObjectType,
   PropertyFieldType,
@@ -2675,11 +2676,22 @@ export async function sbGetCrmFreezeReasons(): Promise<FreezeReason[]> {
 
 export async function sbGetCrmProperties(): Promise<PropertyDef[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("crm_properties")
-    .select("id,object_type,key,label,field_type,options,position,is_default")
-    .order("position", { ascending: true });
-  return (data ?? []).map((r) => ({
+  // Tenta com os campos novos (migração 0103); cai para o básico se não existirem.
+  let rows = (
+    await supabase
+      .from("crm_properties")
+      .select("id,object_type,key,label,field_type,options,position,is_default,group_id,description,required,is_archived")
+      .order("position", { ascending: true })
+  ).data as Record<string, unknown>[] | null;
+  if (!rows) {
+    rows = (
+      await supabase
+        .from("crm_properties")
+        .select("id,object_type,key,label,field_type,options,position,is_default")
+        .order("position", { ascending: true })
+    ).data as Record<string, unknown>[] | null;
+  }
+  return (rows ?? []).map((r) => ({
     id: String(r.id),
     objectType: (r.object_type as CrmObjectType) ?? "deal",
     key: String(r.key),
@@ -2688,6 +2700,24 @@ export async function sbGetCrmProperties(): Promise<PropertyDef[]> {
     options: (r.options as PropertyOption[] | null) ?? [],
     position: Number(r.position ?? 0),
     isDefault: Boolean(r.is_default),
+    groupId: (r.group_id as string | null) ?? null,
+    description: typeof r.description === "string" ? r.description : undefined,
+    required: Boolean(r.required),
+    isArchived: Boolean(r.is_archived),
+  }));
+}
+
+export async function sbGetCrmPropertyGroups(): Promise<PropertyGroup[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("crm_property_groups")
+    .select("id,object_type,name,position")
+    .order("position", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    objectType: (r.object_type as CrmObjectType) ?? "deal",
+    name: String(r.name),
+    position: Number(r.position ?? 0),
   }));
 }
 

@@ -1576,6 +1576,7 @@ import {
   type Pipeline,
   type Tag,
   type PropertyDef,
+  type PropertyGroup,
   type CompanyDetail,
   type ContactDetail,
 } from "./crm";
@@ -1710,6 +1711,11 @@ export async function getCrmTags(): Promise<Tag[]> {
 export async function getCrmProperties(): Promise<PropertyDef[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmProperties();
   return MOCK_PROPERTIES;
+}
+
+export async function getCrmPropertyGroups(): Promise<PropertyGroup[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmPropertyGroups();
+  return [];
 }
 
 export async function getCrmCompany(id: string): Promise<CompanyDetail | null> {

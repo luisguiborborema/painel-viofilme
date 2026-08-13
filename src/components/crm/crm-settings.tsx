@@ -10,6 +10,7 @@ import {
   type LostReason,
   type Pipeline,
   type PropertyDef,
+  type PropertyGroup,
   type Tag,
   type TaskFlow,
   type CaptureForm,
@@ -52,8 +53,10 @@ export function CrmSettings({
   lostReasons = [],
   freezeReasons = [],
   canEditStructural = false,
+  propertyGroups = [],
 }: {
   properties: PropertyDef[];
+  propertyGroups?: PropertyGroup[];
   pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
@@ -105,7 +108,7 @@ export function CrmSettings({
       label: "Propriedades customizadas",
       description:
         "Campos extras para Empresas, Contatos e Negócios — como no HubSpot. Aparecem na ficha de cada objeto (e no bloco “Campos” do card).",
-      node: <PropertyManager properties={properties} />,
+      node: <PropertyManager properties={properties} groups={propertyGroups} />,
     },
     {
       key: "tags",

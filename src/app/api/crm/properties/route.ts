@@ -15,7 +15,7 @@ const FIELD_TYPES = [
 type Option = { value: string; label: string; color?: string };
 
 type Body = {
-  action?: "create" | "update" | "delete";
+  action?: "create" | "update" | "delete" | "archive" | "unarchive" | "create-group" | "delete-group";
   id?: string;
   objectType?: string;
   key?: string;
@@ -23,7 +23,19 @@ type Body = {
   fieldType?: string;
   options?: Option[];
   position?: number;
+  description?: string;
+  required?: boolean;
+  groupId?: string | null;
+  name?: string; // nome do grupo (create-group)
 };
+
+/** Chaves que só existem após a migração 0103 (grupos/description/required/archived). */
+const NEW_KEYS = ["group_id", "description", "required", "is_archived"];
+function stripNew(patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(patch)) if (!NEW_KEYS.includes(k)) out[k] = patch[k];
+  return out;
+}
 
 /** Gera uma key estável a partir do rótulo (slug). */
 function slug(s: string): string {
@@ -65,6 +77,46 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
+  // Arquivar (soft) — tolerante: se a coluna is_archived não existir (pré-0103),
+  // faz o hard delete como fallback pra propriedade sair da lista mesmo assim.
+  if (action === "archive" || action === "unarchive") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const res = await supabase.from("crm_properties").update({ is_archived: action === "archive" }).eq("id", body.id);
+    if (res.error?.code === "42703") {
+      if (action === "archive") await supabase.from("crm_properties").delete().eq("id", body.id);
+      return NextResponse.json({ ok: true, persisted: true, fallback: "no-archive-column" });
+    }
+    if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // Grupos de propriedades (crm_property_groups) — tolerante se a tabela não existir.
+  if (action === "create-group") {
+    if (!body.objectType || !OBJECT_TYPES.includes(body.objectType)) {
+      return NextResponse.json({ error: "objectType inválido" }, { status: 400 });
+    }
+    if (!body.name?.trim()) return NextResponse.json({ error: "nome ausente" }, { status: 400 });
+    const res = await supabase
+      .from("crm_property_groups")
+      .insert({ object_type: body.objectType, name: body.name.trim(), position: body.position ?? 99 })
+      .select("id")
+      .single();
+    if (res.error) {
+      const missing = res.error.code === "42P01";
+      return NextResponse.json(
+        { error: missing ? "Rode a migração 0103 para usar grupos." : res.error.message },
+        { status: missing ? 400 : 500 },
+      );
+    }
+    return NextResponse.json({ ok: true, persisted: true, id: res.data.id });
+  }
+  if (action === "delete-group") {
+    if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+    const { error } = await supabase.from("crm_property_groups").delete().eq("id", body.id);
+    if (error && error.code !== "42P01") return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
+
   const fieldType = body.fieldType ?? "text";
   if (!FIELD_TYPES.includes(fieldType)) {
     return NextResponse.json({ error: "tipo de campo inválido" }, { status: 400 });
@@ -77,8 +129,12 @@ export async function POST(req: Request) {
     if (body.fieldType != null) patch.field_type = fieldType;
     if (body.options != null) patch.options = body.options;
     if (body.position != null) patch.position = body.position;
-    const { error } = await supabase.from("crm_properties").update(patch).eq("id", body.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (body.groupId !== undefined) patch.group_id = body.groupId;
+    if (body.description !== undefined) patch.description = body.description;
+    if (body.required !== undefined) patch.required = body.required;
+    let res = await supabase.from("crm_properties").update(patch).eq("id", body.id);
+    if (res.error?.code === "42703") res = await supabase.from("crm_properties").update(stripNew(patch)).eq("id", body.id);
+    if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
   }
 
@@ -90,19 +146,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "rótulo ausente" }, { status: 400 });
   }
   const key = body.key ? slug(body.key) : slug(body.label);
-  const { data, error } = await supabase
-    .from("crm_properties")
-    .insert({
-      object_type: body.objectType,
-      key,
-      label: body.label,
-      field_type: fieldType,
-      options: body.options ?? [],
-      position: body.position ?? 99,
-      is_default: false,
-    })
-    .select("id")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, persisted: true, id: data.id, key });
+  const row: Record<string, unknown> = {
+    object_type: body.objectType,
+    key,
+    label: body.label,
+    field_type: fieldType,
+    options: body.options ?? [],
+    position: body.position ?? 99,
+    is_default: false,
+    group_id: body.groupId ?? null,
+    description: body.description ?? null,
+    required: body.required ?? false,
+  };
+  let res = await supabase.from("crm_properties").insert(row).select("id").single();
+  if (res.error?.code === "42703") res = await supabase.from("crm_properties").insert(stripNew(row)).select("id").single();
+  if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, persisted: true, id: res.data.id, key });
 }

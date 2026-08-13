@@ -6,6 +6,7 @@ import {
   getCrmContacts,
   getCrmTags,
   getCrmProperties,
+  getCrmPropertyGroups,
   getCrmPipelines,
   getAttendants,
   getCrmTaskFlows,
@@ -31,7 +32,7 @@ export default async function ConfiguracoesComercialPage() {
     getAttendants(),
     getSession(),
   ]);
-  const [flows, scripts, assignment, captureForms, cardLayout, lostReasons, freezeReasons, clients] = await Promise.all([
+  const [flows, scripts, assignment, captureForms, cardLayout, lostReasons, freezeReasons, clients, propertyGroups] = await Promise.all([
     getCrmTaskFlows(),
     getCrmScripts(),
     getAssignmentConfig(),
@@ -40,6 +41,7 @@ export default async function ConfiguracoesComercialPage() {
     getCrmLostReasons(),
     getCrmFreezeReasons(),
     getClients(),
+    getCrmPropertyGroups(),
   ]);
   const canEdit = hasFullAccess(user?.allowedSections ?? null);
 
@@ -48,6 +50,7 @@ export default async function ConfiguracoesComercialPage() {
       <PageHeader title="Configurações" subtitle="Fonte única de configuração do módulo Comercial." />
       <CrmSettings
         properties={properties}
+        propertyGroups={propertyGroups}
         pipelines={pipelines}
         tags={tags}
         leads={leads}
