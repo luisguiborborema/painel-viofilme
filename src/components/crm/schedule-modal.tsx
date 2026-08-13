@@ -53,9 +53,9 @@ export function ScheduleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-line p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600">
