@@ -52,6 +52,13 @@ export type Condition = { field: string; op: ConditionOp; value: string };
 export type ConditionOp = "contem" | "eh" | "maior" | "menor" | "vazio" | "preenchido";
 export type Lens = "todos" | "com_negocio" | "sem_negocio";
 
+/** Estado de exibição salvo na visão: colunas ocultas + ordenação (estilo HubSpot). */
+export type SavedViewDisplay = {
+  hidden?: string[];
+  sortKey?: string;
+  sortDir?: "asc" | "desc";
+};
+
 export type SavedView = {
   id: string;
   scope: "pessoas" | "empresas";
@@ -59,6 +66,7 @@ export type SavedView = {
   conditions: Condition[];
   lens?: Lens | null;
   isShared: boolean;
+  display?: SavedViewDisplay;
 };
 
 export const CONDITION_OPS: { value: ConditionOp; label: string; forType: ("text" | "number")[] }[] = [

@@ -6,18 +6,34 @@ import type { Condition, Lens, SavedView } from "./listas";
 export async function getSavedViews(ownerId: string): Promise<SavedView[]> {
   if (!isSupabaseConfigured() || !ownerId) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("saved_views")
-    .select("id,scope,name,conditions,lens,is_shared,owner_id")
-    .or(`owner_id.eq.${ownerId},is_shared.eq.true`)
-    .order("created_at", { ascending: true });
-  return (data ?? []).map((r) => ({
+  const filter = `owner_id.eq.${ownerId},is_shared.eq.true`;
+  // Tenta com `display` (coluna nova, migração 0102). Cai para o select básico
+  // se a coluna ainda não existir — não quebra antes de rodar a migração.
+  let rows = (
+    await supabase
+      .from("saved_views")
+      .select("id,scope,name,conditions,lens,is_shared,display")
+      .or(filter)
+      .order("created_at", { ascending: true })
+  ).data as Record<string, unknown>[] | null;
+  if (!rows) {
+    rows = (
+      await supabase
+        .from("saved_views")
+        .select("id,scope,name,conditions,lens,is_shared")
+        .or(filter)
+        .order("created_at", { ascending: true })
+    ).data as Record<string, unknown>[] | null;
+  }
+  return (rows ?? []).map((r) => ({
     id: String(r.id),
     scope: r.scope === "empresas" ? "empresas" : "pessoas",
     name: String(r.name),
     conditions: Array.isArray(r.conditions) ? (r.conditions as Condition[]) : [],
     lens: (r.lens as Lens | null) ?? null,
     isShared: Boolean(r.is_shared),
+    display:
+      r.display && typeof r.display === "object" ? (r.display as SavedView["display"]) : undefined,
   }));
 }
 

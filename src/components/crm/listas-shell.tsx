@@ -271,11 +271,22 @@ export function ListaShell<T extends RowBase>({
     setConditions(v.conditions);
     setLens(v.lens ?? "todos");
     setShowConditions(v.conditions.length > 0);
+    // Restaura colunas + ordenação salvas na visão (estilo HubSpot).
+    if (v.display?.hidden) setHidden(new Set(v.display.hidden));
+    if (v.display?.sortKey) setSortKey(v.display.sortKey);
+    if (v.display?.sortDir) setSortDir(v.display.sortDir);
   }
   async function saveView() {
     const name = window.prompt("Nome da visão salva:");
     if (!name?.trim()) return;
-    await post("/api/crm/saved-views", { action: "create", scope, name: name.trim(), conditions, lens });
+    await post("/api/crm/saved-views", {
+      action: "create",
+      scope,
+      name: name.trim(),
+      conditions,
+      lens,
+      display: { hidden: [...hidden], sortKey, sortDir },
+    });
     router.refresh();
   }
   async function deleteView(id: string) {

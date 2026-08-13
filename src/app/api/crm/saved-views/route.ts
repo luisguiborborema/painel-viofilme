@@ -15,6 +15,7 @@ type Body = {
   conditions?: Cond[];
   lens?: string | null;
   isShared?: boolean;
+  display?: unknown;
 };
 
 /** CRUD das visões salvas (filtros nomeados de Pessoas/Empresas). */
@@ -46,18 +47,21 @@ export async function POST(req: Request) {
   const conditions = (b.conditions ?? [])
     .filter((c) => c.field && c.op)
     .map((c) => ({ field: String(c.field), op: String(c.op), value: String(c.value ?? "") }));
-  const { data, error } = await supabase
-    .from("saved_views")
-    .insert({
-      owner_id: user.id,
-      scope,
-      name: b.name.trim(),
-      conditions,
-      lens: b.lens ?? null,
-      is_shared: Boolean(b.isShared),
-    })
-    .select("id")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, id: data.id });
+  const base = {
+    owner_id: user.id,
+    scope,
+    name: b.name.trim(),
+    conditions,
+    lens: b.lens ?? null,
+    is_shared: Boolean(b.isShared),
+  };
+  const display = b.display && typeof b.display === "object" ? b.display : {};
+  // Tenta gravar com `display` (coluna nova, migração 0102); se a coluna ainda
+  // não existir (42703), grava sem ela — a visão é salva mesmo sem a migração.
+  let res = await supabase.from("saved_views").insert({ ...base, display }).select("id").single();
+  if (res.error?.code === "42703") {
+    res = await supabase.from("saved_views").insert(base).select("id").single();
+  }
+  if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, id: res.data.id });
 }
