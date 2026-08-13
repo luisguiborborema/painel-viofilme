@@ -2019,6 +2019,7 @@ import type {
   WorkflowActionType,
   WorkflowTriggerType,
   LeadScoreRule,
+  ReportDef,
   LostReason,
   FreezeReason,
   TaskFlow,
@@ -2363,6 +2364,14 @@ export async function sbGetLeadScoreRules(): Promise<LeadScoreRule[]> {
   const v = data?.value as { rules?: unknown } | null;
   const rules = Array.isArray(v?.rules) ? (v!.rules as LeadScoreRule[]) : [];
   return rules.filter((r) => r && typeof r.field === "string");
+}
+
+export async function sbGetCrmReports(): Promise<ReportDef[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("crm_settings").select("value").eq("key", "reports").maybeSingle();
+  const v = data?.value as { reports?: unknown } | null;
+  const reports = Array.isArray(v?.reports) ? (v!.reports as ReportDef[]) : [];
+  return reports.filter((r) => r && typeof r.id === "string");
 }
 
 export async function sbGetCrmDocuments(opts?: {

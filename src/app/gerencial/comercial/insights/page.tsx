@@ -2,7 +2,8 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmGoals } from "@/components/crm/crm-goals";
-import { getCrmLeads, getCrmPipelines, getCrmGoals, getStageHistory, getAttendants, crmNowIso } from "@/lib/data/queries";
+import { ReportsBuilder } from "@/components/crm/reports-builder";
+import { getCrmLeads, getCrmPipelines, getCrmGoals, getStageHistory, getAttendants, getCrmReports, crmNowIso } from "@/lib/data/queries";
 import { buildForecast, buildStageTimings, monthKey } from "@/lib/data/crm";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
@@ -10,13 +11,14 @@ import { hasFullAccess } from "@/lib/access";
 export default async function InsightsPage() {
   const nowIso = crmNowIso();
   const curMonth = monthKey(nowIso);
-  const [leads, pipelines, history, team, user, goals] = await Promise.all([
+  const [leads, pipelines, history, team, user, goals, reports] = await Promise.all([
     getCrmLeads(),
     getCrmPipelines(),
     getStageHistory(),
     getAttendants(),
     getSession(),
     getCrmGoals(curMonth),
+    getCrmReports(),
   ]);
   const teamNames = team.map((t) => t.name);
   const timings = buildStageTimings(history, nowIso);
@@ -34,6 +36,11 @@ export default async function InsightsPage() {
       key: "metas",
       label: "Metas",
       content: <CrmGoals forecast={forecast} monthLabel={monthLabel} canEdit={canEditGoals} goals={goals} />,
+    },
+    {
+      key: "relatorios",
+      label: "Relatórios",
+      content: <ReportsBuilder initialReports={reports} leads={leads} />,
     },
   ];
 

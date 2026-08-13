@@ -530,6 +530,85 @@ export function computeScoreFromRules(lead: CrmLead, rules: LeadScoreRule[]): nu
   return score;
 }
 
+/* ── Relatórios customizáveis (estilo HubSpot Reports) ─────────────────── */
+
+export type ReportGroupBy = "owner" | "stage" | "source" | "priority" | "month";
+export type ReportMetric = "count" | "sum_value" | "sum_weighted";
+export type ReportStatus = "abertos" | "ganhos" | "perdidos" | "todos";
+
+export type ReportDef = {
+  id: string;
+  name: string;
+  groupBy: ReportGroupBy;
+  metric: ReportMetric;
+  status: ReportStatus;
+};
+
+export const REPORT_GROUP_BY: { key: ReportGroupBy; label: string }[] = [
+  { key: "owner", label: "Responsável" },
+  { key: "stage", label: "Etapa" },
+  { key: "source", label: "Origem" },
+  { key: "priority", label: "Prioridade" },
+  { key: "month", label: "Mês (criação)" },
+];
+
+export const REPORT_METRIC: { key: ReportMetric; label: string }[] = [
+  { key: "count", label: "Nº de negócios" },
+  { key: "sum_value", label: "Valor/mês (R$)" },
+  { key: "sum_weighted", label: "Valor ponderado (R$)" },
+];
+
+export const REPORT_STATUS: { key: ReportStatus; label: string }[] = [
+  { key: "abertos", label: "Abertos" },
+  { key: "ganhos", label: "Ganhos" },
+  { key: "perdidos", label: "Perdidos" },
+  { key: "todos", label: "Todos" },
+];
+
+function reportGroupKey(lead: CrmLead, by: ReportGroupBy): string {
+  switch (by) {
+    case "owner":
+      return lead.assignees?.[0] || lead.owner || "—";
+    case "stage":
+      return stageLabel(lead.stage);
+    case "source":
+      return lead.source || "—";
+    case "priority":
+      return lead.priority || "media";
+    case "month":
+      return (lead.wonAt || lead.createdAt || "").slice(0, 7) || "—";
+    default:
+      return "—";
+  }
+}
+function reportMetricVal(lead: CrmLead, m: ReportMetric): number {
+  if (m === "sum_value") return lead.monthlyValue;
+  if (m === "sum_weighted") return lead.monthlyValue * ((lead.probability ?? 0) / 100);
+  return 1;
+}
+
+/** Agrega negócios por dimensão/métrica/status. Puro. */
+export function buildReport(
+  leads: CrmLead[],
+  def: ReportDef,
+): { rows: { label: string; value: number }[]; total: number } {
+  let list = leads;
+  if (def.status === "abertos") list = leads.filter((l) => l.stage !== "ganho" && l.stage !== "perdido");
+  else if (def.status === "ganhos") list = leads.filter((l) => l.stage === "ganho");
+  else if (def.status === "perdidos") list = leads.filter((l) => l.stage === "perdido");
+
+  const groups = new Map<string, number>();
+  for (const l of list) {
+    const key = reportGroupKey(l, def.groupBy);
+    groups.set(key, (groups.get(key) ?? 0) + reportMetricVal(l, def.metric));
+  }
+  const rows = [...groups.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => (def.groupBy === "month" ? a.label.localeCompare(b.label) : b.value - a.value));
+  const total = rows.reduce((s, r) => s + r.value, 0);
+  return { rows, total };
+}
+
 /* ── Workflows (fluxos de automação estilo HubSpot) ────────────────────── */
 
 export type WorkflowActionType =
