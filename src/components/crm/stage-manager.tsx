@@ -176,20 +176,35 @@ export function StageManager({
               </div>
             )}
           </div>
-          {pipeline && !pipeline.isDefault && (
+          {pipeline && (
             <div className="flex items-center gap-1.5 text-xs">
               <button
-                onClick={() => pipelineAction({ action: "set-default", id: pipeline.id })}
+                onClick={() => {
+                  const name = window.prompt("Novo nome do pipeline:", pipeline.name);
+                  if (name?.trim() && name.trim() !== pipeline.name) {
+                    pipelineAction({ action: "rename", id: pipeline.id, name: name.trim() });
+                  }
+                }}
                 className="rounded-lg border border-line px-2 py-1 font-medium text-ink hover:bg-subtle"
               >
-                Tornar padrão
+                Renomear
               </button>
-              <button
-                onClick={() => pipelineAction({ action: "delete", id: pipeline.id })}
-                className="rounded-lg border border-line px-2 py-1 font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
-              >
-                Excluir
-              </button>
+              {!pipeline.isDefault && (
+                <>
+                  <button
+                    onClick={() => pipelineAction({ action: "set-default", id: pipeline.id })}
+                    className="rounded-lg border border-line px-2 py-1 font-medium text-ink hover:bg-subtle"
+                  >
+                    Tornar padrão
+                  </button>
+                  <button
+                    onClick={() => pipelineAction({ action: "delete", id: pipeline.id })}
+                    className="rounded-lg border border-line px-2 py-1 font-medium text-muted hover:bg-rose-500/10 hover:text-rose-500"
+                  >
+                    Excluir
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
