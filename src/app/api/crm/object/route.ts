@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { enrollWorkflows } from "@/lib/crm/workflow-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,5 +82,16 @@ export async function POST(req: Request) {
 
   const { error } = await supabase.from(table).update(patch).eq("id", body.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Workflows: gatilho "mudança de propriedade" (só negócios) para cada chave alterada.
+  if (body.objectType === "deal") {
+    const changed: [string, unknown][] = [
+      ...(body.properties ? Object.entries(body.properties) : []),
+      ...(body.fields ? Object.entries(body.fields) : []),
+    ];
+    for (const [k, v] of changed) {
+      await enrollWorkflows({ objectId: body.id, trigger: "property_change", propertyKey: k, propertyValue: v }).catch(() => {});
+    }
+  }
   return NextResponse.json({ ok: true, persisted: true });
 }

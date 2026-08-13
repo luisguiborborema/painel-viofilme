@@ -449,7 +449,8 @@ export type WorkflowActionType =
   | "notify"
   | "set_property"
   | "set_stage"
-  | "assign_owner";
+  | "assign_owner"
+  | "condition";
 
 export const WORKFLOW_ACTION_TYPES: { key: WorkflowActionType; label: string }[] = [
   { key: "task", label: "Criar tarefa" },
@@ -458,10 +459,11 @@ export const WORKFLOW_ACTION_TYPES: { key: WorkflowActionType; label: string }[]
   { key: "set_property", label: "Definir propriedade" },
   { key: "set_stage", label: "Mover para etapa" },
   { key: "assign_owner", label: "Atribuir responsável" },
+  { key: "condition", label: "Condição (continua se…)" },
   { key: "delay", label: "Espera (delay)" },
 ];
 
-export type WorkflowTriggerType = "stage_enter" | "created";
+export type WorkflowTriggerType = "stage_enter" | "created" | "property_change";
 
 export type WorkflowAction = {
   id: string;

@@ -4,7 +4,32 @@ import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import type { WorkflowActionType } from "@/lib/data/crm";
 
 type Admin = ReturnType<typeof createAdminClient>;
-type ActionResult = { status: "ok" | "skipped" | "error"; detail?: string; delayMs?: number };
+type ActionResult = { status: "ok" | "skipped" | "error"; detail?: string; delayMs?: number; stop?: boolean };
+
+/** Avalia uma condição do workflow contra um valor cru do negócio. */
+function evalCondition(raw: unknown, op: string, target: string): boolean {
+  const s = raw == null ? "" : String(raw).toLowerCase();
+  const t = (target ?? "").toLowerCase();
+  const n = Number(raw);
+  const tn = Number(target);
+  switch (op) {
+    case "filled":
+      return s.trim() !== "";
+    case "empty":
+      return s.trim() === "";
+    case "neq":
+      return s !== t;
+    case "contains":
+      return s.includes(t);
+    case "gt":
+      return !Number.isNaN(n) && !Number.isNaN(tn) && n > tn;
+    case "lt":
+      return !Number.isNaN(n) && !Number.isNaN(tn) && n < tn;
+    case "eq":
+    default:
+      return s === t;
+  }
+}
 
 /**
  * Inscreve um negócio nos workflows ATIVOS cujo gatilho casa. Best-effort e
@@ -12,8 +37,10 @@ type ActionResult = { status: "ok" | "skipped" | "error"; detail?: string; delay
  */
 export async function enrollWorkflows(opts: {
   objectId: string;
-  trigger: "stage_enter" | "created";
+  trigger: "stage_enter" | "created" | "property_change";
   stageKey?: string;
+  propertyKey?: string;
+  propertyValue?: unknown;
 }) {
   if (!hasServiceRole()) return;
   const admin = createAdminClient();
@@ -25,8 +52,12 @@ export async function enrollWorkflows(opts: {
   if (error || !wfs?.length) return;
   const matched = wfs.filter((w) => {
     if (opts.trigger === "created") return true;
-    const cfg = (w.trigger_config as { stageKey?: string } | null) ?? {};
-    return Boolean(cfg.stageKey) && cfg.stageKey === opts.stageKey;
+    const cfg = (w.trigger_config as { stageKey?: string; key?: string; value?: string } | null) ?? {};
+    if (opts.trigger === "stage_enter") return Boolean(cfg.stageKey) && cfg.stageKey === opts.stageKey;
+    // property_change: casa a chave; se o gatilho fixa um valor, casa também o valor.
+    if (!cfg.key || cfg.key !== opts.propertyKey) return false;
+    if (cfg.value != null && String(cfg.value) !== "") return String(cfg.value) === String(opts.propertyValue ?? "");
+    return true;
   });
   if (!matched.length) return;
 
@@ -63,7 +94,7 @@ async function runWorkflowAction(
 ): Promise<ActionResult> {
   const { data: deal } = await admin
     .from("crm_leads")
-    .select("name,primary_contact_id,contact_phone,owner,properties")
+    .select("name,primary_contact_id,contact_phone,owner,properties,stage,monthly_value,priority,probability,source")
     .eq("id", dealId)
     .maybeSingle();
   if (!deal) return { status: "skipped", detail: "negócio não encontrado" };
@@ -126,6 +157,27 @@ async function runWorkflowAction(
       await admin.from("crm_leads").update({ owner, assignees: [owner] }).eq("id", dealId);
       return { status: "ok" };
     }
+    case "condition": {
+      const key = String(config.key || "");
+      const op = String(config.op || "eq");
+      const target = String(config.value ?? "");
+      if (!key) return { status: "ok" }; // sem condição definida → segue
+      // Valor: propriedade customizada primeiro; senão campo nativo carregado.
+      const props = (deal.properties as Record<string, unknown> | null) ?? {};
+      const nativeMap: Record<string, unknown> = {
+        stage: deal.stage,
+        monthly_value: deal.monthly_value,
+        priority: deal.priority,
+        probability: deal.probability,
+        source: deal.source,
+        owner: deal.owner,
+      };
+      const raw = key in props ? props[key] : nativeMap[key];
+      const met = evalCondition(raw, op, target);
+      return met
+        ? { status: "ok", detail: "condição atendida" }
+        : { status: "skipped", detail: "condição não atendida — encerra", stop: true };
+    }
     default:
       return { status: "skipped" };
   }
@@ -174,6 +226,13 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
         });
         processed++;
         step++;
+
+        // Condição não atendida → encerra a inscrição aqui.
+        if (result.stop) {
+          await admin.from("crm_workflow_enrollments").update({ current_step: step, status: "done" }).eq("id", enr.id);
+          done++;
+          break;
+        }
 
         if (result.delayMs && result.delayMs > 0) {
           const finished = step >= list.length;

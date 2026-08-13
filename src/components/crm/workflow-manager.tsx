@@ -87,6 +87,8 @@ function WorkflowCard({
   const router = useRouter();
   const [name, setName] = useState(wf.name);
   const stageKey = (wf.triggerConfig?.stageKey as string) ?? "";
+  const propKey = (wf.triggerConfig?.key as string) ?? "";
+  const propVal = (wf.triggerConfig?.value as string) ?? "";
 
   async function saveName() {
     if (name.trim() && name.trim() !== wf.name) {
@@ -159,11 +161,15 @@ function WorkflowCard({
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={wf.triggerType}
-            onChange={(e) => setTrigger(e.target.value, e.target.value === "stage_enter" ? { stageKey } : {})}
+            onChange={(e) => {
+              const t = e.target.value;
+              setTrigger(t, t === "stage_enter" ? { stageKey } : t === "property_change" ? { key: propKey, value: propVal } : {});
+            }}
             className={inputCls + " w-auto"}
           >
             <option value="stage_enter">Negócio entra na etapa</option>
             <option value="created">Negócio é criado</option>
+            <option value="property_change">Propriedade muda</option>
           </select>
           {wf.triggerType === "stage_enter" && (
             <select
@@ -176,6 +182,26 @@ function WorkflowCard({
                 <option key={s.key} value={s.key}>{s.label}</option>
               ))}
             </select>
+          )}
+          {wf.triggerType === "property_change" && (
+            <>
+              <select
+                value={propKey}
+                onChange={(e) => setTrigger("property_change", { key: e.target.value, value: propVal })}
+                className={inputCls + " w-auto"}
+              >
+                <option value="">Propriedade…</option>
+                {dealProps.map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+              <input
+                defaultValue={propVal}
+                onBlur={(e) => setTrigger("property_change", { key: propKey, value: e.target.value })}
+                placeholder="= valor (opcional)"
+                className={inputCls + " w-40"}
+              />
+            </>
           )}
         </div>
       </div>
@@ -322,6 +348,56 @@ function ActionRow({
           ))}
         </select>
       )}
+      {action.actionType === "condition" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={String(cfg.key ?? "")} onChange={(e) => { const next = { ...cfg, key: e.target.value }; setCfg(next); saveCfg(next); }} className={inputCls + " w-auto"}>
+            <option value="">Campo…</option>
+            <optgroup label="Nativos">
+              {CONDITION_NATIVES.map((k) => (
+                <option key={k.key} value={k.key}>{k.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Propriedades">
+              {dealProps.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </optgroup>
+          </select>
+          <select value={String(cfg.op ?? "eq")} onChange={(e) => { const next = { ...cfg, op: e.target.value }; setCfg(next); saveCfg(next); }} className={inputCls + " w-auto"}>
+            {CONDITION_OPS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+          {cfg.op !== "filled" && cfg.op !== "empty" && (
+            <input
+              value={String(cfg.value ?? "")}
+              onChange={(e) => set({ value: e.target.value })}
+              onBlur={() => saveCfg()}
+              placeholder="valor"
+              className={inputCls + " flex-1"}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+const CONDITION_NATIVES: { key: string; label: string }[] = [
+  { key: "stage", label: "Etapa (chave)" },
+  { key: "monthly_value", label: "Valor/mês" },
+  { key: "priority", label: "Prioridade" },
+  { key: "probability", label: "Probabilidade" },
+  { key: "source", label: "Origem" },
+  { key: "owner", label: "Responsável" },
+];
+
+const CONDITION_OPS: { key: string; label: string }[] = [
+  { key: "eq", label: "é" },
+  { key: "neq", label: "não é" },
+  { key: "contains", label: "contém" },
+  { key: "gt", label: "maior que" },
+  { key: "lt", label: "menor que" },
+  { key: "filled", label: "preenchido" },
+  { key: "empty", label: "vazio" },
+];
