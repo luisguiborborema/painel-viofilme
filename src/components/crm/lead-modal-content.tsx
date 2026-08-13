@@ -125,6 +125,7 @@ export function LeadModalContent({
   documents = [],
   templates = [],
   configuredScore = null,
+  flows = [],
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -424,6 +425,14 @@ export function LeadModalContent({
           </button>
           {!closed && (
             <>
+              <SequencePicker
+                flows={flows}
+                dealId={lead.id}
+                onApplied={(name) => {
+                  pushLocal({ channel: "system", body: `▶️ Sequência "${name}" iniciada — tarefas criadas.` });
+                  router.refresh();
+                }}
+              />
               <button
                 onClick={() => setShowSchedule(true)}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
@@ -596,6 +605,64 @@ export function LeadModalContent({
             router.refresh();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+/* ── Sequências (cadências 1:1) — inicia um fluxo de tarefas no negócio ── */
+
+function SequencePicker({
+  flows,
+  dealId,
+  onApplied,
+}: {
+  flows: TaskFlow[];
+  dealId: string;
+  onApplied: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (flows.length === 0) return null;
+
+  async function apply(f: TaskFlow) {
+    setBusy(true);
+    await fetch("/api/crm/task-flows", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "apply", dealId, flowId: f.id }),
+    }).catch(() => {});
+    setBusy(false);
+    setOpen(false);
+    onApplied(f.name);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+      >
+        <Zap className="h-4 w-4" /> Sequência
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Iniciar cadência</p>
+            {flows.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => apply(f)}
+                disabled={busy}
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle disabled:opacity-50"
+              >
+                <span className="min-w-0 truncate">{f.name}</span>
+                <span className="shrink-0 text-[11px] text-muted">{f.steps.length} passo{f.steps.length === 1 ? "" : "s"}</span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
