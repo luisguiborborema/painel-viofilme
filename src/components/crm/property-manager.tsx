@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlignLeft,
   Calendar,
+  CalendarClock,
   CheckSquare,
   DollarSign,
   Hash,
@@ -12,8 +14,10 @@ import {
   ListChecks,
   Loader2,
   Mail,
+  Pencil,
   Phone,
   Plus,
+  Search,
   SlidersHorizontal,
   Trash2,
   Type,
@@ -42,6 +46,8 @@ const FIELD_TYPES: { key: PropertyFieldType; label: string; icon: LucideIcon }[]
   { key: "select", label: "Seleção", icon: List },
   { key: "multiselect", label: "Múltipla seleção", icon: ListChecks },
   { key: "date", label: "Data", icon: Calendar },
+  { key: "datetime", label: "Data e hora", icon: CalendarClock },
+  { key: "textarea", label: "Texto longo", icon: AlignLeft },
   { key: "checkbox", label: "Sim/Não", icon: CheckSquare },
   { key: "phone", label: "Telefone", icon: Phone },
   { key: "email", label: "E-mail", icon: Mail },
@@ -55,10 +61,14 @@ export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
   const router = useRouter();
   const [obj, setObj] = useState<CrmObjectType>("company");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<PropertyDef | null>(null);
+  const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const term = search.trim().toLowerCase();
   const list = properties
     .filter((p) => p.objectType === obj)
+    .filter((p) => !term || p.label.toLowerCase().includes(term) || p.key.toLowerCase().includes(term))
     .sort((a, b) => a.position - b.position);
 
   async function remove(id: string) {
@@ -92,20 +102,33 @@ export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setAdding((a) => !a)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-        >
-          <Plus className="h-4 w-4" /> Nova propriedade
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar propriedade…"
+              className="w-44 rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-brand-400"
+            />
+          </div>
+          <button
+            onClick={() => { setEditing(null); setAdding((a) => !a); }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Nova propriedade
+          </button>
+        </div>
       </div>
 
-      {adding && (
+      {(adding || editing) && (
         <PropertyForm
           objectType={obj}
-          onClose={() => setAdding(false)}
+          initial={editing}
+          onClose={() => { setAdding(false); setEditing(null); }}
           onSaved={() => {
             setAdding(false);
+            setEditing(null);
             router.refresh();
           }}
         />
@@ -141,6 +164,13 @@ export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
                   {fieldTypeLabel(p.fieldType)}
                 </span>
                 <button
+                  onClick={() => { setAdding(false); setEditing(p); }}
+                  className="rounded-lg p-2 text-muted hover:bg-subtle hover:text-ink"
+                  title="Editar propriedade"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
                   onClick={() => remove(p.id)}
                   disabled={busyId === p.id}
                   className="rounded-lg p-2 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
@@ -169,16 +199,19 @@ export function PropertyManager({ properties }: { properties: PropertyDef[] }) {
 
 function PropertyForm({
   objectType,
+  initial,
   onClose,
   onSaved,
 }: {
   objectType: CrmObjectType;
+  initial?: PropertyDef | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [label, setLabel] = useState("");
-  const [fieldType, setFieldType] = useState<PropertyFieldType>("text");
-  const [optionsText, setOptionsText] = useState("");
+  const editingId = initial?.id ?? null;
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [fieldType, setFieldType] = useState<PropertyFieldType>(initial?.fieldType ?? "text");
+  const [optionsText, setOptionsText] = useState((initial?.options ?? []).map((o) => o.label).join("\n"));
   const [busy, setBusy] = useState(false);
 
   const hasOptions = fieldType === "select" || fieldType === "multiselect";
@@ -196,10 +229,13 @@ function PropertyForm({
             label,
           }))
       : [];
+    const body = editingId
+      ? { action: "update", id: editingId, label: label.trim(), fieldType, options }
+      : { action: "create", objectType, label: label.trim(), fieldType, options };
     await fetch("/api/crm/properties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create", objectType, label: label.trim(), fieldType, options }),
+      body: JSON.stringify(body),
     }).catch(() => {});
     setBusy(false);
     onSaved();
@@ -208,7 +244,7 @@ function PropertyForm({
   return (
     <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Nova propriedade</p>
+        <p className="text-sm font-semibold text-ink">{editingId ? "Editar propriedade" : "Nova propriedade"}</p>
         <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
           <X className="h-4 w-4" />
         </button>
@@ -266,7 +302,7 @@ function PropertyForm({
           className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Criar propriedade
+          {editingId ? "Salvar" : "Criar propriedade"}
         </button>
       </div>
     </div>

@@ -95,6 +95,24 @@ function Field({
           className={inputCls}
         />
       );
+    case "datetime":
+      return (
+        <input
+          type="datetime-local"
+          value={typeof value === "string" ? value.slice(0, 16) : ""}
+          onChange={(e) => onChange(e.target.value || null)}
+          className={inputCls}
+        />
+      );
+    case "textarea":
+      return (
+        <textarea
+          rows={3}
+          value={value == null ? "" : String(value)}
+          onChange={(e) => onChange(e.target.value)}
+          className={inputCls + " resize-y"}
+        />
+      );
     default:
       return (
         <input

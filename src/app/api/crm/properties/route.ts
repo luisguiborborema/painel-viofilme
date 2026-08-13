@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 const OBJECT_TYPES = ["company", "contact", "deal", "task"];
 const FIELD_TYPES = [
-  "text", "number", "currency", "select", "multiselect",
-  "date", "checkbox", "phone", "email", "url",
+  "text", "textarea", "number", "currency", "select", "multiselect",
+  "date", "datetime", "checkbox", "phone", "email", "url",
 ];
 
 type Option = { value: string; label: string; color?: string };

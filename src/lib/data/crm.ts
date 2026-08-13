@@ -402,11 +402,13 @@ export type CrmObjectType = "company" | "contact" | "deal" | "task";
 
 export type PropertyFieldType =
   | "text"
+  | "textarea"
   | "number"
   | "currency"
   | "select"
   | "multiselect"
   | "date"
+  | "datetime"
   | "checkbox"
   | "phone"
   | "email"
