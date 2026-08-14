@@ -37,7 +37,7 @@ export function ContactDetail({
   tags: Tag[];
   properties: PropertyDef[];
 }) {
-  const contactProps = properties.filter((p) => p.objectType === "contact");
+  const contactProps = properties.filter((p) => p.objectType === "contact" && !p.isArchived);
   const openValue = deals
     .filter((d) => d.stage !== "ganho" && d.stage !== "perdido")
     .reduce((s, d) => s + d.monthlyValue, 0);

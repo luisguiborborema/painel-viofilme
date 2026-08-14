@@ -294,6 +294,13 @@ export function LeadModalContent({
       setStageErr((j.missing ?? []).join(", ") || "Requisitos do estágio não cumpridos.");
       return;
     }
+    // Falha de rede/servidor (não-422): reverte e avisa — não finge sucesso.
+    if (!res || !res.ok) {
+      setLead((l) => ({ ...l, stage: prev }));
+      setWon(prev === "ganho");
+      setStageErr("Não foi possível mover a etapa. Tente de novo.");
+      return;
+    }
     pushLocal({ channel: "system", body: `Estágio alterado para ${stage.label}.` });
     router.refresh();
   }
@@ -469,7 +476,7 @@ export function LeadModalContent({
       <DealHighlights lead={lead} stages={stages} />
 
       {/* ── 3 ZONAS: Sobre · Atividade · Associações ──────────── */}
-      <div className={cn("flex min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col xl:flex-row")}>
+      <div className={cn("flex min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col overflow-y-auto xl:flex-row xl:overflow-hidden")}>
         {/* ESQUERDA — Sobre este negócio */}
         <aside
           className={cn(

@@ -576,7 +576,7 @@ function reportGroupKey(lead: CrmLead, by: ReportGroupBy): string {
     case "priority":
       return lead.priority || "media";
     case "month":
-      return (lead.wonAt || lead.createdAt || "").slice(0, 7) || "—";
+      return (lead.createdAt || "").slice(0, 7) || "—";
     default:
       return "—";
   }

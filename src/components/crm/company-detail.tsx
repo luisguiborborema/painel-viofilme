@@ -40,7 +40,7 @@ export function CompanyDetail({
   const openDeals = deals.filter((d) => d.stage !== "ganho" && d.stage !== "perdido");
   const openValue = openDeals.reduce((s, d) => s + d.monthlyValue, 0);
   const wonCount = deals.filter((d) => d.stage === "ganho").length;
-  const companyProps = properties.filter((p) => p.objectType === "company");
+  const companyProps = properties.filter((p) => p.objectType === "company" && !p.isArchived);
 
   return (
     <div className="space-y-4">

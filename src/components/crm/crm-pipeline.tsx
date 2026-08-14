@@ -726,7 +726,7 @@ export function CrmPipeline({
     : 0;
   // Métricas do topo (6, estilo HubSpot): total · ponderado · aberto · fechado · novo · idade.
   const allValue = visibleCards.reduce((s, c) => s + c.monthlyValue, 0);
-  const wonCards = visibleCards.filter((c) => c.stage === "ganho");
+  const wonCards = visibleCards.filter((c) => wonKeys.has(c.stage));
   const wonValue = wonCards.reduce((s, c) => s + c.monthlyValue, 0);
   const monthPrefix = monthPrefixNow();
   const newCards = visibleCards.filter((c) => (c.createdAt ?? "").slice(0, 7) === monthPrefix);
@@ -922,7 +922,11 @@ export function CrmPipeline({
           return (
             <button
               key={k}
-              onClick={() => { setActiveView(null); setMine(k === "meus"); }}
+              onClick={() => {
+                if (activeView) { clearFilters(); setTagFilter(null); }
+                setActiveView(null);
+                setMine(k === "meus");
+              }}
               className={cn(
                 "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
                 active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",

@@ -108,7 +108,7 @@ export function CrmSettings({
           initial={cardLayout}
           canEdit={canEditCardLayout}
           dealProps={properties
-            .filter((p) => p.objectType === "deal")
+            .filter((p) => p.objectType === "deal" && !p.isArchived)
             .map((p) => ({ key: p.key, label: p.label }))}
         />
       ),
@@ -132,7 +132,7 @@ export function CrmSettings({
           stageOptions={stageOptions}
           team={team}
           dealProps={properties
-            .filter((p) => p.objectType === "deal")
+            .filter((p) => p.objectType === "deal" && !p.isArchived)
             .map((p) => ({ key: p.key, label: p.label }))}
         />
       ),
@@ -152,7 +152,7 @@ export function CrmSettings({
       node: (
         <StageManager
           pipelines={pipelines}
-          dealProperties={properties.filter((p) => p.objectType === "deal")}
+          dealProperties={properties.filter((p) => p.objectType === "deal" && !p.isArchived)}
           flows={flows}
         />
       ),
@@ -271,7 +271,7 @@ export function CrmSettings({
       node: (
         <LeadScoreManager
           initialRules={leadScoreRules}
-          dealProps={properties.filter((p) => p.objectType === "deal").map((p) => ({ key: p.key, label: p.label }))}
+          dealProps={properties.filter((p) => p.objectType === "deal" && !p.isArchived).map((p) => ({ key: p.key, label: p.label }))}
         />
       ),
     },

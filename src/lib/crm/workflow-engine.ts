@@ -113,49 +113,52 @@ async function runWorkflowAction(
     }
     case "task": {
       const dueDays = Number(config.dueDays ?? 0);
-      await admin.from("crm_tasks").insert({
+      const { error } = await admin.from("crm_tasks").insert({
         lead_id: dealId,
         title: String(config.title || "Tarefa (workflow)"),
         due_date: new Date(Date.now() + dueDays * 86_400_000).toISOString(),
         status: "pending",
       });
-      return { status: "ok" };
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
     case "whatsapp": {
       const msg = String(config.message || "");
       if (contactPhone && msg) await sendWhatsappText(contactPhone, msg);
-      await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "whatsapp", direction: "out", body: msg });
+      const { error } = await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "whatsapp", direction: "out", body: msg });
+      if (error) return { status: "error", detail: error.message };
       return contactPhone ? { status: "ok" } : { status: "skipped", detail: "contato sem telefone" };
     }
     case "notify": {
       const msg = String(config.message || "");
       for (const num of WHATSAPP_NOTIFY_NUMBERS) await sendWhatsappText(num, `🔔 ${deal.name}: ${msg}`);
-      await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "system", body: `🔔 ${msg}` });
-      return { status: "ok" };
+      const { error } = await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "system", body: `🔔 ${msg}` });
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
     case "set_property": {
       const key = String(config.key || "");
       if (!key) return { status: "skipped", detail: "sem propriedade" };
       const props = (deal.properties as Record<string, unknown> | null) ?? {};
-      await admin.from("crm_leads").update({ properties: { ...props, [key]: config.value } }).eq("id", dealId);
-      return { status: "ok" };
+      const { error } = await admin.from("crm_leads").update({ properties: { ...props, [key]: config.value } }).eq("id", dealId);
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
     case "set_stage": {
       const stageKey = String(config.stageKey || "");
       if (!stageKey) return { status: "skipped", detail: "sem etapa" };
       // Update cru da etapa — NÃO reengata gatilhos stage_enter (evita loop).
-      await admin
-        .from("crm_leads")
-        .update({ stage: stageKey, stage_changed_at: new Date().toISOString() })
-        .eq("id", dealId);
+      const nowIso = new Date().toISOString();
+      const patch: Record<string, unknown> = { stage: stageKey, stage_changed_at: nowIso };
+      if (stageKey === "ganho") patch.won_at = nowIso;
+      if (stageKey === "perdido") patch.lost_at = nowIso;
+      const { error } = await admin.from("crm_leads").update(patch).eq("id", dealId);
+      if (error) return { status: "error", detail: error.message };
       await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "system", body: `↦ Movido para etapa (workflow).` });
       return { status: "ok" };
     }
     case "assign_owner": {
       const owner = String(config.owner || "").trim();
       if (!owner) return { status: "skipped", detail: "sem responsável" };
-      await admin.from("crm_leads").update({ owner, assignees: [owner] }).eq("id", dealId);
-      return { status: "ok" };
+      const { error } = await admin.from("crm_leads").update({ owner, assignees: [owner] }).eq("id", dealId);
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
     case "condition": {
       const key = String(config.key || "");
@@ -208,6 +211,7 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
         .order("position", { ascending: true });
       const list = actions ?? [];
       let step = Number(enr.current_step ?? 0);
+      let paused = false; // reagendado por um delay (persistido como ativo)
 
       // Executa ações consecutivas nesta rodada; pausa ao atingir um delay.
       while (step < list.length) {
@@ -227,12 +231,8 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
         processed++;
         step++;
 
-        // Condição não atendida → encerra a inscrição aqui.
-        if (result.stop) {
-          await admin.from("crm_workflow_enrollments").update({ current_step: step, status: "done" }).eq("id", enr.id);
-          done++;
-          break;
-        }
+        // Condição não atendida → encerra (finalizado como done abaixo).
+        if (result.stop) break;
 
         if (result.delayMs && result.delayMs > 0) {
           const finished = step >= list.length;
@@ -245,17 +245,14 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
             })
             .eq("id", enr.id);
           if (finished) done++;
-          break;
-        }
-        if (step >= list.length) {
-          await admin.from("crm_workflow_enrollments").update({ current_step: step, status: "done" }).eq("id", enr.id);
-          done++;
+          paused = true;
           break;
         }
       }
-      // Workflow sem ações → conclui direto.
-      if (list.length === 0) {
-        await admin.from("crm_workflow_enrollments").update({ status: "done" }).eq("id", enr.id);
+      // Finaliza UMA vez: fim natural, condição (stop), zero ações OU cursor >=
+      // length (ação removida em voo). Evita inscrição travada reprocessando à toa.
+      if (!paused) {
+        await admin.from("crm_workflow_enrollments").update({ current_step: step, status: "done" }).eq("id", enr.id);
         done++;
       }
     } catch {
