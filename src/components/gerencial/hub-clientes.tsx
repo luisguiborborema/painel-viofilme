@@ -72,12 +72,34 @@ function initials(name: string) {
 
 const AVATAR_BG = ["bg-brand-500", "bg-emerald-500", "bg-violet-500", "bg-sky-500", "bg-amber-500", "bg-rose-500"];
 
-function ClientAvatar({ name, idx, size = "lg" }: { name: string; idx: number; size?: "lg" | "sm" }) {
+function ClientAvatar({
+  name,
+  idx,
+  logoUrl,
+  size = "lg",
+}: {
+  name: string;
+  idx: number;
+  logoUrl?: string;
+  size?: "lg" | "sm";
+}) {
+  const dim = size === "lg" ? "h-10 w-10" : "h-8 w-8";
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={name}
+        className={cn("shrink-0 rounded-xl object-cover", dim)}
+      />
+    );
+  }
   return (
     <span
       className={cn(
         "flex shrink-0 items-center justify-center rounded-xl font-bold text-white",
-        size === "lg" ? "h-10 w-10 text-sm" : "h-8 w-8 text-[11px]",
+        size === "lg" ? "text-sm" : "text-[11px]",
+        dim,
         AVATAR_BG[idx % AVATAR_BG.length],
       )}
     >
@@ -339,7 +361,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
               <Link href={`/gerencial/clientes/${c.id}`} className="absolute inset-0 rounded-2xl" aria-label={`Abrir ${c.name}`} />
               <div className="pointer-events-none relative">
                 <div className="flex items-start gap-3 pr-8">
-                  <ClientAvatar name={c.name} idx={i} />
+                  <ClientAvatar name={c.name} idx={i} logoUrl={c.logoUrl} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-ink">{c.name}</p>
                     <p className="truncate text-xs text-muted">
@@ -398,7 +420,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                 <tr key={c.id} className="border-b border-line/60 hover:bg-subtle">
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2.5">
-                      <ClientAvatar name={c.name} idx={i} size="sm" />
+                      <ClientAvatar name={c.name} idx={i} logoUrl={c.logoUrl} size="sm" />
                       <div className="min-w-0">
                         <Link href={`/gerencial/clientes/${c.id}`} className="font-medium text-ink hover:text-brand-600">{c.name}</Link>
                         {c.segment !== "—" && <p className="text-[10px] text-muted">{c.segment}</p>}

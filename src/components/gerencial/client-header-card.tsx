@@ -100,11 +100,13 @@ export function ClientHeaderCard({
   d,
   ops,
   portal,
+  avatarByName = {},
 }: {
   id: string;
   d: ClientDetail;
   ops: ClientOps;
   portal: ClientPortal;
+  avatarByName?: Record<string, string>;
 }) {
   const c = d.client;
   const config = buildClientConfig(portal, d);
@@ -211,15 +213,26 @@ export function ClientHeaderCard({
             return (
               <div key={r.key} className="flex items-center gap-2">
                 <span className="flex -space-x-1.5">
-                  {people.slice(0, 3).map((p) => (
-                    <span
-                      key={p}
-                      title={p}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-subtle-strong text-[10px] font-bold text-ink ring-2 ring-surface"
-                    >
-                      {initials(p)}
-                    </span>
-                  ))}
+                  {people.slice(0, 3).map((p) =>
+                    avatarByName[p] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={p}
+                        src={avatarByName[p]}
+                        alt={p}
+                        title={p}
+                        className="h-7 w-7 rounded-full object-cover ring-2 ring-surface"
+                      />
+                    ) : (
+                      <span
+                        key={p}
+                        title={p}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-subtle-strong text-[10px] font-bold text-ink ring-2 ring-surface"
+                      >
+                        {initials(p)}
+                      </span>
+                    ),
+                  )}
                 </span>
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>

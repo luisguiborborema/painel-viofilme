@@ -1618,7 +1618,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes] = await Promise.all([
+  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes, logoRes] = await Promise.all([
     supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), responsibles, services_list, ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
     supabase
@@ -1631,7 +1631,14 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
     supabase.from("editorial_lines").select("client_id, month, stage"),
     supabase.from("client_services").select("client_id, services(name)"),
     supabase.from("client_deliverables").select("client_id, format, monthly_qty"),
+    // Logos — leitura tolerante (coluna pode não existir antes da migração 0106).
+    supabase.from("clients").select("id, logo_url"),
   ]);
+
+  const logoById = new Map<string, string>();
+  for (const l of (logoRes.data ?? []) as { id: string; logo_url: string | null }[]) {
+    if (l.logo_url) logoById.set(String(l.id), String(l.logo_url));
+  }
 
   // Serviços e entregáveis REAIS por cliente (não fabricados pelo plano).
   const servicesByClient = new Map<string, string[]>();
@@ -1725,6 +1732,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       responsavel: dash(c.cs_responsavel),
       mrr: fee,
       whatsapp: c.whatsapp ?? null,
+      logoUrl: logoById.get(cid),
       onboarding: isNew
         ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
         : undefined,

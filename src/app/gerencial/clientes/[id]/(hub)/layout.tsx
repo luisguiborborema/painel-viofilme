@@ -8,6 +8,7 @@ import {
   getClientOpOnly,
   getClientPortalCached,
 } from "@/lib/data/client-detail";
+import { getAttendants } from "@/lib/data/queries";
 
 // Abas de trabalho pesado onde a ficha do cliente vem recolhida por padrão
 // (dá foco ao conteúdo da aba). O usuário expande a ficha quando quiser.
@@ -34,11 +35,15 @@ export default async function ClienteLayout({
   const d = await getClientDetailCached(id);
   if (!d) notFound();
 
-  const [ops, portal, opOnly] = await Promise.all([
+  const [ops, portal, opOnly, attendants] = await Promise.all([
     getClientOpsCached(id),
     getClientPortalCached(id),
     getClientOpOnly(),
+    getAttendants(),
   ]);
+  // Mapa nome → foto dos colaboradores, para os avatares dos responsáveis.
+  const avatarByName: Record<string, string> = {};
+  for (const a of attendants) if (a.avatarUrl) avatarByName[a.name] = a.avatarUrl;
 
   const sem = ops?.semaforo;
   const status = sem
@@ -61,7 +66,7 @@ export default async function ClienteLayout({
             statusTone={status?.tone}
             collapsibleTabs={COLLAPSIBLE_TABS}
           >
-            <ClientHeaderCard id={id} d={d} ops={ops} portal={portal} />
+            <ClientHeaderCard id={id} d={d} ops={ops} portal={portal} avatarByName={avatarByName} />
           </ClientHeaderCollapse>
         }
       />
