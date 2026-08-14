@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
+  ChevronLeft,
   Clapperboard,
   FileDown,
   History,
@@ -1650,6 +1652,12 @@ export function LinhaEditorial({
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <Link
+            href={`/gerencial/clientes/${clientId}/editorial`}
+            className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-ink"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Quadro de linhas
+          </Link>
           <h2 className="text-lg font-bold text-ink">Linha editorial — {data.month}</h2>
           <p className="text-sm text-muted">
             {data.clientName}

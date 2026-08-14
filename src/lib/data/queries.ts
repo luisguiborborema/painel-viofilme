@@ -675,6 +675,7 @@ import {
   getEditorialLine as editorialLineMock,
   type HubClientOps,
   type EditorialLine,
+  type EditorialLineCard,
   type EditorialDraft,
   type MediaDayView,
 } from "./operacao";
@@ -685,6 +686,12 @@ import type { CSClientDetail } from "./types";
 export async function getEditorialLineView(clientId: string, lineId?: string): Promise<EditorialLine> {
   if (isSupabaseConfigured()) return sb.sbGetEditorialLine(clientId, lineId);
   return editorialLineMock(clientId);
+}
+
+/** Todas as linhas editoriais do cliente (cards do quadro/kanban). */
+export async function getEditorialLines(clientId: string): Promise<EditorialLineCard[]> {
+  if (isSupabaseConfigured()) return sb.sbGetEditorialLines(clientId);
+  return [];
 }
 
 /** Rascunhos de LE em aberto (A3) — reais ou vazio no demo. */

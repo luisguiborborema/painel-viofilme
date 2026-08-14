@@ -76,9 +76,10 @@ import {
   type HubStatus,
   type EditorialLine,
   type EditorialDraft,
+  type EditorialLineCard,
+  normalizeEditorialStage,
   type EditorialPost,
   type EditorialFormat,
-  type EditorialStage,
   type EditorialRef,
   type EditorialPillar,
   type ArtDirection,
@@ -162,7 +163,6 @@ const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
 const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
 const DELIVERY_STAGES = new Set<string>(["todo", "doing", "review", "approval", "done"]);
-const EDITORIAL_STAGE_SET = new Set<string>(["rascunho", "em_producao", "aprovacao_interna", "ativa", "concluida"]);
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -3231,7 +3231,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     builtBy: line.built_by ?? undefined,
     internallyApprovedBy: line.internally_approved_by ?? undefined,
     createdBy: line.built_by ?? "Equipe",
-    stage: (EDITORIAL_STAGE_SET.has(line.stage ?? "") ? line.stage : "rascunho") as EditorialStage,
+    stage: normalizeEditorialStage(line.stage),
     frequency: `${posts.length} posts no mês`,
     networks: "Instagram · Facebook",
     responsibles: "—",
@@ -3244,6 +3244,51 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     posts,
     history: lines.slice(1).map((l) => ({ id: l.id, month: l.month ?? "—" })),
   };
+}
+
+/** Lista todas as linhas editoriais de um cliente (cards do quadro/kanban). */
+export async function sbGetEditorialLines(clientId: string): Promise<EditorialLineCard[]> {
+  const supabase = await createClient();
+  const { data: lineRows } = await supabase
+    .from("editorial_lines")
+    .select("id, month, reference_month, stage, objetivo, built_by, updated_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  const lines = (lineRows ?? []) as {
+    id: string;
+    month: string | null;
+    reference_month: string | null;
+    stage: string | null;
+    objetivo: string | null;
+    built_by: string | null;
+    updated_at: string | null;
+  }[];
+  if (!lines.length) return [];
+
+  const ids = lines.map((l) => String(l.id));
+  const { data: postRows } = await supabase
+    .from("editorial_posts")
+    .select("line_id, client_status")
+    .in("line_id", ids);
+  const total = new Map<string, number>();
+  const approved = new Map<string, number>();
+  for (const p of (postRows ?? []) as { line_id: string; client_status: string | null }[]) {
+    const lid = String(p.line_id);
+    total.set(lid, (total.get(lid) ?? 0) + 1);
+    if (p.client_status === "approved") approved.set(lid, (approved.get(lid) ?? 0) + 1);
+  }
+
+  return lines.map((l) => ({
+    id: String(l.id),
+    month: l.month ?? "—",
+    referenceMonth: l.reference_month ?? undefined,
+    stage: normalizeEditorialStage(l.stage),
+    objetivo: l.objetivo ?? undefined,
+    builtBy: l.built_by ?? undefined,
+    updatedAt: l.updated_at ?? undefined,
+    postsCount: total.get(String(l.id)) ?? 0,
+    approvedCount: approved.get(String(l.id)) ?? 0,
+  }));
 }
 
 /** Respostas de formulário atribuídas a um cliente (para o Resumo do Hub). */

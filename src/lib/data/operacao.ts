@@ -354,16 +354,38 @@ export type EditorialStage =
   | "rascunho"
   | "em_producao"
   | "aprovacao_interna"
-  | "ativa"
+  | "em_aprovacao"
+  | "em_postagem"
   | "concluida";
 
 export const EDITORIAL_STAGES: { key: EditorialStage; label: string }[] = [
-  { key: "rascunho", label: "Rascunho" },
+  { key: "rascunho", label: "Para fazer" },
   { key: "em_producao", label: "Em produção" },
   { key: "aprovacao_interna", label: "Aprovação interna" },
-  { key: "ativa", label: "Ativa" },
+  { key: "em_aprovacao", label: "Em aprovação" },
+  { key: "em_postagem", label: "Em postagem" },
   { key: "concluida", label: "Concluída" },
 ];
+
+/** Normaliza estágios legados (antes da separação aprovação/postagem). */
+export function normalizeEditorialStage(raw: string | null | undefined): EditorialStage {
+  if (raw === "ativa") return "em_postagem";
+  if (raw === "ideacao" || !raw) return "rascunho";
+  return (EDITORIAL_STAGES.some((s) => s.key === raw) ? raw : "rascunho") as EditorialStage;
+}
+
+/** Card do quadro (kanban) de linhas editoriais — resumo de uma LE. */
+export type EditorialLineCard = {
+  id: string;
+  month: string;
+  referenceMonth?: string;
+  stage: EditorialStage;
+  objetivo?: string;
+  builtBy?: string;
+  updatedAt?: string;
+  postsCount: number;
+  approvedCount: number;
+};
 
 export type EditorialFormat = "Feed" | "Reels" | "Stories" | "Carrossel";
 
@@ -820,7 +842,7 @@ export function getEditorialLine(clientId: string): EditorialLine {
     clientName: client?.name ?? "Cliente",
     month: "Julho / 2025",
     createdBy: "Ana Lima · Social Media",
-    stage: "ativa",
+    stage: "em_postagem",
     frequency: "5 posts/semana · 22 ativos",
     networks: "Instagram · Facebook",
     responsibles: "Ana Lima (SM) + Robert (Design)",

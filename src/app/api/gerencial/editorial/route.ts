@@ -7,7 +7,17 @@ import { deliveryDateFor } from "@/lib/data/operacao";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STAGES = new Set(["rascunho", "em_producao", "aprovacao_interna", "ativa", "concluida"]);
+// 6 estágios da linha (kanban). "ativa" (legado) ainda é aceito na escrita por
+// compatibilidade, mas a UI usa em_aprovacao/em_postagem.
+const STAGES = new Set([
+  "rascunho",
+  "em_producao",
+  "aprovacao_interna",
+  "em_aprovacao",
+  "em_postagem",
+  "concluida",
+  "ativa",
+]);
 const FORMATS = new Set(["Feed", "Reels", "Stories", "Carrossel"]);
 
 type PostInput = {
@@ -154,7 +164,8 @@ export async function POST(req: Request) {
       .update({
         internally_approved_by: user.name,
         internally_approved_at: now,
-        stage: "ativa",
+        // aprovada internamente → segue para aprovação do cliente
+        stage: "em_aprovacao",
         updated_at: now,
       })
       .eq("id", b.id);
