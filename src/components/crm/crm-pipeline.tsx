@@ -86,9 +86,9 @@ function dtBR(iso?: string): string {
 
 function MetricTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="min-w-[130px] flex-1 border-r border-line px-4 py-2.5 text-center last:border-r-0">
-      <p className="text-lg font-bold text-brand-600">{value}</p>
-      <p className="text-[11px] font-medium text-ink">{label}</p>
+    <div className="min-w-[140px] flex-1 border-r border-line px-4 py-3 text-center last:border-r-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-xl font-bold text-brand-600">{value}</p>
       {sub && <p className="text-[10px] text-muted">{sub}</p>}
     </div>
   );
@@ -445,6 +445,7 @@ export function CrmPipeline({
   const [stuckOnly, setStuckOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [showMetrics, setShowMetrics] = useState(false);
+  const [hideMetrics, setHideMetrics] = useState(false);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const toggleCollapse = (key: string) =>
     setCollapsedStages((prev) => {
@@ -795,34 +796,38 @@ export function CrmPipeline({
 
   return (
     <div className="space-y-4">
-      {/* Toggle de visão compacto (ícones, estilo HubSpot) + Criar negócio */}
+      {/* Cabeçalho do objeto (estilo HubSpot): título + toggle de visão + ações */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-0.5 rounded-lg border border-line p-0.5">
-          {([["kanban", LayoutGrid, "Kanban"], ["lista", List, "Tabela"], ["forecast", BarChart3, "Forecast"], ["arquivados", Archive, "Arquivados"]] as const).map(
-            ([k, Icon, label]) => (
-              <button
-                key={k}
-                onClick={() => setView(k)}
-                title={label}
-                aria-label={label}
-                className={cn(
-                  "rounded-md p-1.5 transition-colors",
-                  view === k ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            ),
+        <h1 className="text-xl font-bold text-ink">Negócios</h1>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-line p-0.5">
+            {([["kanban", LayoutGrid, "Kanban"], ["lista", List, "Tabela"], ["forecast", BarChart3, "Forecast"], ["arquivados", Archive, "Arquivados"]] as const).map(
+              ([k, Icon, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setView(k)}
+                  title={label}
+                  aria-label={label}
+                  className={cn(
+                    "rounded-md p-1.5 transition-colors",
+                    view === k ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              ),
+            )}
+          </div>
+          <SettingsShortcut section="import" label="Importar" />
+          {!readOnly && (
+            <button
+              onClick={() => setShowNew(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" /> Criar negócio
+            </button>
           )}
         </div>
-        {!readOnly && (
-          <button
-            onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <Plus className="h-4 w-4" /> Criar negócio
-          </button>
-        )}
       </div>
 
       {showNew && (
@@ -865,14 +870,36 @@ export function CrmPipeline({
         />
       ) : (
         <>
-      {/* Linha 1 — contexto do funil (seletor, novo funil, resumo) + Métricas */}
+      {/* Abas de visualização (estilo HubSpot) */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-line">
+        {([["todos", "Todos os negócios"], ["meus", "Meus negócios"]] as const).map(([k, label]) => {
+          const active = k === "meus" ? mine : !mine;
+          return (
+            <button
+              key={k}
+              onClick={() => setMine(k === "meus")}
+              className={cn(
+                "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+        <span className="ml-1 px-2 py-2 text-sm font-medium text-muted/50" title="As visões salvas ficam em Listas">
+          + Adicionar visualização
+        </span>
+      </div>
+
+      {/* Barra de ferramentas: funil + Ocultar métricas (estilo HubSpot) */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {pipelines.length > 1 && (
             <select
               value={pipelineId}
               onChange={(e) => setPipelineId(e.target.value)}
-              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-brand-400"
+              className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-brand-600 outline-none focus:border-brand-400"
             >
               {pipelines.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -902,65 +929,56 @@ export function CrmPipeline({
           </div>
           <SettingsShortcut section="pipelines" label="Configurar funil" />
         </div>
-        <button
-          onClick={() => setShowMetrics(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-        >
-          <BarChart3 className="h-3.5 w-3.5" /> Métricas
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setHideMetrics((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            {hideMetrics ? "Mostrar métricas" : "Ocultar métricas"}
+          </button>
+          <button
+            onClick={() => setShowMetrics(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Métricas
+          </button>
+        </div>
       </div>
 
-      {/* Faixa de métricas (estilo HubSpot): 6 KPIs com "Média por negócio" */}
-      <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
-        <MetricTile label="Valor total" value={formatBRL(allValue)} sub={`Média ${formatBRL(avgOf(allValue, visibleCards.length))}`} />
-        <MetricTile label="Valor ponderado" value={formatBRL(openWeighted)} sub={`Média ${formatBRL(avgOf(openWeighted, openCards.length))}`} />
-        <MetricTile label="Valor aberto" value={formatBRL(openValue)} sub={`Média ${formatBRL(avgOf(openValue, openCards.length))}`} />
-        <MetricTile label="Valor fechado" value={formatBRL(wonValue)} sub={`Média ${formatBRL(avgOf(wonValue, wonCards.length))}`} />
-        <MetricTile label="Novo valor" value={formatBRL(newValue)} sub={`Média ${formatBRL(avgOf(newValue, newCards.length))}`} />
-        <MetricTile label="Idade média" value={`${avgAge} dia${avgAge === 1 ? "" : "s"}`} sub="por negócio aberto" />
-      </div>
+      {/* Faixa de métricas (6 KPIs, estilo HubSpot) */}
+      {!hideMetrics && (
+        <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
+          <MetricTile label="Valor total de negócio" value={formatBRL(allValue)} sub={`Média por negócio ${formatBRL(avgOf(allValue, visibleCards.length))}`} />
+          <MetricTile label="Valor ponderado de negócio" value={formatBRL(openWeighted)} sub={`Média por negócio ${formatBRL(avgOf(openWeighted, openCards.length))}`} />
+          <MetricTile label="Valor de negócio aberto" value={formatBRL(openValue)} sub={`Média por negócio ${formatBRL(avgOf(openValue, openCards.length))}`} />
+          <MetricTile label="Valor de negócio fechado" value={formatBRL(wonValue)} sub={`Média por negócio ${formatBRL(avgOf(wonValue, wonCards.length))}`} />
+          <MetricTile label="Novo valor de negócio" value={formatBRL(newValue)} sub={`Média por negócio ${formatBRL(avgOf(newValue, newCards.length))}`} />
+          <MetricTile label="Idade média de negócio" value={`${avgAge} dia${avgAge === 1 ? "" : "s"}`} sub="por negócio aberto" />
+        </div>
+      )}
 
-      {/* Linha 2 — barra de filtros (estilo Sprint board) */}
+      {/* Barra de filtros por propriedade (estilo HubSpot) */}
       <div className="flex flex-wrap items-center gap-2">
-        {currentUser && (
-          <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
-            {([["meu", "Meu"], ["time", "Time"]] as const).map(([k, label]) => {
-              const active = k === "meu" ? mine : !mine;
-              return (
-                <button
-                  key={k}
-                  onClick={() => setMine(k === "meu")}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-xs font-semibold transition-colors",
-                    active ? "bg-brand-600 text-white" : "text-muted hover:text-ink",
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
         <select value={assignee ?? ""} onChange={(e) => setAssignee(e.target.value || null)} className={FILTER_CLS}>
-          <option value="">Todos responsáveis</option>
+          <option value="">Proprietário do negócio</option>
           {owners.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
         <select value={companyF ?? ""} onChange={(e) => setCompanyF(e.target.value || null)} className={FILTER_CLS}>
-          <option value="">Todos clientes</option>
+          <option value="">Cliente</option>
           {companyOptions.map((o) => (
             <option key={o.id} value={o.id}>{o.name}</option>
           ))}
         </select>
         <select value={sourceF ?? ""} onChange={(e) => setSourceF(e.target.value || null)} className={FILTER_CLS}>
-          <option value="">Todas origens</option>
+          <option value="">Origem</option>
           {sourceOptions.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
         <select value={stageF ?? ""} onChange={(e) => setStageF(e.target.value || null)} className={FILTER_CLS}>
-          <option value="">Todas etapas</option>
+          <option value="">Etapa</option>
           {stages.map((s) => (
             <option key={s.key} value={s.key}>{s.label}</option>
           ))}
@@ -970,7 +988,7 @@ export function CrmPipeline({
           onChange={(e) => setPriorityF((e.target.value as LeadPriority) || null)}
           className={FILTER_CLS}
         >
-          <option value="">Toda prioridade</option>
+          <option value="">Prioridade</option>
           {LEAD_PRIORITIES.map((p) => (
             <option key={p.key} value={p.key}>{p.label}</option>
           ))}
@@ -1003,12 +1021,12 @@ export function CrmPipeline({
           </button>
         )}
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar negócio ou contato…"
-            className="w-40 rounded-lg border border-line bg-surface py-1.5 pl-7 pr-2 text-xs text-ink outline-none focus:border-brand-400 sm:w-52"
+            placeholder="Pesquisar nome ou descrição"
+            className="w-48 rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-brand-400 sm:w-64"
           />
         </div>
         {activeFilters > 0 && (
