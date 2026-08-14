@@ -5,9 +5,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { findTour, type Tour } from "@/lib/tours";
@@ -116,22 +119,36 @@ function TourOverlay({
   const next = () => (isLast ? onClose() : setStep(step + 1));
   const prev = () => setStep(Math.max(0, step - 1));
 
-  // Posição do balão: abaixo do alvo se couber, senão acima; sem alvo → centro.
-  const tip: React.CSSProperties = (() => {
+  // Posição do balão MEDIDA de verdade: garante que ele caiba 100% na tela e que
+  // os botões (Pular/Voltar/Próximo) fiquem sempre visíveis. Fica oculto até a
+  // 1ª medição para não "pular". Abaixo do alvo se couber, senão acima; sem alvo
+  // (passo central) → centralizado.
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<React.CSSProperties>({ opacity: 0, top: 0, left: 0 });
+  useLayoutEffect(() => {
     const W = 340;
-    if (!rect) {
-      return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
-    }
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const left = Math.min(Math.max(12, rect.left), vw - W - 12);
-    const below = rect.bottom + 14;
-    if (below + 200 < vh) return { top: below, left, width: W };
-    return { top: Math.max(12, rect.top - 14), left, width: W, transform: "translateY(-100%)" };
-  })();
+    const h = tipRef.current?.offsetHeight ?? 220;
+    const w = tipRef.current?.offsetWidth ?? W;
+    let top: number;
+    let left: number;
+    if (!rect) {
+      top = Math.max(12, (vh - h) / 2);
+      left = Math.max(12, (vw - w) / 2);
+    } else {
+      left = Math.min(Math.max(12, rect.left), vw - w - 12);
+      const spaceBelow = vh - rect.bottom - 14;
+      top = spaceBelow >= h ? rect.bottom + 14 : rect.top - 14 - h;
+      top = Math.min(Math.max(12, top), Math.max(12, vh - h - 12));
+    }
+    setTip({ top, left, width: W });
+  }, [rect, step, current]);
 
-  return (
-    <div className="fixed inset-0 z-[100]">
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200]">
       {/* Camada que escurece e bloqueia cliques na tela (sem alvo → tela toda). */}
       {rect ? (
         <div
@@ -152,6 +169,7 @@ function TourOverlay({
 
       {/* Balão do passo */}
       <div
+        ref={tipRef}
         className="absolute z-10 max-w-[calc(100vw-24px)] rounded-2xl border border-line bg-surface p-4 shadow-2xl"
         style={tip}
         onClick={(e) => e.stopPropagation()}
@@ -194,6 +212,7 @@ function TourOverlay({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
