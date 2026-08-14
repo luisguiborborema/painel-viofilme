@@ -2768,6 +2768,7 @@ export async function sbGetCrmWorkflows(): Promise<Workflow[]> {
         .from("crm_workflow_actions")
         .select("id,workflow_id,position,action_type,config")
         .order("position", { ascending: true })
+        .order("id", { ascending: true }) // mesma ordem estável que o motor usa
     ).data as Record<string, unknown>[] | null) ?? [];
   const byWf = new Map<string, WorkflowAction[]>();
   for (const a of acts) {

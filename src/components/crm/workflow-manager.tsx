@@ -122,7 +122,10 @@ function WorkflowCard({
       action: "add-action",
       workflowId: wf.id,
       actionType,
-      position: wf.actions.length,
+      // max(posições)+1 em vez de length: após excluir uma ação do meio, length
+      // reutilizaria uma posição existente e embaralharia a ordem (e o alvo do
+      // "pular N ações" do if/then).
+      position: wf.actions.length ? Math.max(...wf.actions.map((a) => a.position)) + 1 : 0,
       config: {},
     });
     router.refresh();

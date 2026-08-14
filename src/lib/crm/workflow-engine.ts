@@ -104,7 +104,7 @@ export async function enrollDateReached(admin: Admin): Promise<number> {
     .eq("trigger_type", "date_reached");
   if (!wfs?.length) return 0;
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0); // meia-noite UTC (determinístico independe do fuso do host)
   let enrolled = 0;
   for (const w of wfs) {
     const cfg = (w.trigger_config as { field?: string; offsetDays?: number } | null) ?? {};
@@ -171,10 +171,13 @@ async function runWorkflowAction(
     }
     case "whatsapp": {
       const msg = String(config.message || "");
-      if (contactPhone && msg) await sendWhatsappText(contactPhone, msg);
+      // Só registra a interação de saída se algo foi realmente enviado —
+      // evita "mensagem enviada" na timeline quando não há telefone/conteúdo.
+      if (!contactPhone) return { status: "skipped", detail: "contato sem telefone" };
+      if (!msg) return { status: "skipped", detail: "mensagem vazia" };
+      await sendWhatsappText(contactPhone, msg);
       const { error } = await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "whatsapp", direction: "out", body: msg });
-      if (error) return { status: "error", detail: error.message };
-      return contactPhone ? { status: "ok" } : { status: "skipped", detail: "contato sem telefone" };
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
     case "notify": {
       const msg = String(config.message || "");
@@ -222,6 +225,7 @@ async function runWorkflowAction(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ event: "workflow", dealId, name: deal.name, stage: deal.stage, owner: deal.owner }),
+          signal: AbortSignal.timeout(8000), // não pendura a rodada num webhook lento
         });
         return { status: res.ok ? "ok" : "error", detail: `HTTP ${res.status}` };
       } catch (e) {
@@ -275,11 +279,25 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
   let done = 0;
   for (const enr of due) {
     try {
+      // Lease atômico: empurra next_run_at 5min à frente SÓ se a inscrição ainda
+      // estiver vencida. Dois ticks sobrepostos disputam este update; só um casa
+      // o filtro `.lte(next_run_at, now)` — o outro pula. Impede execução dupla
+      // (WhatsApp/webhook duplicados) sem depender de lock de linha.
+      const { data: leased } = await admin
+        .from("crm_workflow_enrollments")
+        .update({ next_run_at: new Date(Date.now() + 5 * 60_000).toISOString() })
+        .eq("id", enr.id)
+        .eq("status", "active")
+        .lte("next_run_at", nowIso)
+        .select("id");
+      if (!leased?.length) continue; // outra execução já assumiu esta inscrição
+
       const { data: actions } = await admin
         .from("crm_workflow_actions")
         .select("id,position,action_type,config")
         .eq("workflow_id", enr.workflow_id)
-        .order("position", { ascending: true });
+        .order("position", { ascending: true })
+        .order("id", { ascending: true }); // desempate estável quando posições colidem
       const list = actions ?? [];
       let step = Number(enr.current_step ?? 0);
       let paused = false; // reagendado por um delay (persistido como ativo)
@@ -321,6 +339,10 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
           paused = true;
           break;
         }
+        // Persiste o progresso após CADA ação executada: se a função estourar o
+        // tempo (Hobby ~10s) ou o lease expirar em voo, a próxima rodada retoma
+        // da ação seguinte em vez de reexecutar as já feitas (idempotência).
+        await admin.from("crm_workflow_enrollments").update({ current_step: step }).eq("id", enr.id);
       }
       // Finaliza UMA vez: fim natural, condição (stop), zero ações OU cursor >=
       // length (ação removida em voo). Evita inscrição travada reprocessando à toa.

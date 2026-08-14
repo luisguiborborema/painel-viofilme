@@ -725,11 +725,14 @@ export function CrmPipeline({
     ? Math.round(openCards.reduce((s, c) => s + c.daysInStage, 0) / openCards.length)
     : 0;
   // Métricas do topo (6, estilo HubSpot): total · ponderado · aberto · fechado · novo · idade.
-  const allValue = visibleCards.reduce((s, c) => s + c.monthlyValue, 0);
+  // O quadro esconde etapas "perdido" (não há coluna) — total/novo seguem o que
+  // o quadro mostra (aberto + ganho), sem inflar as métricas com perdidos.
+  const boardCards = visibleCards.filter((c) => !lostKeys.has(c.stage));
+  const allValue = boardCards.reduce((s, c) => s + c.monthlyValue, 0);
   const wonCards = visibleCards.filter((c) => wonKeys.has(c.stage));
   const wonValue = wonCards.reduce((s, c) => s + c.monthlyValue, 0);
   const monthPrefix = monthPrefixNow();
-  const newCards = visibleCards.filter((c) => (c.createdAt ?? "").slice(0, 7) === monthPrefix);
+  const newCards = boardCards.filter((c) => (c.createdAt ?? "").slice(0, 7) === monthPrefix);
   const newValue = newCards.reduce((s, c) => s + c.monthlyValue, 0);
   const avgOf = (total: number, n: number) => (n ? total / n : 0);
 
@@ -748,7 +751,10 @@ export function CrmPipeline({
       return;
     }
 
-    const prevStage = card.stage;
+    // Snapshot completo do card p/ reverter por inteiro (etapa + idade + rot +
+    // cadência) caso o servidor recuse — restaurar só a etapa deixaria idade/rot
+    // zerados e a cadência trocada.
+    const prevCard = card;
     // Cadência amarrada à etapa: reflete ON/OFF no card na hora do arraste.
     const cadenceActive =
       stage.key === STAGE_CADENCE_ON ? true : stage.key === STAGE_CADENCE_OFF ? false : card.cadenceActive;
@@ -758,6 +764,7 @@ export function CrmPipeline({
         c.id === id ? { ...c, stage: stage.key, daysInStage: 0, rot: "fresh", cadenceActive, cadenceStep } : c,
       ),
     );
+    const revert = () => setCards((prev) => prev.map((c) => (c.id === id ? prevCard : c)));
     try {
       const res = await fetch("/api/crm/leads", {
         method: "POST",
@@ -771,11 +778,9 @@ export function CrmPipeline({
         }),
       });
       if (res.status === 422) {
-        // Servidor recusou (requisitos): reverte o movimento otimista.
+        // Servidor recusou (requisitos): reverte o movimento otimista por completo.
         const json = await res.json().catch(() => ({}));
-        setCards((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, stage: prevStage } : c)),
-        );
+        revert();
         setBlocked({
           dealId: id,
           stageLabel: stage.label,
@@ -791,11 +796,14 @@ export function CrmPipeline({
       if (!res.ok) {
         // Falha real (não requisitos): avisa e reverte o movimento otimista.
         toast("Não foi possível mover o negócio. Tente de novo.", "error");
-        setCards((prev) => prev.map((c) => (c.id === id ? { ...c, stage: prevStage } : c)));
+        revert();
         return;
       }
     } catch {
+      // Sem conexão: reverte pra não deixar o card num estado não salvo.
       toast("Sem conexão — o movimento não foi salvo.", "error");
+      revert();
+      return;
     }
     router.refresh();
   }
@@ -1022,7 +1030,7 @@ export function CrmPipeline({
       {/* Faixa de métricas (6 KPIs, estilo HubSpot) */}
       {!hideMetrics && (
         <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
-          <MetricTile label="Valor total de negócio" value={formatBRL(allValue)} sub={`Média por negócio ${formatBRL(avgOf(allValue, visibleCards.length))}`} />
+          <MetricTile label="Valor total de negócio" value={formatBRL(allValue)} sub={`Média por negócio ${formatBRL(avgOf(allValue, boardCards.length))}`} />
           <MetricTile label="Valor ponderado de negócio" value={formatBRL(openWeighted)} sub={`Média por negócio ${formatBRL(avgOf(openWeighted, openCards.length))}`} />
           <MetricTile label="Valor de negócio aberto" value={formatBRL(openValue)} sub={`Média por negócio ${formatBRL(avgOf(openValue, openCards.length))}`} />
           <MetricTile label="Valor de negócio fechado" value={formatBRL(wonValue)} sub={`Média por negócio ${formatBRL(avgOf(wonValue, wonCards.length))}`} />

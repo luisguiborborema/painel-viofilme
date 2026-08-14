@@ -25,10 +25,10 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
 
   const reports = (body.reports ?? [])
-    .filter((r) => r && r.name)
+    .filter((r) => !!r)
     .map((r) => ({
       id: String(r.id ?? Math.random().toString(36).slice(2)),
-      name: String(r.name),
+      name: String(r.name || "Relatório sem nome"), // não descarta silenciosamente relatório com nome vazio
       groupBy: String(r.groupBy ?? "owner"),
       metric: String(r.metric ?? "count"),
       status: String(r.status ?? "abertos"),

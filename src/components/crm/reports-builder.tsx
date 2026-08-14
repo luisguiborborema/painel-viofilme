@@ -192,22 +192,31 @@ function ReportChartView({ rows, total, report }: { rows: { label: string; value
     );
   }
   if (chart === "pie") {
-    const slice = rows.slice(0, PALETTE.length);
-    const cumulative = slice.map((_, i) => slice.slice(0, i + 1).reduce((s, r) => s + r.value, 0));
-    const stops = slice.map((row, i) => {
-      const from = total ? ((cumulative[i] - row.value) / total) * 100 : 0;
-      const to = total ? (cumulative[i] / total) * 100 : 0;
-      return `${PALETTE[i]} ${from}% ${to}%`;
-    });
+    // >10 grupos: agrega o excedente numa fatia "Outros" para o donut representar
+    // 100% do total — senão a última fatia desenhada absorveria todo o arco restante.
+    const display =
+      rows.length > PALETTE.length
+        ? [
+            ...rows.slice(0, PALETTE.length - 1),
+            { label: "Outros", value: rows.slice(PALETTE.length - 1).reduce((s, r) => s + r.value, 0) },
+          ]
+        : rows;
+    const cumulative = display.map((_, i) => display.slice(0, i + 1).reduce((s, r) => s + r.value, 0));
+    const bg =
+      total > 0
+        ? `conic-gradient(${display
+            .map((row, i) => `${PALETTE[i]} ${((cumulative[i] - row.value) / total) * 100}% ${(cumulative[i] / total) * 100}%`)
+            .join(",")})`
+        : "var(--color-line)"; // total 0 → anel neutro, não um disco sólido da última cor
     return (
       <div className="flex items-center gap-4">
-        <div className="h-28 w-28 shrink-0 rounded-full" style={{ background: `conic-gradient(${stops.join(",")})` }}>
+        <div className="h-28 w-28 shrink-0 rounded-full" style={{ background: bg }}>
           <div className="flex h-full w-full items-center justify-center">
             <div className="h-16 w-16 rounded-full bg-surface" />
           </div>
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          {rows.slice(0, PALETTE.length).map((row, i) => (
+          {display.map((row, i) => (
             <div key={row.label} className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: PALETTE[i] }} />
               <span className="min-w-0 flex-1 truncate text-muted" title={row.label}>{row.label}</span>
@@ -223,7 +232,11 @@ function ReportChartView({ rows, total, report }: { rows: { label: string; value
     const w = 300;
     const h = 90;
     const step = rows.length > 1 ? w / (rows.length - 1) : w;
-    const pts = rows.map((r, i) => `${i * step},${h - (r.value / max) * h}`).join(" ");
+    // 1 ponto: desenha uma reta horizontal (uma coordenada só não renderiza linha).
+    const pts =
+      rows.length === 1
+        ? `0,${h - (rows[0].value / max) * h} ${w},${h - (rows[0].value / max) * h}`
+        : rows.map((r, i) => `${i * step},${h - (r.value / max) * h}`).join(" ");
     return (
       <div className="space-y-1">
         <svg viewBox={`0 0 ${w} ${h}`} className="h-24 w-full" preserveAspectRatio="none">
