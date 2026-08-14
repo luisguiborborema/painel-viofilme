@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/dashboard/page-header";
 import { CrmPipeline } from "@/components/crm/crm-pipeline";
 import {
   getCrmLeads,
@@ -29,7 +28,6 @@ export default async function PipelinePage() {
 
   return (
     <div>
-      <PageHeader title="Pipeline" subtitle="Funil de aquisição — arraste, priorize e faça avançar." />
       <CrmPipeline
         cards={cards}
         pipelines={pipelines}

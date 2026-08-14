@@ -795,52 +795,30 @@ export function CrmPipeline({
 
   return (
     <div className="space-y-4">
-      {/* Barra: alternador Kanban/Lista + Novo negócio (compartilhado) */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex rounded-xl border border-line p-0.5">
-          <button
-            onClick={() => setView("kanban")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              view === "kanban" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> Kanban
-          </button>
-          <button
-            onClick={() => setView("lista")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              view === "lista" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
-            )}
-          >
-            <List className="h-3.5 w-3.5" /> Tabela
-          </button>
-          <button
-            onClick={() => setView("forecast")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              view === "forecast" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
-            )}
-          >
-            <BarChart3 className="h-3.5 w-3.5" /> Forecast
-          </button>
-          <button
-            onClick={() => setView("arquivados")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              view === "arquivados" ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
-            )}
-          >
-            <Archive className="h-3.5 w-3.5" /> Arquivados
-          </button>
+      {/* Abas de visualização (estilo HubSpot) + Criar negócio */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {([["kanban", LayoutGrid, "Kanban"], ["lista", List, "Tabela"], ["forecast", BarChart3, "Forecast"], ["arquivados", Archive, "Arquivados"]] as const).map(
+            ([k, Icon, label]) => (
+              <button
+                key={k}
+                onClick={() => setView(k)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                  view === k ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+                )}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ),
+          )}
         </div>
         {!readOnly && (
           <button
             onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            className="mb-1.5 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
           >
-            <Plus className="h-4 w-4" /> Novo negócio
+            <Plus className="h-4 w-4" /> Criar negócio
           </button>
         )}
       </div>
