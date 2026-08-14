@@ -6,6 +6,7 @@ import {
   Archive,
   ArrowRightLeft,
   BarChart3,
+  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   LayoutGrid,
@@ -446,6 +447,7 @@ export function CrmPipeline({
   const [search, setSearch] = useState("");
   const [showMetrics, setShowMetrics] = useState(false);
   const [hideMetrics, setHideMetrics] = useState(false);
+  const [boardOpts, setBoardOpts] = useState(false);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const toggleCollapse = (key: string) =>
     setCollapsedStages((prev) => {
@@ -1020,15 +1022,6 @@ export function CrmPipeline({
             )}
           </button>
         )}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar nome ou descrição"
-            className="w-48 rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-brand-400 sm:w-64"
-          />
-        </div>
         {activeFilters > 0 && (
           <button onClick={clearFilters} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
             <X className="h-3.5 w-3.5" /> limpar ({activeFilters})
@@ -1061,6 +1054,52 @@ export function CrmPipeline({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Busca + Opções do quadro (estilo HubSpot) */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar nome ou descrição"
+            className="w-full rounded-lg border border-line bg-surface py-1.5 pl-9 pr-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setBoardOpts((o) => !o)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+          >
+            Opções do quadro <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          {boardOpts && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setBoardOpts(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                <button
+                  onClick={() => { setHideMetrics((v) => !v); setBoardOpts(false); }}
+                  className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-ink hover:bg-subtle"
+                >
+                  {hideMetrics ? "Mostrar métricas" : "Ocultar métricas"}
+                </button>
+                <button
+                  onClick={() => { setCollapsedStages(new Set(stages.filter((s) => s.kind !== "lost").map((s) => s.key))); setBoardOpts(false); }}
+                  className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-ink hover:bg-subtle"
+                >
+                  Recolher todas as colunas
+                </button>
+                <button
+                  onClick={() => { setCollapsedStages(new Set()); setBoardOpts(false); }}
+                  className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm text-ink hover:bg-subtle"
+                >
+                  Expandir todas as colunas
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {showFrozen && (
