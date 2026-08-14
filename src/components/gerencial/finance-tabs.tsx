@@ -64,7 +64,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div data-tour="fin-tabs" className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.key}

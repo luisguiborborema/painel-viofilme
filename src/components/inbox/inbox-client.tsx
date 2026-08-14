@@ -341,7 +341,7 @@ export function InboxClient({
               className="w-full rounded-lg border border-line bg-canvas py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-brand-400"
             />
           </div>
-          <div className="mt-2 flex gap-1">
+          <div data-tour="inbox-status" className="mt-2 flex gap-1">
             {WA_STATUS.map((s) => (
               <button
                 key={s.key}

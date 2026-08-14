@@ -286,7 +286,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
             className="w-full rounded-xl border border-line bg-surface py-2 pl-8 pr-3 text-sm text-ink outline-none focus:border-brand-400"
           />
         </div>
-        <div className="inline-flex rounded-xl border border-line bg-surface p-0.5">
+        <div data-tour="hub-escopo" className="inline-flex rounded-xl border border-line bg-surface p-0.5">
           {(["meus", "squad", "todos"] as const).map((s) => (
             <button
               key={s}
@@ -309,7 +309,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
       </div>
 
       {/* Filtros operacionais (HUB03) */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-tour="hub-filtros" className="flex flex-wrap items-center gap-2">
         <select value={estado} onChange={(e) => setEstado(e.target.value as EstadoFilter)} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400">
           <option value="todas">Todos os status</option>
           <option value="em-dia">Em dia</option>

@@ -172,7 +172,7 @@ export default async function MeuDia() {
       </div>
 
       {/* Métricas */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div data-tour="md-kpis" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Atrasadas" value={String(overdue)} icon={AlertTriangle} />
         <StatCard label="Para hoje" value={String(dueToday)} icon={ListChecks} />
         <StatCard label="Reuniões hoje" value={String(events.length)} icon={CalendarDays} />
@@ -262,7 +262,7 @@ export default async function MeuDia() {
       </div>
 
       {/* Atalhos */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div data-tour="md-atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { href: "/gerencial/entregas", label: "Painel de Entregas", icon: ListChecks },
           { href: "/gerencial/agenda", label: "Agenda", icon: CalendarCheck },

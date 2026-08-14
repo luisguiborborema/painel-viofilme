@@ -96,7 +96,7 @@ export function CrmSettingsNav({ sections }: { sections: SettingsSection[] }) {
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
-      <nav className="shrink-0 space-y-5 lg:w-60">
+      <nav data-tour="crmset-nav" className="shrink-0 space-y-5 lg:w-60">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input

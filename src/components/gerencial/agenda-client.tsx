@@ -208,7 +208,7 @@ export function AgendaClient({
           <span className="min-w-[160px] text-sm font-semibold capitalize text-ink">{periodLabel}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-xl border border-line p-0.5">
+          <div data-tour="agenda-view" className="inline-flex rounded-xl border border-line p-0.5">
             {(["dia", "semana", "mes"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-semibold capitalize", view === v ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle")}>{v === "mes" ? "Mês" : v}</button>
             ))}

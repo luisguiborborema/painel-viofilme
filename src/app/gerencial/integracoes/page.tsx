@@ -85,7 +85,7 @@ export default async function GerencialIntegracoes({
       )}
 
       {/* Google Calendar (conta única da agência) */}
-      <Card className="mb-6 p-4">
+      <Card className="mb-6 p-4" data-tour="int-google">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600">

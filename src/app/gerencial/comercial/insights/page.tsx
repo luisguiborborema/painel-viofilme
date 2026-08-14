@@ -48,7 +48,9 @@ export default async function InsightsPage() {
   return (
     <div>
       <PageHeader title="Insights" subtitle="Análise do funil e metas do time." />
-      <ClientTabs tabs={tabs} />
+      <div data-tour="insights-tabs">
+        <ClientTabs tabs={tabs} />
+      </div>
     </div>
   );
 }
