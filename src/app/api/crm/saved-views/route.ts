@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   }
 
   // create
-  const scope = b.scope === "empresas" ? "empresas" : "pessoas";
+  const scope = ["pessoas", "empresas", "negocios"].includes(b.scope ?? "") ? (b.scope as string) : "pessoas";
   if (!b.name?.trim()) return NextResponse.json({ error: "nome ausente" }, { status: 400 });
   const conditions = (b.conditions ?? [])
     .filter((c) => c.field && c.op)

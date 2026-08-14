@@ -57,11 +57,13 @@ export type SavedViewDisplay = {
   hidden?: string[];
   sortKey?: string;
   sortDir?: "asc" | "desc";
+  /** Filtros do board de Negócios (pipeline) — arbitrário. */
+  filters?: Record<string, unknown>;
 };
 
 export type SavedView = {
   id: string;
-  scope: "pessoas" | "empresas";
+  scope: "pessoas" | "empresas" | "negocios";
   name: string;
   conditions: Condition[];
   lens?: Lens | null;

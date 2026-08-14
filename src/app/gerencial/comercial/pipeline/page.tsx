@@ -10,6 +10,7 @@ import {
   crmNowIso,
 } from "@/lib/data/queries";
 import { toCard } from "@/lib/data/crm";
+import { getSavedViews } from "@/lib/data/listas-server";
 import { getSession } from "@/lib/auth/session";
 
 export default async function PipelinePage() {
@@ -25,6 +26,7 @@ export default async function PipelinePage() {
   ]);
   const nowIso = crmNowIso();
   const cards = leads.map((l) => toCard(l, nowIso));
+  const savedViews = (await getSavedViews(user?.id ?? "")).filter((v) => v.scope === "negocios");
 
   return (
     <div>
@@ -38,6 +40,7 @@ export default async function PipelinePage() {
         teamMembers={team}
         currentUser={user?.name ?? ""}
         lostReasons={lostReasons.map((r) => r.label)}
+        savedViews={savedViews}
       />
     </div>
   );

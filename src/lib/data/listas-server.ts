@@ -27,14 +27,14 @@ export async function getSavedViews(ownerId: string): Promise<SavedView[]> {
   }
   return (rows ?? []).map((r) => ({
     id: String(r.id),
-    scope: r.scope === "empresas" ? "empresas" : "pessoas",
+    scope: r.scope === "empresas" ? "empresas" : r.scope === "negocios" ? "negocios" : "pessoas",
     name: String(r.name),
     conditions: Array.isArray(r.conditions) ? (r.conditions as Condition[]) : [],
     lens: (r.lens as Lens | null) ?? null,
     isShared: Boolean(r.is_shared),
     display:
       r.display && typeof r.display === "object" ? (r.display as SavedView["display"]) : undefined,
-  }));
+  })) as SavedView[];
 }
 
 // ── Casca Produtos: catálogo de serviços (serviço › plano) ───────────────────

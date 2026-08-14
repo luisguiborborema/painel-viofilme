@@ -53,6 +53,7 @@ import {
   type Tag,
 } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
+import type { SavedView } from "@/lib/data/listas";
 import { NovoNegocioModal } from "./new-lead-modal";
 import { CrmList } from "./crm-list";
 import { CrmForecast } from "./crm-forecast";
@@ -412,6 +413,7 @@ export function CrmPipeline({
   teamMembers = [],
   currentUser = "",
   lostReasons = [],
+  savedViews = [],
 }: {
   cards: CrmLeadCard[];
   pipelines?: Pipeline[];
@@ -422,6 +424,7 @@ export function CrmPipeline({
   teamMembers?: Attendant[];
   currentUser?: string;
   lostReasons?: string[];
+  savedViews?: SavedView[];
 }) {
   const router = useRouter();
   const readOnly = useReadOnly();
@@ -448,6 +451,7 @@ export function CrmPipeline({
   const [showMetrics, setShowMetrics] = useState(false);
   const [hideMetrics, setHideMetrics] = useState(false);
   const [boardOpts, setBoardOpts] = useState(false);
+  const [activeView, setActiveView] = useState<string | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const toggleCollapse = (key: string) =>
     setCollapsedStages((prev) => {
@@ -796,6 +800,45 @@ export function CrmPipeline({
     router.refresh();
   }
 
+  // Visões salvas de Negócios (board) — reusam saved_views (scope negocios).
+  async function saveDealView() {
+    const name = window.prompt("Nome da visualização:");
+    if (!name?.trim()) return;
+    const filters = { mine, assignee, companyF, sourceF, stageF, priorityF, tagFilter, stuckOnly, search, pipelineId };
+    await withToast(
+      fetch("/api/crm/saved-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", scope: "negocios", name: name.trim(), display: { filters } }),
+      }),
+    );
+    router.refresh();
+  }
+  function applyDealView(v: SavedView) {
+    const f = (v.display?.filters ?? {}) as Record<string, unknown>;
+    setMine(Boolean(f.mine));
+    setAssignee((f.assignee as string) || null);
+    setCompanyF((f.companyF as string) || null);
+    setSourceF((f.sourceF as string) || null);
+    setStageF((f.stageF as string) || null);
+    setPriorityF((f.priorityF as LeadPriority) || null);
+    setTagFilter((f.tagFilter as string) || null);
+    setStuckOnly(Boolean(f.stuckOnly));
+    setSearch((f.search as string) || "");
+    if (f.pipelineId && pipelines.some((p) => p.id === f.pipelineId)) setPipelineId(f.pipelineId as string);
+    setActiveView(v.id);
+  }
+  async function deleteDealView(id: string) {
+    if (!window.confirm("Excluir esta visualização?")) return;
+    await fetch("/api/crm/saved-views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    }).catch(() => {});
+    if (activeView === id) setActiveView(null);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-4">
       {/* Cabeçalho do objeto (estilo HubSpot): título + toggle de visão + ações */}
@@ -872,14 +915,14 @@ export function CrmPipeline({
         />
       ) : (
         <>
-      {/* Abas de visualização (estilo HubSpot) */}
+      {/* Abas de visualização (estilo HubSpot): padrão + visões salvas */}
       <div className="flex items-center gap-1 overflow-x-auto border-b border-line">
         {([["todos", "Todos os negócios"], ["meus", "Meus negócios"]] as const).map(([k, label]) => {
-          const active = k === "meus" ? mine : !mine;
+          const active = !activeView && (k === "meus" ? mine : !mine);
           return (
             <button
               key={k}
-              onClick={() => setMine(k === "meus")}
+              onClick={() => { setActiveView(null); setMine(k === "meus"); }}
               className={cn(
                 "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
                 active ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
@@ -889,9 +932,34 @@ export function CrmPipeline({
             </button>
           );
         })}
-        <span className="ml-1 px-2 py-2 text-sm font-medium text-muted/50" title="As visões salvas ficam em Listas">
-          + Adicionar visualização
-        </span>
+        {savedViews.map((v) => (
+          <span
+            key={v.id}
+            className={cn(
+              "group -mb-px inline-flex shrink-0 items-center gap-1 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              activeView === v.id ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+            )}
+          >
+            <button type="button" onClick={() => applyDealView(v)}>{v.name}</button>
+            <button
+              type="button"
+              onClick={() => deleteDealView(v.id)}
+              className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+              title="Excluir visualização"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {!readOnly && (
+          <button
+            onClick={saveDealView}
+            className="ml-1 whitespace-nowrap px-2 py-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+            title="Salvar os filtros atuais como uma visualização"
+          >
+            + Adicionar visualização
+          </button>
+        )}
       </div>
 
       {/* Barra de ferramentas: funil + Ocultar métricas (estilo HubSpot) */}
