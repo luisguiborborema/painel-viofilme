@@ -21,7 +21,7 @@ export default async function GerencialRh() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div data-tour="page-header" className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <span className="mt-0.5 text-brand-300">
             <HeartHandshake className="h-5 w-5" />

@@ -260,6 +260,272 @@ export const TOURS: Tour[] = [
     ],
   },
 
+  // Comercial › Dashboard.
+  {
+    id: "comercial-dashboard",
+    title: "Dashboard Comercial",
+    match: /^\/gerencial\/comercial\/dashboard/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Dashboard Comercial",
+        body: "O foco do dia da equipe de vendas: prioridades, mural e próximos passos.",
+      },
+      {
+        title: "Cards do dia",
+        body: "'Como foi ontem', 'Como vai ser hoje', 'Como vai o mês', 'Termômetro de leads', 'Placar do mês', 'Agenda de hoje' e 'Pipeline por etapa'. Gestores editam o mural do time.",
+      },
+    ],
+  },
+
+  // Comercial › Atividades (tarefas do CRM).
+  {
+    id: "comercial-atividades",
+    title: "Atividades",
+    match: /^\/gerencial\/comercial\/atividades/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Atividades",
+        body: "As tarefas, ligações e follow-ups do time comercial — o que fazer agora.",
+      },
+      {
+        title: "Organize por prazo e tipo",
+        body: "Abas por prazo: 'Para fazer', 'Vencido', 'Hoje', 'Amanhã'. Cada atividade tem um tipo: Ligação, WhatsApp, E-mail, Reunião, Prazo ou To-do.",
+      },
+    ],
+  },
+
+  // Comercial › Listas (banco de dados).
+  {
+    id: "comercial-listas",
+    title: "Listas",
+    match: /^\/gerencial\/comercial\/listas/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Listas",
+        body: "O banco de dados comercial. Alterne entre 'Pessoas', 'Empresas', 'Produtos' e 'Processos' pelas abas.",
+      },
+    ],
+  },
+
+  // Comercial › Documentos de venda.
+  {
+    id: "comercial-documentos",
+    title: "Documentos de venda",
+    match: /^\/gerencial\/comercial\/documentos/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Documentos de venda",
+        body: "Propostas, contratos, modelos e materiais. Abas: 'Propostas & Contratos', 'Modelos' e 'Materiais de venda'.",
+      },
+      {
+        title: "Filtros rápidos",
+        body: "Em Propostas & Contratos filtre por 'Em aberto', 'Aguardando assinatura', 'Não visualizadas' e 'Vencendo/vencidas'.",
+      },
+    ],
+  },
+
+  // Central de relatórios (do cliente).
+  {
+    id: "relatorios",
+    title: "Central de relatórios",
+    match: /^\/gerencial\/relatorios/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Central de relatórios",
+        body: "Gere relatórios de cliente sob demanda e configure updates recorrentes automáticos no WhatsApp.",
+      },
+      {
+        title: "Tipos e automação",
+        body: "Escolha o formato: 'Apresentação', 'Planilha' ou 'Link público'. Mais abaixo, em 'Updates recorrentes & histórico', você agenda envios automáticos.",
+      },
+    ],
+  },
+
+  // Painel de Entregas.
+  {
+    id: "entregas",
+    title: "Painel de Entregas",
+    match: /^\/gerencial\/entregas/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Painel de Entregas",
+        body: "A 'cozinha' da operação: o que sai hoje, quem está sobrecarregado e onde trava.",
+      },
+      {
+        title: "Várias visões",
+        body: "Troque entre 'Visão geral', 'Kanban', 'Calendário', 'Linha do tempo', 'Workload' e 'Entregas por cliente'. Os indicadores mostram Ativas, Em andamento, Concluídas e Atrasadas.",
+      },
+    ],
+  },
+
+  // RH & cultura.
+  {
+    id: "rh",
+    title: "RH & cultura",
+    match: /^\/gerencial\/rh/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "RH & cultura",
+        body: "O hub de pessoas: time, banco de horas, PDIs, avaliações e comunicação interna. 'Novo colaborador' cadastra alguém no time.",
+      },
+      {
+        title: "Abas",
+        body: "'Time', 'Banco de horas', 'PDIs', 'Avaliações', 'Mural' e 'Documentos'.",
+      },
+    ],
+  },
+
+  // Conteúdo (VioFlux).
+  {
+    id: "conteudo",
+    title: "VioFlux (conteúdo)",
+    match: /^\/gerencial\/conteudo/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "VioFlux",
+        body: "O 'passa-pratos' do conteúdo: do post pronto à aprovação do cliente e à publicação nas redes.",
+      },
+      {
+        title: "Visões",
+        body: "'Dashboard', 'Calendário', 'Posts', 'Grupo de aprovação' e 'Criar post'.",
+      },
+    ],
+  },
+
+  // Playbooks (documentos da agência).
+  {
+    id: "documentos",
+    title: "Playbooks",
+    match: /^\/gerencial\/documentos/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Playbooks",
+        body: "Os documentos e processos da agência, organizados por setor (em Markdown ou HTML).",
+      },
+      {
+        title: "Setores e playbooks",
+        body: "Na coluna da esquerda, crie 'Novo setor' e adicione um 'Novo playbook' (+). O conteúdo aparece à direita, com editar e excluir.",
+      },
+    ],
+  },
+
+  // Gestão à Vista.
+  {
+    id: "gestao-a-vista",
+    title: "Gestão à Vista",
+    match: /^\/gerencial\/gestao-a-vista/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Gestão à Vista",
+        body: "Radiografia da carteira, benchmarking do time e leitura de vocação — somente leitura.",
+      },
+      {
+        title: "Lentes",
+        body: "Troque a lente de análise: 'Tráfego', 'Social' e 'Liderança' (conforme seu acesso). Os chips mostram a saúde: Saudável, Em risco, Sem meta.",
+      },
+    ],
+  },
+
+  // Painel Executivo.
+  {
+    id: "painel-executivo",
+    title: "Painel Executivo",
+    match: /^\/gerencial\/painel-executivo/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Painel Executivo",
+        body: "O estado do negócio num relance, em quatro blocos: Comercial, Entregas, Financeiro e Alertas.",
+      },
+      {
+        title: "Indicadores-chave",
+        body: "Comercial (pipeline em aberto, forecast, conversão), Entregas (ativas, atrasadas, aguardando), Financeiro (a receber, a pagar, saldo, MRR) e o card de Alertas.",
+      },
+    ],
+  },
+
+  // Solicitações do portal.
+  {
+    id: "solicitacoes",
+    title: "Solicitações",
+    match: /^\/gerencial\/solicitacoes/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Solicitações do portal",
+        body: "Pedidos de reunião e conteúdo que os clientes enviam pelo portal. Atualize o status conforme trata cada um.",
+      },
+      {
+        title: "Duas colunas",
+        body: "'Reuniões' e 'Conteúdo'. Em cada card, o seletor de status move o pedido pelo fluxo.",
+      },
+    ],
+  },
+
+  // Sugestões.
+  {
+    id: "sugestoes",
+    title: "Sugestões",
+    match: /^\/gerencial\/sugestoes/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Sugestões de ajustes",
+        body: "Suba melhorias e ajustes do próprio painel (com texto, imagens ou vídeo) e acompanhe o andamento.",
+      },
+      {
+        title: "Filtro por status",
+        body: "Chips: Todas, Aberta, Em análise, Planejada, Concluída e Recusada.",
+      },
+    ],
+  },
+
+  // Usuários (admin).
+  {
+    id: "usuarios",
+    title: "Usuários",
+    match: /^\/gerencial\/usuarios/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Usuários",
+        body: "Gestão de acessos: crie usuários, defina perfil de acesso, WhatsApp e time.",
+      },
+      {
+        title: "Usuários e Times",
+        body: "Alterne entre as abas 'Usuários' e 'Times'.",
+      },
+    ],
+  },
+
+  // Monitoramento (admin).
+  {
+    id: "monitoramento",
+    title: "Monitoramento",
+    match: /^\/gerencial\/monitoramento/,
+    steps: [
+      {
+        selector: '[data-tour="page-header"]',
+        title: "Monitoramento",
+        body: "Auditoria de eventos e uso do painel (gerencial e cliente) — visível apenas para admin.",
+      },
+      {
+        title: "O que você vê",
+        body: "Cards de Eventos, Acessos (30 dias), Usuários ativos e Abas distintas, além de listas por área/usuário e a linha do tempo de eventos.",
+      },
+    ],
+  },
+
   // Fallback: noções básicas do painel — vale para qualquer tela autenticada.
   {
     id: "app-basics",
