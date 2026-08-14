@@ -16,7 +16,13 @@ export async function GET() {
     return NextResponse.json({ team: [] }, { status: 401 });
   }
   const attendants = await getAttendants();
-  return NextResponse.json({ team: attendants.map((a) => a.name).filter(Boolean) });
+  return NextResponse.json({
+    // `team` (só nomes) mantido para compatibilidade; `members` inclui a foto.
+    team: attendants.map((a) => a.name).filter(Boolean),
+    members: attendants
+      .filter((a) => a.name)
+      .map((a) => ({ name: a.name, avatarUrl: a.avatarUrl ?? null })),
+  });
 }
 
 /**

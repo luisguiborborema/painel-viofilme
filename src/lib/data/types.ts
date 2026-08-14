@@ -209,6 +209,7 @@ export type CSClient = {
   atRisk: boolean;
   healthy: boolean;
   renewingSoon: boolean;
+  logoUrl?: string;
 };
 
 export type CSTimelineEvent = {

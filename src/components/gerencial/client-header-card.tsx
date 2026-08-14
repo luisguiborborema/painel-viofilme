@@ -4,6 +4,7 @@ import { RESPONSIBLE_ROLES } from "@/lib/data/operacao";
 import { PlatformIcon } from "@/components/dashboard/platform";
 import { ClientQuickActions } from "@/components/gerencial/client-quick-actions";
 import { ClientManageActions } from "@/components/gerencial/client-manage-actions";
+import { ClientLogo } from "@/components/gerencial/client-logo";
 import { cn } from "@/lib/utils";
 import type {
   ClientDetail,
@@ -119,9 +120,7 @@ export function ClientHeaderCard({
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white">
-            {initials(c.name)}
-          </span>
+          <ClientLogo clientId={id} name={c.name} logoUrl={c.logoUrl} />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-ink">
               {c.name}

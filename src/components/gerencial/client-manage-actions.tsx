@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  ChevronDown,
   Copy,
   Loader2,
   MessageCircle,
@@ -44,6 +45,35 @@ const fmtField = (v: string) => {
 const splitPeople = (s: string) =>
   (s ?? "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
 
+type Member = { name: string; avatarUrl: string | null };
+
+function inits(name: string) {
+  return name
+    .replace(/[^A-Za-zÀ-ú ]/g, "")
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+/** Avatar do colaborador: foto se houver, senão iniciais. */
+function Avatar({ name, url, size = 22 }: { name: string; url?: string | null; size?: number }) {
+  const s = { width: size, height: size };
+  if (url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={name} style={s} className="shrink-0 rounded-full object-cover" />;
+  }
+  return (
+    <span
+      style={s}
+      className="flex shrink-0 items-center justify-center rounded-full bg-subtle-strong text-[9px] font-bold text-ink"
+    >
+      {inits(name)}
+    </span>
+  );
+}
+
 /**
  * Ações de gestão da conta no topo da ficha (HUB): handoff de briefing pro
  * squad (Social/Performance), troca de responsáveis e edição de serviços/
@@ -68,7 +98,8 @@ export function ClientManageActions({
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<null | "brief" | "resp" | "ops">(null);
-  const [team, setTeam] = useState<string[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [openRole, setOpenRole] = useState<string | null>(null);
 
   // Briefing (handoff)
   const [copiedArea, setCopiedArea] = useState<string | null>(null);
@@ -89,14 +120,14 @@ export function ClientManageActions({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Time: necessário para os selects de responsáveis.
+  // Time (com foto): necessário para o seletor de responsáveis.
   useEffect(() => {
-    if (modal !== "resp" || team.length) return;
+    if (modal !== "resp" || members.length) return;
     fetch("/api/gerencial/team", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => Array.isArray(j?.team) && setTeam(j.team as string[]))
+      .then((j) => Array.isArray(j?.members) && setMembers(j.members as Member[]))
       .catch(() => {});
-  }, [modal, team.length]);
+  }, [modal, members.length]);
 
   // Entregáveis por formato: carregados sob demanda ao abrir o modal.
   useEffect(() => {
@@ -293,14 +324,16 @@ export function ClientManageActions({
           {RESPONSIBLE_ROLES.map((r) => {
             const key = r.key as ResponsibleRole;
             const people = resp[key] ?? [];
-            const available = team.filter((n) => !people.includes(n));
+            const available = members.filter((m) => !people.includes(m.name));
+            const open = openRole === key;
             return (
               <div key={key} className="rounded-lg border border-line p-2.5">
                 <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">{r.label}</p>
                 {people.length > 0 && (
                   <div className="mb-1.5 flex flex-wrap gap-1">
                     {people.map((p) => (
-                      <span key={p} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-xs font-medium text-ink">
+                      <span key={p} className="inline-flex items-center gap-1 rounded-full bg-subtle py-0.5 pl-0.5 pr-2 text-xs font-medium text-ink">
+                        <Avatar name={p} url={members.find((m) => m.name === p)?.avatarUrl} size={18} />
                         {p}
                         <button
                           onClick={() => setResp((s) => ({ ...s, [key]: (s[key] ?? []).filter((x) => x !== p) }))}
@@ -313,19 +346,36 @@ export function ClientManageActions({
                     ))}
                   </div>
                 )}
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const n = e.target.value;
-                    if (n) setResp((s) => ({ ...s, [key]: [...(s[key] ?? []), n] }));
-                  }}
-                  className={inputCls}
+                <button
+                  type="button"
+                  onClick={() => setOpenRole(open ? null : key)}
+                  className={cn(inputCls, "flex items-center justify-between text-muted")}
                 >
-                  <option value="">{people.length ? "+ Adicionar pessoa" : "Selecionar…"}</option>
-                  {available.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
+                  {people.length ? "+ Adicionar pessoa" : "Selecionar…"}
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+                </button>
+                {open && (
+                  <div className="mt-1 max-h-48 overflow-y-auto rounded-lg border border-line p-1">
+                    {available.length === 0 ? (
+                      <p className="px-2 py-2 text-xs text-muted">Ninguém disponível.</p>
+                    ) : (
+                      available.map((m) => (
+                        <button
+                          key={m.name}
+                          type="button"
+                          onClick={() => {
+                            setResp((s) => ({ ...s, [key]: [...(s[key] ?? []), m.name] }));
+                            setOpenRole(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle"
+                        >
+                          <Avatar name={m.name} url={m.avatarUrl} size={24} />
+                          <span className="min-w-0 truncate">{m.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -1851,6 +1851,13 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     : Math.max(1, Math.round((now.getTime() - createdMs) / (30 * dayMs)));
   const clientSince = Number.isNaN(createdMs) ? "—" : new Date(createdMs).toLocaleDateString("pt-BR");
 
+  // Logo do cliente — leitura tolerante (a coluna pode não existir antes da
+  // migração 0106; nesse caso o select retorna erro e logoUrl fica indefinido).
+  const { data: logoRow } = await supabase.from("clients").select("logo_url").eq("id", id).maybeSingle();
+  const logoUrl = (logoRow as { logo_url?: string | null } | null)?.logo_url
+    ? String((logoRow as { logo_url?: string }).logo_url)
+    : undefined;
+
   const client: CSClient = {
     id,
     name,
@@ -1869,6 +1876,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
     atRisk: h.atRisk,
     healthy: h.healthy,
     renewingSoon: false,
+    logoUrl,
   };
 
   const ddmm = (iso: string) =>
