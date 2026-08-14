@@ -1580,6 +1580,7 @@ import {
   type Workflow,
   type LeadScoreRule,
   type ReportDef,
+  type DashboardDef,
   type CompanyDetail,
   type ContactDetail,
 } from "./crm";
@@ -1740,6 +1741,11 @@ export async function getLeadScoreRules(): Promise<LeadScoreRule[]> {
 
 export async function getCrmReports(): Promise<ReportDef[]> {
   if (isSupabaseConfigured()) return sb.sbGetCrmReports();
+  return [];
+}
+
+export async function getCrmDashboards(): Promise<DashboardDef[]> {
+  if (isSupabaseConfigured()) return sb.sbGetCrmDashboards();
   return [];
 }
 

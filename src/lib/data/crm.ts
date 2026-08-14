@@ -535,6 +535,7 @@ export function computeScoreFromRules(lead: CrmLead, rules: LeadScoreRule[]): nu
 export type ReportGroupBy = "owner" | "stage" | "source" | "priority" | "month";
 export type ReportMetric = "count" | "sum_value" | "sum_weighted";
 export type ReportStatus = "abertos" | "ganhos" | "perdidos" | "todos";
+export type ReportChart = "bar" | "pie" | "line" | "number";
 
 export type ReportDef = {
   id: string;
@@ -542,7 +543,19 @@ export type ReportDef = {
   groupBy: ReportGroupBy;
   metric: ReportMetric;
   status: ReportStatus;
+  chart?: ReportChart;
+  dashboardId?: string | null;
 };
+
+/** Dashboard = um agrupamento nomeado de relatórios (estilo HubSpot). */
+export type DashboardDef = { id: string; name: string };
+
+export const REPORT_CHART: { key: ReportChart; label: string }[] = [
+  { key: "bar", label: "Barras" },
+  { key: "pie", label: "Pizza" },
+  { key: "line", label: "Linha" },
+  { key: "number", label: "Número" },
+];
 
 export const REPORT_GROUP_BY: { key: ReportGroupBy; label: string }[] = [
   { key: "owner", label: "Responsável" },

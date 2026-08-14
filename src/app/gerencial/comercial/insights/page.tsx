@@ -3,7 +3,7 @@ import { ClientTabs, type ClientTab } from "@/components/gerencial/client-tabs";
 import { CrmAnalytics } from "@/components/crm/crm-analytics";
 import { CrmGoals } from "@/components/crm/crm-goals";
 import { ReportsBuilder } from "@/components/crm/reports-builder";
-import { getCrmLeads, getCrmPipelines, getCrmGoals, getStageHistory, getAttendants, getCrmReports, crmNowIso } from "@/lib/data/queries";
+import { getCrmLeads, getCrmPipelines, getCrmGoals, getStageHistory, getAttendants, getCrmReports, getCrmDashboards, crmNowIso } from "@/lib/data/queries";
 import { buildForecast, buildStageTimings, monthKey } from "@/lib/data/crm";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
@@ -20,6 +20,7 @@ export default async function InsightsPage() {
     getCrmGoals(curMonth),
     getCrmReports(),
   ]);
+  const dashboards = await getCrmDashboards();
   const teamNames = team.map((t) => t.name);
   const timings = buildStageTimings(history, nowIso);
   const forecast = buildForecast(leads, goals, teamNames, curMonth);
@@ -40,7 +41,7 @@ export default async function InsightsPage() {
     {
       key: "relatorios",
       label: "Relatórios",
-      content: <ReportsBuilder initialReports={reports} leads={leads} />,
+      content: <ReportsBuilder initialReports={reports} initialDashboards={dashboards} leads={leads} />,
     },
   ];
 
