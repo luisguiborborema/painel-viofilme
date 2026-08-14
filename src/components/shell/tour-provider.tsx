@@ -23,7 +23,9 @@ export function useTour() {
   return useContext(Ctx);
 }
 
-const seenKey = (id: string) => `vio-tour:${id}`;
+// Flag ÚNICO por usuário: o tutorial abre sozinho só no primeiríssimo acesso ao
+// painel. Depois disso, só reabre pelo botão "?" no topo.
+const ONBOARD_KEY = "vio-tour-onboarded";
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -39,26 +41,26 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const finish = useCallback(() => {
     setActive(false);
-    if (tour && typeof window !== "undefined") {
-      try {
-        localStorage.setItem(seenKey(tour.id), "1");
-      } catch {
-        /* localStorage indisponível — sem gating */
-      }
-    }
-  }, [tour]);
+  }, []);
 
-  // Abertura automática no primeiro acesso à rota (uma vez por tour).
+  // Abertura automática APENAS no primeiro acesso do usuário (uma vez, global).
+  // O flag é gravado no momento em que o tour realmente abre — se a pessoa sair
+  // da página antes de 700ms, tenta de novo na próxima (garante que ela veja).
   useEffect(() => {
     if (!tour || typeof window === "undefined") return;
-    let seen = false;
+    let onboarded = true;
     try {
-      seen = localStorage.getItem(seenKey(tour.id)) === "1";
+      onboarded = localStorage.getItem(ONBOARD_KEY) === "1";
     } catch {
-      seen = true;
+      onboarded = true; // sem localStorage → não força auto-abertura
     }
-    if (seen) return;
+    if (onboarded) return;
     const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(ONBOARD_KEY, "1");
+      } catch {
+        /* ignore */
+      }
       setStep(0);
       setActive(true);
     }, 700);
