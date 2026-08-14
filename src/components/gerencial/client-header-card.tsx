@@ -251,12 +251,12 @@ export function ClientHeaderCard({
         <Stat label="Próxima agenda" value={d.nextMeeting ? `${d.nextMeeting.whenLabel} · ${d.nextMeeting.title}` : "Agenda livre"} />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4" data-tour="client-quickactions">
         <ClientQuickActions clientId={id} whatsapp={config.whatsapp} driveUrl={d.driveFolderUrl} />
       </div>
 
       {/* Gestão interna da conta: briefing pro squad, responsáveis, serviços/entregáveis */}
-      <div className="mt-2 border-t border-line pt-3">
+      <div className="mt-2 border-t border-line pt-3" data-tour="client-manage">
         <ClientManageActions
           clientId={id}
           clientName={c.name}

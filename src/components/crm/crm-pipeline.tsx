@@ -1029,7 +1029,7 @@ export function CrmPipeline({
 
       {/* Faixa de métricas (6 KPIs, estilo HubSpot) */}
       {!hideMetrics && (
-        <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
+        <div data-tour="pipeline-metrics" className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
           <MetricTile label="Valor total de negócio" value={formatBRL(allValue)} sub={`Média por negócio ${formatBRL(avgOf(allValue, boardCards.length))}`} />
           <MetricTile label="Valor ponderado de negócio" value={formatBRL(openWeighted)} sub={`Média por negócio ${formatBRL(avgOf(openWeighted, openCards.length))}`} />
           <MetricTile label="Valor de negócio aberto" value={formatBRL(openValue)} sub={`Média por negócio ${formatBRL(avgOf(openValue, openCards.length))}`} />

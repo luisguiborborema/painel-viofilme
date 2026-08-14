@@ -52,6 +52,7 @@ export function Sidebar({
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         "hidden shrink-0 flex-col bg-brand-700 text-white transition-[width] duration-200 lg:flex",
         collapsed ? "w-[52px]" : "w-64",

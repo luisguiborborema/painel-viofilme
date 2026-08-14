@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
+import { ChevronDown, HelpCircle, LogOut, Menu, Search, X } from "lucide-react";
 import { clearSession } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 import { NotificationBell } from "./notification-bell";
+import { useTour } from "./tour-provider";
 
 function initials(name: string) {
   return name
@@ -32,6 +33,7 @@ export function Topbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
+  const { hasTour, start } = useTour();
 
   return (
     <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-line bg-surface/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:px-6">
@@ -57,6 +59,7 @@ export function Topbar({
       {onOpenSearch && (
         <button
           onClick={onOpenSearch}
+          data-tour="search"
           className="inline-flex items-center gap-2 rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-sm text-muted hover:bg-subtle"
           aria-label="Buscar"
           title="Buscar (⌘K)"
@@ -64,6 +67,18 @@ export function Topbar({
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Buscar</span>
           <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
+        </button>
+      )}
+
+      {hasTour && (
+        <button
+          onClick={start}
+          data-tour="tutorial-btn"
+          className="rounded-lg p-2 text-muted hover:bg-canvas hover:text-ink"
+          aria-label="Tutorial desta tela"
+          title="Tutorial desta tela"
+        >
+          <HelpCircle className="h-5 w-5" />
         </button>
       )}
 

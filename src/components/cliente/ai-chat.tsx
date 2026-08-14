@@ -133,6 +133,7 @@ export function AiChat({
       {!open && (
         <button
           onClick={() => setOpen(true)}
+          data-tour="assistant"
           className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition-transform hover:scale-105"
           aria-label={`${assistant.button}, assistente de IA`}
         >

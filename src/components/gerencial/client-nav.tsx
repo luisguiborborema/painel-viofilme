@@ -29,7 +29,7 @@ export function ClientNav({
 
   return (
     <div className="space-y-4">
-      <nav className="flex items-center gap-1.5 text-sm">
+      <nav data-tour="client-tabs" className="flex items-center gap-1.5 text-sm">
         <Link
           href="/gerencial/clientes"
           className="inline-flex items-center gap-1 font-medium text-muted transition-colors hover:text-ink"

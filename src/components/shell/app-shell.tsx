@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
 import { ReadOnlyProvider } from "./read-only-context";
+import { TourProvider } from "./tour-provider";
 import { visibleNav } from "@/lib/nav";
 import { hasFullAccess, canAccessSection } from "@/lib/access";
 import { usePersistentState } from "@/lib/use-persistent-state";
@@ -47,6 +48,7 @@ export function AppShell({
   }, [setCollapsed]);
 
   return (
+    <TourProvider>
     <div className="flex min-h-screen bg-canvas pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <Sidebar
         groups={groups}
@@ -70,5 +72,6 @@ export function AppShell({
         />
       )}
     </div>
+    </TourProvider>
   );
 }
