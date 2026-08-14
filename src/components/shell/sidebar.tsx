@@ -54,7 +54,9 @@ export function Sidebar({
     <aside
       data-tour="sidebar"
       className={cn(
-        "hidden shrink-0 flex-col bg-brand-700 text-white transition-[width] duration-200 lg:flex",
+        // sticky + altura de viewport: acompanha a rolagem em páginas longas
+        // (sem self-start/altura fixa, o flex esticaria o aside e o sticky não pega).
+        "hidden shrink-0 flex-col self-start sticky top-0 h-dvh bg-brand-700 text-white transition-[width] duration-200 lg:flex",
         collapsed ? "w-[52px]" : "w-64",
       )}
     >
@@ -91,7 +93,7 @@ export function Sidebar({
         </div>
       )}
 
-      <nav className={cn("flex-1 space-y-2 py-3", collapsed ? "px-2" : "px-3")}>
+      <nav className={cn("flex-1 space-y-2 overflow-y-auto py-3", collapsed ? "px-2" : "px-3")}>
         {groups.map((group, gi) => {
           const hasActive = group.items.some((it) => isActive(it.href));
 
