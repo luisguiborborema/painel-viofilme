@@ -6,16 +6,18 @@ import {
   Archive,
   ArrowRightLeft,
   BarChart3,
-  Bell,
-  CalendarClock,
   ChevronsLeft,
   ChevronsRight,
   LayoutGrid,
   List,
+  Mail,
   Pause,
+  PencilLine,
+  Phone,
   Plus,
   RotateCcw,
   Search,
+  StickyNote,
   ShieldAlert,
   Snowflake,
   Trash2,
@@ -30,11 +32,8 @@ import { useReadOnly } from "@/components/shell/read-only-context";
 import {
   DEFAULT_PIPELINE,
   toCard,
-  scoreDeal,
-  SCORE_TIERS,
   LEAD_PRIORITIES,
   unmetStageRequirements,
-  cadenceLabel,
   PIPELINE_VENDAS_ID,
   STAGE_RESERVOIR,
   STAGE_CADENCE_ON,
@@ -53,7 +52,6 @@ import {
   type Tag,
 } from "@/lib/data/crm";
 import type { Attendant } from "@/lib/data/inbox";
-import { AvatarStack } from "@/components/ui/avatar";
 import { NovoNegocioModal } from "./new-lead-modal";
 import { CrmList } from "./crm-list";
 import { CrmForecast } from "./crm-forecast";
@@ -81,6 +79,10 @@ function initials(name: string) {
 function monthPrefixNow(): string {
   return new Date().toISOString().slice(0, 7);
 }
+// Data dd/mm/aaaa (determinístico — recebe a ISO, não usa "agora").
+function dtBR(iso?: string): string {
+  return iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
+}
 
 function MetricTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -95,7 +97,6 @@ function MetricTile({ label, value, sub }: { label: string; value: string; sub?:
 function LeadCard({
   card,
   allTags,
-  teamMembers,
   onOpen,
   onDragStart,
   onDelete,
@@ -106,7 +107,6 @@ function LeadCard({
 }: {
   card: CrmLeadCard;
   allTags: Tag[];
-  teamMembers: Attendant[];
   onOpen: () => void;
   onDragStart: () => void;
   onDelete: () => void;
@@ -154,8 +154,9 @@ function LeadCard({
           </div>
         </div>
       )}
+      {/* Nome (link) + ações no hover — formato HubSpot */}
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-ink">{card.name}</p>
+        <p className="pr-1 text-sm font-semibold leading-tight text-brand-600">{card.name}</p>
         <div className="flex shrink-0 items-center gap-1">
           {!frozen && (
             <button
@@ -173,98 +174,56 @@ function LeadCard({
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
-          {assignees.length > 0 ? (
-            <AvatarStack names={assignees} team={teamMembers} />
-          ) : (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[10px] font-semibold text-muted ring-2 ring-surface">
-              {initials(card.name)}
-            </span>
-          )}
         </div>
       </div>
+
+      {/* Propriedades (estilo HubSpot: rótulo: valor) */}
+      <p className="mt-1 text-[11px] text-muted">
+        Proprietário do negócio: <span className="text-ink">{assignees[0] ?? "—"}</span>
+      </p>
+      {card.createdAt && (
+        <p className="text-[11px] text-muted">Data de criação: {dtBR(card.createdAt)}</p>
+      )}
+      {card.source && (
+        <p className="text-[11px] text-muted">Origem: <span className="text-ink">{card.source}</span></p>
+      )}
       {card.contactName && (
-        <p className="mt-0.5 text-xs text-muted">{card.contactName}</p>
+        <p className="text-[11px] text-muted">Contato: <span className="text-ink">{card.contactName}</span></p>
       )}
       {(card.tags?.length ?? 0) > 0 && (
         <div className="mt-1.5">
           <TagChips ids={card.tags} tags={allTags} size="xs" />
         </div>
       )}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-ink">
-          {formatBRL(card.monthlyValue)}
-          <span className="text-xs font-normal text-muted">/mês</span>
-        </p>
-        {card.expectedCloseAt && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted" title="Fechamento previsto">
-            <CalendarClock className="h-3 w-3" /> {dayMonth(card.expectedCloseAt)}
-          </span>
+
+      {/* Divisória + status de tarefa + dono + ícones (rodapé do card HubSpot) */}
+      <div className="mt-2 border-t border-line pt-2">
+        {card.nextTaskDue ? (
+          <p className="truncate text-[11px] font-semibold text-ink" title={card.nextTaskTitle ?? undefined}>
+            Tarefa · {dayMonth(card.nextTaskDue)}
+            {card.nextTaskTitle ? ` — ${card.nextTaskTitle}` : ""}
+          </p>
+        ) : (
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+            Sem tarefa
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full border border-rose-400 px-1 text-[9px] font-bold text-rose-500">!</span>
+          </p>
         )}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {card.cadenceActive && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600"
-            title="Cadência ativa amarrada à etapa"
-          >
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-            {cadenceLabel(card.originKind)} · passo {card.cadenceStep ?? 1}
-          </span>
-        )}
-        {(card.noShowCount ?? 0) > 0 && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-600"
-            title="No-shows acumulados"
-          >
-            <UserX className="h-3 w-3" /> {card.noShowCount} no-show
-          </span>
-        )}
-        {!frozen && !card.nextTaskDue && card.stage !== "ganho" && card.stage !== "perdido" && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600"
-            title="Sem próxima ação agendada"
-          >
-            <Bell className="h-3 w-3" /> Sem próxima ação
-          </span>
-        )}
-        {(() => {
-          const p = LEAD_PRIORITIES.find((x) => x.key === (card.priority ?? "media"));
-          if (!p || (card.priority !== "alta" && card.priority !== "urgente")) return null;
-          return (
-            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", p.chip)}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", p.dot)} /> {p.label}
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[9px] font-semibold text-white">
+              {initials(assignees[0] ?? card.name)}
             </span>
-          );
-        })()}
-        {(() => {
-          const sc = scoreDeal(card, new Date().toISOString());
-          const meta = SCORE_TIERS[sc.tier];
-          return (
-            <span
-              className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", meta.chip)}
-              title={`Lead score: ${sc.score}/100 (${meta.label})`}
-            >
-              {meta.label} · {sc.score}
-            </span>
-          );
-        })()}
-        {card.plan && (
-          <span className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted">
-            {card.plan}
+            <span className="truncate text-[11px] text-muted">{assignees[0] ?? "—"}</span>
           </span>
-        )}
+          <span className="flex shrink-0 items-center gap-1.5 text-muted">
+            <StickyNote className="h-3.5 w-3.5" />
+            <Phone className="h-3.5 w-3.5" />
+            <Mail className="h-3.5 w-3.5" />
+            <PencilLine className="h-3.5 w-3.5" />
+          </span>
+        </div>
       </div>
-      <p
-        className={cn(
-          "mt-2 text-[11px]",
-          card.rot === "stale" ? "font-semibold text-rose-500" : "text-muted",
-        )}
-      >
-        {card.daysInStage === 0
-          ? "Hoje"
-          : `Há ${card.daysInStage} dia${card.daysInStage > 1 ? "s" : ""}`}
-        {card.rot === "stale" && " · parado"}
-      </p>
 
       {/* Ação contextual por estágio (no-show / passagem de bastão / reativar) */}
       {frozen ? (
@@ -1185,7 +1144,6 @@ export function CrmPipeline({
                     key={c.id}
                     card={c}
                     allTags={tags}
-                    teamMembers={teamMembers}
                     onOpen={() => router.push(`/gerencial/crm/${c.id}`)}
                     onDragStart={() => setDragId(c.id)}
                     onDelete={() => deleteCard(c.id)}
