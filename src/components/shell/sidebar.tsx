@@ -93,7 +93,7 @@ export function Sidebar({
         </div>
       )}
 
-      <nav className={cn("flex-1 space-y-2 overflow-y-auto py-3", collapsed ? "px-2" : "px-3")}>
+      <nav className={cn("flex-1 space-y-2 py-3", collapsed ? "px-2" : "px-3")}>
         {groups.map((group, gi) => {
           const hasActive = group.items.some((it) => isActive(it.href));
 
