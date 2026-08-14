@@ -1175,7 +1175,8 @@ export function CrmPipeline({
               </div>
               {s.hint && <p className="mb-1 px-1 text-[10px] leading-tight text-muted">{s.hint}</p>}
               {showQuickAdd && <QuickAdd onAdd={(name) => quickAdd(name, s.id)} />}
-              <div className="flex flex-1 flex-col gap-2">
+              {/* Lista de cards com scroll interno (etapa fixa em cima/baixo, estilo HubSpot) */}
+              <div className="flex max-h-[calc(100dvh-19rem)] min-h-[4rem] flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                 {inStage.map((c) => (
                   <LeadCard
                     key={c.id}
