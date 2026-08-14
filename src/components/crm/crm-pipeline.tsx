@@ -795,20 +795,22 @@ export function CrmPipeline({
 
   return (
     <div className="space-y-4">
-      {/* Abas de visualização (estilo HubSpot) + Criar negócio */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
-        <div className="flex items-center gap-1 overflow-x-auto">
+      {/* Toggle de visão compacto (ícones, estilo HubSpot) + Criar negócio */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-0.5 rounded-lg border border-line p-0.5">
           {([["kanban", LayoutGrid, "Kanban"], ["lista", List, "Tabela"], ["forecast", BarChart3, "Forecast"], ["arquivados", Archive, "Arquivados"]] as const).map(
             ([k, Icon, label]) => (
               <button
                 key={k}
                 onClick={() => setView(k)}
+                title={label}
+                aria-label={label}
                 className={cn(
-                  "inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-                  view === k ? "border-brand-500 text-ink" : "border-transparent text-muted hover:text-ink",
+                  "rounded-md p-1.5 transition-colors",
+                  view === k ? "bg-brand-600 text-white" : "text-muted hover:bg-subtle",
                 )}
               >
-                <Icon className="h-4 w-4" /> {label}
+                <Icon className="h-4 w-4" />
               </button>
             ),
           )}
@@ -816,7 +818,7 @@ export function CrmPipeline({
         {!readOnly && (
           <button
             onClick={() => setShowNew(true)}
-            className="mb-1.5 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
           >
             <Plus className="h-4 w-4" /> Criar negócio
           </button>
