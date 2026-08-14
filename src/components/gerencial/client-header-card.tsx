@@ -22,6 +22,11 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+// Uma função pode ter mais de um responsável (texto separado por vírgula).
+function splitPeople(s: string): string[] {
+  return s.split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+}
+
 function Stat({
   label,
   value,
@@ -202,20 +207,28 @@ export function ClientHeaderCard({
       {/* Responsáveis por função (HUB06) */}
       <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4">
         {ops &&
-          RESPONSIBLE_ROLES.filter((r) => ops.responsibles[r.key]?.trim()).map((r) => (
-            <div key={r.key} className="flex items-center gap-2">
-              <span
-                title={ops.responsibles[r.key]}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-subtle-strong text-[10px] font-bold text-ink"
-              >
-                {initials(ops.responsibles[r.key])}
-              </span>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>
-                <p className="text-sm font-medium text-ink">{ops.responsibles[r.key]}</p>
+          RESPONSIBLE_ROLES.filter((r) => ops.responsibles[r.key]?.trim()).map((r) => {
+            const people = splitPeople(ops.responsibles[r.key]);
+            return (
+              <div key={r.key} className="flex items-center gap-2">
+                <span className="flex -space-x-1.5">
+                  {people.slice(0, 3).map((p) => (
+                    <span
+                      key={p}
+                      title={p}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-subtle-strong text-[10px] font-bold text-ink ring-2 ring-surface"
+                    >
+                      {initials(p)}
+                    </span>
+                  ))}
+                </span>
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{r.label}</p>
+                  <p className="text-sm font-medium text-ink">{people.join(", ")}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         <div className="ml-auto">
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted">Squad</p>
           <p className="text-sm font-medium text-ink">{ops?.squadName ?? "—"}</p>

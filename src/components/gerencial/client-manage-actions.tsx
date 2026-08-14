@@ -39,6 +39,11 @@ const fmtField = (v: string) => {
   return t && t !== "—" ? t : "—";
 };
 
+// Uma função pode ter mais de um responsável — persistido como texto separado
+// por vírgula (compatível com tudo que lê responsibles[key] como string).
+const splitPeople = (s: string) =>
+  (s ?? "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+
 /**
  * Ações de gestão da conta no topo da ficha (HUB): handoff de briefing pro
  * squad (Social/Performance), troca de responsáveis e edição de serviços/
@@ -68,8 +73,12 @@ export function ClientManageActions({
   // Briefing (handoff)
   const [copiedArea, setCopiedArea] = useState<string | null>(null);
 
-  // Responsáveis
-  const [resp, setResp] = useState<Record<string, string>>(() => ({ ...initialResponsibles }));
+  // Responsáveis (múltiplos por função)
+  const [resp, setResp] = useState<Record<string, string[]>>(() => {
+    const o: Record<string, string[]> = {};
+    for (const r of RESPONSIBLE_ROLES) o[r.key] = splitPeople(initialResponsibles[r.key] ?? "");
+    return o;
+  });
 
   // Serviços & entregáveis
   const [services, setServices] = useState<string[]>(() => [...initialServices]);
@@ -148,10 +157,13 @@ export function ClientManageActions({
     setBusy(true);
     setSaved(false);
     try {
+      const responsibles = Object.fromEntries(
+        RESPONSIBLE_ROLES.map((r) => [r.key, (resp[r.key] ?? []).join(", ")]),
+      );
       const res = await fetch("/api/gerencial/client-operation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, responsibles: resp }),
+        body: JSON.stringify({ clientId, responsibles }),
       });
       if (!res.ok) throw new Error();
       setSaved(true);
@@ -195,8 +207,6 @@ export function ClientManageActions({
       setBusy(false);
     }
   }
-
-  const teamOptions = (current: string) => [...new Set([...team, current].filter(Boolean))];
 
   const saveBtn = (onClick: () => void) => (
     <button
@@ -279,23 +289,44 @@ export function ClientManageActions({
         description="Quem toca cada função nesta conta."
         footer={saveBtn(saveResp)}
       >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {RESPONSIBLE_ROLES.map((r) => {
             const key = r.key as ResponsibleRole;
+            const people = resp[key] ?? [];
+            const available = team.filter((n) => !people.includes(n));
             return (
-              <label key={key} className="text-[11px] text-muted">
-                {r.label}
+              <div key={key} className="rounded-lg border border-line p-2.5">
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">{r.label}</p>
+                {people.length > 0 && (
+                  <div className="mb-1.5 flex flex-wrap gap-1">
+                    {people.map((p) => (
+                      <span key={p} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-xs font-medium text-ink">
+                        {p}
+                        <button
+                          onClick={() => setResp((s) => ({ ...s, [key]: (s[key] ?? []).filter((x) => x !== p) }))}
+                          className="text-muted hover:text-rose-500"
+                          aria-label={`Remover ${p}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <select
-                  value={resp[key] ?? ""}
-                  onChange={(e) => setResp((s) => ({ ...s, [key]: e.target.value }))}
+                  value=""
+                  onChange={(e) => {
+                    const n = e.target.value;
+                    if (n) setResp((s) => ({ ...s, [key]: [...(s[key] ?? []), n] }));
+                  }}
                   className={inputCls}
                 >
-                  <option value="">—</option>
-                  {teamOptions(resp[key] ?? "").map((n) => (
+                  <option value="">{people.length ? "+ Adicionar pessoa" : "Selecionar…"}</option>
+                  {available.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
-              </label>
+              </div>
             );
           })}
         </div>
