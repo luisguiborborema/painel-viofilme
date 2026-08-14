@@ -95,6 +95,8 @@ function WorkflowCard({
   const stageKey = (wf.triggerConfig?.stageKey as string) ?? "";
   const propKey = (wf.triggerConfig?.key as string) ?? "";
   const propVal = (wf.triggerConfig?.value as string) ?? "";
+  const dateField = (wf.triggerConfig?.field as string) ?? "expected_close_at";
+  const dateOffset = Number(wf.triggerConfig?.offsetDays ?? 0);
 
   async function saveName() {
     if (name.trim() && name.trim() !== wf.name) {
@@ -177,13 +179,23 @@ function WorkflowCard({
             value={wf.triggerType}
             onChange={(e) => {
               const t = e.target.value;
-              setTrigger(t, t === "stage_enter" ? { stageKey } : t === "property_change" ? { key: propKey, value: propVal } : {});
+              setTrigger(
+                t,
+                t === "stage_enter"
+                  ? { stageKey }
+                  : t === "property_change"
+                    ? { key: propKey, value: propVal }
+                    : t === "date_reached"
+                      ? { field: dateField, offsetDays: dateOffset }
+                      : {},
+              );
             }}
             className={inputCls + " w-auto"}
           >
             <option value="stage_enter">Negócio entra na etapa</option>
             <option value="created">Negócio é criado</option>
             <option value="property_change">Propriedade muda</option>
+            <option value="date_reached">Data atingida</option>
           </select>
           {wf.triggerType === "stage_enter" && (
             <select
@@ -215,6 +227,26 @@ function WorkflowCard({
                 placeholder="= valor (opcional)"
                 className={inputCls + " w-40"}
               />
+            </>
+          )}
+          {wf.triggerType === "date_reached" && (
+            <>
+              <input
+                type="number"
+                defaultValue={dateOffset}
+                onBlur={(e) => setTrigger("date_reached", { field: dateField, offsetDays: Number(e.target.value) || 0 })}
+                className={inputCls + " w-20"}
+                title="Dias antes (-) ou depois (+) da data"
+              />
+              <span className="text-xs text-muted">dias de</span>
+              <select
+                value={dateField}
+                onChange={(e) => setTrigger("date_reached", { field: e.target.value, offsetDays: dateOffset })}
+                className={inputCls + " w-auto"}
+              >
+                <option value="expected_close_at">Fechamento previsto</option>
+                <option value="created_at">Data de criação</option>
+              </select>
             </>
           )}
         </div>
@@ -391,7 +423,43 @@ function ActionRow({
               className={inputCls + " flex-1"}
             />
           )}
+          <div className="flex w-full items-center gap-2">
+            <span className="text-xs text-muted">Se não atender:</span>
+            <select
+              value={Number(cfg.skip ?? 0) > 0 ? "skip" : "end"}
+              onChange={(e) => { const next = { ...cfg, skip: e.target.value === "skip" ? (Number(cfg.skip ?? 0) || 1) : 0 }; setCfg(next); saveCfg(next); }}
+              className={inputCls + " w-auto"}
+            >
+              <option value="end">encerrar o fluxo</option>
+              <option value="skip">pular próximas ações (then)</option>
+            </select>
+            {Number(cfg.skip ?? 0) > 0 && (
+              <label className="text-xs text-muted">
+                Nº de ações
+                <input type="number" min={1} value={Number(cfg.skip ?? 1)} onChange={(e) => set({ skip: Math.max(1, Number(e.target.value) || 1) })} onBlur={() => saveCfg()} className={inputCls} />
+              </label>
+            )}
+          </div>
         </div>
+      )}
+      {action.actionType === "add_note" && (
+        <textarea
+          rows={2}
+          value={String(cfg.message ?? "")}
+          onChange={(e) => set({ message: e.target.value })}
+          onBlur={() => saveCfg()}
+          placeholder="Nota registrada na timeline do negócio…"
+          className={inputCls + " resize-none"}
+        />
+      )}
+      {action.actionType === "webhook" && (
+        <input
+          value={String(cfg.url ?? "")}
+          onChange={(e) => set({ url: e.target.value })}
+          onBlur={() => saveCfg()}
+          placeholder="https://exemplo.com/webhook"
+          className={inputCls}
+        />
       )}
     </div>
   );

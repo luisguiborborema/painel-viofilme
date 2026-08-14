@@ -4,7 +4,13 @@ import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import type { WorkflowActionType } from "@/lib/data/crm";
 
 type Admin = ReturnType<typeof createAdminClient>;
-type ActionResult = { status: "ok" | "skipped" | "error"; detail?: string; delayMs?: number; stop?: boolean };
+type ActionResult = {
+  status: "ok" | "skipped" | "error";
+  detail?: string;
+  delayMs?: number;
+  stop?: boolean;
+  skipCount?: number; // condição if/then: pular N ações seguintes quando não atendida
+};
 
 /** Avalia uma condição do workflow contra um valor cru do negócio. */
 function evalCondition(raw: unknown, op: string, target: string): boolean {
@@ -85,6 +91,48 @@ export async function enrollWorkflows(opts: {
   );
 }
 
+/**
+ * Gatilho por DATA: inscreve negócios cujo campo de data (expected_close_at /
+ * created_at) atinge hoje ± offset. Rodado pelo cron. Anti-duplicação por
+ * qualquer inscrição prévia (um negócio casa a data uma única vez por workflow).
+ */
+export async function enrollDateReached(admin: Admin): Promise<number> {
+  const { data: wfs } = await admin
+    .from("crm_workflows")
+    .select("id,trigger_config")
+    .eq("is_active", true)
+    .eq("trigger_type", "date_reached");
+  if (!wfs?.length) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let enrolled = 0;
+  for (const w of wfs) {
+    const cfg = (w.trigger_config as { field?: string; offsetDays?: number } | null) ?? {};
+    const field = cfg.field === "created_at" ? "created_at" : "expected_close_at";
+    const offset = Number(cfg.offsetDays ?? 0);
+    const target = new Date(today.getTime() - offset * 86_400_000);
+    const start = target.toISOString();
+    const end = new Date(target.getTime() + 86_400_000).toISOString();
+    const { data: deals } = await admin.from("crm_leads").select("id").gte(field, start).lt(field, end);
+    if (!deals?.length) continue;
+    const ids = deals.map((d) => String(d.id));
+    const { data: existing } = await admin
+      .from("crm_workflow_enrollments")
+      .select("object_id")
+      .eq("workflow_id", w.id)
+      .in("object_id", ids);
+    const seen = new Set((existing ?? []).map((e) => String(e.object_id)));
+    const toEnroll = ids.filter((id) => !seen.has(id));
+    if (!toEnroll.length) continue;
+    const nowIso = new Date().toISOString();
+    await admin
+      .from("crm_workflow_enrollments")
+      .insert(toEnroll.map((id) => ({ workflow_id: w.id, object_id: id, status: "active", current_step: 0, next_run_at: nowIso })));
+    enrolled += toEnroll.length;
+  }
+  return enrolled;
+}
+
 /** Executa UMA ação do workflow sobre um negócio. */
 async function runWorkflowAction(
   admin: Admin,
@@ -160,6 +208,26 @@ async function runWorkflowAction(
       const { error } = await admin.from("crm_leads").update({ owner, assignees: [owner] }).eq("id", dealId);
       return error ? { status: "error", detail: error.message } : { status: "ok" };
     }
+    case "add_note": {
+      const body = String(config.message || "");
+      if (!body.trim()) return { status: "skipped", detail: "nota vazia" };
+      const { error } = await admin.from("crm_interactions").insert({ lead_id: dealId, channel: "note", body, author: "Workflow" });
+      return error ? { status: "error", detail: error.message } : { status: "ok" };
+    }
+    case "webhook": {
+      const url = String(config.url || "").trim();
+      if (!/^https?:\/\//i.test(url)) return { status: "skipped", detail: "url inválida" };
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: "workflow", dealId, name: deal.name, stage: deal.stage, owner: deal.owner }),
+        });
+        return { status: res.ok ? "ok" : "error", detail: `HTTP ${res.status}` };
+      } catch (e) {
+        return { status: "error", detail: e instanceof Error ? e.message : "falha no webhook" };
+      }
+    }
     case "condition": {
       const key = String(config.key || "");
       const op = String(config.op || "eq");
@@ -177,8 +245,11 @@ async function runWorkflowAction(
       };
       const raw = key in props ? props[key] : nativeMap[key];
       const met = evalCondition(raw, op, target);
-      return met
-        ? { status: "ok", detail: "condição atendida" }
+      if (met) return { status: "ok", detail: "condição atendida" };
+      // Não atendida: pula N ações (if/then) OU encerra (skip 0 / ausente).
+      const skip = Number(config.skip ?? 0);
+      return skip > 0
+        ? { status: "skipped", detail: `condição não atendida — pula ${skip} ação(ões)`, skipCount: skip }
         : { status: "skipped", detail: "condição não atendida — encerra", stop: true };
     }
     default:
@@ -233,6 +304,8 @@ export async function processDueWorkflows(admin: Admin): Promise<{ processed: nu
 
         // Condição não atendida → encerra (finalizado como done abaixo).
         if (result.stop) break;
+        // Ramificação if/then: pula as próximas N ações ("then" não executado).
+        if (result.skipCount && result.skipCount > 0) step += result.skipCount;
 
         if (result.delayMs && result.delayMs > 0) {
           const finished = step >= list.length;

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ACTION_TYPES = ["delay", "task", "whatsapp", "notify", "set_property", "set_stage", "assign_owner", "condition"];
+const ACTION_TYPES = ["delay", "task", "whatsapp", "notify", "set_property", "set_stage", "assign_owner", "condition", "add_note", "webhook"];
 
 type Body = {
   action?:

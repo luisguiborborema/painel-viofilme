@@ -619,20 +619,24 @@ export type WorkflowActionType =
   | "set_property"
   | "set_stage"
   | "assign_owner"
-  | "condition";
+  | "condition"
+  | "add_note"
+  | "webhook";
 
 export const WORKFLOW_ACTION_TYPES: { key: WorkflowActionType; label: string }[] = [
   { key: "task", label: "Criar tarefa" },
   { key: "whatsapp", label: "Enviar WhatsApp" },
   { key: "notify", label: "Notificar equipe" },
+  { key: "add_note", label: "Adicionar nota" },
   { key: "set_property", label: "Definir propriedade" },
   { key: "set_stage", label: "Mover para etapa" },
   { key: "assign_owner", label: "Atribuir responsável" },
-  { key: "condition", label: "Condição (continua se…)" },
+  { key: "condition", label: "Condição (if/then)" },
+  { key: "webhook", label: "Webhook (POST)" },
   { key: "delay", label: "Espera (delay)" },
 ];
 
-export type WorkflowTriggerType = "stage_enter" | "created" | "property_change";
+export type WorkflowTriggerType = "stage_enter" | "created" | "property_change" | "date_reached";
 
 export type WorkflowAction = {
   id: string;

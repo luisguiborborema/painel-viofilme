@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
-import { processDueWorkflows } from "@/lib/crm/workflow-engine";
+import { processDueWorkflows, enrollDateReached } from "@/lib/crm/workflow-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
   }
   try {
     const admin = createAdminClient();
+    const enrolledByDate = await enrollDateReached(admin);
     const result = await processDueWorkflows(admin);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, enrolledByDate, ...result });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "erro" }, { status: 500 });
   }
