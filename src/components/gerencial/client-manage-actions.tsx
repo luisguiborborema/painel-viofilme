@@ -129,6 +129,18 @@ export function ClientManageActions({
       .catch(() => {});
   }, [modal, members.length]);
 
+  // Permite abrir os modais a partir de outros pontos da ficha (ex.: card
+  // "Contrato & referência" no Resumo) via evento — sem duplicar os editores.
+  useEffect(() => {
+    function onEdit(e: Event) {
+      const d = (e as CustomEvent).detail as { clientId?: string; target?: "brief" | "resp" | "ops" } | undefined;
+      if (!d || d.clientId !== clientId) return;
+      if (d.target === "brief" || d.target === "resp" || d.target === "ops") setModal(d.target);
+    }
+    window.addEventListener("vio:client-edit", onEdit as EventListener);
+    return () => window.removeEventListener("vio:client-edit", onEdit as EventListener);
+  }, [clientId]);
+
   // Entregáveis por formato: carregados sob demanda ao abrir o modal.
   useEffect(() => {
     if (modal !== "ops" || delsLoaded) return;

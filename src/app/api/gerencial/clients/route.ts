@@ -78,6 +78,10 @@ type Body = {
   recurring?: ServiceLine[];
   pontual?: ServiceLine[];
   contacts?: Contact[];
+  // Equipe/operação definidas já na criação (opcional).
+  responsibles?: { social?: string; performance?: string; designer?: string; copy?: string };
+  servicesList?: string[];
+  deliverables?: Record<string, number>;
   // compat com o modal antigo
   monthlyFee?: number;
   whatsapp?: string;
@@ -138,6 +142,19 @@ export async function POST(req: Request) {
   const networks = Array.isArray(b.activeNetworks) && b.activeNetworks.length ? b.activeNetworks : ["instagram", "facebook"];
   const primaryContact = (b.contacts ?? []).find((c) => c.isPrimary && c.name?.trim()) ?? (b.contacts ?? []).find((c) => c.name?.trim());
 
+  // Equipe responsável por função (nomes) e serviços (tags) definidos na criação.
+  const rIn = b.responsibles ?? {};
+  const responsibles = {
+    social: clean(rIn.social) ?? "",
+    performance: clean(rIn.performance) ?? "",
+    designer: clean(rIn.designer) ?? "",
+    copy: clean(rIn.copy) ?? "",
+  };
+  const hasResp = Object.values(responsibles).some((v) => v);
+  const servicesList = Array.isArray(b.servicesList)
+    ? [...new Set(b.servicesList.map((s) => (typeof s === "string" ? s.trim() : "")).filter(Boolean))].slice(0, 12)
+    : [];
+
   const { data: client, error } = await supabase
     .from("clients")
     .insert({
@@ -159,11 +176,21 @@ export async function POST(req: Request) {
       contact_name: clean(primaryContact?.name ?? b.contactName),
       contact_phone: clean(primaryContact?.whatsapp ?? b.contactPhone),
       contact_email: clean(primaryContact?.email ?? b.contactEmail),
+      responsibles: hasResp ? responsibles : null,
+      services_list: servicesList.length ? servicesList : null,
     })
     .select("id")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const clientId = client.id as string;
+
+  // Entregáveis do mês por formato (opcional).
+  const DEL_FORMATS = ["Reels", "Feed", "Stories", "Carrossel"];
+  const delRows = DEL_FORMATS
+    .map((f) => ({ format: f, qty: Math.max(0, Math.round(Number((b.deliverables ?? {})[f] ?? 0))) }))
+    .filter((x) => x.qty > 0)
+    .map((x) => ({ client_id: clientId, format: x.format, monthly_qty: x.qty }));
+  if (delRows.length) await supabase.from("client_deliverables").insert(delRows);
 
   // Linhas de serviço.
   const serviceRows = [

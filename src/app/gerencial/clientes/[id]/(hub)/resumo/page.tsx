@@ -8,6 +8,7 @@ import { ClientProfileCard } from "@/components/gerencial/client-profile-card";
 import { ClientConfigCard } from "@/components/gerencial/client-config-card";
 import { ClientFormsCard } from "@/components/gerencial/client-forms-card";
 import { ClientBillingCard } from "@/components/gerencial/client-billing-card";
+import { EditOperationButton } from "@/components/gerencial/edit-operation-button";
 import { getClientFormSubmissions } from "@/lib/data/queries";
 import { isAsaasApiConfigured } from "@/lib/asaas/client";
 import { cn } from "@/lib/utils";
@@ -125,7 +126,17 @@ export default async function ResumoPage({
       {/* Camada 3 — Estratégico / referência */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-1 text-sm font-semibold text-ink">Contrato &amp; referência</h2>
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink">Contrato &amp; referência</h2>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <EditOperationButton clientId={id} target="resp" className="rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-subtle">
+                Responsáveis
+              </EditOperationButton>
+              <EditOperationButton clientId={id} target="ops" className="rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-subtle">
+                Serviços &amp; entregáveis
+              </EditOperationButton>
+            </div>
+          </div>
           <p className="mb-3 text-xs text-muted">
             Serviços, entregáveis e responsáveis da conta — o status do mês fica no topo.
           </p>

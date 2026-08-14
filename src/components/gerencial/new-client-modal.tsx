@@ -20,6 +20,15 @@ const NETWORKS: { value: string; label: string }[] = [
   { value: "google_business", label: "Google Business" },
 ];
 
+const RESP_ROLES = [
+  { key: "social", label: "Social" },
+  { key: "performance", label: "Performance" },
+  { key: "designer", label: "Designer" },
+  { key: "copy", label: "Copy" },
+] as const;
+const COMMON_SERVICES = ["Social", "Tráfego", "Design", "Copy", "UGC", "Site", "E-commerce"];
+const DEL_FORMATS = ["Reels", "Feed", "Stories", "Carrossel"] as const;
+
 type Svc = { id: string; label: string; type: string; area: string; plans: { id: string; label: string; defaultPrice: number }[] };
 type Squad = { id: string; name: string; area: string };
 type Person = { id: string; name: string; squadId: string | null; canBePo: boolean };
@@ -56,6 +65,11 @@ export function NewClientButton() {
   // Bloco 5
   const [csMainId, setCsMainId] = useState("");
   const [csSupportId, setCsSupportId] = useState("");
+  // Bloco 5b · Equipe responsável + operação (opcional na criação)
+  const [resp, setResp] = useState<Record<string, string>>({ social: "", performance: "", designer: "", copy: "" });
+  const [svcTags, setSvcTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [dels, setDels] = useState<Record<string, number>>({});
   // Bloco 6
   const [contacts, setContacts] = useState<ContactRow[]>([{ key: nextKey(), name: "", role: "", whatsapp: "", email: "", isPrimary: true }]);
   // Bloco 7
@@ -88,6 +102,7 @@ export function NewClientButton() {
   function reset() {
     setName(""); setCity(""); setClientType("local_business"); setSegment("");
     setRecurring([]); setPontual([]); setCsMainId(""); setCsSupportId("");
+    setResp({ social: "", performance: "", designer: "", copy: "" }); setSvcTags([]); setNewTag(""); setDels({});
     setContacts([{ key: nextKey(), name: "", role: "", whatsapp: "", email: "", isPrimary: true }]);
     setKickoffDate(""); setNetworks(["instagram", "facebook"]); setError(null);
   }
@@ -142,6 +157,9 @@ export function NewClientButton() {
           recurring: recurring.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId, planId: l.planId || undefined, baseValue: num(l.base), discount: num(l.discount), squadId: l.squadId || undefined, analystId: l.analystId || undefined })),
           pontual: pontual.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId, planId: l.planId || undefined, baseValue: num(l.base), discount: num(l.discount), executorId: l.executorId || undefined, poId: l.poId || undefined })),
           contacts: contacts.filter((c) => c.name.trim()).map((c) => ({ name: c.name, role: c.role, whatsapp: c.whatsapp, email: c.email, isPrimary: c.isPrimary })),
+          responsibles: resp,
+          servicesList: svcTags,
+          deliverables: dels,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -321,6 +339,66 @@ export function NewClientButton() {
                     {cat.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </label>
+              </section>
+
+              {/* Bloco 5b · Equipe responsável + operação */}
+              <section className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Equipe responsável</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {RESP_ROLES.map((r) => (
+                    <label key={r.key} className="block">
+                      <span className="mb-1 block text-xs font-medium text-muted">{r.label}</span>
+                      <select value={resp[r.key]} onChange={(e) => setResp((s) => ({ ...s, [r.key]: e.target.value }))} className={selCls}>
+                        <option value="">—</option>
+                        {cat.people.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-muted">Serviços</span>
+                  {svcTags.length > 0 && (
+                    <div className="mb-1.5 flex flex-wrap gap-1.5">
+                      {svcTags.map((s) => (
+                        <span key={s} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 text-xs font-medium text-ink">
+                          {s}
+                          <button type="button" onClick={() => setSvcTags((a) => a.filter((x) => x !== s))} className="text-muted hover:text-rose-500" aria-label={`Remover ${s}`}><X className="h-3 w-3" /></button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <input
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        const v = newTag.trim();
+                        if (v && !svcTags.includes(v)) setSvcTags((a) => [...a, v]);
+                        setNewTag("");
+                      }}
+                      placeholder="Adicionar serviço"
+                      className="h-8 w-40 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink outline-none focus:border-brand-400"
+                    />
+                    {COMMON_SERVICES.filter((s) => !svcTags.includes(s)).map((s) => (
+                      <button key={s} type="button" onClick={() => setSvcTags((a) => [...a, s])} className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] text-muted hover:text-ink"><Plus className="h-3 w-3" /> {s}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-muted">Entregáveis do mês</span>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {DEL_FORMATS.map((f) => (
+                      <label key={f} className="text-[11px] text-muted">
+                        {f}
+                        <input type="number" min={0} max={99} value={dels[f] ?? 0} onChange={(e) => setDels((d) => ({ ...d, [f]: Math.max(0, Number(e.target.value) || 0) }))} className={inputCls} />
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </section>
 
               {/* Bloco 6 · Contatos */}
