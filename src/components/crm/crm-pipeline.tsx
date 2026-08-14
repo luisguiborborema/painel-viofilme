@@ -8,6 +8,8 @@ import {
   BarChart3,
   Bell,
   CalendarClock,
+  ChevronsLeft,
+  ChevronsRight,
   LayoutGrid,
   List,
   Pause,
@@ -75,11 +77,17 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function MetricTile({ label, value }: { label: string; value: string }) {
+// Prefixo AAAA-MM do mês atual (helper module-level — padrão permitido p/ new Date()).
+function monthPrefixNow(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function MetricTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="min-w-[120px] flex-1 border-r border-line px-4 py-2.5 text-center last:border-r-0">
+    <div className="min-w-[130px] flex-1 border-r border-line px-4 py-2.5 text-center last:border-r-0">
       <p className="text-lg font-bold text-brand-600">{value}</p>
-      <p className="text-[11px] text-muted">{label}</p>
+      <p className="text-[11px] font-medium text-ink">{label}</p>
+      {sub && <p className="text-[10px] text-muted">{sub}</p>}
     </div>
   );
 }
@@ -478,6 +486,14 @@ export function CrmPipeline({
   const [stuckOnly, setStuckOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [showMetrics, setShowMetrics] = useState(false);
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const toggleCollapse = (key: string) =>
+    setCollapsedStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const defaultId = pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? DEFAULT_PIPELINE.id;
   const [pipelineId, setPipelineId] = useState(defaultId);
@@ -742,6 +758,14 @@ export function CrmPipeline({
   const avgAge = openCards.length
     ? Math.round(openCards.reduce((s, c) => s + c.daysInStage, 0) / openCards.length)
     : 0;
+  // Métricas do topo (6, estilo HubSpot): total · ponderado · aberto · fechado · novo · idade.
+  const allValue = visibleCards.reduce((s, c) => s + c.monthlyValue, 0);
+  const wonCards = visibleCards.filter((c) => c.stage === "ganho");
+  const wonValue = wonCards.reduce((s, c) => s + c.monthlyValue, 0);
+  const monthPrefix = monthPrefixNow();
+  const newCards = visibleCards.filter((c) => (c.createdAt ?? "").slice(0, 7) === monthPrefix);
+  const newValue = newCards.reduce((s, c) => s + c.monthlyValue, 0);
+  const avgOf = (total: number, n: number) => (n ? total / n : 0);
 
   async function moveTo(stage: Stage) {
     const id = dragId;
@@ -947,12 +971,14 @@ export function CrmPipeline({
         </button>
       </div>
 
-      {/* Faixa de métricas (estilo HubSpot): total · ponderado · aberto · idade média */}
+      {/* Faixa de métricas (estilo HubSpot): 6 KPIs com "Média por negócio" */}
       <div className="flex items-stretch overflow-x-auto rounded-lg border border-line bg-surface">
-        <MetricTile label="Valor total" value={formatBRL(openValue)} />
-        <MetricTile label="Valor ponderado" value={formatBRL(openWeighted)} />
-        <MetricTile label="Negócios em aberto" value={String(openCards.length)} />
-        <MetricTile label="Idade média" value={`${avgAge} dia${avgAge === 1 ? "" : "s"}`} />
+        <MetricTile label="Valor total" value={formatBRL(allValue)} sub={`Média ${formatBRL(avgOf(allValue, visibleCards.length))}`} />
+        <MetricTile label="Valor ponderado" value={formatBRL(openWeighted)} sub={`Média ${formatBRL(avgOf(openWeighted, openCards.length))}`} />
+        <MetricTile label="Valor aberto" value={formatBRL(openValue)} sub={`Média ${formatBRL(avgOf(openValue, openCards.length))}`} />
+        <MetricTile label="Valor fechado" value={formatBRL(wonValue)} sub={`Média ${formatBRL(avgOf(wonValue, wonCards.length))}`} />
+        <MetricTile label="Novo valor" value={formatBRL(newValue)} sub={`Média ${formatBRL(avgOf(newValue, newCards.length))}`} />
+        <MetricTile label="Idade média" value={`${avgAge} dia${avgAge === 1 ? "" : "s"}`} sub="por negócio aberto" />
       </div>
 
       {/* Linha 2 — barra de filtros (estilo Sprint board) */}
@@ -1095,6 +1121,25 @@ export function CrmPipeline({
           const weighted = inStage.reduce((acc, c) => acc + c.monthlyValue * (c.probability / 100), 0);
           // Adição rápida (Kommo) só no reservatório do outbound (1ª coluna do SDR).
           const showQuickAdd = si === 0 && isReservoir && !showFrozen;
+          const collapsed = collapsedStages.has(s.key);
+
+          if (collapsed) {
+            return (
+              <button
+                key={s.key}
+                onClick={() => toggleCollapse(s.key)}
+                onDragOver={(e) => { e.preventDefault(); setOverStage(s.key); }}
+                onDrop={() => moveTo(s)}
+                title={`Expandir ${s.label}`}
+                className="flex w-11 shrink-0 flex-col items-center gap-2 rounded-2xl border border-line bg-canvas py-3 hover:bg-subtle"
+              >
+                <ChevronsRight className="h-4 w-4 text-muted" />
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">{inStage.length}</span>
+                <span className="mt-1 text-[11px] font-semibold text-ink [writing-mode:vertical-rl]">{s.label}</span>
+              </button>
+            );
+          }
           return (
             <div
               key={s.key}
@@ -1119,8 +1164,17 @@ export function CrmPipeline({
                   />
                   {s.label}
                 </span>
-                <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                  {inStage.length}
+                <span className="inline-flex items-center gap-1">
+                  <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                    {inStage.length}
+                  </span>
+                  <button
+                    onClick={() => toggleCollapse(s.key)}
+                    title="Recolher coluna"
+                    className="rounded p-0.5 text-muted hover:bg-subtle hover:text-ink"
+                  >
+                    <ChevronsLeft className="h-3.5 w-3.5" />
+                  </button>
                 </span>
               </div>
               {s.hint && <p className="mb-1 px-1 text-[10px] leading-tight text-muted">{s.hint}</p>}
