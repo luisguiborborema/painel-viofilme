@@ -1,14 +1,7 @@
-import { ComercialNav } from "@/components/crm/comercial-nav";
-
 /**
- * Casca do módulo Comercial: uma régua de abas (object switcher estilo HubSpot)
- * sempre visível acima do conteúdo de todas as telas de /gerencial/comercial.
+ * Casca do módulo Comercial: só aplica o skin visual HubSpot (.hs-crm) a todas
+ * as telas de /gerencial/comercial. A navegação fica no menu lateral global.
  */
 export default function ComercialLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="hs-crm">
-      <ComercialNav />
-      {children}
-    </div>
-  );
+  return <div className="hs-crm">{children}</div>;
 }
