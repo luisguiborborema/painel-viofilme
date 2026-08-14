@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { RESPONSIBLE_ROLES } from "@/lib/data/operacao";
 import { PlatformIcon } from "@/components/dashboard/platform";
 import { ClientQuickActions } from "@/components/gerencial/client-quick-actions";
+import { ClientManageActions } from "@/components/gerencial/client-manage-actions";
 import { cn } from "@/lib/utils";
 import type {
   ClientDetail,
@@ -239,6 +240,19 @@ export function ClientHeaderCard({
 
       <div className="mt-4">
         <ClientQuickActions clientId={id} whatsapp={config.whatsapp} driveUrl={d.driveFolderUrl} />
+      </div>
+
+      {/* Gestão interna da conta: briefing pro squad, responsáveis, serviços/entregáveis */}
+      <div className="mt-2 border-t border-line pt-3">
+        <ClientManageActions
+          clientId={id}
+          clientName={c.name}
+          brief={d.briefing}
+          services={ops?.services ?? []}
+          deliverablesText={ops?.deliverables ?? ""}
+          responsibles={ops?.responsibles ?? {}}
+          squadName={ops?.squadName ?? ""}
+        />
       </div>
     </Card>
   );
