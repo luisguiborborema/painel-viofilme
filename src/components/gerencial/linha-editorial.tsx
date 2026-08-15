@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -236,6 +236,24 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
 
 // Mapeia o estágio da delivery task para a fase da trilha da LE.
 const DEFAULT_CHECKLIST = ["Briefing lido", "Rascunho / 1ª versão", "Revisão interna", "Aprovado pelo cliente"];
+
+/** Destaca as @menções (nomes conhecidos) dentro do texto de um comentário. */
+function highlightMentions(text: string, names: string[]): ReactNode {
+  const valid = [...new Set(names.filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (!valid.length) return text;
+  const escaped = valid.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`@(?:${escaped.join("|")})`, "g");
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    const idx = m.index ?? 0;
+    if (idx > last) out.push(text.slice(last, idx));
+    out.push(<span key={idx} className="font-semibold text-brand-600">{m[0]}</span>);
+    last = idx + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 const dtx = "/api/gerencial/delivery-tasks";
 
 /** Ficha da Task/Post — a ficha ÚNICA/canônica (C1.1), renderizada por todas as telas. */
@@ -969,7 +987,7 @@ export function PostFicha({
                     ) : (
                       <div key={i} className="rounded-lg bg-canvas px-3 py-2">
                         <p className="text-[11px] font-semibold text-ink">{it.author ?? "—"}{it.ts ? <span className="ml-1.5 font-normal text-muted">{new Date(it.ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span> : null}</p>
-                        {it.text && <p className="whitespace-pre-wrap text-sm text-ink/90">{it.text}</p>}
+                        {it.text && <p className="whitespace-pre-wrap text-sm text-ink/90">{highlightMentions(it.text, members.map((mm) => mm.name))}</p>}
                       </div>
                     ),
                   )
