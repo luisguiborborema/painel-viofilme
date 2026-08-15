@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
-import { getEditorialLineView } from "@/lib/data/queries";
+import { getEditorialLineView, getClientDeckConfig } from "@/lib/data/queries";
+import { mergeDeck } from "@/lib/data/deck";
 import { LogoHorizontal } from "@/components/brand/logo";
 import { LePrintButton } from "@/components/gerencial/le-print-button";
+import { DeckConfigButton } from "@/components/gerencial/deck-config-button";
 import type { EditorialPost, EditorialRef } from "@/lib/data/operacao";
 
 export const dynamic = "force-dynamic";
@@ -65,7 +67,8 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   const user = await getSession();
   if (!user || user.role !== "gerencial") notFound();
   const { id } = await params;
-  const le = await getEditorialLineView(id);
+  const [le, deckRaw] = await Promise.all([getEditorialLineView(id), getClientDeckConfig(id)]);
+  const deck = mergeDeck(deckRaw);
 
   const posts = le.posts.filter(nonEmpty);
   const videos = posts.filter((p) => kindOf(p.format) === "video");
@@ -90,7 +93,10 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         <Link href={`/gerencial/clientes/${id}/editorial?le=${le.id ?? ""}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4" /> Voltar à linha
         </Link>
-        <LePrintButton />
+        <div className="flex items-center gap-2">
+          <DeckConfigButton clientId={id} initial={deck} />
+          <LePrintButton />
+        </div>
       </div>
 
       <div className="space-y-6 px-4 print:space-y-0 print:px-0">
@@ -132,35 +138,31 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>O checklist de um bom roteiro</p>
           <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Método Viofilme</h2>
           <div className="mt-6 grid grid-cols-5 gap-3">
-            {[
-              { n: "01", t: "Resolve um problema", bg: PB, fg: BLUE },
-              { n: "02", t: "Gera boca a boca", bg: "#fbe1e4", fg: "#b03a4a" },
-              { n: "03", t: "Tem voz e clareza", bg: LIME, fg: "#5b6b16" },
-              { n: "04", t: "Conecta com o dia a dia", bg: PP, fg: "#a9682f" },
-              { n: "05", t: "Deixa um sentimento", bg: DARK, fg: LIME },
-            ].map((c) => (
-              <div key={c.n} className="rounded-lg p-4" style={{ background: c.bg }}>
-                <p className="text-2xl font-black opacity-40" style={{ color: c.fg }}>{c.n}</p>
-                <p className="mt-1 text-sm font-medium" style={{ color: c.n === "05" ? "#ffffff" : "#1f2937" }}>{c.t}</p>
-              </div>
-            ))}
+            {deck.metodo.items.map((t, i) => {
+              const st = [
+                { bg: PB, fg: BLUE },
+                { bg: "#fbe1e4", fg: "#b03a4a" },
+                { bg: LIME, fg: "#5b6b16" },
+                { bg: PP, fg: "#a9682f" },
+                { bg: DARK, fg: LIME },
+              ][i];
+              return (
+                <div key={i} className="rounded-lg p-4" style={{ background: st.bg }}>
+                  <p className="text-2xl font-black opacity-40" style={{ color: st.fg }}>{String(i + 1).padStart(2, "0")}</p>
+                  <p className="mt-1 text-sm font-medium" style={{ color: i === 4 ? "#ffffff" : "#1f2937" }}>{t}</p>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-6 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-6">
             <div className="rounded-xl p-5" style={{ background: PB }}>
-              <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>Autenticidade se dirige, não se finge.</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Não é encenação — é uma situação real, com direção clara de câmera e narração. A pessoa faz o que faria de qualquer forma; a gente sabe onde apontar a câmera.
-              </p>
+              <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{deck.metodo.highlightTitle}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{deck.metodo.highlightText}</p>
             </div>
             <div className="flex items-center gap-2">
-              {[
-                { t: "PROBLEMA", bg: DARK },
-                { t: "TENSÃO", bg: "#8f1d2d" },
-                { t: "VIRADA", bg: BLUE },
-                { t: "SENTIMENTO", bg: "#6f7d1e" },
-              ].map((s, i, a) => (
-                <div key={s.t} className="flex items-center gap-2">
-                  <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: s.bg }}>{s.t}</span>
+              {deck.metodo.flow.map((t, i, a) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: [DARK, "#8f1d2d", BLUE, "#6f7d1e"][i] }}>{t}</span>
                   {i < a.length - 1 && <span className="text-slate-400">→</span>}
                 </div>
               ))}
@@ -203,12 +205,17 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {/* 05..N · Uma seção por VÍDEO */}
         {videos.map((p) => {
           const board = imgs(p.references);
+          // Complexo/Curto derivado: muitos shots ou roteiro longo = complexo.
+          const complexo = (p.shotlist?.length ?? 0) >= 4 || (p.description?.length ?? 0) >= 400;
           return (
             <Slide key={`v-${p.id}`}>
               <PageNo n={pno()} />
               <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>
                 Vídeo{" "}
-                <span className="ml-1 rounded px-2 py-0.5 text-[10px] text-white" style={{ background: BLUE }}>{p.format}</span>
+                <span className="ml-1 rounded px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: complexo ? BLUE : "#d96a86" }}>
+                  {complexo ? "Complexo" : "Curto"}
+                </span>
+                <span className="ml-1.5 text-[10px] font-semibold text-slate-400">· {p.format}</span>
               </p>
               <h2 className="mt-1 text-3xl font-bold uppercase tracking-tight text-slate-800">{p.title || p.tema}</h2>
               <div className="mt-5 grid flex-1 grid-cols-[minmax(0,1fr)_260px] gap-6">
@@ -310,19 +317,15 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>Para a equipe Viofilme</p>
           <h2 className="mt-1 text-4xl font-bold uppercase text-white">Guia de produção</h2>
           <div className="mt-6 grid grid-cols-3 gap-3">
-            {[
-              { t: "Câmera", d: "Câmera lenta (0,5x / 60fps), planos fechados e sensoriais — mãos, vapor, detalhe.", hl: false },
-              { t: "Luz e equipamento", d: "Luz natural de manhã. Tripé sempre.", hl: false },
-              { t: "Áudio", d: "Narração gravada à parte, em ambiente silencioso.", hl: false },
-              { t: "Legendas", d: "Minimalistas, brancas, palavra a palavra.", hl: false },
-              { t: "Trilha", d: "Suave, coerente com o tom da marca.", hl: false },
-              { t: "Regra-chave", d: "Situação real dirigida + só o protagonista.", hl: true },
-            ].map((c) => (
-              <div key={c.t} className="rounded-lg border p-4" style={{ background: c.hl ? LIME : "#232425", borderColor: c.hl ? LIME : "#333" }}>
-                <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: c.hl ? BLUE : LIME }}>{c.t}</p>
-                <p className="mt-1 text-sm leading-relaxed" style={{ color: c.hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{c.d}</p>
-              </div>
-            ))}
+            {deck.guia.cells.map((c, i) => {
+              const hl = i === deck.guia.cells.length - 1; // última = regra-chave
+              return (
+                <div key={i} className="rounded-lg border p-4" style={{ background: hl ? LIME : "#232425", borderColor: hl ? LIME : "#333" }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: hl ? BLUE : LIME }}>{c.t}</p>
+                  <p className="mt-1 text-sm leading-relaxed" style={{ color: hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{c.d}</p>
+                </div>
+              );
+            })}
           </div>
         </Slide>
 

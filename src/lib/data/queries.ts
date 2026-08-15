@@ -700,6 +700,12 @@ export async function getUserMentions(userId: string) {
   return [];
 }
 
+/** Textos personalizados da apresentação (Método/Guia) do cliente. */
+export async function getClientDeckConfig(clientId: string): Promise<unknown> {
+  if (isSupabaseConfigured()) return sb.sbGetClientDeckConfig(clientId);
+  return null;
+}
+
 /** Rascunhos de LE em aberto (A3) — reais ou vazio no demo. */
 export async function getEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
   if (isSupabaseConfigured()) return sb.sbGetEditorialDrafts(clientId);

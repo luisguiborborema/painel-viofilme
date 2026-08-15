@@ -3320,6 +3320,13 @@ export async function sbGetEditorialLines(clientId: string): Promise<EditorialLi
   }));
 }
 
+/** Textos personalizados da apresentação (deck_config) do cliente — tolerante (0109). */
+export async function sbGetClientDeckConfig(clientId: string): Promise<unknown> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("clients").select("deck_config").eq("id", clientId).maybeSingle();
+  return (data as { deck_config?: unknown } | null)?.deck_config ?? null;
+}
+
 /** Respostas de formulário atribuídas a um cliente (para o Resumo do Hub). */
 export async function sbGetClientFormSubmissions(
   clientId: string,
