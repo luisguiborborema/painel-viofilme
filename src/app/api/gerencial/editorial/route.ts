@@ -42,6 +42,7 @@ type PostInput = {
   deliveryDate?: string;
   deliveryOverridden?: boolean;
   commemorativeDate?: string;
+  shotlist?: { tempo?: string; imagem?: string; legenda?: string }[];
 };
 
 type Body = {
@@ -236,18 +237,30 @@ export async function POST(req: Request) {
       commemorative_date: p.commemorativeDate?.trim() || null,
       updated_at: now,
     };
+    // Decupagem (shotlist) — sanitizada; coluna tolerante (0108).
+    const shotlist = Array.isArray(p.shotlist)
+      ? p.shotlist
+          .slice(0, 40)
+          .map((s) => ({
+            tempo: String(s?.tempo ?? "").slice(0, 40),
+            imagem: String(s?.imagem ?? "").slice(0, 400),
+            legenda: String(s?.legenda ?? "").slice(0, 400),
+          }))
+          .filter((s) => s.tempo || s.imagem || s.legenda)
+      : [];
+    const rowShot = { ...row, shotlist };
+    const undefinedColumn = (e: { code?: string } | null) => e?.code === "42703";
+
     if (p.id) {
-      const { error } = await supabase.from("editorial_posts").update(row).eq("id", p.id);
+      let error = (await supabase.from("editorial_posts").update(rowShot).eq("id", p.id)).error;
+      if (undefinedColumn(error)) error = (await supabase.from("editorial_posts").update(row).eq("id", p.id)).error;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ ok: true, persisted: true, id: p.id });
     }
-    const { data, error } = await supabase
-      .from("editorial_posts")
-      .insert(row)
-      .select("id")
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, persisted: true, id: data.id });
+    let ins = await supabase.from("editorial_posts").insert(rowShot).select("id").single();
+    if (undefinedColumn(ins.error)) ins = await supabase.from("editorial_posts").insert(row).select("id").single();
+    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true, id: ins.data.id });
   }
 
   return NextResponse.json({ error: "ação desconhecida" }, { status: 400 });

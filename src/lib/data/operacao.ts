@@ -415,6 +415,9 @@ export type EditorialRef = {
   label?: string;
 };
 
+/** Decupagem do vídeo (shotlist): tempo · imagem · legenda — a tabela do PDF. */
+export type EditorialShot = { tempo: string; imagem: string; legenda: string };
+
 export type EditorialPost = {
   id?: string;
   n: number;
@@ -427,6 +430,8 @@ export type EditorialPost = {
   assetNote: string;
   artDirection: ArtDirection;
   references: EditorialRef[];
+  /** Decupagem (shotlist) do vídeo — alimenta a tabela da apresentação. */
+  shotlist?: EditorialShot[];
   /** Estágio real da delivery task gerada (live-sync do Kanban), se houver. */
   taskStage?: TaskStage;
   /** Campos da ficha (Task universal). */

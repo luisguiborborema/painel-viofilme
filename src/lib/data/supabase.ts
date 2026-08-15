@@ -79,6 +79,7 @@ import {
   type EditorialLineCard,
   normalizeEditorialStage,
   type EditorialPost,
+  type EditorialShot,
   type EditorialFormat,
   type EditorialRef,
   type EditorialPillar,
@@ -3174,6 +3175,13 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   const postRows = (postsData ?? []) as EditorialPostRow[];
 
+  // Decupagem (shotlist) — leitura tolerante (coluna pode não existir antes da 0108).
+  const shotById = new Map<string, EditorialShot[]>();
+  const { data: shotData } = await supabase.from("editorial_posts").select("id, shotlist").eq("line_id", line.id);
+  for (const r of (shotData ?? []) as { id: string; shotlist: unknown }[]) {
+    if (Array.isArray(r.shotlist) && r.shotlist.length) shotById.set(String(r.id), r.shotlist as EditorialShot[]);
+  }
+
   // Live-sync: estágio real + nº de comentários das tasks vinculadas aos posts.
   const taskIds = postRows.map((p) => p.task_id).filter((x): x is string => !!x);
   const stageByTask = new Map<string, TaskStage>();
@@ -3201,6 +3209,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     assetNote: "",
     artDirection: (p.art_direction as ArtDirection) ?? "Banco do cliente",
     references: Array.isArray(p.refs) ? (p.refs as EditorialRef[]) : [],
+    shotlist: shotById.get(p.id),
     taskStage: p.task_id ? stageByTask.get(p.task_id) : undefined,
     commentsCount: p.task_id ? (commentsByTask.get(p.task_id) ?? 0) : 0,
     taskId: p.task_id ?? undefined,

@@ -219,12 +219,27 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                       <p className="mt-0.5 text-base font-medium text-slate-800">{p.tema || p.title}</p>
                     </div>
                   )}
-                  {p.description && (
+                  {p.shotlist && p.shotlist.length > 0 ? (
+                    <div className="overflow-hidden rounded-lg border border-slate-200">
+                      <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)] bg-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                        <span>Tempo</span>
+                        <span>Imagem</span>
+                        <span>Legenda</span>
+                      </div>
+                      {p.shotlist.map((s, i) => (
+                        <div key={i} className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)] border-t border-slate-100 px-3 py-1.5 text-xs">
+                          <span className="font-medium text-slate-500">{s.tempo}</span>
+                          <span className="pr-2 text-slate-700">{s.imagem}</span>
+                          <span style={{ color: BLUE }}>{s.legenda}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : p.description ? (
                     <div className="rounded-lg bg-slate-50 p-4">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Roteiro / copy</p>
                       <p className="mt-1 whitespace-pre-wrap text-sm italic leading-relaxed text-slate-700">{p.description}</p>
                     </div>
-                  )}
+                  ) : null}
                   {p.legenda && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Legenda</p>

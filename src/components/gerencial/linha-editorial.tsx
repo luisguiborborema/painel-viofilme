@@ -40,6 +40,7 @@ import {
   type EditorialLine,
   type EditorialDraft,
   type EditorialPost,
+  type EditorialShot,
   type EditorialPillar,
   type EditorialRef,
   type EditorialStage,
@@ -301,6 +302,7 @@ export function PostFicha({
   const [roteiro, setRoteiro] = useState(post.description);
   const [legenda, setLegenda] = useState(post.legenda ?? "");
   const [notes, setNotes] = useState(post.notes ?? "");
+  const [shotlist, setShotlist] = useState<EditorialShot[]>(() => post.shotlist ?? []);
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
@@ -499,6 +501,7 @@ export function PostFicha({
           description: roteiro,
           legenda,
           notes,
+          shotlist,
           artDirection: art,
           tema,
           assignee,
@@ -743,6 +746,59 @@ export function PostFicha({
                 className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm leading-relaxed text-ink outline-none focus:border-brand-400"
               />
             </div>
+
+            {/* Decupagem (shotlist) — tempo · imagem · legenda; vira a tabela do PDF */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Decupagem (tempo · imagem · legenda)</p>
+                <button
+                  type="button"
+                  onClick={() => setShotlist((s) => [...s, { tempo: "", imagem: "", legenda: "" }])}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:underline"
+                >
+                  <Plus className="h-3 w-3" /> Adicionar linha
+                </button>
+              </div>
+              {shotlist.length === 0 ? (
+                <p className="rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
+                  Sem decupagem. Use para o roteiro por tempo (ex.: “0–5s · mãos abrindo a massa · Aprendi isso”) — aparece como tabela na apresentação.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {shotlist.map((s, i) => (
+                    <div key={i} className="grid grid-cols-[64px_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1.5">
+                      <input
+                        value={s.tempo}
+                        onChange={(e) => setShotlist((arr) => arr.map((x, j) => (j === i ? { ...x, tempo: e.target.value } : x)))}
+                        placeholder="0–5s"
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                      />
+                      <input
+                        value={s.imagem}
+                        onChange={(e) => setShotlist((arr) => arr.map((x, j) => (j === i ? { ...x, imagem: e.target.value } : x)))}
+                        placeholder="Imagem / cena"
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                      />
+                      <input
+                        value={s.legenda}
+                        onChange={(e) => setShotlist((arr) => arr.map((x, j) => (j === i ? { ...x, legenda: e.target.value } : x)))}
+                        placeholder="Legenda / narração"
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShotlist((arr) => arr.filter((_, j) => j !== i))}
+                        className="rounded p-1 text-muted hover:text-rose-500"
+                        aria-label="Remover linha"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Referências & observações</p>
               <textarea
