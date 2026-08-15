@@ -58,7 +58,7 @@ export function Sidebar({
         // (sem self-start/altura fixa, o flex esticaria o aside e o sticky não pega).
         // z-40: sticky cria um stacking context próprio; sem z-index os flyouts do
         // menu recolhido ficariam ATRÁS do conteúdo da página.
-        "hidden shrink-0 flex-col self-start sticky top-0 z-40 h-dvh bg-brand-700 text-white transition-[width] duration-200 lg:flex",
+        "hidden shrink-0 flex-col self-start sticky top-0 z-40 h-dvh bg-brand-700 text-white transition-[width] duration-200 print:!hidden lg:flex",
         collapsed ? "w-[52px]" : "w-64",
       )}
     >

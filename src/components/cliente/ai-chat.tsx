@@ -134,7 +134,7 @@ export function AiChat({
         <button
           onClick={() => setOpen(true)}
           data-tour="assistant"
-          className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition-transform hover:scale-105"
+          className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 py-3 pl-3.5 pr-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition-transform hover:scale-105 print:hidden"
           aria-label={`${assistant.button}, assistente de IA`}
         >
           <Sparkles className="h-5 w-5" />
@@ -144,7 +144,7 @@ export function AiChat({
 
       {/* Painel */}
       {open && (
-        <div className="fixed inset-x-3 bottom-3 z-50 flex h-[75vh] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl sm:inset-x-auto sm:right-5 sm:bottom-5 sm:h-[600px] sm:w-[400px]">
+        <div className="fixed inset-x-3 bottom-3 z-50 flex h-[75vh] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl print:hidden sm:inset-x-auto sm:right-5 sm:bottom-5 sm:h-[600px] sm:w-[400px]">
           {/* Header */}
           <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-brand-500 to-brand-600 px-4 py-3 text-white">
             <div className="flex items-center gap-2">

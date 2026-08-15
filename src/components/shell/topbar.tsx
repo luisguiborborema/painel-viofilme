@@ -36,7 +36,7 @@ export function Topbar({
   const { hasTour, start } = useTour();
 
   return (
-    <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-line bg-surface/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:px-6">
+    <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b border-line bg-surface/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur print:hidden md:px-6">
       <button
         className="rounded-lg p-2 text-ink hover:bg-canvas lg:hidden"
         onClick={() => setMobileNav((v) => !v)}
