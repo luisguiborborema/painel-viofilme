@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { logEvent, logFromUser } from "@/lib/audit/log";
+import { createNotifications } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ type Body = {
     text?: string;
     parentId?: string;
     attachments?: { name?: string; url?: string }[];
+    mentions?: { id?: string; name?: string }[];
   };
   commentId?: string;
   emoji?: string;
@@ -303,7 +305,7 @@ export async function POST(req: Request) {
     }
     const { data: cur } = await supabase
       .from("delivery_tasks")
-      .select("comments")
+      .select("comments, title")
       .eq("id", b.id)
       .maybeSingle();
     const list = Array.isArray(cur?.comments) ? (cur!.comments as unknown[]) : [];
@@ -313,13 +315,19 @@ export async function POST(req: Request) {
           .slice(0, 8)
           .map((a) => ({ name: String(a.name ?? "arquivo").slice(0, 120), url: String(a.url) }))
       : [];
+    // Menções: guarda os nomes no comentário (para destacar) e coleta os ids
+    // (profiles) para notificar — nunca o próprio autor.
+    const mentionsIn = Array.isArray(b.comment?.mentions) ? b.comment!.mentions! : [];
+    const mentionNames = [...new Set(mentionsIn.map((m) => String(m?.name ?? "").trim()).filter(Boolean))].slice(0, 20);
+    const mentionIds = [...new Set(mentionsIn.map((m) => String(m?.id ?? "")).filter(Boolean))].filter((id) => id !== user.id);
     const entry = {
       id: cryptoId(),
-      author: (b.comment?.author ?? "Equipe").slice(0, 80),
+      author: (user.name ?? b.comment?.author ?? "Equipe").slice(0, 80),
       text: text.slice(0, 2000),
       parentId: b.comment?.parentId || undefined,
       reactions: {},
       attachments: atts,
+      mentions: mentionNames,
       createdAt: now,
     };
     const next = [...list, entry].slice(-200);
@@ -329,6 +337,17 @@ export async function POST(req: Request) {
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await logFromUser(user, { action: "comment", area: "Tarefas", target: b.id });
+    // Notifica os mencionados (in-app; respeita silenciamento da categoria).
+    if (mentionIds.length) {
+      const taskTitle = (cur as { title?: string | null } | null)?.title;
+      await createNotifications(mentionIds, {
+        title: `${user.name} mencionou você`,
+        body: `${taskTitle ? `${taskTitle} · ` : ""}${text.slice(0, 140)}`,
+        url: "/gerencial/entregas",
+        category: "comments",
+        type: "mention",
+      });
+    }
     return NextResponse.json({ ok: true, persisted: true, id: entry.id });
   }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
+  AtSign,
   CalendarCheck,
   CalendarDays,
   Inbox,
@@ -17,6 +18,7 @@ import {
   getCrmLeads,
   getCrmTasks,
   getDeliveryTasks,
+  getUserMentions,
 } from "@/lib/data/queries";
 import { getCalendarEvents } from "@/lib/data/agenda-server";
 import { getGoogleStatus } from "@/lib/google/client";
@@ -74,7 +76,7 @@ export default async function MeuDia() {
   const first = me.split(" ")[0] || "você";
 
   const gstatus = await getGoogleStatus();
-  const [deliveries, leads, crmTasks, ownEvents, googleEvents, requests] = await Promise.all([
+  const [deliveries, leads, crmTasks, ownEvents, googleEvents, requests, mentions] = await Promise.all([
     getDeliveryTasks(),
     getCrmLeads(),
     getCrmTasks(),
@@ -83,6 +85,7 @@ export default async function MeuDia() {
       ? listUpcomingEvents(20, { timeMin: startIso, timeMax: endIso })
       : Promise.resolve([]),
     getClientRequests(),
+    getUserMentions(user?.id ?? ""),
   ]);
 
   // Identidade do usuário nas tarefas de entrega (assignee pode ser id OU nome).
@@ -260,6 +263,48 @@ export default async function MeuDia() {
           )}
         </Card>
       </div>
+
+      {/* Menções (@) — comentários onde te marcaram */}
+      <Card className="p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+            <AtSign className="h-4 w-4 text-brand-500" /> Menções
+            {mentions.some((m) => !m.read) && (
+              <span className="rounded-full bg-brand-500/15 px-1.5 text-[11px] font-semibold text-brand-600">
+                {mentions.filter((m) => !m.read).length} nova(s)
+              </span>
+            )}
+          </h2>
+        </div>
+        {mentions.length === 0 ? (
+          <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">
+            Nada por aqui. Quando alguém te marcar (@) num comentário, aparece aqui.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {mentions.map((m) => (
+              <li key={m.id}>
+                <Link
+                  href={m.url ?? "/gerencial/entregas"}
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    m.read ? "border-line hover:bg-subtle" : "border-brand-400/40 bg-brand-500/5 hover:bg-brand-500/10",
+                  )}
+                >
+                  {!m.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium text-ink">{m.title}</span>
+                    {m.body && <span className="block truncate text-xs text-muted">{m.body}</span>}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-muted">
+                    {new Date(m.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       {/* Atalhos */}
       <div data-tour="md-atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-4">

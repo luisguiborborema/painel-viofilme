@@ -608,10 +608,21 @@ export type TaskComment = {
   parentId?: string;
   reactions?: Record<string, string[]>; // emoji -> autores
   attachments?: { name: string; url: string }[];
+  mentions?: string[]; // nomes mencionados (@)
   createdAt?: string;
 };
 
 export const REACTION_EMOJIS = ["👍", "❤️", "🎉", "🔥", "👀"];
+
+/** Notificação de menção (@) exibida no Meu dia. */
+export type MentionNotice = {
+  id: string;
+  title: string;
+  body?: string;
+  url?: string;
+  read: boolean;
+  createdAt: string;
+};
 
 /** Campos personalizados por board (Fase 3). */
 export type DeliveryFieldType = "text" | "textarea" | "number" | "select" | "date" | "checkbox" | "url";

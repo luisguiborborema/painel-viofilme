@@ -288,11 +288,14 @@ export function PostFicha({
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
   // Equipe real (profiles) para os seletores de responsável; OPS_TEAM é fallback.
   const [team, setTeam] = useState<string[]>(() => OPS_TEAM.map((m) => m.name));
+  // Membros com id (para @menção que notifica o usuário certo).
+  const [members, setMembers] = useState<{ id: string; name: string; avatarUrl: string | null }[]>([]);
   useEffect(() => {
     fetch("/api/gerencial/team", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (Array.isArray(j?.team) && j.team.length) setTeam(j.team as string[]);
+        if (Array.isArray(j?.members)) setMembers(j.members as { id: string; name: string; avatarUrl: string | null }[]);
       })
       .catch(() => {});
   }, []);
@@ -308,7 +311,8 @@ export function PostFicha({
   const [stage, setStage] = useState<TaskStage | null>(post.taskStage ?? null);
   const [taskId, setTaskId] = useState<string | undefined>(post.taskId);
   // Painel de atividade (C4): feed único de comentários + eventos de status.
-  const [activityOpen, setActivityOpen] = useState(false);
+  // Aberto por padrão — os comentários ficam à mão sem precisar clicar em "Atividade".
+  const [activityOpen, setActivityOpen] = useState(true);
   const [feed, setFeed] = useState<ActItem[]>([]);
   const [commentText, setCommentText] = useState("");
 
@@ -335,19 +339,27 @@ export function PostFicha({
   async function addComment() {
     const text = commentText.trim();
     if (!text || !taskId) return;
+    // Menções: pessoas cujo "@Nome completo" aparece no texto (marcadas no autocomplete).
+    const mentions = members
+      .filter((m) => m.name && text.includes(`@${m.name}`))
+      .map((m) => ({ id: m.id, name: m.name }));
     setFeed((p) => [...p, { ts: Date.now(), kind: "comment", author: "Você", text }]);
     setCommentText("");
     await fetch("/api/gerencial/delivery-tasks", {
       method: "POST",
       headers: jsonHeaders,
-      body: JSON.stringify({ action: "add-comment", id: taskId, comment: { author: "Você", text } }),
+      body: JSON.stringify({ action: "add-comment", id: taskId, comment: { text, mentions } }),
     }).catch(() => {});
   }
 
-  // @menção com autocomplete (C4): sugere pessoas ao digitar "@nome".
-  const mentionQ = (() => { const m = commentText.match(/@(\p{L}*)$/u); return m ? m[1] : null; })();
-  const mentionOpts = mentionQ !== null ? OPS_TEAM.filter((mm) => mm.name.toLowerCase().includes(mentionQ.toLowerCase())).slice(0, 5) : [];
-  function pickMention(mname: string) { setCommentText((t) => t.replace(/@\p{L}*$/u, `@${mname} `)); }
+  // @menção com autocomplete: sugere USUÁRIOS cadastrados ao digitar "@nome".
+  // (nome pode ter espaço — casa pelo prefixo da primeira palavra digitada.)
+  const mentionQ = (() => { const m = commentText.match(/@([\p{L} ]*)$/u); return m ? m[1] : null; })();
+  const mentionOpts =
+    mentionQ !== null
+      ? members.filter((mm) => mm.name.toLowerCase().includes(mentionQ.trim().toLowerCase())).slice(0, 6)
+      : [];
+  function pickMention(mname: string) { setCommentText((t) => t.replace(/@[\p{L} ]*$/u, `@${mname} `)); }
 
   // C2b: campos absorvidos do Painel de Entregas (persistem na task vinculada).
   const [requesterC, setRequesterC] = useState("");
@@ -967,8 +979,16 @@ export function PostFicha({
                 {mentionOpts.length > 0 && (
                   <div className="absolute bottom-full left-2.5 right-2.5 mb-1 overflow-hidden rounded-lg border border-line bg-surface shadow-lg">
                     {mentionOpts.map((mm) => (
-                      <button key={mm.id} onClick={() => pickMention(mm.name)} className="block w-full px-3 py-1.5 text-left text-sm text-ink hover:bg-subtle">
-                        <span className="font-medium">@{mm.name}</span> <span className="text-[11px] text-muted">{mm.role}</span>
+                      <button key={mm.id} onClick={() => pickMention(mm.name)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-subtle">
+                        {mm.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={mm.avatarUrl} alt={mm.name} className="h-5 w-5 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-subtle-strong text-[8px] font-bold text-ink">
+                            {mm.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                          </span>
+                        )}
+                        <span className="font-medium">@{mm.name}</span>
                       </button>
                     ))}
                   </div>

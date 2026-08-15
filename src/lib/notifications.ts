@@ -13,6 +13,8 @@ export type NotificationInput = {
   url?: string;
   /** Categoria p/ respeitar as preferências do usuário (silenciar). */
   category?: NotifCategory;
+  /** Tipo persistido (ex.: "mention") para filtrar no Meu dia. Requer coluna type (0107). */
+  type?: string;
 };
 
 function ready(): boolean {
@@ -36,6 +38,7 @@ export async function createNotifications(
         title: n.title,
         body: n.body ?? null,
         url: n.url ?? null,
+        ...(n.type ? { type: n.type } : {}),
       })),
     );
   } catch {

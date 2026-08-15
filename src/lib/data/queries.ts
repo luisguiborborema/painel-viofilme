@@ -694,6 +694,12 @@ export async function getEditorialLines(clientId: string): Promise<EditorialLine
   return [];
 }
 
+/** Menções (@) do usuário — para a aba do Meu dia. */
+export async function getUserMentions(userId: string) {
+  if (isSupabaseConfigured() && userId) return sb.sbGetUserMentions(userId);
+  return [];
+}
+
 /** Rascunhos de LE em aberto (A3) — reais ou vazio no demo. */
 export async function getEditorialDrafts(clientId: string): Promise<EditorialDraft[]> {
   if (isSupabaseConfigured()) return sb.sbGetEditorialDrafts(clientId);

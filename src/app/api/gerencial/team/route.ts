@@ -21,7 +21,7 @@ export async function GET() {
     team: attendants.map((a) => a.name).filter(Boolean),
     members: attendants
       .filter((a) => a.name)
-      .map((a) => ({ name: a.name, avatarUrl: a.avatarUrl ?? null })),
+      .map((a) => ({ id: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })),
   });
 }
 

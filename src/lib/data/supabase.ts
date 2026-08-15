@@ -3246,6 +3246,26 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
   };
 }
 
+/** Menções (@) do usuário para o Meu dia. Tolerante à ausência da coluna type (0107). */
+export async function sbGetUserMentions(userId: string, limit = 15): Promise<import("./operacao").MentionNotice[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, title, body, url, read, created_at")
+    .eq("user_id", userId)
+    .eq("type", "mention")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    title: String(r.title ?? ""),
+    body: r.body ? String(r.body) : undefined,
+    url: r.url ? String(r.url) : undefined,
+    read: !!r.read,
+    createdAt: String(r.created_at),
+  }));
+}
+
 /** Lista todas as linhas editoriais de um cliente (cards do quadro/kanban). */
 export async function sbGetEditorialLines(clientId: string): Promise<EditorialLineCard[]> {
   const supabase = await createClient();
