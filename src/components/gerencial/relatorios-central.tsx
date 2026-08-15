@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   CheckCircle2,
+  Download,
   FileSpreadsheet,
   FileText,
   Link2,
@@ -259,14 +260,30 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
           </ul>
         </div>
 
-        <button
-          onClick={sendPdf}
-          disabled={sending || !clientId || (organic.size === 0 && paid.size === 0)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-        >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar relatório por WhatsApp (PDF)
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {clientId ? (
+            <a
+              href={`/api/relatorio/pdf?clientId=${clientId}&download=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-subtle"
+            >
+              <Download className="h-4 w-4" /> Baixar PDF
+            </a>
+          ) : (
+            <span className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-muted opacity-60">
+              <Download className="h-4 w-4" /> Baixar PDF
+            </span>
+          )}
+          <button
+            onClick={sendPdf}
+            disabled={sending || !clientId || (organic.size === 0 && paid.size === 0)}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Enviar por WhatsApp
+          </button>
+        </div>
         {status && (
           <p className={cn("rounded-lg px-3 py-2 text-center text-xs", status.ok ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500")}>
             {status.text}

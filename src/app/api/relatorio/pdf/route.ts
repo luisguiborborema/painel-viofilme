@@ -58,10 +58,12 @@ export async function GET(req: NextRequest) {
   });
 
   const name = `Relatorio-${detail.client.name.normalize("NFD").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`;
+  // ?download=1 força salvar o arquivo; senão abre no navegador (inline).
+  const disposition = req.nextUrl.searchParams.get("download") ? "attachment" : "inline";
   return new Response(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${name}"`,
+      "Content-Disposition": `${disposition}; filename="${name}"`,
     },
   });
 }
