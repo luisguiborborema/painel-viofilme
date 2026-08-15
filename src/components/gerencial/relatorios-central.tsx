@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { SyncButton } from "@/components/gerencial/sync-button";
 import {
   getReportHistory,
-  REPORT_INTEGRATIONS,
   REPORT_ORGANIC_METRICS,
   REPORT_PAID_METRICS,
   type ReportSummary,
@@ -29,6 +29,27 @@ import {
 
 type DocType = "apresentacao" | "planilha" | "link";
 type ClientOpt = { id: string; name: string };
+type MetaStatus = {
+  cid: string;
+  connected: boolean;
+  hasToken: boolean;
+  hasAdAccount: boolean;
+  lastSyncedAt: string | null;
+  pageName: string | null;
+  canSync: boolean;
+};
+
+function StatusRow({ label, ok, okText, warnText }: { label: string; ok: boolean; okText: string; warnText: string }) {
+  return (
+    <li className="flex items-center justify-between rounded-lg bg-subtle px-3 py-2 text-sm">
+      <span className="text-ink">{label}</span>
+      <span className={cn("inline-flex items-center gap-1 text-xs font-medium", ok ? "text-emerald-500" : "text-amber-500")}>
+        {ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}
+        {ok ? okText : warnText}
+      </span>
+    </li>
+  );
+}
 
 const DOC_TYPES: { key: DocType; label: string; sub: string; icon: typeof FileText }[] = [
   { key: "apresentacao", label: "Apresentação", sub: "PDF estilizado · Doc B", icon: Presentation },
@@ -97,6 +118,7 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
   const [summary, setSummary] = useState<ReportSummary>(() =>
     resolveReportSummary(clients[0]?.id ?? "seed"),
   );
+  const [meta, setMeta] = useState<MetaStatus | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- rótulo do mês atual via new Date() só no cliente (SSR-safe)
@@ -118,7 +140,24 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
     };
   }, [clientId]);
 
+  // Status REAL da conexão Meta do cliente selecionado (marcado com o cid p/ não
+  // exibir status de um cliente anterior enquanto o novo carrega).
+  useEffect(() => {
+    if (!clientId) return;
+    let alive = true;
+    fetch(`/api/meta/status?client=${encodeURIComponent(clientId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j) setMeta({ ...(j as Omit<MetaStatus, "cid">), cid: clientId });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [clientId]);
+
   const client = clients.find((c) => c.id === clientId);
+  const metaShown = meta && meta.cid === clientId ? meta : null;
   const history = getReportHistory();
 
   const toggle = (set: Set<string>, key: string) => {
@@ -241,23 +280,46 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
         </div>
 
         <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Status das integrações</h4>
-          <ul className="space-y-1.5">
-            {REPORT_INTEGRATIONS.map((it) => (
-              <li key={it.name} className="flex items-center justify-between rounded-lg bg-subtle px-3 py-2 text-sm">
-                <span className="text-ink">{it.name}</span>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium",
-                    it.status === "ok" ? "text-emerald-400" : "text-amber-400",
-                  )}
-                >
-                  {it.status === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}
-                  {it.note}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Integração Meta {client ? `· ${client.name}` : ""}</h4>
+            {metaShown?.connected && metaShown.canSync && <SyncButton clientId={clientId} />}
+          </div>
+          {metaShown === null ? (
+            <p className="rounded-lg bg-subtle px-3 py-2 text-xs text-muted">Verificando conexão…</p>
+          ) : (
+            <>
+              <ul className="space-y-1.5">
+                <StatusRow
+                  label="Instagram / Facebook (orgânico)"
+                  ok={metaShown.connected && metaShown.hasToken}
+                  okText={metaShown.pageName ?? "Conectado"}
+                  warnText={metaShown.connected ? "Reconectar (sem token)" : "Não conectado"}
+                />
+                <StatusRow
+                  label="Meta Ads (tráfego pago)"
+                  ok={metaShown.hasAdAccount && metaShown.hasToken}
+                  okText="Conta de anúncios vinculada"
+                  warnText={metaShown.connected ? "Sem conta de anúncios" : "Não conectado"}
+                />
+              </ul>
+              <div className="mt-2 space-y-1 text-[11px]">
+                {metaShown.lastSyncedAt ? (
+                  <p className="text-muted">
+                    Última sincronização:{" "}
+                    {new Date(metaShown.lastSyncedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                ) : metaShown.connected ? (
+                  <p className="text-amber-600">Nunca sincronizado — clique em “Sincronizar” para puxar os dados do Meta.</p>
+                ) : null}
+                {!metaShown.connected && clientId && (
+                  <a href={`/api/meta/connect?client=${clientId}`} className="inline-block font-medium text-brand-600 hover:underline">
+                    Conectar o Meta deste cliente →
+                  </a>
+                )}
+                {!metaShown.canSync && <p className="text-muted">Sincronização indisponível neste ambiente.</p>}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
