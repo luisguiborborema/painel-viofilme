@@ -56,7 +56,9 @@ export function Sidebar({
       className={cn(
         // sticky + altura de viewport: acompanha a rolagem em páginas longas
         // (sem self-start/altura fixa, o flex esticaria o aside e o sticky não pega).
-        "hidden shrink-0 flex-col self-start sticky top-0 h-dvh bg-brand-700 text-white transition-[width] duration-200 lg:flex",
+        // z-40: sticky cria um stacking context próprio; sem z-index os flyouts do
+        // menu recolhido ficariam ATRÁS do conteúdo da página.
+        "hidden shrink-0 flex-col self-start sticky top-0 z-40 h-dvh bg-brand-700 text-white transition-[width] duration-200 lg:flex",
         collapsed ? "w-[52px]" : "w-64",
       )}
     >
