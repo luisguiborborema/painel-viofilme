@@ -12,6 +12,7 @@ import {
   ImageIcon,
   Camera,
   Link2,
+  Loader2,
   Plus,
   Presentation,
   Sparkles,
@@ -107,18 +108,41 @@ const REF_ICON: Record<EditorialRef["kind"], typeof Link2> = {
 
 function Moodboard({ refs, onAdd, onRemove, compact }: { refs: EditorialRef[]; onAdd: (r: EditorialRef) => void; onRemove?: (id: string) => void; compact?: boolean }) {
   const [url, setUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   function add() {
     const v = url.trim();
     if (!v) return;
     onAdd({ id: `ref-${refSeq++}`, kind: detectKind(v), url: v, label: v.replace(/^https?:\/\//, "").slice(0, 24) });
     setUrl("");
   }
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/gerencial/task-upload", { method: "POST", body: fd });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.url) {
+        onAdd({ id: `ref-${refSeq++}`, kind: "image", url: String(j.url), label: String(j.name ?? file.name).slice(0, 24) });
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
   return (
     <div>
       <div className={cn("grid gap-2", compact ? "grid-cols-3" : "grid-cols-4 sm:grid-cols-6")}>
         {refs.map((r) => {
           const Icon = REF_ICON[r.kind];
-          const tile = (
+          const isImg = r.kind === "image" && !!r.url;
+          const tile = isImg ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={r.url} alt={r.label ?? ""} className="aspect-square w-full rounded-lg border border-line object-cover" />
+          ) : (
             <div className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-line bg-canvas p-1 text-center">
               <Icon className="h-4 w-4 text-brand-500" />
               <span className="line-clamp-2 text-[9px] text-muted">{r.label ?? r.kind}</span>
@@ -143,19 +167,21 @@ function Moodboard({ refs, onAdd, onRemove, compact }: { refs: EditorialRef[]; o
           );
         })}
         <button
-          onClick={() => onAdd({ id: `ref-${refSeq++}`, kind: "image", label: "Imagem anexada" })}
-          title="Anexar imagem (simulado)"
-          className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-line text-muted hover:border-brand-400 hover:text-brand-500"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          title="Enviar imagem"
+          className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-line text-muted hover:border-brand-400 hover:text-brand-500 disabled:opacity-60"
         >
-          <Plus className="h-4 w-4" />
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
         </button>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
       </div>
       <div className="mt-2 flex gap-1.5">
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="Colar link (Instagram, Pinterest, imagem…)"
+          placeholder="Ou cole um link (Instagram, Pinterest, imagem…)"
           className="flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
         />
         <button onClick={add} className="rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">Add</button>
@@ -303,6 +329,7 @@ export function PostFicha({
   const [legenda, setLegenda] = useState(post.legenda ?? "");
   const [notes, setNotes] = useState(post.notes ?? "");
   const [shotlist, setShotlist] = useState<EditorialShot[]>(() => post.shotlist ?? []);
+  const [refs, setRefs] = useState<EditorialRef[]>(() => post.references ?? []);
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
@@ -476,7 +503,7 @@ export function PostFicha({
           tema,
           roteiro,
           legenda,
-          refs: post.references,
+          refs,
           postDateIso: postDateIso || undefined,
           deliveryDate: deliveryIso || undefined,
           deliveryOverridden,
@@ -502,6 +529,7 @@ export function PostFicha({
           legenda,
           notes,
           shotlist,
+          refs,
           artDirection: art,
           tema,
           assignee,
@@ -807,6 +835,16 @@ export function PostFicha({
                 rows={2}
                 placeholder="Links de referência, moodboard do post, observações livres para a equipe…"
                 className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+              />
+            </div>
+
+            {/* Vision board do post — imagens (upload ou link); aparecem na apresentação */}
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Vision board (imagens)</p>
+              <Moodboard
+                refs={refs}
+                onAdd={(r) => setRefs((a) => [...a, r])}
+                onRemove={(rid) => setRefs((a) => a.filter((x) => x.id !== rid))}
               />
             </div>
 
