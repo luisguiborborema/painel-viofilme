@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
-import { getEditorialLineView, getClientDeckConfig } from "@/lib/data/queries";
-import { mergeDeck } from "@/lib/data/deck";
+import { getEditorialLineView, getClientDeckConfig, getCSClientDetail } from "@/lib/data/queries";
+import { mergeDeck, buildVarMap, applyVars } from "@/lib/data/deck";
 import { LogoHorizontal } from "@/components/brand/logo";
 import { LePrintButton } from "@/components/gerencial/le-print-button";
 import { DeckConfigButton } from "@/components/gerencial/deck-config-button";
@@ -11,10 +11,10 @@ import type { EditorialPost, EditorialRef } from "@/lib/data/operacao";
 
 export const dynamic = "force-dynamic";
 
-// Paleta do template D'Belém.
-const BLUE = "#2f6ff0";
-const LIME = "#d6f24e";
-const DARK = "#191a1b";
+// Cores do tema via CSS custom properties (setadas no wrapper a partir do deck).
+const BLUE = "var(--dblue)";
+const LIME = "var(--dlime)";
+const DARK = "var(--ddark)";
 const PB = "#e9eefb"; // pastel azul
 const PL = "#eef7cf"; // pastel lima
 const PP = "#fdeee2"; // pastel pêssego
@@ -23,7 +23,7 @@ type Kind = "video" | "carrossel" | "estatico";
 function kindOf(f: string): Kind {
   if (f === "Carrossel") return "carrossel";
   if (f === "Feed") return "estatico";
-  return "video"; // Reels / Stories
+  return "video";
 }
 const nonEmpty = (p: EditorialPost) => (p.title && p.title.trim()) || (p.tema && p.tema.trim());
 const clip = (s: string | undefined, n: number) => (s && s.length > n ? `${s.slice(0, n - 1)}…` : s ?? "");
@@ -67,8 +67,24 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   const user = await getSession();
   if (!user || user.role !== "gerencial") notFound();
   const { id } = await params;
-  const [le, deckRaw] = await Promise.all([getEditorialLineView(id), getClientDeckConfig(id)]);
+  const [le, deckRaw, detail] = await Promise.all([
+    getEditorialLineView(id),
+    getClientDeckConfig(id),
+    getCSClientDetail(id),
+  ]);
   const deck = mergeDeck(deckRaw);
+
+  // Variáveis automáticas do cliente + as personalizadas (deck.vars ganham).
+  const cleanV = (v?: string | null) => (v && v !== "—" ? String(v) : "");
+  const autoVars: Record<string, string> = {
+    cliente: le.clientName,
+    mes: le.month,
+    telefone: cleanV(detail?.phone),
+    email: cleanV(detail?.email),
+    cidade: cleanV(detail?.client?.city),
+  };
+  const varMap = buildVarMap(autoVars, deck.vars);
+  const V = (t?: string) => applyVars(t, varMap);
 
   const posts = le.posts.filter(nonEmpty);
   const videos = posts.filter((p) => kindOf(p.format) === "video");
@@ -80,7 +96,10 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   const pno = () => String(page++).padStart(2, "0");
 
   return (
-    <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
+    <div
+      className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0"
+      style={{ ["--dblue"]: deck.theme.blue, ["--dlime"]: deck.theme.lime, ["--ddark"]: deck.theme.dark } as React.CSSProperties}
+    >
       <style>{`
         @media print {
           @page { size: landscape; margin: 0; }
@@ -94,7 +113,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           <ArrowLeft className="h-4 w-4" /> Voltar à linha
         </Link>
         <div className="flex items-center gap-2">
-          <DeckConfigButton clientId={id} initial={deck} />
+          <DeckConfigButton clientId={id} initial={deck} autoVars={autoVars} />
           <LePrintButton />
         </div>
       </div>
@@ -103,15 +122,23 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {/* 01 · Capa */}
         <Slide>
           <PageNo n={pno()} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{le.clientName}</p>
-          <div className="mt-auto">
-            <h1 className="text-[76px] font-black uppercase leading-[0.92] tracking-tight" style={{ color: BLUE }}>
-              Linha<br />Editorial
-            </h1>
-            <p className="mt-3 text-2xl text-slate-800">
-              {videos.length} vídeos · {carros.length} carrosséis · {estaticos.length} estáticos
-            </p>
-            <p className="mt-1 text-lg text-slate-500">{le.month}</p>
+          <div className="flex flex-1 items-stretch gap-8">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
+              <div className="mt-auto">
+                <h1 className="text-[76px] font-black uppercase leading-[0.92] tracking-tight" style={{ color: BLUE }}>
+                  Linha<br />Editorial
+                </h1>
+                <p className="mt-3 text-2xl text-slate-800">
+                  {videos.length} vídeos · {carros.length} carrosséis · {estaticos.length} estáticos
+                </p>
+                <p className="mt-1 text-lg text-slate-500">{V(le.month)}</p>
+              </div>
+            </div>
+            {deck.coverImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={deck.coverImageUrl} alt="" className="w-[40%] shrink-0 self-stretch rounded-2xl object-cover" />
+            )}
           </div>
           <Footer />
         </Slide>
@@ -121,18 +148,18 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           <div className="mt-auto max-w-4xl">
             <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>O conceito</p>
             <h2 className="mt-3 text-[44px] font-black uppercase leading-[1.05] text-white">
-              {le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro."}
+              {V(le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro.")}
             </h2>
             {le.tensaoNarrativa && le.tensaoNarrativa !== "—" && (
-              <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{le.tensaoNarrativa}</p>
+              <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{V(le.tensaoNarrativa)}</p>
             )}
             {le.objetivo && le.objetivo !== "—" && le.narrativaCentral && le.narrativaCentral !== "—" && (
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{le.objetivo}</p>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{V(le.objetivo)}</p>
             )}
           </div>
         </Slide>
 
-        {/* 03 · Método Viofilme (marca) */}
+        {/* 03 · Método Viofilme (editável) */}
         <Slide>
           <PageNo n={pno()} />
           <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>O checklist de um bom roteiro</p>
@@ -149,20 +176,20 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
               return (
                 <div key={i} className="rounded-lg p-4" style={{ background: st.bg }}>
                   <p className="text-2xl font-black opacity-40" style={{ color: st.fg }}>{String(i + 1).padStart(2, "0")}</p>
-                  <p className="mt-1 text-sm font-medium" style={{ color: i === 4 ? "#ffffff" : "#1f2937" }}>{t}</p>
+                  <p className="mt-1 text-sm font-medium" style={{ color: i === 4 ? "#ffffff" : "#1f2937" }}>{V(t)}</p>
                 </div>
               );
             })}
           </div>
           <div className="mt-6 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-6">
             <div className="rounded-xl p-5" style={{ background: PB }}>
-              <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{deck.metodo.highlightTitle}</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{deck.metodo.highlightText}</p>
+              <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(deck.metodo.highlightTitle)}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{V(deck.metodo.highlightText)}</p>
             </div>
             <div className="flex items-center gap-2">
               {deck.metodo.flow.map((t, i, a) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: [DARK, "#8f1d2d", BLUE, "#6f7d1e"][i] }}>{t}</span>
+                  <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: [DARK, "#8f1d2d", BLUE, "#6f7d1e"][i] }}>{V(t)}</span>
                   {i < a.length - 1 && <span className="text-slate-400">→</span>}
                 </div>
               ))}
@@ -188,7 +215,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: row.tag }}>
                         {row.label.replace(/s$/, "")} {i + 1} · {p.format}
                       </p>
-                      <p className="mt-1 text-sm font-semibold leading-snug">{clip(p.title || p.tema, 60)}</p>
+                      <p className="mt-1 text-sm font-semibold leading-snug">{clip(V(p.title || p.tema), 60)}</p>
                     </div>
                   ))}
                 </div>
@@ -205,7 +232,6 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {/* 05..N · Uma seção por VÍDEO */}
         {videos.map((p) => {
           const board = imgs(p.references);
-          // Complexo/Curto derivado: muitos shots ou roteiro longo = complexo.
           const complexo = (p.shotlist?.length ?? 0) >= 4 || (p.description?.length ?? 0) >= 400;
           return (
             <Slide key={`v-${p.id}`}>
@@ -217,13 +243,13 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                 </span>
                 <span className="ml-1.5 text-[10px] font-semibold text-slate-400">· {p.format}</span>
               </p>
-              <h2 className="mt-1 text-3xl font-bold uppercase tracking-tight text-slate-800">{p.title || p.tema}</h2>
+              <h2 className="mt-1 text-3xl font-bold uppercase tracking-tight text-slate-800">{V(p.title || p.tema)}</h2>
               <div className="mt-5 grid flex-1 grid-cols-[minmax(0,1fr)_260px] gap-6">
                 <div className="min-w-0 space-y-3">
                   {(p.tema || p.title) && (
                     <div className="rounded-r-lg border-l-4 py-3 pl-4 pr-3" style={{ borderColor: LIME, background: PL }}>
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "#5b6b16" }}>A mensagem</p>
-                      <p className="mt-0.5 text-base font-medium text-slate-800">{p.tema || p.title}</p>
+                      <p className="mt-0.5 text-base font-medium text-slate-800">{V(p.tema || p.title)}</p>
                     </div>
                   )}
                   {p.shotlist && p.shotlist.length > 0 ? (
@@ -235,22 +261,22 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                       </div>
                       {p.shotlist.map((s, i) => (
                         <div key={i} className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)] border-t border-slate-100 px-3 py-1.5 text-xs">
-                          <span className="font-medium text-slate-500">{s.tempo}</span>
-                          <span className="pr-2 text-slate-700">{s.imagem}</span>
-                          <span style={{ color: BLUE }}>{s.legenda}</span>
+                          <span className="font-medium text-slate-500">{V(s.tempo)}</span>
+                          <span className="pr-2 text-slate-700">{V(s.imagem)}</span>
+                          <span style={{ color: BLUE }}>{V(s.legenda)}</span>
                         </div>
                       ))}
                     </div>
                   ) : p.description ? (
                     <div className="rounded-lg bg-slate-50 p-4">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Roteiro / copy</p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm italic leading-relaxed text-slate-700">{p.description}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm italic leading-relaxed text-slate-700">{V(p.description)}</p>
                     </div>
                   ) : null}
                   {p.legenda && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Legenda</p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{p.legenda}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{V(p.legenda)}</p>
                     </div>
                   )}
                 </div>
@@ -265,13 +291,13 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                     </div>
                   ) : (
                     <div className="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] text-slate-400">
-                      {p.artDirection || "Sem referências"}
+                      {V(p.artDirection) || "Sem referências"}
                     </div>
                   )}
                 </div>
               </div>
               <div className="-mx-14 -mb-12 mt-4 px-14 py-3 text-center text-[11px] font-bold uppercase tracking-wide" style={{ background: DARK, color: LIME }}>
-                {p.pillar ? `Pilar · ${p.pillar}` : "Direção de arte"}{p.artDirection ? ` · ${p.artDirection}` : ""}
+                {p.pillar ? `Pilar · ${V(p.pillar)}` : "Direção de arte"}{p.artDirection ? ` · ${V(p.artDirection)}` : ""}
               </div>
             </Slide>
           );
@@ -284,13 +310,22 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
             <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{carros.length} carrosséis</p>
             <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Os carrosséis do mês</h2>
             <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
-              {carros.slice(0, 6).map((p, i) => (
-                <div key={p.id} className="rounded-lg p-4" style={{ background: [PB, PL, PP, "#fbe8ec"][i % 4] }}>
-                  <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{p.title || p.tema}</p>
-                  {p.tema && p.tema !== p.title && <p className="mt-0.5 text-sm text-slate-600">{p.tema}</p>}
-                  {p.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{clip(p.description, 220)}</p>}
-                </div>
-              ))}
+              {carros.slice(0, 6).map((p, i) => {
+                const cover = imgs(p.references)[0];
+                return (
+                  <div key={p.id} className="flex gap-3 rounded-lg p-4" style={{ background: [PB, PL, PP, "#fbe8ec"][i % 4] }}>
+                    {cover && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cover.url} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(p.title || p.tema)}</p>
+                      {p.tema && p.tema !== p.title && <p className="mt-0.5 text-sm text-slate-600">{V(p.tema)}</p>}
+                      {p.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{clip(V(p.description), 200)}</p>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Slide>
         )}
@@ -302,27 +337,36 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
             <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{estaticos.length} estáticos</p>
             <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Uma frase + uma imagem</h2>
             <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
-              {estaticos.slice(0, 6).map((p, i) => (
-                <div key={p.id} className="rounded-lg p-5" style={{ background: [PB, PL, "#fbe8ec", PP][i % 4] }}>
-                  <p className="text-base font-bold" style={{ color: BLUE }}>{p.legenda || p.title || p.tema}</p>
-                  {(p.tema || p.description) && <p className="mt-1 text-sm text-slate-600">{clip(p.tema || p.description, 160)}</p>}
-                </div>
-              ))}
+              {estaticos.slice(0, 6).map((p, i) => {
+                const cover = imgs(p.references)[0];
+                return (
+                  <div key={p.id} className="flex items-center gap-4 rounded-lg p-5" style={{ background: [PB, PL, "#fbe8ec", PP][i % 4] }}>
+                    {cover && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cover.url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-base font-bold" style={{ color: BLUE }}>{V(p.legenda || p.title || p.tema)}</p>
+                      {(p.tema || p.description) && <p className="mt-1 text-sm text-slate-600">{clip(V(p.tema || p.description), 140)}</p>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Slide>
         )}
 
-        {/* Guia de produção (equipe) */}
+        {/* Guia de produção (editável) */}
         <Slide dark>
           <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>Para a equipe Viofilme</p>
           <h2 className="mt-1 text-4xl font-bold uppercase text-white">Guia de produção</h2>
           <div className="mt-6 grid grid-cols-3 gap-3">
             {deck.guia.cells.map((c, i) => {
-              const hl = i === deck.guia.cells.length - 1; // última = regra-chave
+              const hl = i === deck.guia.cells.length - 1;
               return (
                 <div key={i} className="rounded-lg border p-4" style={{ background: hl ? LIME : "#232425", borderColor: hl ? LIME : "#333" }}>
-                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: hl ? BLUE : LIME }}>{c.t}</p>
-                  <p className="mt-1 text-sm leading-relaxed" style={{ color: hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{c.d}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: hl ? BLUE : LIME }}>{V(c.t)}</p>
+                  <p className="mt-1 text-sm leading-relaxed" style={{ color: hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{V(c.d)}</p>
                 </div>
               );
             })}
@@ -332,16 +376,16 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {/* Fechamento */}
         <Slide>
           <PageNo n={pno()} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{le.clientName}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
           <div className="mt-auto">
             <h2 className="text-[64px] font-black uppercase leading-[0.95]" style={{ color: BLUE }}>
               Uma história.<br />{total} peças.
             </h2>
             <p className="mt-4 max-w-2xl text-lg text-slate-500">
-              {le.objetivo && le.objetivo !== "—" ? le.objetivo : "Cada peça parte de algo real — sem encenação."}
+              {V(le.objetivo && le.objetivo !== "—" ? le.objetivo : "Cada peça parte de algo real — sem encenação.")}
             </p>
           </div>
-          <Footer contact="contato@viofilme.com.br" />
+          <Footer contact={V(deck.contact)} />
         </Slide>
       </div>
     </div>

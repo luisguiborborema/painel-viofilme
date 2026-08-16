@@ -1,24 +1,30 @@
 /**
- * Textos editáveis da apresentação da Linha Editorial (slides "Método Viofilme"
- * e "Guia de produção"). Guardados por cliente em clients.deck_config (jsonb);
- * caem nos defaults do template quando não personalizados. Só o TEXTO é editável
- * — cores/layout dos slides são fixos.
+ * Configuração editável da apresentação da Linha Editorial (por cliente,
+ * clients.deck_config jsonb): tema de cores, variáveis, imagem de capa, rodapé e
+ * os textos dos slides Método/Guia. Cai nos defaults do template quando vazio.
  */
 export type DeckCell = { t: string; d: string };
+export type DeckTheme = { blue: string; lime: string; dark: string };
+export type DeckVar = { key: string; value: string };
 
 export type DeckConfig = {
+  theme: DeckTheme;
+  contact: string;
+  coverImageUrl?: string;
+  vars: DeckVar[];
   metodo: {
-    items: string[]; // 5 rótulos do checklist (01..05)
+    items: string[];
     highlightTitle: string;
     highlightText: string;
-    flow: string[]; // 4 etapas do fluxo
+    flow: string[];
   };
-  guia: {
-    cells: DeckCell[]; // 6 células (última = regra-chave)
-  };
+  guia: { cells: DeckCell[] };
 };
 
 export const DEFAULT_DECK: DeckConfig = {
+  theme: { blue: "#2f6ff0", lime: "#d6f24e", dark: "#191a1b" },
+  contact: "contato@viofilme.com.br",
+  vars: [],
   metodo: {
     items: [
       "Resolve um problema",
@@ -45,16 +51,34 @@ export const DEFAULT_DECK: DeckConfig = {
 };
 
 const str = (v: unknown, fb: string) => (typeof v === "string" && v.trim() ? v : fb);
+const isHex = (v: unknown): v is string => typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
 
-/** Mescla o jsonb salvo (parcial/qualquer) com os defaults, com tamanhos fixos. */
+/** Mescla o jsonb salvo (parcial/qualquer) com os defaults, com formato canônico. */
 export function mergeDeck(raw: unknown): DeckConfig {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const t = (r.theme && typeof r.theme === "object" ? r.theme : {}) as Record<string, unknown>;
   const m = (r.metodo && typeof r.metodo === "object" ? r.metodo : {}) as Record<string, unknown>;
   const g = (r.guia && typeof r.guia === "object" ? r.guia : {}) as Record<string, unknown>;
   const rawItems = Array.isArray(m.items) ? m.items : [];
   const rawFlow = Array.isArray(m.flow) ? m.flow : [];
   const rawCells = Array.isArray(g.cells) ? g.cells : [];
+  const rawVars = Array.isArray(r.vars) ? r.vars : [];
+  const cover = typeof r.coverImageUrl === "string" && r.coverImageUrl.trim() ? r.coverImageUrl : undefined;
   return {
+    theme: {
+      blue: isHex(t.blue) ? t.blue : DEFAULT_DECK.theme.blue,
+      lime: isHex(t.lime) ? t.lime : DEFAULT_DECK.theme.lime,
+      dark: isHex(t.dark) ? t.dark : DEFAULT_DECK.theme.dark,
+    },
+    contact: str(r.contact, DEFAULT_DECK.contact),
+    coverImageUrl: cover,
+    vars: rawVars
+      .slice(0, 40)
+      .map((v) => {
+        const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+        return { key: String(o.key ?? "").slice(0, 60), value: String(o.value ?? "").slice(0, 300) };
+      })
+      .filter((v) => v.key.trim()),
     metodo: {
       items: DEFAULT_DECK.metodo.items.map((d, i) => str(rawItems[i], d)),
       highlightTitle: str(m.highlightTitle, DEFAULT_DECK.metodo.highlightTitle),
@@ -68,4 +92,26 @@ export function mergeDeck(raw: unknown): DeckConfig {
       }),
     },
   };
+}
+
+/** Mapa de variáveis (chave minúscula → valor): autos do cliente + custom (custom ganha). */
+export function buildVarMap(auto: Record<string, string>, vars: DeckVar[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const [k, v] of Object.entries(auto)) {
+    const key = k.trim().toLowerCase();
+    if (key && v) map[key] = v;
+  }
+  for (const v of vars) {
+    const key = v.key.trim().toLowerCase();
+    if (key) map[key] = v.value ?? "";
+  }
+  return map;
+}
+
+/** Substitui {{chave}} e [chave] pelo valor (chaves conhecidas); mantém as desconhecidas. */
+export function applyVars(text: string | undefined, map: Record<string, string>): string {
+  if (!text) return text ?? "";
+  return text
+    .replace(/\{\{\s*([^}]+?)\s*\}\}/g, (mm, k: string) => (k.toLowerCase() in map ? map[k.toLowerCase()] : mm))
+    .replace(/\[\s*([^\]]+?)\s*\]/g, (mm, k: string) => (k.toLowerCase() in map ? map[k.toLowerCase()] : mm));
 }
