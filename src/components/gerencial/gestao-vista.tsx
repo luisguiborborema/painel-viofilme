@@ -92,7 +92,7 @@ function TrafegoLens({ health, traffic, nominal, ownName }: GavData) {
   return (
     <div className="space-y-4">
       {/* Termômetro da carteira */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Metric label="Contas saudáveis" value={String(healthy)} sub="acima da meta" />
         <Metric label="Contas em risco" value={String(risk)} sub="exigem otimização" />
         <Metric label="Sem meta cadastrada" value={String(noGoal)} sub="defina em Clientes → Metas" />

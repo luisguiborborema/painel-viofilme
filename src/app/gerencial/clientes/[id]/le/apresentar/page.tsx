@@ -108,7 +108,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
       `}</style>
 
       {/* Barra de topo (some na impressão) */}
-      <div className="mx-auto mb-4 flex max-w-[1120px] items-center justify-between px-4 print:hidden">
+      <div className="mx-auto mb-4 flex max-w-[1120px] flex-wrap items-center justify-between gap-2 px-4 print:hidden">
         <Link href={`/gerencial/clientes/${id}/editorial?le=${le.id ?? ""}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4" /> Voltar à linha
         </Link>

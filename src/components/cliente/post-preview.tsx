@@ -114,7 +114,7 @@ function Avatar({ handle }: { handle: string }) {
 
 function FeedMock({ post, handle }: { post: PreviewPost; handle: string }) {
   return (
-    <div className="w-[320px] overflow-hidden rounded-xl border border-line bg-surface">
+    <div className="w-full max-w-[320px] overflow-hidden rounded-xl border border-line bg-surface">
       <div className="flex items-center justify-between p-3">
         <Avatar handle={handle} />
         <MoreHorizontal className="h-5 w-5 text-muted" />

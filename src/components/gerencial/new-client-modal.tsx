@@ -447,7 +447,7 @@ export function NewClientButton() {
             </div>
 
             {/* Rodapé fixo */}
-            <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line px-5 py-3.5">
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-muted">Fee mensal: <span className="font-bold text-ink">{money(feeMensal)}</span></span>
                 {pontualTotal > 0 && <span className="border-l border-line pl-4 text-muted">Pontual (única): <span className="font-bold text-ink">{money(pontualTotal)}</span></span>}

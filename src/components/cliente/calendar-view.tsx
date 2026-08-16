@@ -257,13 +257,13 @@ function MonthGrid({
   const month = cursor.getUTCMonth();
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line">
-      <div className="grid grid-cols-7 border-b border-line bg-surface text-center text-xs font-medium text-muted">
+    <div className="overflow-x-auto rounded-xl border border-line">
+      <div className="grid min-w-[560px] grid-cols-7 border-b border-line bg-surface text-center text-xs font-medium text-muted">
         {WEEKDAYS.map((w) => (
           <div key={w} className="py-2">{w}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid min-w-[560px] grid-cols-7">
         {cells.map((d) => {
           const k = dayKey(d);
           const list = byDay.get(k) ?? [];

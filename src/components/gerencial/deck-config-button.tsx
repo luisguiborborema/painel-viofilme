@@ -115,7 +115,7 @@ export function DeckConfigButton({
           {/* Cores */}
           <section>
             <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Cores do tema</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {([
                 { k: "blue", label: "Primária" },
                 { k: "lime", label: "Destaque" },

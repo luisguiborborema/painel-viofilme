@@ -257,7 +257,7 @@ export function RelatoriosCentral({ clients }: { clients: ClientOpt[] }) {
 
         <div>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Tipo de documento</h4>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {DOC_TYPES.map((d) => {
               const Icon = d.icon;
               const on = docType === d.key;

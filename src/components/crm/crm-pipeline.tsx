@@ -163,7 +163,7 @@ function LeadCard({
           {!frozen && (
             <button
               onClick={(e) => { e.stopPropagation(); onFreeze(); }}
-              className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-sky-500 group-hover:opacity-100"
+              className="rounded p-0.5 text-muted opacity-100 transition-opacity hover:text-sky-500 lg:opacity-0 lg:group-hover:opacity-100"
               title="Congelar negócio (reengajar depois)"
             >
               <Snowflake className="h-3.5 w-3.5" />
@@ -171,7 +171,7 @@ function LeadCard({
           )}
           <button
             onClick={(e) => { e.stopPropagation(); setConfirm(true); }}
-            className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+            className="rounded p-0.5 text-muted opacity-100 transition-opacity hover:text-rose-500 lg:opacity-0 lg:group-hover:opacity-100"
             title="Excluir negócio"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -956,7 +956,7 @@ export function CrmPipeline({
             <button
               type="button"
               onClick={() => deleteDealView(v.id)}
-              className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+              className="rounded p-0.5 text-muted opacity-100 transition-opacity hover:text-rose-500 lg:opacity-0 lg:group-hover:opacity-100"
               title="Excluir visualização"
             >
               <X className="h-3 w-3" />
@@ -1108,7 +1108,7 @@ export function CrmPipeline({
           </button>
         )}
         {tags.length > 0 && (
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
             <button
               onClick={() => setTagFilter(null)}
               className={
