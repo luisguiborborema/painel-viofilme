@@ -22,6 +22,12 @@ function fmtDate(iso?: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** Ativo visual (imagem) — mostra miniatura em vez do ícone genérico. */
+function isImage(doc: ClientDocument) {
+  if (doc.fileType?.startsWith("image/")) return true;
+  return /\.(svg|jpe?g|png|webp|gif|avif)(\?|$)/i.test(doc.url ?? "");
+}
+
 export function ClientDocumentsTab({
   clientId,
   initial = [],
@@ -185,9 +191,16 @@ export function ClientDocumentsTab({
         <ul className="divide-y divide-line">
           {docs.map((doc) => (
             <li key={doc.id} className="flex items-center gap-3 py-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-subtle text-muted">
-                <FileText className="h-4 w-4" />
-              </span>
+              {isImage(doc) ? (
+                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={doc.url} alt={doc.title} className="h-9 w-9 rounded-lg border border-line object-cover" />
+                </a>
+              ) : (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted">
+                  <FileText className="h-4 w-4" />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{doc.title}</p>
                 <p className="text-xs text-muted">
