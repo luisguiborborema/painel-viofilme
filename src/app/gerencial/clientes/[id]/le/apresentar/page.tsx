@@ -49,6 +49,22 @@ function Slide({ children, dark = false }: { children: React.ReactNode; dark?: b
   );
 }
 
+function SideImg({ url }: { url?: string }) {
+  if (!url) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="" className="w-[34%] shrink-0 self-stretch rounded-2xl object-cover" />;
+}
+
+/** Corpo do slide: conteúdo à esquerda + imagem opcional à direita. */
+function Body({ img, bottom = false, children }: { img?: string; bottom?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 gap-8">
+      <div className={`flex min-w-0 flex-1 flex-col${bottom ? " justify-end" : ""}`}>{children}</div>
+      <SideImg url={img} />
+    </div>
+  );
+}
+
 function Footer({ contact }: { contact?: string }) {
   return (
     <div className="mt-auto flex items-end justify-between pt-6">
@@ -73,6 +89,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
     getCSClientDetail(id),
   ]);
   const deck = mergeDeck(deckRaw);
+  const img = deck.images;
 
   // Variáveis automáticas do cliente + as personalizadas (deck.vars ganham).
   const cleanV = (v?: string | null) => (v && v !== "—" ? String(v) : "");
@@ -135,98 +152,101 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                 <p className="mt-1 text-lg text-slate-500">{V(le.month)}</p>
               </div>
             </div>
-            {deck.coverImageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={deck.coverImageUrl} alt="" className="w-[40%] shrink-0 self-stretch rounded-2xl object-cover" />
-            )}
+            <SideImg url={deck.coverImageUrl} />
           </div>
           <Footer />
         </Slide>
 
         {/* 02 · O Conceito */}
         <Slide dark>
-          <div className="mt-auto max-w-4xl">
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>O conceito</p>
-            <h2 className="mt-3 text-[44px] font-black uppercase leading-[1.05] text-white">
-              {V(le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro.")}
-            </h2>
-            {le.tensaoNarrativa && le.tensaoNarrativa !== "—" && (
-              <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{V(le.tensaoNarrativa)}</p>
-            )}
-            {le.objetivo && le.objetivo !== "—" && le.narrativaCentral && le.narrativaCentral !== "—" && (
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{V(le.objetivo)}</p>
-            )}
-          </div>
+          <Body img={img.conceito} bottom>
+            <div className="max-w-4xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>O conceito</p>
+              <h2 className="mt-3 text-[44px] font-black uppercase leading-[1.05] text-white">
+                {V(le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro.")}
+              </h2>
+              {le.tensaoNarrativa && le.tensaoNarrativa !== "—" && (
+                <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{V(le.tensaoNarrativa)}</p>
+              )}
+              {le.objetivo && le.objetivo !== "—" && le.narrativaCentral && le.narrativaCentral !== "—" && (
+                <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{V(le.objetivo)}</p>
+              )}
+            </div>
+          </Body>
         </Slide>
 
         {/* 03 · Método Viofilme (editável) */}
         <Slide>
           <PageNo n={pno()} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>O checklist de um bom roteiro</p>
-          <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Método Viofilme</h2>
-          <div className="mt-6 grid grid-cols-5 gap-3">
-            {deck.metodo.items.map((t, i) => {
-              const st = [
-                { bg: PB, fg: BLUE },
-                { bg: "#fbe1e4", fg: "#b03a4a" },
-                { bg: LIME, fg: "#5b6b16" },
-                { bg: PP, fg: "#a9682f" },
-                { bg: DARK, fg: LIME },
-              ][i];
-              return (
-                <div key={i} className="rounded-lg p-4" style={{ background: st.bg }}>
-                  <p className="text-2xl font-black opacity-40" style={{ color: st.fg }}>{String(i + 1).padStart(2, "0")}</p>
-                  <p className="mt-1 text-sm font-medium" style={{ color: i === 4 ? "#ffffff" : "#1f2937" }}>{V(t)}</p>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-6 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-6">
-            <div className="rounded-xl p-5" style={{ background: PB }}>
-              <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(deck.metodo.highlightTitle)}</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{V(deck.metodo.highlightText)}</p>
+          <Body img={img.metodo}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>O checklist de um bom roteiro</p>
+            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Método Viofilme</h2>
+            <div className="mt-6 grid grid-cols-5 gap-3">
+              {deck.metodo.items.map((t, i) => {
+                const st = [
+                  { bg: PB, fg: BLUE },
+                  { bg: "#fbe1e4", fg: "#b03a4a" },
+                  { bg: LIME, fg: "#5b6b16" },
+                  { bg: PP, fg: "#a9682f" },
+                  { bg: DARK, fg: LIME },
+                ][i];
+                return (
+                  <div key={i} className="rounded-lg p-4" style={{ background: st.bg }}>
+                    <p className="text-2xl font-black opacity-40" style={{ color: st.fg }}>{String(i + 1).padStart(2, "0")}</p>
+                    <p className="mt-1 text-sm font-medium" style={{ color: i === 4 ? "#ffffff" : "#1f2937" }}>{V(t)}</p>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-2">
-              {deck.metodo.flow.map((t, i, a) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: [DARK, "#8f1d2d", BLUE, "#6f7d1e"][i] }}>{V(t)}</span>
-                  {i < a.length - 1 && <span className="text-slate-400">→</span>}
-                </div>
-              ))}
+            <div className="mt-6 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-6">
+              <div className="rounded-xl p-5" style={{ background: PB }}>
+                <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(deck.metodo.highlightTitle)}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{V(deck.metodo.highlightText)}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {deck.metodo.flow.map((t, i, a) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="rounded px-3 py-3 text-[11px] font-bold text-white" style={{ background: [DARK, "#8f1d2d", BLUE, "#6f7d1e"][i] }}>{V(t)}</span>
+                    {i < a.length - 1 && <span className="text-slate-400">→</span>}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </Body>
         </Slide>
 
         {/* 04 · Visão geral das peças */}
         <Slide>
           <PageNo n={pno()} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>As {total} peças do mês</p>
-          <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Visão geral da linha editorial</h2>
-          <div className="mt-6 space-y-3">
-            {([
-              { label: "Vídeos", items: videos, bg: DARK, fg: "#ffffff", tag: "rgba(255,255,255,.55)" },
-              { label: "Carrosséis", items: carros, bg: PL, fg: "#1f2937", tag: "#5b6b16" },
-              { label: "Estáticos", items: estaticos, bg: PP, fg: "#1f2937", tag: "#a9682f" },
-            ] as const).map((row) =>
-              row.items.length === 0 ? null : (
-                <div key={row.label} className="grid grid-cols-4 gap-2.5">
-                  {row.items.map((p, i) => (
-                    <div key={p.id} className="rounded-lg p-3" style={{ background: row.bg, color: row.fg }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: row.tag }}>
-                        {row.label.replace(/s$/, "")} {i + 1} · {p.format}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold leading-snug">{clip(V(p.title || p.tema), 60)}</p>
-                    </div>
-                  ))}
-                </div>
-              ),
-            )}
-            {total === 0 && (
-              <p className="rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-700">
-                Nenhuma peça cadastrada nesta linha editorial ainda.
-              </p>
-            )}
-          </div>
+          <Body img={img.visao}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>As {total} peças do mês</p>
+            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Visão geral da linha editorial</h2>
+            <div className="mt-6 space-y-3">
+              {([
+                { label: "Vídeos", items: videos, bg: DARK, fg: "#ffffff", tag: "rgba(255,255,255,.55)" },
+                { label: "Carrosséis", items: carros, bg: PL, fg: "#1f2937", tag: "#5b6b16" },
+                { label: "Estáticos", items: estaticos, bg: PP, fg: "#1f2937", tag: "#a9682f" },
+              ] as const).map((row) =>
+                row.items.length === 0 ? null : (
+                  <div key={row.label} className="grid grid-cols-4 gap-2.5">
+                    {row.items.map((p, i) => (
+                      <div key={p.id} className="rounded-lg p-3" style={{ background: row.bg, color: row.fg }}>
+                        <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: row.tag }}>
+                          {row.label.replace(/s$/, "")} {i + 1} · {p.format}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-snug">{clip(V(p.title || p.tema), 60)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              )}
+              {total === 0 && (
+                <p className="rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                  Nenhuma peça cadastrada nesta linha editorial ainda.
+                </p>
+              )}
+            </div>
+          </Body>
         </Slide>
 
         {/* 05..N · Uma seção por VÍDEO */}
@@ -307,26 +327,28 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {carros.length > 0 && (
           <Slide>
             <PageNo n={pno()} />
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{carros.length} carrosséis</p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Os carrosséis do mês</h2>
-            <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
-              {carros.slice(0, 6).map((p, i) => {
-                const cover = imgs(p.references)[0];
-                return (
-                  <div key={p.id} className="flex gap-3 rounded-lg p-4" style={{ background: [PB, PL, PP, "#fbe8ec"][i % 4] }}>
-                    {cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cover.url} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(p.title || p.tema)}</p>
-                      {p.tema && p.tema !== p.title && <p className="mt-0.5 text-sm text-slate-600">{V(p.tema)}</p>}
-                      {p.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{clip(V(p.description), 200)}</p>}
+            <Body img={img.carrosseis}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{carros.length} carrosséis</p>
+              <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Os carrosséis do mês</h2>
+              <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
+                {carros.slice(0, 6).map((p, i) => {
+                  const cover = imgs(p.references)[0];
+                  return (
+                    <div key={p.id} className="flex gap-3 rounded-lg p-4" style={{ background: [PB, PL, PP, "#fbe8ec"][i % 4] }}>
+                      {cover && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover.url} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(p.title || p.tema)}</p>
+                        {p.tema && p.tema !== p.title && <p className="mt-0.5 text-sm text-slate-600">{V(p.tema)}</p>}
+                        {p.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{clip(V(p.description), 200)}</p>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </Body>
           </Slide>
         )}
 
@@ -334,57 +356,61 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         {estaticos.length > 0 && (
           <Slide>
             <PageNo n={pno()} />
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{estaticos.length} estáticos</p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Uma frase + uma imagem</h2>
-            <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
-              {estaticos.slice(0, 6).map((p, i) => {
-                const cover = imgs(p.references)[0];
-                return (
-                  <div key={p.id} className="flex items-center gap-4 rounded-lg p-5" style={{ background: [PB, PL, "#fbe8ec", PP][i % 4] }}>
-                    {cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cover.url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-base font-bold" style={{ color: BLUE }}>{V(p.legenda || p.title || p.tema)}</p>
-                      {(p.tema || p.description) && <p className="mt-1 text-sm text-slate-600">{clip(V(p.tema || p.description), 140)}</p>}
+            <Body img={img.estaticos}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{estaticos.length} estáticos</p>
+              <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Uma frase + uma imagem</h2>
+              <div className="mt-6 grid flex-1 grid-cols-2 gap-3">
+                {estaticos.slice(0, 6).map((p, i) => {
+                  const cover = imgs(p.references)[0];
+                  return (
+                    <div key={p.id} className="flex items-center gap-4 rounded-lg p-5" style={{ background: [PB, PL, "#fbe8ec", PP][i % 4] }}>
+                      {cover && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover.url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-base font-bold" style={{ color: BLUE }}>{V(p.legenda || p.title || p.tema)}</p>
+                        {(p.tema || p.description) && <p className="mt-1 text-sm text-slate-600">{clip(V(p.tema || p.description), 140)}</p>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </Body>
           </Slide>
         )}
 
         {/* Guia de produção (editável) */}
         <Slide dark>
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>Para a equipe Viofilme</p>
-          <h2 className="mt-1 text-4xl font-bold uppercase text-white">Guia de produção</h2>
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {deck.guia.cells.map((c, i) => {
-              const hl = i === deck.guia.cells.length - 1;
-              return (
-                <div key={i} className="rounded-lg border p-4" style={{ background: hl ? LIME : "#232425", borderColor: hl ? LIME : "#333" }}>
-                  <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: hl ? BLUE : LIME }}>{V(c.t)}</p>
-                  <p className="mt-1 text-sm leading-relaxed" style={{ color: hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{V(c.d)}</p>
-                </div>
-              );
-            })}
-          </div>
+          <Body img={img.guia}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>Para a equipe Viofilme</p>
+            <h2 className="mt-1 text-4xl font-bold uppercase text-white">Guia de produção</h2>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              {deck.guia.cells.map((c, i) => {
+                const hl = i === deck.guia.cells.length - 1;
+                return (
+                  <div key={i} className="rounded-lg border p-4" style={{ background: hl ? LIME : "#232425", borderColor: hl ? LIME : "#333" }}>
+                    <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: hl ? BLUE : LIME }}>{V(c.t)}</p>
+                    <p className="mt-1 text-sm leading-relaxed" style={{ color: hl ? "#1f2937" : "rgba(255,255,255,.8)" }}>{V(c.d)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </Body>
         </Slide>
 
         {/* Fechamento */}
         <Slide>
           <PageNo n={pno()} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
-          <div className="mt-auto">
-            <h2 className="text-[64px] font-black uppercase leading-[0.95]" style={{ color: BLUE }}>
+          <Body img={img.fechamento} bottom>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
+            <h2 className="mt-3 text-[64px] font-black uppercase leading-[0.95]" style={{ color: BLUE }}>
               Uma história.<br />{total} peças.
             </h2>
             <p className="mt-4 max-w-2xl text-lg text-slate-500">
               {V(le.objetivo && le.objetivo !== "—" ? le.objetivo : "Cada peça parte de algo real — sem encenação.")}
             </p>
-          </div>
+          </Body>
           <Footer contact={V(deck.contact)} />
         </Slide>
       </div>

@@ -5,9 +5,66 @@ import { useRouter } from "next/navigation";
 import { Check, ImageIcon, Loader2, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/toast";
-import type { DeckConfig } from "@/lib/data/deck";
+import { DECK_IMAGE_SLIDES, type DeckConfig } from "@/lib/data/deck";
 
 const inp = "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+/** Slot de imagem por slide: preview + enviar (upload) / trocar / remover. */
+function ImageSlot({ label, url, onSet, onClear }: { label: string; url?: string; onSet: (u: string) => void; onClear: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [up, setUp] = useState(false);
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Selecione uma imagem.", "error");
+      return;
+    }
+    setUp(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/gerencial/task-upload", { method: "POST", body: fd });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.url) onSet(String(j.url));
+      else throw new Error();
+    } catch {
+      toast("Não foi possível subir a imagem.", "error");
+    } finally {
+      setUp(false);
+    }
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-line p-1.5">
+      {url ? (
+        <div className="relative shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="" className="h-11 w-16 rounded-md object-cover" />
+          <button onClick={onClear} className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-0.5 text-white" aria-label="Remover">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md border border-dashed border-line text-muted">
+          <ImageIcon className="h-4 w-4" />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-ink">{label}</p>
+        <button
+          onClick={() => ref.current?.click()}
+          disabled={up}
+          className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:underline disabled:opacity-60"
+        >
+          {up ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className="h-3 w-3" />}
+          {url ? "Trocar" : "Enviar"}
+        </button>
+      </div>
+      <input ref={ref} type="file" accept="image/*" hidden onChange={onFile} />
+    </div>
+  );
+}
 
 /** Personaliza (por cliente) a apresentação: cores, variáveis, capa, rodapé e textos. */
 export function DeckConfigButton({
@@ -20,10 +77,8 @@ export function DeckConfigButton({
   autoVars?: Record<string, string>;
 }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [cfg, setCfg] = useState<DeckConfig>(() => structuredClone(initial));
 
@@ -37,29 +92,6 @@ export function DeckConfigButton({
     setCfg((c) => ({ ...c, guia: { cells: c.guia.cells.map((x, j) => (j === i ? { ...x, ...patch } : x)) } }));
   const setVar = (i: number, patch: Partial<{ key: string; value: string }>) =>
     setCfg((c) => ({ ...c, vars: c.vars.map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
-
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast("Selecione uma imagem.", "error");
-      return;
-    }
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const up = await fetch("/api/gerencial/task-upload", { method: "POST", body: fd });
-      const j = await up.json().catch(() => null);
-      if (!up.ok || !j?.url) throw new Error();
-      setCfg((c) => ({ ...c, coverImageUrl: String(j.url) }));
-    } catch {
-      toast("Não foi possível subir a imagem.", "error");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function save() {
     if (busy) return;
@@ -137,36 +169,34 @@ export function DeckConfigButton({
             </div>
           </section>
 
-          {/* Imagem de capa */}
+          {/* Imagens dos slides — capa + qualquer slide */}
           <section>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Imagem de capa</p>
-            <div className="flex items-center gap-3">
-              {cfg.coverImageUrl ? (
-                <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cfg.coverImageUrl} alt="" className="h-16 w-24 rounded-lg border border-line object-cover" />
-                  <button
-                    onClick={() => setCfg((c) => ({ ...c, coverImageUrl: undefined }))}
-                    className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-0.5 text-white"
-                    aria-label="Remover capa"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex h-16 w-24 items-center justify-center rounded-lg border border-dashed border-line text-muted">
-                  <ImageIcon className="h-5 w-5" />
-                </div>
-              )}
-              <button
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-60"
-              >
-                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                {cfg.coverImageUrl ? "Trocar imagem" : "Enviar imagem"}
-              </button>
-              <input ref={inputRef} type="file" accept="image/*" hidden onChange={onFile} />
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Imagens dos slides</p>
+            <p className="mb-2 rounded-lg bg-subtle px-2.5 py-1.5 text-[11px] text-muted">
+              Envie uma imagem para qualquer slide — ela aparece ao lado do conteúdo. (Vídeos usam o vision board do post.)
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <ImageSlot
+                label="Capa"
+                url={cfg.coverImageUrl}
+                onSet={(u) => setCfg((c) => ({ ...c, coverImageUrl: u }))}
+                onClear={() => setCfg((c) => ({ ...c, coverImageUrl: undefined }))}
+              />
+              {DECK_IMAGE_SLIDES.map((s) => (
+                <ImageSlot
+                  key={s.key}
+                  label={s.label}
+                  url={cfg.images[s.key]}
+                  onSet={(u) => setCfg((c) => ({ ...c, images: { ...c.images, [s.key]: u } }))}
+                  onClear={() =>
+                    setCfg((c) => {
+                      const next = { ...c.images };
+                      delete next[s.key];
+                      return { ...c, images: next };
+                    })
+                  }
+                />
+              ))}
             </div>
           </section>
 

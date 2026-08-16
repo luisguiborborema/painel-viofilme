@@ -11,6 +11,8 @@ export type DeckConfig = {
   theme: DeckTheme;
   contact: string;
   coverImageUrl?: string;
+  /** Imagem opcional por slide (chave do slide → URL). */
+  images: Record<string, string>;
   vars: DeckVar[];
   metodo: {
     items: string[];
@@ -21,9 +23,21 @@ export type DeckConfig = {
   guia: { cells: DeckCell[] };
 };
 
+/** Slides que aceitam uma imagem lateral no editor (capa usa coverImageUrl). */
+export const DECK_IMAGE_SLIDES: { key: string; label: string }[] = [
+  { key: "conceito", label: "O Conceito" },
+  { key: "metodo", label: "Método" },
+  { key: "visao", label: "Visão geral" },
+  { key: "carrosseis", label: "Carrosséis" },
+  { key: "estaticos", label: "Estáticos" },
+  { key: "guia", label: "Guia de produção" },
+  { key: "fechamento", label: "Fechamento" },
+];
+
 export const DEFAULT_DECK: DeckConfig = {
   theme: { blue: "#2f6ff0", lime: "#d6f24e", dark: "#191a1b" },
   contact: "contato@viofilme.com.br",
+  images: {},
   vars: [],
   metodo: {
     items: [
@@ -64,6 +78,11 @@ export function mergeDeck(raw: unknown): DeckConfig {
   const rawCells = Array.isArray(g.cells) ? g.cells : [];
   const rawVars = Array.isArray(r.vars) ? r.vars : [];
   const cover = typeof r.coverImageUrl === "string" && r.coverImageUrl.trim() ? r.coverImageUrl : undefined;
+  const rawImages = (r.images && typeof r.images === "object" ? r.images : {}) as Record<string, unknown>;
+  const images: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawImages)) {
+    if (typeof v === "string" && v.trim()) images[k] = v;
+  }
   return {
     theme: {
       blue: isHex(t.blue) ? t.blue : DEFAULT_DECK.theme.blue,
@@ -72,6 +91,7 @@ export function mergeDeck(raw: unknown): DeckConfig {
     },
     contact: str(r.contact, DEFAULT_DECK.contact),
     coverImageUrl: cover,
+    images,
     vars: rawVars
       .slice(0, 40)
       .map((v) => {
