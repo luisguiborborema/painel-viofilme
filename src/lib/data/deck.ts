@@ -13,6 +13,8 @@ export type DeckConfig = {
   coverImageUrl?: string;
   /** Imagem opcional por slide (chave do slide → URL). */
   images: Record<string, string>;
+  /** Edições inline dos textos do slide (chave do campo → texto). Ganham da fonte. */
+  overrides: Record<string, string>;
   vars: DeckVar[];
   metodo: {
     items: string[];
@@ -38,6 +40,7 @@ export const DEFAULT_DECK: DeckConfig = {
   theme: { blue: "#2f6ff0", lime: "#d6f24e", dark: "#191a1b" },
   contact: "contato@viofilme.com.br",
   images: {},
+  overrides: {},
   vars: [],
   metodo: {
     items: [
@@ -83,6 +86,11 @@ export function mergeDeck(raw: unknown): DeckConfig {
   for (const [k, v] of Object.entries(rawImages)) {
     if (typeof v === "string" && v.trim()) images[k] = v;
   }
+  const rawOv = (r.overrides && typeof r.overrides === "object" ? r.overrides : {}) as Record<string, unknown>;
+  const overrides: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawOv)) {
+    if (typeof v === "string" && v.trim()) overrides[String(k).slice(0, 80)] = v.slice(0, 2000);
+  }
   return {
     theme: {
       blue: isHex(t.blue) ? t.blue : DEFAULT_DECK.theme.blue,
@@ -92,6 +100,7 @@ export function mergeDeck(raw: unknown): DeckConfig {
     contact: str(r.contact, DEFAULT_DECK.contact),
     coverImageUrl: cover,
     images,
+    overrides,
     vars: rawVars
       .slice(0, 40)
       .map((v) => {

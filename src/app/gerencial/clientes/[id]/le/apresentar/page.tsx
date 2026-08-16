@@ -7,17 +7,17 @@ import { mergeDeck, buildVarMap, applyVars } from "@/lib/data/deck";
 import { LogoHorizontal } from "@/components/brand/logo";
 import { LePrintButton } from "@/components/gerencial/le-print-button";
 import { DeckConfigButton } from "@/components/gerencial/deck-config-button";
+import { DeckEditToolbar } from "@/components/gerencial/deck-edit-toolbar";
 import type { EditorialPost, EditorialRef } from "@/lib/data/operacao";
 
 export const dynamic = "force-dynamic";
 
-// Cores do tema via CSS custom properties (setadas no wrapper a partir do deck).
 const BLUE = "var(--dblue)";
 const LIME = "var(--dlime)";
 const DARK = "var(--ddark)";
-const PB = "#e9eefb"; // pastel azul
-const PL = "#eef7cf"; // pastel lima
-const PP = "#fdeee2"; // pastel pêssego
+const PB = "#e9eefb";
+const PL = "#eef7cf";
+const PP = "#fdeee2";
 
 type Kind = "video" | "carrossel" | "estatico";
 function kindOf(f: string): Kind {
@@ -55,7 +55,6 @@ function SideImg({ url }: { url?: string }) {
   return <img src={url} alt="" className="w-[34%] shrink-0 self-stretch rounded-2xl object-cover" />;
 }
 
-/** Corpo do slide: conteúdo à esquerda + imagem opcional à direita. */
 function Body({ img, bottom = false, children }: { img?: string; bottom?: boolean; children: React.ReactNode }) {
   return (
     <div className="flex flex-1 gap-8">
@@ -90,8 +89,8 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   ]);
   const deck = mergeDeck(deckRaw);
   const img = deck.images;
+  const ov = deck.overrides;
 
-  // Variáveis automáticas do cliente + as personalizadas (deck.vars ganham).
   const cleanV = (v?: string | null) => (v && v !== "—" ? String(v) : "");
   const autoVars: Record<string, string> = {
     cliente: le.clientName,
@@ -102,6 +101,8 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
   };
   const varMap = buildVarMap(autoVars, deck.vars);
   const V = (t?: string) => applyVars(t, varMap);
+  // Texto do slide: override inline ganha da fonte (com variáveis).
+  const T = (key: string, src?: string) => (key in ov ? ov[key] : V(src));
 
   const posts = le.posts.filter(nonEmpty);
   const videos = posts.filter((p) => kindOf(p.format) === "video");
@@ -121,6 +122,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         @media print {
           @page { size: landscape; margin: 0; }
           .le-slide { break-after: page; box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; height: 100vh; }
+          [data-edit-key] { outline: none !important; }
         }
       `}</style>
 
@@ -129,7 +131,8 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         <Link href={`/gerencial/clientes/${id}/editorial?le=${le.id ?? ""}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4" /> Voltar à linha
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DeckEditToolbar clientId={id} />
           <DeckConfigButton clientId={id} initial={deck} autoVars={autoVars} />
           <LePrintButton />
         </div>
@@ -141,7 +144,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           <PageNo n={pno()} />
           <div className="flex flex-1 items-stretch gap-8">
             <div className="flex min-w-0 flex-1 flex-col">
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
+              <p data-edit-key="capa.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{T("capa.kicker", le.clientName)}</p>
               <div className="mt-auto">
                 <h1 className="text-[76px] font-black uppercase leading-[0.92] tracking-tight" style={{ color: BLUE }}>
                   Linha<br />Editorial
@@ -149,7 +152,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                 <p className="mt-3 text-2xl text-slate-800">
                   {videos.length} vídeos · {carros.length} carrosséis · {estaticos.length} estáticos
                 </p>
-                <p className="mt-1 text-lg text-slate-500">{V(le.month)}</p>
+                <p data-edit-key="capa.mes" className="mt-1 text-lg text-slate-500">{T("capa.mes", le.month)}</p>
               </div>
             </div>
             <SideImg url={deck.coverImageUrl} />
@@ -161,26 +164,26 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         <Slide dark>
           <Body img={img.conceito} bottom>
             <div className="max-w-4xl">
-              <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>O conceito</p>
-              <h2 className="mt-3 text-[44px] font-black uppercase leading-[1.05] text-white">
-                {V(le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro.")}
+              <p data-edit-key="conceito.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>{T("conceito.kicker", "O conceito")}</p>
+              <h2 data-edit-key="conceito.h" className="mt-3 text-[44px] font-black uppercase leading-[1.05] text-white">
+                {T("conceito.h", le.narrativaCentral && le.narrativaCentral !== "—" ? le.narrativaCentral : le.objetivo || "Uma narrativa que amarra o mês inteiro.")}
               </h2>
-              {le.tensaoNarrativa && le.tensaoNarrativa !== "—" && (
-                <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{V(le.tensaoNarrativa)}</p>
-              )}
-              {le.objetivo && le.objetivo !== "—" && le.narrativaCentral && le.narrativaCentral !== "—" && (
-                <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{V(le.objetivo)}</p>
-              )}
+              {(le.tensaoNarrativa && le.tensaoNarrativa !== "—") || "conceito.tensao" in ov ? (
+                <p data-edit-key="conceito.tensao" className="mt-5 max-w-3xl text-lg leading-relaxed text-white/70">{T("conceito.tensao", le.tensaoNarrativa)}</p>
+              ) : null}
+              {(le.objetivo && le.objetivo !== "—" && le.narrativaCentral && le.narrativaCentral !== "—") || "conceito.obj" in ov ? (
+                <p data-edit-key="conceito.obj" className="mt-3 max-w-3xl text-base leading-relaxed text-white/60">{T("conceito.obj", le.objetivo)}</p>
+              ) : null}
             </div>
           </Body>
         </Slide>
 
-        {/* 03 · Método Viofilme (editável) */}
+        {/* 03 · Método Viofilme */}
         <Slide>
           <PageNo n={pno()} />
           <Body img={img.metodo}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>O checklist de um bom roteiro</p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Método Viofilme</h2>
+            <p data-edit-key="metodo.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{T("metodo.kicker", "O checklist de um bom roteiro")}</p>
+            <h2 data-edit-key="metodo.title" className="mt-1 text-4xl font-bold tracking-tight text-slate-800">{T("metodo.title", "Método Viofilme")}</h2>
             <div className="mt-6 grid grid-cols-5 gap-3">
               {deck.metodo.items.map((t, i) => {
                 const st = [
@@ -219,8 +222,8 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         <Slide>
           <PageNo n={pno()} />
           <Body img={img.visao}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>As {total} peças do mês</p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-slate-800">Visão geral da linha editorial</h2>
+            <p data-edit-key="visao.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{T("visao.kicker", `As ${total} peças do mês`)}</p>
+            <h2 data-edit-key="visao.title" className="mt-1 text-4xl font-bold tracking-tight text-slate-800">{T("visao.title", "Visão geral da linha editorial")}</h2>
             <div className="mt-6 space-y-3">
               {([
                 { label: "Vídeos", items: videos, bg: DARK, fg: "#ffffff", tag: "rgba(255,255,255,.55)" },
@@ -263,13 +266,13 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                 </span>
                 <span className="ml-1.5 text-[10px] font-semibold text-slate-400">· {p.format}</span>
               </p>
-              <h2 className="mt-1 text-3xl font-bold uppercase tracking-tight text-slate-800">{V(p.title || p.tema)}</h2>
+              <h2 data-edit-key={`video.${p.id}.title`} className="mt-1 text-3xl font-bold uppercase tracking-tight text-slate-800">{T(`video.${p.id}.title`, p.title || p.tema)}</h2>
               <div className="mt-5 grid flex-1 grid-cols-[minmax(0,1fr)_260px] gap-6">
                 <div className="min-w-0 space-y-3">
                   {(p.tema || p.title) && (
                     <div className="rounded-r-lg border-l-4 py-3 pl-4 pr-3" style={{ borderColor: LIME, background: PL }}>
                       <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "#5b6b16" }}>A mensagem</p>
-                      <p className="mt-0.5 text-base font-medium text-slate-800">{V(p.tema || p.title)}</p>
+                      <p data-edit-key={`video.${p.id}.msg`} className="mt-0.5 text-base font-medium text-slate-800">{T(`video.${p.id}.msg`, p.tema || p.title)}</p>
                     </div>
                   )}
                   {p.shotlist && p.shotlist.length > 0 ? (
@@ -281,22 +284,22 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                       </div>
                       {p.shotlist.map((s, i) => (
                         <div key={i} className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)] border-t border-slate-100 px-3 py-1.5 text-xs">
-                          <span className="font-medium text-slate-500">{V(s.tempo)}</span>
-                          <span className="pr-2 text-slate-700">{V(s.imagem)}</span>
-                          <span style={{ color: BLUE }}>{V(s.legenda)}</span>
+                          <span data-edit-key={`shot.${p.id}.${i}.t`} className="font-medium text-slate-500">{T(`shot.${p.id}.${i}.t`, s.tempo)}</span>
+                          <span data-edit-key={`shot.${p.id}.${i}.img`} className="pr-2 text-slate-700">{T(`shot.${p.id}.${i}.img`, s.imagem)}</span>
+                          <span data-edit-key={`shot.${p.id}.${i}.leg`} style={{ color: BLUE }}>{T(`shot.${p.id}.${i}.leg`, s.legenda)}</span>
                         </div>
                       ))}
                     </div>
                   ) : p.description ? (
                     <div className="rounded-lg bg-slate-50 p-4">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Roteiro / copy</p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm italic leading-relaxed text-slate-700">{V(p.description)}</p>
+                      <p data-edit-key={`video.${p.id}.rot`} className="mt-1 whitespace-pre-wrap text-sm italic leading-relaxed text-slate-700">{T(`video.${p.id}.rot`, p.description)}</p>
                     </div>
                   ) : null}
                   {p.legenda && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Legenda</p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{V(p.legenda)}</p>
+                      <p data-edit-key={`video.${p.id}.leg`} className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{T(`video.${p.id}.leg`, p.legenda)}</p>
                     </div>
                   )}
                 </div>
@@ -340,8 +343,10 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                         <img src={cover.url} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-bold uppercase" style={{ color: BLUE }}>{V(p.title || p.tema)}</p>
-                        {p.tema && p.tema !== p.title && <p className="mt-0.5 text-sm text-slate-600">{V(p.tema)}</p>}
+                        <p data-edit-key={`carr.${p.id}.t`} className="text-sm font-bold uppercase" style={{ color: BLUE }}>{T(`carr.${p.id}.t`, p.title || p.tema)}</p>
+                        {(p.tema && p.tema !== p.title) || `carr.${p.id}.s` in ov ? (
+                          <p data-edit-key={`carr.${p.id}.s`} className="mt-0.5 text-sm text-slate-600">{T(`carr.${p.id}.s`, p.tema)}</p>
+                        ) : null}
                         {p.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{clip(V(p.description), 200)}</p>}
                       </div>
                     </div>
@@ -369,7 +374,7 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
                         <img src={cover.url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
                       )}
                       <div className="min-w-0">
-                        <p className="text-base font-bold" style={{ color: BLUE }}>{V(p.legenda || p.title || p.tema)}</p>
+                        <p data-edit-key={`est.${p.id}.q`} className="text-base font-bold" style={{ color: BLUE }}>{T(`est.${p.id}.q`, p.legenda || p.title || p.tema)}</p>
                         {(p.tema || p.description) && <p className="mt-1 text-sm text-slate-600">{clip(V(p.tema || p.description), 140)}</p>}
                       </div>
                     </div>
@@ -380,11 +385,11 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
           </Slide>
         )}
 
-        {/* Guia de produção (editável) */}
+        {/* Guia de produção */}
         <Slide dark>
           <Body img={img.guia}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>Para a equipe Viofilme</p>
-            <h2 className="mt-1 text-4xl font-bold uppercase text-white">Guia de produção</h2>
+            <p data-edit-key="guia.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: LIME }}>{T("guia.kicker", "Para a equipe Viofilme")}</p>
+            <h2 data-edit-key="guia.title" className="mt-1 text-4xl font-bold uppercase text-white">{T("guia.title", "Guia de produção")}</h2>
             <div className="mt-6 grid grid-cols-3 gap-3">
               {deck.guia.cells.map((c, i) => {
                 const hl = i === deck.guia.cells.length - 1;
@@ -403,12 +408,12 @@ export default async function ApresentarLE({ params }: { params: Promise<{ id: s
         <Slide>
           <PageNo n={pno()} />
           <Body img={img.fechamento} bottom>
-            <p className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{V(le.clientName)}</p>
+            <p data-edit-key="fech.kicker" className="text-[11px] font-bold uppercase tracking-[0.3em]" style={{ color: BLUE }}>{T("fech.kicker", le.clientName)}</p>
             <h2 className="mt-3 text-[64px] font-black uppercase leading-[0.95]" style={{ color: BLUE }}>
               Uma história.<br />{total} peças.
             </h2>
-            <p className="mt-4 max-w-2xl text-lg text-slate-500">
-              {V(le.objetivo && le.objetivo !== "—" ? le.objetivo : "Cada peça parte de algo real — sem encenação.")}
+            <p data-edit-key="fech.obj" className="mt-4 max-w-2xl text-lg text-slate-500">
+              {T("fech.obj", le.objetivo && le.objetivo !== "—" ? le.objetivo : "Cada peça parte de algo real — sem encenação.")}
             </p>
           </Body>
           <Footer contact={V(deck.contact)} />

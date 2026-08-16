@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!user || user.role !== "gerencial") {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
-  let b: { clientId?: string; config?: unknown };
+  let b: { clientId?: string; config?: unknown; overrides?: Record<string, unknown> };
   try {
     b = await req.json();
   } catch {
@@ -22,9 +22,27 @@ export async function POST(req: Request) {
   }
   if (!b.clientId) return NextResponse.json({ error: "clientId ausente" }, { status: 400 });
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  const supabase = await createClient();
+
+  // Edição inline: mescla só os overrides no deck_config existente.
+  if (b.overrides && typeof b.overrides === "object") {
+    const { data } = await supabase.from("clients").select("deck_config").eq("id", b.clientId).maybeSingle();
+    const current = mergeDeck((data as { deck_config?: unknown } | null)?.deck_config);
+    const ov: Record<string, string> = { ...current.overrides };
+    for (const [k, v] of Object.entries(b.overrides)) {
+      const key = String(k).slice(0, 80);
+      const val = String(v ?? "").slice(0, 2000);
+      if (!key) continue;
+      if (val.trim()) ov[key] = val;
+      else delete ov[key];
+    }
+    const merged = { ...current, overrides: ov };
+    const { error } = await supabase.from("clients").update({ deck_config: merged }).eq("id", b.clientId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, persisted: true });
+  }
 
   const config = mergeDeck(b.config); // normaliza no formato canônico
-  const supabase = await createClient();
   const { error } = await supabase.from("clients").update({ deck_config: config }).eq("id", b.clientId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, persisted: true });
