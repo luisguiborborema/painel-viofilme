@@ -264,6 +264,15 @@ function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPos
 // Mapeia o estágio da delivery task para a fase da trilha da LE.
 const DEFAULT_CHECKLIST = ["Briefing lido", "Rascunho / 1ª versão", "Revisão interna", "Aprovado pelo cliente"];
 
+// Pastas do Google Drive por cliente (mesma ordem do drive-store).
+const DRIVE_CATS = [
+  { key: "00", name: "00. Material de Apoio" },
+  { key: "01", name: "01. Redes Sociais" },
+  { key: "02", name: "02. Performance" },
+  { key: "03", name: "03. Relatórios" },
+  { key: "04", name: "04. Materiais Pontuais" },
+];
+
 /** Destaca as @menções (nomes conhecidos) dentro do texto de um comentário. */
 function highlightMentions(text: string, names: string[]): ReactNode {
   const valid = [...new Set(names.filter(Boolean))].sort((a, b) => b.length - a.length);
@@ -330,6 +339,34 @@ export function PostFicha({
   const [notes, setNotes] = useState(post.notes ?? "");
   const [shotlist, setShotlist] = useState<EditorialShot[]>(() => post.shotlist ?? []);
   const [refs, setRefs] = useState<EditorialRef[]>(() => post.references ?? []);
+  // Upload da postagem final para o Google Drive (pasta do cliente).
+  const [driveCat, setDriveCat] = useState("01");
+  const [driveUp, setDriveUp] = useState(false);
+  const driveRef = useRef<HTMLInputElement>(null);
+  async function onDriveFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !clientId) return;
+    setDriveUp(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("clientId", clientId);
+      fd.append("category", driveCat);
+      const res = await fetch("/api/gerencial/drive-upload", { method: "POST", body: fd });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.file?.url) {
+        setRefs((a) => [...a, { id: `ref-${refSeq++}`, kind: "link", url: String(j.file.url), label: `Drive: ${j.file.name}`.slice(0, 40) }]);
+      } else {
+        setError(j?.error ?? "Falha no upload ao Drive.");
+      }
+    } catch {
+      setError("Falha de rede no upload ao Drive.");
+    } finally {
+      setDriveUp(false);
+    }
+  }
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
@@ -847,6 +884,34 @@ export function PostFicha({
                 onRemove={(rid) => setRefs((a) => a.filter((x) => x.id !== rid))}
               />
             </div>
+
+            {/* Postagem final → Google Drive (pasta do cliente) */}
+            {clientId && (
+              <div>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Postagem final → Google Drive</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={driveCat}
+                    onChange={(e) => setDriveCat(e.target.value)}
+                    className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
+                  >
+                    {DRIVE_CATS.map((c) => (
+                      <option key={c.key} value={c.key}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => driveRef.current?.click()}
+                    disabled={driveUp}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle disabled:opacity-60"
+                  >
+                    {driveUp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />} Enviar ao Drive
+                  </button>
+                  <input ref={driveRef} type="file" hidden onChange={onDriveFile} />
+                </div>
+                <p className="mt-1 text-[11px] text-muted">Sobe o arquivo na pasta do cliente no Drive e adiciona o link acima. Requer o Google conectado em Integrações.</p>
+              </div>
+            )}
 
             {extraProps && extraProps.length > 0 && (
               <div>
