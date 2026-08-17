@@ -392,13 +392,13 @@ export function LeadModalContent({
 
   return (
     <div className={cn("relative flex w-full flex-col", page ? "min-h-screen bg-canvas" : "h-full")}>
-      {/* ── TOPO: breadcrumb + dias-na-etapa + chrome ─────────── */}
-      <div className={cn("flex items-center justify-between gap-2 border-b border-line px-4 py-2.5", page && "sticky top-0 z-30 bg-surface")}>
-        <div className="flex min-w-0 items-center gap-2">
+      {/* ── Cabeçalho único: breadcrumb + estágio + ações ─────── */}
+      <div className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-2.5", page && "sticky top-0 z-30 bg-surface")}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {page && (
             <button
               onClick={() => router.back()}
-              className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
             >
               <ChevronLeft className="h-4 w-4" /> Negócios
             </button>
@@ -410,35 +410,19 @@ export function LeadModalContent({
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted" />
           <span className="truncate text-sm font-semibold text-ink">{lead.name}</span>
           <DaysBadge iso={lead.stageChangedAt} />
+          <span className="mx-1 hidden h-4 w-px bg-line sm:inline-block" />
+          <StagePill stages={stages} currentKey={lead.stage} onPick={changeStage} />
+          {stageErr && <span className="text-[11px] text-rose-500">{stageErr}</span>}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {!page && <LayoutSwitcher layout={layout} onChange={setLayout} />}
           <button
             onClick={copyLink}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
           >
             <Link2 className="h-4 w-4" />
-            {copied ? "Copiado!" : "Copiar link"}
+            <span className="hidden sm:inline">{copied ? "Copiado!" : "Copiar link"}</span>
           </button>
-          {!page && (
-            <button
-              onClick={() => router.back()}
-              title="Fechar (Esc)"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Barra de estágios + ações ─────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
-        <div className="flex items-center gap-2">
-          <StagePill stages={stages} currentKey={lead.stage} onPick={changeStage} />
-          {stageErr && <span className="text-[11px] text-rose-500">{stageErr}</span>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
           <ActionsMenu
             closed={closed}
             flows={flows}
@@ -472,6 +456,15 @@ export function LeadModalContent({
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-600">
               <CheckCircle2 className="h-4 w-4" /> Ganho
             </span>
+          )}
+          {!page && (
+            <button
+              onClick={() => router.back()}
+              title="Fechar (Esc)"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
           )}
         </div>
       </div>
