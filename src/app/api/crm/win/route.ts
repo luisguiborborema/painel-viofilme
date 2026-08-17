@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { provisionClientDrive } from "@/lib/google/drive-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
 
   const automations = [
     { module: "M3", label: "Projeto criado no módulo Operação", done: true },
+    { module: "Drive", label: "Pasta do cliente criada no Google Drive (00–04)", done: false },
     { module: "M4", label: "Primeira fatura gerada no Financeiro (via Asaas)", done: false },
     { module: "M5", label: "Ficha de CS criada com histórico do lead", done: false },
     { module: "Portal", label: "Acesso ao Portal do Cliente enviado", done: false },
@@ -89,6 +91,13 @@ export async function POST(req: Request) {
     .single();
   clientId = created?.id ?? null;
   if (clientId) automations[0].done = true;
+
+  // Cria a pasta do cliente no Google Drive (raiz + subpastas 00–04) e grava o
+  // link em clients.drive_folder_url. Best-effort: não bloqueia o "ganho".
+  if (clientId) {
+    const driveUrl = await provisionClientDrive(clientId);
+    if (driveUrl) automations[1].done = true;
+  }
 
   // Merge dos dados de contrato nas propriedades (alinha com a aba Negociação).
   const props = (lead.properties as Record<string, unknown> | null) ?? {};

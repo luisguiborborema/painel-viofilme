@@ -95,6 +95,30 @@ export async function driveEnsureChildFolder(token: string, parentId: string, na
   return driveCreateFolder(token, name, parentId);
 }
 
+/** URL pública de uma pasta do Drive a partir do id. */
+export function driveFolderUrl(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+/**
+ * Provisiona a pasta de um cliente: cria (ou reusa) `<nome>` dentro de parentId
+ * e garante as 5 subpastas padrão (00–04). Idempotente — rodar de novo não
+ * duplica. parentId omitido = raiz do "Meu Drive" da conta conectada ("root").
+ * Retorna id + link da pasta raiz do cliente.
+ */
+export async function driveProvisionClientFolder(
+  token: string,
+  clientName: string,
+  parentId?: string,
+): Promise<{ id: string; url: string }> {
+  const name = (clientName || "Cliente").trim().slice(0, 120);
+  const rootId = await driveEnsureChildFolder(token, parentId || "root", name);
+  for (const cat of DRIVE_CATEGORIES) {
+    await driveEnsureChildFolder(token, rootId, cat.name);
+  }
+  return { id: rootId, url: driveFolderUrl(rootId) };
+}
+
 export type DriveFile = { id: string; name: string; url?: string };
 
 /** Sobe um arquivo (bytes) para uma pasta via multipart. */

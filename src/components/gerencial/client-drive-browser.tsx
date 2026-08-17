@@ -141,6 +141,30 @@ export function ClientDriveBrowser({ clientId }: { clientId: string }) {
     if (window.confirm(`Excluir "${e.name}"? (vai para a lixeira do Drive)`)) void act({ action: "delete", fileId: e.id });
   }
 
+  async function provision() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/gerencial/client-drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "provision", clientId }),
+      });
+      const j = await res.json().catch(() => null);
+      if (res.status === 409) {
+        toast("Reconecte o Google em Integrações para criar a pasta.", "error");
+      } else if (!res.ok || !j?.folderId) {
+        toast(j?.error ?? "Não foi possível criar a pasta.", "error");
+      } else {
+        setEntries(j.entries ?? []);
+        setStack([{ id: j.folderId, name: j.folderName }]);
+        setState("ok");
+        toast("Pasta do cliente criada no Drive.", "success");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card className="p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -181,9 +205,22 @@ export function ClientDriveBrowser({ clientId }: { clientId: string }) {
         <p className="flex items-center gap-2 py-6 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" /> Carregando o Drive…</p>
       )}
       {state === "nofolder" && (
-        <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">
-          Este cliente não tem uma pasta do Drive vinculada. Cadastre o <strong>link da pasta do Google Drive</strong> em <strong>Contatos &amp; briefing</strong> (mais abaixo na ficha). A pasta precisa estar acessível pela conta Google conectada em Integrações.
-        </p>
+        <div className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">
+          <p>
+            Este cliente ainda não tem pasta no Drive. Clique abaixo para criar a estrutura padrão
+            (<strong>{"<Cliente>"}</strong> → 00. Material de Apoio · 01. Redes Sociais · 02. Performance · 03. Relatórios · 04. Materiais Pontuais) na conta Google conectada.
+          </p>
+          <button
+            onClick={provision}
+            disabled={busy}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderPlus className="h-3.5 w-3.5" />} Criar pasta no Drive
+          </button>
+          <p className="mt-2 text-[11px]">
+            Novos clientes recebem a pasta automaticamente ao entrar em operações — este botão é só para clientes antigos.
+          </p>
+        </div>
       )}
       {state === "error" && (
         <p className="rounded-lg bg-rose-500/10 px-3 py-3 text-sm text-rose-500">{msg ?? "Erro ao acessar o Drive."}</p>

@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isGoogleConfigured } from "@/lib/google/config";
 import { getValidAccess } from "@/lib/google/client";
-import { clientDriveRoot } from "@/lib/google/drive-store";
-import { driveListChildren, driveCreateFolder, driveRename, driveTrash, driveGetName } from "@/lib/google/drive";
+import { clientDriveRoot, provisionClientDrive } from "@/lib/google/drive-store";
+import { driveListChildren, driveCreateFolder, driveRename, driveTrash, driveGetName, parseDriveFolderId } from "@/lib/google/drive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "list" | "mkdir" | "rename" | "delete";
+  action?: "list" | "mkdir" | "rename" | "delete" | "provision";
   clientId?: string;
   folderId?: string;
   fileId?: string;
@@ -55,6 +55,18 @@ export async function POST(req: Request) {
     }
 
     if (!writable) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
+
+    if (action === "provision") {
+      if (!b.clientId) return NextResponse.json({ error: "clientId ausente" }, { status: 400 });
+      const url = await provisionClientDrive(b.clientId);
+      if (!url) {
+        return NextResponse.json({ error: "Não foi possível criar a pasta. Verifique a conexão do Google." }, { status: 502 });
+      }
+      const folderId = parseDriveFolderId(url)!;
+      const entries = await driveListChildren(token, folderId);
+      const info = await driveGetName(token, folderId);
+      return NextResponse.json({ connected: true, folderId, folderName: info?.name ?? "Drive", entries, url });
+    }
 
     if (action === "mkdir") {
       if (!b.folderId || !b.name?.trim()) return NextResponse.json({ error: "pasta/nome ausente" }, { status: 400 });

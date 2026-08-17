@@ -8,6 +8,12 @@
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 export const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID ?? "primary";
+/**
+ * Pasta-mãe (id ou link) onde as pastas dos clientes são criadas automaticamente.
+ * Vazio = cria na raiz do "Meu Drive" da conta conectada. Aceita link completo
+ * (…/folders/<id>) ou o id cru.
+ */
+export const GOOGLE_DRIVE_CLIENTS_ROOT = process.env.GOOGLE_DRIVE_CLIENTS_ROOT ?? "";
 export const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 

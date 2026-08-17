@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { provisionClientDrive } from "@/lib/google/drive-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -220,5 +221,9 @@ export async function POST(req: Request) {
   if (contactRows.length && !contactRows.some((c) => c.is_primary)) contactRows[0].is_primary = true;
   if (contactRows.length) await supabase.from("client_contacts").insert(contactRows);
 
-  return NextResponse.json({ ok: true, persisted: true, id: clientId });
+  // Cria a pasta do cliente no Google Drive (raiz + subpastas 00–04) e grava o
+  // link em drive_folder_url. Best-effort: não bloqueia a criação do cliente.
+  const driveUrl = await provisionClientDrive(clientId);
+
+  return NextResponse.json({ ok: true, persisted: true, id: clientId, driveUrl });
 }
