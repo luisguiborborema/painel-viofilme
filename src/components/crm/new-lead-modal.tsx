@@ -9,7 +9,6 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
-  Lock,
   Search,
   Upload,
   UserPlus,
@@ -19,6 +18,7 @@ import {
   PIPELINE_PREVENDA_ID,
   STAGE_RESERVOIR,
   type CrmLead,
+  type Pipeline,
   type Tag,
 } from "@/lib/data/crm";
 
@@ -83,12 +83,16 @@ export function NovoNegocioModal({
   team = [],
   defaultOwner = "",
   tags = [],
+  pipelines = [],
+  defaultPipelineId,
 }: {
   onClose: () => void;
   onCreated: (lead: CrmLead) => void;
   team?: string[];
   defaultOwner?: string;
   tags?: Tag[];
+  pipelines?: Pipeline[];
+  defaultPipelineId?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"manual" | "import">("manual");
@@ -96,6 +100,13 @@ export function NovoNegocioModal({
   const [origin, setOrigin] = useState(ORIGINS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Funil + etapa de destino (permite criar em qualquer funil, não só o SDR).
+  const [pipelineId, setPipelineId] = useState(defaultPipelineId || pipelines[0]?.id || PIPELINE_PREVENDA_ID);
+  const [stageKey, setStageKey] = useState("");
+  const selPipe = pipelines.find((p) => p.id === pipelineId);
+  const stagesOf = selPipe?.stages ?? [];
+  const effStageKey = stageKey || stagesOf[0]?.key || STAGE_RESERVOIR;
 
   function ownerSelect() {
     return (
@@ -139,10 +150,32 @@ export function NovoNegocioModal({
           </button>
         </div>
 
-        {/* Nasce travado no reservatório */}
-        <div className="flex items-center gap-2 border-b border-line bg-canvas px-5 py-2 text-xs text-muted">
-          <Lock className="h-3.5 w-3.5" />
-          Nasce em <strong className="text-ink">Pré-venda (SDR) › Contactar Urgente</strong>
+        {/* Funil + etapa de destino */}
+        <div className="grid grid-cols-2 gap-3 border-b border-line bg-canvas px-5 py-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Funil</span>
+            {pipelines.length > 1 ? (
+              <select
+                value={pipelineId}
+                onChange={(e) => { setPipelineId(e.target.value); setStageKey(""); }}
+                className={inputCls}
+              >
+                {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            ) : (
+              <p className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink">{selPipe?.name ?? "Pré-venda (SDR)"}</p>
+            )}
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Etapa inicial</span>
+            {stagesOf.length > 0 ? (
+              <select value={effStageKey} onChange={(e) => setStageKey(e.target.value)} className={inputCls}>
+                {stagesOf.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            ) : (
+              <p className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink">Contactar Urgente</p>
+            )}
+          </label>
         </div>
 
         {/* Tabs */}
@@ -166,7 +199,7 @@ export function NovoNegocioModal({
                 const res = await fetch("/api/crm/import-outbound", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ rows: [{ ...row, source: origin }], owner: owner || undefined }),
+                  body: JSON.stringify({ rows: [{ ...row, source: origin }], owner: owner || undefined, pipelineId, stageKey: effStageKey }),
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error ?? "falha");
@@ -175,12 +208,12 @@ export function NovoNegocioModal({
                   id: json.id ?? `tmp-${Date.now()}`,
                   name: row.titulo?.trim() || row.empresa!.trim(),
                   contactName: row.contato?.trim() || undefined,
-                  stage: STAGE_RESERVOIR,
+                  stage: effStageKey,
                   monthlyValue: 0,
                   mediaBudget: 0,
                   probability: 10,
                   bant: {},
-                  pipelineId: PIPELINE_PREVENDA_ID,
+                  pipelineId,
                   originKind: "outbound",
                   owner: owner || undefined,
                   assignees: owner ? [owner] : [],
@@ -212,7 +245,7 @@ export function NovoNegocioModal({
                 const res = await fetch("/api/crm/import-outbound", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ rows: rows.map((r) => ({ ...r, source: origin })), owner: owner || undefined }),
+                  body: JSON.stringify({ rows: rows.map((r) => ({ ...r, source: origin })), owner: owner || undefined, pipelineId, stageKey: effStageKey }),
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error ?? "falha");

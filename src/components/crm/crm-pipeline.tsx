@@ -890,6 +890,8 @@ export function CrmPipeline({
           team={team}
           defaultOwner={currentUser}
           tags={tags}
+          pipelines={pipelines}
+          defaultPipelineId={pipelineId}
         />
       )}
 

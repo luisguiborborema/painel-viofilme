@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
 
-  let body: { rows?: Row[]; owner?: string };
+  let body: { rows?: Row[]; owner?: string; pipelineId?: string; stageKey?: string };
   try {
     body = await req.json();
   } catch {
@@ -64,12 +64,15 @@ export async function POST(req: Request) {
     originKind: "outbound",
   });
 
-  // Estágio-reservatório da Pré-venda.
+  // Funil/etapa de destino: usa o escolhido no modal (qualquer funil) ou, por
+  // padrão, o reservatório da Pré-venda (fluxo outbound clássico).
+  const pipelineId = body.pipelineId?.trim() || PIPELINE_PREVENDA_ID;
+  const stageKey = body.stageKey?.trim() || STAGE_RESERVOIR;
   const { data: stage } = await supabase
     .from("crm_stages")
     .select("id")
-    .eq("pipeline_id", PIPELINE_PREVENDA_ID)
-    .eq("key", STAGE_RESERVOIR)
+    .eq("pipeline_id", pipelineId)
+    .eq("key", stageKey)
     .maybeSingle();
   const stageId = stage?.id ?? null;
 
@@ -110,8 +113,8 @@ export async function POST(req: Request) {
         email: r.email?.trim() || null,
         tag_ids: tagIds,
         stage_id: stageId,
-        stage_key: STAGE_RESERVOIR,
-        pipeline_id: PIPELINE_PREVENDA_ID,
+        stage_key: stageKey,
+        pipeline_id: pipelineId,
       },
     });
     if (error || !dealId) continue;
