@@ -619,6 +619,8 @@ import {
   getHourBank as hourBankMock,
   getEmployees as employeesMock,
   getEmployeeProfile as employeeProfileMock,
+  getAnnouncements as announcementsMock,
+  type Announcement,
   type Employee,
   type EmployeeProfile,
   type HourBankView,
@@ -640,6 +642,15 @@ export async function getEmployeesView(): Promise<Employee[]> {
     if (rows) return rows;
   }
   return employeesMock();
+}
+
+/** Mural de comunicados (real via rh_announcements; senão mock). */
+export async function getAnnouncementsView(): Promise<Announcement[]> {
+  if (isSupabaseConfigured()) {
+    const rows = await sb.sbGetAnnouncements();
+    if (rows) return rows;
+  }
+  return announcementsMock();
 }
 
 /** Um colaborador por id (para o perfil individual). */

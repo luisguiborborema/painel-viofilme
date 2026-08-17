@@ -570,36 +570,128 @@ function AvaliacoesTab({ data }: { data: RhData }) {
 
 // --- Mural ------------------------------------------------------------------
 function MuralTab({ data }: { data: RhData }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<AnnouncementCategory>("operational");
+  const [content, setContent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function create() {
+    if (!content.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/gerencial/rh/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", category, content }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Não foi possível publicar.", "error");
+      else {
+        setContent("");
+        setOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Excluir este comunicado?")) return;
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/gerencial/rh/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Não foi possível excluir.", "error");
+      else router.refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600">
-          <Plus className="h-4 w-4" /> Novo comunicado
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        >
+          {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? "Cancelar" : "Novo comunicado"}
         </button>
       </div>
+
+      {open && (
+        <Card className="space-y-3 p-4">
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(CAT) as AnnouncementCategory[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setCategory(k)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium",
+                  category === k ? "bg-brand-600 text-white" : "bg-subtle text-muted hover:text-ink",
+                )}
+              >
+                {CAT[k].label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={4}
+            autoFocus
+            placeholder="Escreva o comunicado para o time…"
+            className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+          />
+          <div className="flex justify-end">
+            <button
+              onClick={create}
+              disabled={busy || !content.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />} Publicar
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {data.announcements.length === 0 && !open && (
+        <Card className="p-8 text-center text-sm text-muted">Nenhum comunicado ainda. Publique o primeiro.</Card>
+      )}
+
       {data.announcements.map((a) => {
         const cat = CAT[a.category];
         return (
-          <Card key={a.id} className="p-4">
+          <Card key={a.id} className="group p-4">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Avatar name={a.author} size="sm" />
               <span className="text-sm font-semibold text-ink">{a.author}</span>
-              <span className="text-xs text-muted">({a.authorRole})</span>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                  cat.chip,
-                )}
-              >
-                {cat.label}
-              </span>
+              {a.authorRole && <span className="text-xs text-muted">({a.authorRole})</span>}
+              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", cat.chip)}>{cat.label}</span>
               <span className="ml-auto text-xs text-muted">{a.when}</span>
+              <button
+                onClick={() => remove(a.id)}
+                disabled={busyId === a.id}
+                className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 disabled:opacity-50"
+                aria-label="Excluir comunicado"
+              >
+                {busyId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
             </div>
-            <p className="text-sm text-ink/90">{a.content}</p>
-            <p className="mt-2 border-t border-line pt-2 text-xs text-muted">
-              Lido por {a.readBy} de {a.total}
-              {a.note ? ` · ${a.note}` : ""}
-            </p>
+            <p className="whitespace-pre-wrap text-sm text-ink/90">{a.content}</p>
+            {a.total > 0 && (
+              <p className="mt-2 border-t border-line pt-2 text-xs text-muted">
+                Lido por {a.readBy} de {a.total}
+                {a.note ? ` · ${a.note}` : ""}
+              </p>
+            )}
           </Card>
         );
       })}

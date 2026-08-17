@@ -49,7 +49,7 @@ import {
   type ExpenseCategory,
 } from "./gerfinance";
 
-import type { Employee, HourBankView, HourEntry, HourRow } from "./rh";
+import type { Announcement, AnnouncementCategory, Employee, HourBankView, HourEntry, HourRow } from "./rh";
 import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
   VIOLAUNCH_WEEKS,
@@ -1336,6 +1336,34 @@ export async function sbGetEmployees(): Promise<Employee[] | null> {
     pdiActive: Boolean(r.pdi_active),
     reviewPending: Boolean(r.review_pending),
   }));
+}
+
+/** Mural (comunicados) — tabela rh_announcements. Tolerante a tabela ausente. */
+export async function sbGetAnnouncements(): Promise<Announcement[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("rh_announcements")
+    .select("id, author, author_role, category, content, created_at")
+    .order("created_at", { ascending: false });
+  if (error) return null;
+  const cats = new Set(["operational", "culture", "career"]);
+  return (data ?? []).map((r) => {
+    const dt = r.created_at ? new Date(String(r.created_at)) : null;
+    const when = dt && !Number.isNaN(dt.getTime())
+      ? dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+      : "—";
+    return {
+      id: String(r.id),
+      author: (r.author as string) ?? "—",
+      authorRole: (r.author_role as string) ?? "",
+      category: (cats.has(String(r.category)) ? r.category : "operational") as AnnouncementCategory,
+      content: String(r.content ?? ""),
+      when,
+      readBy: 0,
+      total: 0,
+      note: "",
+    };
+  });
 }
 
 export async function sbGetHourBank(): Promise<HourBankView> {
