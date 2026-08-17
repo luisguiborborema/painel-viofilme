@@ -56,17 +56,31 @@ export function AccessCard({ item }: { item: AccessItem }) {
 
       <p className="mt-3 text-xs text-muted">{item.note}</p>
 
-      <button
-        className={cn(
-          "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
-          isRequest
-            ? "border border-line bg-subtle text-ink hover:bg-subtle-strong"
-            : "bg-brand-500 text-white hover:bg-brand-600",
-        )}
-      >
-        {isRequest ? <Plus className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-        {item.actionLabel}
-      </button>
+      {item.url ? (
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
+            "bg-brand-500 text-white hover:bg-brand-600",
+          )}
+        >
+          <ExternalLink className="h-4 w-4" /> {item.actionLabel}
+        </a>
+      ) : (
+        <button
+          className={cn(
+            "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
+            isRequest
+              ? "border border-line bg-subtle text-ink hover:bg-subtle-strong"
+              : "bg-brand-500 text-white hover:bg-brand-600",
+          )}
+        >
+          {isRequest ? <Plus className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+          {item.actionLabel}
+        </button>
+      )}
     </Card>
   );
 }

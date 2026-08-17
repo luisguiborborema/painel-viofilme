@@ -1,5 +1,6 @@
 import { ClientDocumentsTab } from "@/components/gerencial/client-documents-tab";
 import { ClientDriveBrowser } from "@/components/gerencial/client-drive-browser";
+import { ClientAccessesManager } from "@/components/gerencial/client-accesses-manager";
 import { getClientDocumentsView } from "@/lib/data/queries";
 
 export default async function DocumentosPage({
@@ -12,6 +13,7 @@ export default async function DocumentosPage({
   return (
     <div className="space-y-6">
       <ClientDriveBrowser clientId={id} />
+      <ClientAccessesManager clientId={id} />
       <ClientDocumentsTab clientId={id} initial={initial} />
     </div>
   );

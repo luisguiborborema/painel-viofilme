@@ -3535,7 +3535,32 @@ export async function sbGetBrandHub(clientId: string): Promise<import("./queries
     whatsapp: agencyWa ? `https://wa.me/${agencyWa}` : "",
   });
 
-  return { driveName: name, accesses: [], assets: [], team, activity: [] };
+  // Cofre de acessos real (client_accesses). Tolerante a tabela ausente.
+  const ICONS = new Set(["meta", "google", "rd", "wordpress", "ecommerce", "other"]);
+  const ACC_ST = new Set(["connected", "review", "soon", "setup"]);
+  let accesses: import("./types").AccessItem[] = [];
+  const { data: accRows } = await supabase
+    .from("client_accesses")
+    .select("id, name, description, icon, status, note, url, position")
+    .eq("client_id", clientId)
+    .order("position", { ascending: true });
+  if (Array.isArray(accRows)) {
+    accesses = accRows.map((r) => {
+      const url = (r.url as string) || "";
+      return {
+        id: String(r.id),
+        name: String(r.name ?? "—"),
+        description: (r.description as string) ?? "",
+        icon: (ICONS.has(String(r.icon)) ? r.icon : "other") as import("./types").AccessItem["icon"],
+        status: (ACC_ST.has(String(r.status)) ? r.status : "connected") as import("./types").AccessStatus,
+        note: (r.note as string) ?? "",
+        actionLabel: url ? "Acessar" : "Solicitar",
+        url: url || undefined,
+      };
+    });
+  }
+
+  return { driveName: name, accesses, assets: [], team, activity: [] };
 }
 
 /** Sugestões de ajustes do time (feedback board). */

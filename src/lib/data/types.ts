@@ -146,6 +146,8 @@ export type AccessItem = {
   status: AccessStatus;
   note: string;
   actionLabel: string;
+  /** Link para "Acessar" (quando cadastrado). */
+  url?: string;
 };
 
 export type AssetCategory = "logos" | "manual" | "fotos";
