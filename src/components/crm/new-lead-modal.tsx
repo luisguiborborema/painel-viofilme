@@ -154,7 +154,7 @@ export function NovoNegocioModal({
         <div className="grid grid-cols-2 gap-3 border-b border-line bg-canvas px-5 py-3">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted">Funil</span>
-            {pipelines.length > 1 ? (
+            {pipelines.length >= 1 ? (
               <select
                 value={pipelineId}
                 onChange={(e) => { setPipelineId(e.target.value); setStageKey(""); }}

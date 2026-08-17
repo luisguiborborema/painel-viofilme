@@ -538,7 +538,6 @@ export function LeadModalContent({
           <AboutPanel
             lead={lead}
             configuredScore={configuredScore}
-            currentStage={currentStage}
             pipeline={pipeline}
             pipelines={pipelines}
             stages={stages}
@@ -874,7 +873,6 @@ function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Circle; labe
 function AboutPanel({
   lead,
   configuredScore = null,
-  currentStage,
   pipeline,
   pipelines,
   stages,
@@ -898,7 +896,6 @@ function AboutPanel({
 }: {
   lead: CrmLead;
   configuredScore?: number | null;
-  currentStage?: Stage;
   pipeline: Pipeline;
   pipelines: Pipeline[];
   stages: Stage[];
@@ -976,25 +973,23 @@ function AboutPanel({
           display={lead.expectedCloseAt ? dayMonth(lead.expectedCloseAt) : "—"}
           onSave={(raw) => onSaveFields({ expectedCloseAt: raw })}
         />
-        {pipelines.length > 1 ? (
-          <EditableSelect
+        {pipelines.length >= 1 ? (
+          <PropSelect
             icon={GitBranch}
             label="Funil"
             value={lead.pipelineId ?? pipeline.id}
-            display={pipeline.name}
             options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-            onSave={onChangePipeline}
+            onChange={onChangePipeline}
           />
         ) : (
           <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
         )}
-        <EditableSelect
+        <PropSelect
           icon={Circle}
           label="Etapa"
           value={lead.stage}
-          display={currentStage?.label ?? stageLabel(lead.stage)}
           options={stages.map((s) => ({ value: s.key, label: s.label }))}
-          onSave={onChangeStage}
+          onChange={onChangeStage}
         />
         <EditableField
           icon={Target}
@@ -1445,50 +1440,40 @@ function EditableField({
   );
 }
 
-/** Propriedade editável inline com opções (Funil, Etapa). */
-function EditableSelect({
+/**
+ * Propriedade com dropdown SEMPRE visível (estilo HubSpot) — usado para mover o
+ * negócio entre etapas e funis direto na coluna, sem precisar clicar antes.
+ */
+function PropSelect({
   icon: Icon,
   label,
   value,
-  display,
   options,
-  onSave,
+  onChange,
 }: {
   icon: typeof Circle;
   label: string;
   value: string;
-  display: ReactNode;
   options: { value: string; label: string }[];
-  onSave: (v: string) => void;
+  onChange: (v: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
   return (
-    <div className="group py-1.5">
+    <div className="py-1.5">
       <p className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>
-      {editing ? (
+      <div className="relative">
         <select
-          autoFocus
           value={value}
-          onChange={(e) => { onSave(e.target.value); setEditing(false); }}
-          onBlur={() => setEditing(false)}
-          className="w-full rounded-lg border border-brand-400 bg-surface px-2 py-1 text-sm text-ink outline-none"
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full cursor-pointer appearance-none rounded-lg border border-line bg-surface px-2.5 py-1.5 pr-8 text-sm text-ink outline-none hover:border-brand-300 focus:border-brand-400"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="-mx-1 flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left text-sm text-ink hover:bg-subtle"
-          title="Clique para editar"
-        >
-          <span className="min-w-0 truncate">{display}</span>
-          <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
-        </button>
-      )}
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+      </div>
     </div>
   );
 }
