@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
@@ -126,6 +127,7 @@ export function LeadModalContent({
   templates = [],
   configuredScore = null,
   flows = [],
+  mode = "modal",
 }: {
   lead: CrmLead;
   interactions: CrmInteraction[];
@@ -147,9 +149,14 @@ export function LeadModalContent({
   documents?: CrmDocument[];
   templates?: DocTemplate[];
   configuredScore?: number | null;
+  /** "modal" = overlay interceptado; "page" = página cheia (estilo HubSpot). */
+  mode?: "modal" | "page";
 }) {
   const router = useRouter();
-  const { layout, setLayout } = useLeadModalLayout();
+  const { layout: ctxLayout, setLayout } = useLeadModalLayout();
+  const page = mode === "page";
+  // Na página cheia usamos o layout de 3 colunas (não o switcher do modal).
+  const layout: LeadModalLayout = page ? "full" : ctxLayout;
   const [lead, setLead] = useState(initialLead);
   const [items, setItems] = useState<CrmInteraction[]>(initialInteractions);
   const [tasks, setTasks] = useState<CrmTask[]>(initialTasks);
@@ -386,10 +393,18 @@ export function LeadModalContent({
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col">
+    <div className={cn("relative flex w-full flex-col", page ? "min-h-screen bg-canvas" : "h-full")}>
       {/* ── TOPO: breadcrumb + dias-na-etapa + chrome ─────────── */}
-      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
+      <div className={cn("flex items-center justify-between gap-2 border-b border-line px-4 py-2.5", page && "sticky top-0 z-30 bg-surface")}>
         <div className="flex min-w-0 items-center gap-2">
+          {page && (
+            <button
+              onClick={() => router.back()}
+              className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
+            >
+              <ChevronLeft className="h-4 w-4" /> Negócios
+            </button>
+          )}
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: currentStage?.color ?? "#64748b" }} />
             {pipeline.name}
@@ -399,7 +414,7 @@ export function LeadModalContent({
           <DaysBadge iso={lead.stageChangedAt} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <LayoutSwitcher layout={layout} onChange={setLayout} />
+          {!page && <LayoutSwitcher layout={layout} onChange={setLayout} />}
           <button
             onClick={copyLink}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-subtle hover:text-ink"
@@ -407,13 +422,15 @@ export function LeadModalContent({
             <Link2 className="h-4 w-4" />
             {copied ? "Copiado!" : "Copiar link"}
           </button>
-          <button
-            onClick={() => router.back()}
-            title="Fechar (Esc)"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {!page && (
+            <button
+              onClick={() => router.back()}
+              title="Fechar (Esc)"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -476,12 +493,21 @@ export function LeadModalContent({
       <DealHighlights lead={lead} stages={stages} />
 
       {/* ── 3 ZONAS: Sobre · Atividade · Associações ──────────── */}
-      <div className={cn("flex min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col overflow-y-auto xl:flex-row xl:overflow-hidden")}>
+      <div
+        className={cn(
+          "flex",
+          page
+            ? "flex-col xl:flex-row xl:items-start"
+            : cn("min-h-0 flex-1", layout === "side" ? "flex-col overflow-y-auto" : "flex-col overflow-y-auto xl:flex-row xl:overflow-hidden"),
+        )}
+      >
         {/* ESQUERDA — Sobre este negócio */}
         <aside
           className={cn(
             "shrink-0 border-line bg-canvas",
-            layout === "side" ? "border-b" : "border-b xl:w-[264px] xl:overflow-y-auto xl:border-b-0 xl:border-r",
+            page
+              ? "border-b xl:sticky xl:top-[49px] xl:max-h-[calc(100vh-49px)] xl:w-[280px] xl:self-start xl:overflow-y-auto xl:border-b-0 xl:border-r"
+              : layout === "side" ? "border-b" : "border-b xl:w-[264px] xl:overflow-y-auto xl:border-b-0 xl:border-r",
           )}
         >
           <AboutPanel
@@ -505,7 +531,7 @@ export function LeadModalContent({
         </aside>
 
         {/* CENTRO — Atividade (timeline estilo HubSpot) */}
-        <div className={cn("flex min-w-0 flex-1 flex-col", layout === "side" ? "" : "xl:overflow-hidden")}>
+        <div className={cn("flex min-w-0 flex-1 flex-col", page ? "" : layout === "side" ? "" : "xl:overflow-hidden")}>
           <ActivityCenter
             lead={lead}
             layout={layout}
@@ -529,7 +555,9 @@ export function LeadModalContent({
         <aside
           className={cn(
             "flex shrink-0 flex-col border-line bg-canvas",
-            layout === "side" ? "border-t" : "border-t xl:w-[300px] xl:overflow-y-auto xl:border-l xl:border-t-0",
+            page
+              ? "border-t xl:sticky xl:top-[49px] xl:max-h-[calc(100vh-49px)] xl:w-[320px] xl:self-start xl:overflow-y-auto xl:border-l xl:border-t-0"
+              : layout === "side" ? "border-t" : "border-t xl:w-[300px] xl:overflow-y-auto xl:border-l xl:border-t-0",
           )}
         >
           <AssociationsPanel
@@ -552,7 +580,10 @@ export function LeadModalContent({
       {/* FAB — Nova tarefa (sempre visível) */}
       <button
         onClick={() => setShowFab(true)}
-        className="absolute bottom-16 right-6 z-20 inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700"
+        className={cn(
+          "z-40 inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700",
+          page ? "fixed bottom-6 right-6" : "absolute bottom-16 right-6",
+        )}
       >
         <Plus className="h-4 w-4" /> Nova tarefa
       </button>
