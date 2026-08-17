@@ -94,6 +94,7 @@ import { ProposalModal } from "./proposal-modal";
 import { useLeadModalLayout, type LeadModalLayout } from "./lead-modal";
 import { LeadComments } from "./lead-comments";
 import { CrmDocuments } from "./crm-documents";
+import { ObjectProperties } from "./object-properties";
 import { SettingsShortcut } from "./settings-shortcut";
 import { withToast } from "@/lib/api";
 import { toneClass } from "@/components/ui/tone";
@@ -126,6 +127,7 @@ export function LeadModalContent({
   templates = [],
   configuredScore = null,
   flows = [],
+  properties: propertyDefs = [],
   mode = "modal",
 }: {
   lead: CrmLead;
@@ -358,19 +360,43 @@ export function LeadModalContent({
   // Edita campos nativos do próprio negócio (Valor, Probabilidade, Origem,
   // Fechamento previsto) inline na coluna esquerda. Otimista + persiste.
   async function saveDealFields(
-    patch: Partial<{ monthlyValue: number; probability: number; source: string; expectedCloseAt: string }>,
+    patch: Partial<{ name: string; monthlyValue: number; mediaBudget: number; plan: string; probability: number; source: string; expectedCloseAt: string }>,
   ) {
     setLead((l) => ({ ...l, ...patch }));
+    const map: Record<string, string> = {
+      name: "name",
+      monthlyValue: "monthly_value",
+      mediaBudget: "media_budget",
+      plan: "plan",
+      probability: "probability",
+      source: "source",
+      expectedCloseAt: "expected_close_at",
+    };
     const fields: Record<string, unknown> = {};
-    if ("monthlyValue" in patch) fields.monthly_value = patch.monthlyValue;
-    if ("probability" in patch) fields.probability = patch.probability;
-    if ("source" in patch) fields.source = patch.source;
-    if ("expectedCloseAt" in patch) fields.expected_close_at = patch.expectedCloseAt;
+    for (const [k, col] of Object.entries(map)) {
+      if (k in patch) fields[col] = (patch as Record<string, unknown>)[k];
+    }
     await withToast(
       fetch("/api/crm/object", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ objectType: "deal", id: lead.id, fields }),
+      }),
+    );
+    router.refresh();
+  }
+
+  // Troca o negócio de funil (move para o 1º estágio aberto do funil destino).
+  async function changePipeline(pipelineId: string) {
+    if (pipelineId === (lead.pipelineId ?? "")) return;
+    const p = pipelines.find((x) => x.id === pipelineId);
+    const firstOpen = p?.stages?.find((s) => s.kind === "open") ?? p?.stages?.[0];
+    setLead((l) => ({ ...l, pipelineId, stage: firstOpen?.key ?? l.stage }));
+    await withToast(
+      fetch("/api/crm/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "change-pipeline", id: lead.id, pipelineId }),
       }),
     );
     router.refresh();
@@ -514,6 +540,9 @@ export function LeadModalContent({
             configuredScore={configuredScore}
             currentStage={currentStage}
             pipeline={pipeline}
+            pipelines={pipelines}
+            stages={stages}
+            propertyDefs={propertyDefs}
             assignees={assignees}
             teamMembers={teamMembers}
             tags={tags}
@@ -526,6 +555,11 @@ export function LeadModalContent({
             onSaveProp={saveProp}
             onSaveObject={saveObject}
             onSaveFields={saveDealFields}
+            onChangeStage={(key) => {
+              const s = stages.find((x) => x.key === key);
+              if (s) changeStage(s);
+            }}
+            onChangePipeline={changePipeline}
             onNewTask={() => setShowFab(true)}
             onOpenSchedule={() => setShowSchedule(true)}
           />
@@ -842,6 +876,9 @@ function AboutPanel({
   configuredScore = null,
   currentStage,
   pipeline,
+  pipelines,
+  stages,
+  propertyDefs,
   assignees,
   teamMembers,
   tags,
@@ -854,6 +891,8 @@ function AboutPanel({
   onSaveProp,
   onSaveObject,
   onSaveFields,
+  onChangeStage,
+  onChangePipeline,
   onNewTask,
   onOpenSchedule,
 }: {
@@ -861,6 +900,9 @@ function AboutPanel({
   configuredScore?: number | null;
   currentStage?: Stage;
   pipeline: Pipeline;
+  pipelines: Pipeline[];
+  stages: Stage[];
+  propertyDefs: PropertyDef[];
   assignees: string[];
   teamMembers: Attendant[];
   tags: Tag[];
@@ -878,8 +920,10 @@ function AboutPanel({
     properties?: Record<string, unknown>,
   ) => void;
   onSaveFields: (
-    patch: Partial<{ monthlyValue: number; probability: number; source: string; expectedCloseAt: string }>,
+    patch: Partial<{ name: string; monthlyValue: number; mediaBudget: number; plan: string; probability: number; source: string; expectedCloseAt: string }>,
   ) => void;
+  onChangeStage: (key: string) => void;
+  onChangePipeline: (id: string) => void;
   onNewTask: () => void;
   onOpenSchedule: () => void;
 }) {
@@ -895,7 +939,7 @@ function AboutPanel({
             {aboutInitials(lead.name)}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-ink">{lead.name}</p>
+            <EditableName name={lead.name} onSave={(v) => onSaveFields({ name: v })} />
             <p className="truncate text-xs text-muted">{company?.name ?? lead.source ?? "Negócio"}</p>
           </div>
         </div>
@@ -932,8 +976,26 @@ function AboutPanel({
           display={lead.expectedCloseAt ? dayMonth(lead.expectedCloseAt) : "—"}
           onSave={(raw) => onSaveFields({ expectedCloseAt: raw })}
         />
-        <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
-        <MiniField icon={Circle} label="Etapa">{currentStage?.label ?? stageLabel(lead.stage)}</MiniField>
+        {pipelines.length > 1 ? (
+          <EditableSelect
+            icon={GitBranch}
+            label="Funil"
+            value={lead.pipelineId ?? pipeline.id}
+            display={pipeline.name}
+            options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+            onSave={onChangePipeline}
+          />
+        ) : (
+          <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
+        )}
+        <EditableSelect
+          icon={Circle}
+          label="Etapa"
+          value={lead.stage}
+          display={currentStage?.label ?? stageLabel(lead.stage)}
+          options={stages.map((s) => ({ value: s.key, label: s.label }))}
+          onSave={onChangeStage}
+        />
         <EditableField
           icon={Target}
           label="Probabilidade"
@@ -986,6 +1048,21 @@ function AboutPanel({
       <Collapsible title="Negociação" icon={Briefcase}>
         <NegoTab lead={lead} onSave={onSaveProp} documents={documents} templates={templates} />
       </Collapsible>
+      {(() => {
+        const dealDefs = propertyDefs.filter((d) => d.objectType === "deal" && !d.isArchived);
+        if (dealDefs.length === 0) return null;
+        return (
+          <Collapsible title="Todas as propriedades" icon={ListTodo}>
+            <ObjectProperties
+              objectType="deal"
+              id={lead.id}
+              defs={dealDefs}
+              initialValues={lead.properties ?? {}}
+              title="Propriedades personalizadas"
+            />
+          </Collapsible>
+        );
+      })()}
     </div>
   );
 }
@@ -1365,6 +1442,85 @@ function EditableField({
         </button>
       )}
     </div>
+  );
+}
+
+/** Propriedade editável inline com opções (Funil, Etapa). */
+function EditableSelect({
+  icon: Icon,
+  label,
+  value,
+  display,
+  options,
+  onSave,
+}: {
+  icon: typeof Circle;
+  label: string;
+  value: string;
+  display: ReactNode;
+  options: { value: string; label: string }[];
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="group py-1.5">
+      <p className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </p>
+      {editing ? (
+        <select
+          autoFocus
+          value={value}
+          onChange={(e) => { onSave(e.target.value); setEditing(false); }}
+          onBlur={() => setEditing(false)}
+          className="w-full rounded-lg border border-brand-400 bg-surface px-2 py-1 text-sm text-ink outline-none"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="-mx-1 flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left text-sm text-ink hover:bg-subtle"
+          title="Clique para editar"
+        >
+          <span className="min-w-0 truncate">{display}</span>
+          <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Nome do negócio editável inline (no cabeçalho da coluna esquerda). */
+function EditableName({ name, onSave }: { name: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { setEditing(false); if (draft.trim() && draft !== name) onSave(draft.trim()); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+          if (e.key === "Escape") { e.preventDefault(); setDraft(name); setEditing(false); }
+        }}
+        className="w-full rounded-lg border border-brand-400 bg-surface px-2 py-1 text-base font-semibold text-ink outline-none"
+      />
+    );
+  }
+  return (
+    <button
+      onClick={() => { setDraft(name); setEditing(true); }}
+      className="group/name -mx-1 flex items-center gap-1.5 rounded-lg px-1 text-left"
+      title="Clique para editar"
+    >
+      <span className="truncate text-base font-semibold text-ink">{name}</span>
+      <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover/name:opacity-100" />
+    </button>
   );
 }
 
