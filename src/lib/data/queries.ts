@@ -620,10 +620,14 @@ import {
   getEmployees as employeesMock,
   getEmployeeProfile as employeeProfileMock,
   getAnnouncements as announcementsMock,
+  getPdisMock,
+  getReviewsMock,
   type Announcement,
   type Employee,
   type EmployeeProfile,
   type HourBankView,
+  type PdiItem,
+  type ReviewItem,
 } from "./rh";
 
 /** Banco de horas: saldo do mês por colaborador (real via hour_entries). */
@@ -651,6 +655,24 @@ export async function getAnnouncementsView(): Promise<Announcement[]> {
     if (rows) return rows;
   }
   return announcementsMock();
+}
+
+/** PDIs (objetivos) — real via rh_pdis; senão mock. */
+export async function getPdisView(): Promise<PdiItem[]> {
+  if (isSupabaseConfigured()) {
+    const rows = await sb.sbGetPdis();
+    if (rows) return rows;
+  }
+  return getPdisMock();
+}
+
+/** Avaliações — real via rh_reviews; senão mock. */
+export async function getReviewsView(): Promise<ReviewItem[]> {
+  if (isSupabaseConfigured()) {
+    const rows = await sb.sbGetReviews();
+    if (rows) return rows;
+  }
+  return getReviewsMock();
 }
 
 /** Um colaborador por id (para o perfil individual). */

@@ -1,10 +1,12 @@
 import { HeartHandshake } from "lucide-react";
+import { getHrAlerts } from "@/lib/data/rh";
 import {
-  getHrAlerts,
-  getPdiCycle,
-  getReviewCycle,
-} from "@/lib/data/rh";
-import { getAnnouncementsView, getEmployeesView, getHourBankView } from "@/lib/data/queries";
+  getAnnouncementsView,
+  getEmployeesView,
+  getHourBankView,
+  getPdisView,
+  getReviewsView,
+} from "@/lib/data/queries";
 import { RhCultura } from "@/components/gerencial/rh-cultura";
 import { RhHeaderActions } from "@/components/gerencial/rh-header-actions";
 
@@ -14,8 +16,8 @@ export default async function GerencialRh() {
     employees,
     alerts: getHrAlerts(employees),
     hourBank: await getHourBankView(),
-    pdi: getPdiCycle(),
-    review: getReviewCycle(),
+    pdis: await getPdisView(),
+    reviews: await getReviewsView(),
     announcements: await getAnnouncementsView(),
   };
 

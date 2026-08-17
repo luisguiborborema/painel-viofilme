@@ -30,7 +30,10 @@ import type {
   HourEntry,
   HourRow,
   HrAlert,
-  PdiEmployee,
+  PdiItem,
+  PdiObjectiveStatus,
+  ReviewItem,
+  ReviewStatus,
 } from "@/lib/data/rh";
 
 type View =
@@ -89,14 +92,8 @@ export type RhData = {
     entries: HourEntry[];
     employeeNames: string[];
   };
-  pdi: { quarter: string; deadline: string; active: number; employees: PdiEmployee[] };
-  review: {
-    cycle: string;
-    label: string;
-    description: string;
-    pendingSelf: number;
-    started: boolean;
-  };
+  pdis: PdiItem[];
+  reviews: ReviewItem[];
   announcements: Announcement[];
 };
 
@@ -488,83 +485,292 @@ function HourEntryForm({
 }
 
 // --- PDIs -------------------------------------------------------------------
+const PDI_STATUS: Record<PdiObjectiveStatus, { label: string; chip: string }> = {
+  not_started: { label: "Não iniciado", chip: "bg-subtle-strong text-muted" },
+  in_progress: { label: "Em andamento", chip: "bg-sky-500/15 text-sky-500" },
+  done: { label: "Concluído", chip: "bg-emerald-500/15 text-emerald-600" },
+  missed: { label: "Não atingido", chip: "bg-rose-500/15 text-rose-500" },
+};
+const inputSm =
+  "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
 function PdisTab({ data }: { data: RhData }) {
-  const { pdi } = data;
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [f, setF] = useState({ collaboratorId: "", title: "", indicator: "", progress: "", status: "in_progress", deadline: "" });
+  const setV = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  async function create() {
+    const emp = data.employees.find((e) => e.id === f.collaboratorId);
+    if (!emp || !f.title.trim()) {
+      toast("Escolha o colaborador e descreva o objetivo.", "error");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/gerencial/rh/pdis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          collaboratorId: emp.id, collaboratorName: emp.name, role: emp.role,
+          title: f.title, indicator: f.indicator, progress: f.progress, status: f.status, deadline: f.deadline,
+        }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Falha ao salvar.", "error");
+      else {
+        setF({ collaboratorId: "", title: "", indicator: "", progress: "", status: "in_progress", deadline: "" });
+        setOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function patch(id: string, body: Record<string, unknown>) {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/gerencial/rh/pdis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...body }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Falha.", "error");
+      else router.refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function remove(id: string) {
+    if (window.confirm("Excluir este objetivo de PDI?")) void patch(id, { action: "delete" });
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">
-          Ciclo {pdi.quarter} · prazo {pdi.deadline} ·{" "}
-          <span className="font-medium text-ink">{pdi.active} PDIs ativos</span>
-        </p>
-        <button className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle">
-          <Plus className="h-4 w-4" /> Novo ciclo Q3
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted">{data.pdis.length} objetivo(s) de desenvolvimento</p>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        >
+          {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? "Cancelar" : "Novo objetivo"}
         </button>
       </div>
 
-      {pdi.employees.map((e) => (
-        <Card key={e.id} className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar name={e.name} size="sm" />
-              <div>
-                <p className="text-sm font-semibold text-ink">
-                  {e.name} — {e.role}
-                </p>
-                <p className="text-xs text-muted">
-                  {e.total} objetivos · {e.done} concluído · {e.inProgress} em andamento
-                </p>
-              </div>
+      {open && (
+        <Card className="grid grid-cols-1 gap-2.5 p-4 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Colaborador</span>
+            <select value={f.collaboratorId} onChange={(e) => setV("collaboratorId", e.target.value)} className={inputSm}>
+              <option value="">Selecione…</option>
+              {data.employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Objetivo</span>
+            <input value={f.title} onChange={(e) => setV("title", e.target.value)} placeholder="Ex.: Dominar Motion Design" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Indicador</span>
+            <input value={f.indicator} onChange={(e) => setV("indicator", e.target.value)} placeholder="Ex.: 4 Reels com motion" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Progresso</span>
+            <input value={f.progress} onChange={(e) => setV("progress", e.target.value)} placeholder="Ex.: 2/4" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Status</span>
+            <select value={f.status} onChange={(e) => setV("status", e.target.value)} className={inputSm}>
+              {(Object.keys(PDI_STATUS) as PdiObjectiveStatus[]).map((k) => <option key={k} value={k}>{PDI_STATUS[k].label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Prazo</span>
+            <input value={f.deadline} onChange={(e) => setV("deadline", e.target.value)} placeholder="Ex.: 30/06/2025" className={inputSm} />
+          </label>
+          <div className="flex justify-end sm:col-span-2">
+            <button onClick={create} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />} Salvar objetivo
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {data.pdis.length === 0 && !open && (
+        <Card className="p-8 text-center text-sm text-muted">Nenhum objetivo de PDI ainda.</Card>
+      )}
+
+      {data.pdis.map((p) => (
+        <Card key={p.id} className="group p-4">
+          <div className="mb-2 flex items-center gap-3">
+            <Avatar name={p.collaboratorName} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{p.collaboratorName}{p.role ? ` — ${p.role}` : ""}</p>
             </div>
-            <span
-              className={cn(
-                "text-sm font-semibold",
-                e.progressPct >= 75
-                  ? "text-emerald-400"
-                  : e.progressPct >= 50
-                    ? "text-amber-400"
-                    : "text-sky-400",
-              )}
+            <select
+              value={p.status}
+              disabled={busyId === p.id}
+              onChange={(e) => patch(p.id, { action: "update", status: e.target.value })}
+              className={cn("ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium outline-none", PDI_STATUS[p.status].chip)}
             >
-              {e.progressPct}% completo
-            </span>
+              {(Object.keys(PDI_STATUS) as PdiObjectiveStatus[]).map((k) => <option key={k} value={k}>{PDI_STATUS[k].label}</option>)}
+            </select>
+            <button onClick={() => remove(p.id)} disabled={busyId === p.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100" aria-label="Excluir">
+              {busyId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
           </div>
-          <div className="rounded-xl bg-subtle p-3">
-            <p className="text-xs font-medium text-muted">Obj. em aberto</p>
-            <p className="text-sm font-medium text-ink">{e.openObjective.title}</p>
+          <p className="text-sm font-medium text-ink">{p.title}</p>
+          {(p.indicator || p.progress || p.deadline) && (
             <p className="mt-0.5 text-xs text-muted">
-              Indicador: {e.openObjective.indicator} · progresso:{" "}
-              {e.openObjective.progress}
+              {p.indicator}{p.progress ? ` · progresso: ${p.progress}` : ""}{p.deadline ? ` · prazo ${p.deadline}` : ""}
             </p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-subtle-strong">
-              <div
-                className="h-full rounded-full bg-brand-500"
-                style={{ width: `${e.progressPct}%` }}
-              />
-            </div>
-          </div>
+          )}
         </Card>
       ))}
     </div>
   );
 }
 
-// --- Avaliações -------------------------------------------------------------
+const REVIEW_STATUS: Record<ReviewStatus, { label: string; chip: string }> = {
+  pending: { label: "Pendente", chip: "bg-amber-500/15 text-amber-600" },
+  self_done: { label: "Autoavaliação feita", chip: "bg-sky-500/15 text-sky-500" },
+  done: { label: "Concluída", chip: "bg-emerald-500/15 text-emerald-600" },
+};
+
 function AvaliacoesTab({ data }: { data: RhData }) {
-  const { review } = data;
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [f, setF] = useState({ collaboratorId: "", cycle: "", selfScore: "", leaderScore: "", note: "", status: "pending" });
+  const setV = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  async function create() {
+    const emp = data.employees.find((e) => e.id === f.collaboratorId);
+    if (!emp) {
+      toast("Escolha o colaborador.", "error");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/gerencial/rh/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          collaboratorId: emp.id, collaboratorName: emp.name, role: emp.role,
+          cycle: f.cycle, selfScore: Number(f.selfScore) || 0, leaderScore: Number(f.leaderScore) || 0,
+          note: f.note, status: f.status,
+        }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Falha ao salvar.", "error");
+      else {
+        setF({ collaboratorId: "", cycle: "", selfScore: "", leaderScore: "", note: "", status: "pending" });
+        setOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function remove(id: string) {
+    if (!window.confirm("Excluir esta avaliação?")) return;
+    setBusyId(id);
+    void fetch("/api/gerencial/rh/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    })
+      .then((r) => (r.ok ? router.refresh() : toast("Falha ao excluir.", "error")))
+      .finally(() => setBusyId(null));
+  }
+
   return (
-    <Card className="p-10 text-center">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-subtle text-muted">
-        <Star className="h-6 w-6" />
-      </span>
-      <p className="mt-3 text-sm font-semibold text-ink">{review.label}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-        {review.description}
-      </p>
-      <button className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-        Iniciar ciclo de avaliação
-      </button>
-    </Card>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted">{data.reviews.length} avaliação(ões)</p>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        >
+          {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? "Cancelar" : "Nova avaliação"}
+        </button>
+      </div>
+
+      {open && (
+        <Card className="grid grid-cols-1 gap-2.5 p-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Colaborador</span>
+            <select value={f.collaboratorId} onChange={(e) => setV("collaboratorId", e.target.value)} className={inputSm}>
+              <option value="">Selecione…</option>
+              {data.employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Ciclo</span>
+            <input value={f.cycle} onChange={(e) => setV("cycle", e.target.value)} placeholder="Ex.: jul/25" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Nota autoavaliação (0–5)</span>
+            <input value={f.selfScore} onChange={(e) => setV("selfScore", e.target.value)} inputMode="decimal" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Nota liderança (0–5)</span>
+            <input value={f.leaderScore} onChange={(e) => setV("leaderScore", e.target.value)} inputMode="decimal" className={inputSm} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Status</span>
+            <select value={f.status} onChange={(e) => setV("status", e.target.value)} className={inputSm}>
+              {(Object.keys(REVIEW_STATUS) as ReviewStatus[]).map((k) => <option key={k} value={k}>{REVIEW_STATUS[k].label}</option>)}
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Observação</span>
+            <textarea value={f.note} onChange={(e) => setV("note", e.target.value)} rows={2} className={inputSm + " resize-y"} />
+          </label>
+          <div className="flex justify-end sm:col-span-2">
+            <button onClick={create} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />} Salvar avaliação
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {data.reviews.length === 0 && !open && (
+        <Card className="p-8 text-center text-sm text-muted">Nenhuma avaliação registrada ainda.</Card>
+      )}
+
+      {data.reviews.map((r) => (
+        <Card key={r.id} className="group p-4">
+          <div className="mb-2 flex items-center gap-3">
+            <Avatar name={r.collaboratorName} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{r.collaboratorName}{r.role ? ` — ${r.role}` : ""}</p>
+              {r.cycle && <p className="text-xs text-muted">Ciclo {r.cycle}</p>}
+            </div>
+            <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium", REVIEW_STATUS[r.status].chip)}>
+              {REVIEW_STATUS[r.status].label}
+            </span>
+            <button onClick={() => remove(r.id)} disabled={busyId === r.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100" aria-label="Excluir">
+              {busyId === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span className="text-muted">Autoavaliação: <span className="font-semibold text-ink">{r.selfScore.toFixed(1)}</span></span>
+            <span className="text-muted">Liderança: <span className="font-semibold text-ink">{r.leaderScore.toFixed(1)}</span></span>
+          </div>
+          {r.note && <p className="mt-1.5 text-sm text-ink/90">{r.note}</p>}
+        </Card>
+      ))}
+    </div>
   );
 }
 

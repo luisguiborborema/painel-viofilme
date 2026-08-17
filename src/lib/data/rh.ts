@@ -213,6 +213,54 @@ export function getPdiCycle(): {
   return { quarter: "Q2 2025", deadline: "30/06/2025", active: employees.length, employees };
 }
 
+/** Item plano de PDI (um objetivo de um colaborador) — tabela rh_pdis. */
+export type PdiItem = {
+  id: string;
+  collaboratorId: string | null;
+  collaboratorName: string;
+  role: string;
+  title: string;
+  indicator: string;
+  progress: string;
+  status: PdiObjectiveStatus;
+  deadline: string;
+};
+
+export function getPdisMock(): PdiItem[] {
+  return getPdiCycle().employees.map((e) => ({
+    id: `pdi-${e.id}`,
+    collaboratorId: e.id,
+    collaboratorName: e.name,
+    role: e.role,
+    title: e.openObjective.title,
+    indicator: e.openObjective.indicator,
+    progress: e.openObjective.progress,
+    status: "in_progress" as PdiObjectiveStatus,
+    deadline: "30/06/2025",
+  }));
+}
+
+/** Avaliação de um colaborador num ciclo — tabela rh_reviews. */
+export type ReviewStatus = "pending" | "self_done" | "done";
+export type ReviewItem = {
+  id: string;
+  collaboratorId: string | null;
+  collaboratorName: string;
+  role: string;
+  cycle: string;
+  selfScore: number;
+  leaderScore: number;
+  note: string;
+  status: ReviewStatus;
+};
+
+export function getReviewsMock(): ReviewItem[] {
+  return [
+    { id: "rv1", collaboratorId: "emp-robert", collaboratorName: "Robert Oliveira", role: "Designer", cycle: "jul/25", selfScore: 0, leaderScore: 0, note: "", status: "pending" },
+    { id: "rv2", collaboratorId: "emp-ana", collaboratorName: "Ana Lima", role: "Social Media", cycle: "jul/25", selfScore: 4.2, leaderScore: 3.8, note: "Boa evolução em consistência.", status: "done" },
+  ];
+}
+
 // --- Avaliações --------------------------------------------------------------
 export function getReviewCycle() {
   return {

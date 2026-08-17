@@ -49,7 +49,18 @@ import {
   type ExpenseCategory,
 } from "./gerfinance";
 
-import type { Announcement, AnnouncementCategory, Employee, HourBankView, HourEntry, HourRow } from "./rh";
+import type {
+  Announcement,
+  AnnouncementCategory,
+  Employee,
+  HourBankView,
+  HourEntry,
+  HourRow,
+  PdiItem,
+  PdiObjectiveStatus,
+  ReviewItem,
+  ReviewStatus,
+} from "./rh";
 import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
   VIOLAUNCH_WEEKS,
@@ -1364,6 +1375,50 @@ export async function sbGetAnnouncements(): Promise<Announcement[] | null> {
       note: "",
     };
   });
+}
+
+/** PDIs (objetivos) — tabela rh_pdis. Tolerante a tabela ausente. */
+export async function sbGetPdis(): Promise<PdiItem[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("rh_pdis")
+    .select("id, collaborator_id, collaborator_name, role, title, indicator, progress, status, deadline, created_at")
+    .order("created_at", { ascending: false });
+  if (error) return null;
+  const st = new Set(["not_started", "in_progress", "done", "missed"]);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    collaboratorId: r.collaborator_id ? String(r.collaborator_id) : null,
+    collaboratorName: String(r.collaborator_name ?? "—"),
+    role: (r.role as string) ?? "",
+    title: String(r.title ?? ""),
+    indicator: (r.indicator as string) ?? "",
+    progress: (r.progress as string) ?? "",
+    status: (st.has(String(r.status)) ? r.status : "in_progress") as PdiObjectiveStatus,
+    deadline: (r.deadline as string) ?? "",
+  }));
+}
+
+/** Avaliações — tabela rh_reviews. Tolerante a tabela ausente. */
+export async function sbGetReviews(): Promise<ReviewItem[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("rh_reviews")
+    .select("id, collaborator_id, collaborator_name, role, cycle, self_score, leader_score, note, status, created_at")
+    .order("created_at", { ascending: false });
+  if (error) return null;
+  const st = new Set(["pending", "self_done", "done"]);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    collaboratorId: r.collaborator_id ? String(r.collaborator_id) : null,
+    collaboratorName: String(r.collaborator_name ?? "—"),
+    role: (r.role as string) ?? "",
+    cycle: (r.cycle as string) ?? "",
+    selfScore: Number(r.self_score ?? 0),
+    leaderScore: Number(r.leader_score ?? 0),
+    note: (r.note as string) ?? "",
+    status: (st.has(String(r.status)) ? r.status : "pending") as ReviewStatus,
+  }));
 }
 
 export async function sbGetHourBank(): Promise<HourBankView> {
