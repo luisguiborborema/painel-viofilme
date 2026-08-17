@@ -52,9 +52,12 @@ function Rich({ text }: { text: string }) {
 export function AiChat({
   clientName,
   scope = "cliente",
+  floating = true,
 }: {
   clientName: string;
   scope?: Scope;
+  /** false = sem botão flutuante; abre via evento "open-ai-chat" (topbar). */
+  floating?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greeting(clientName, scope)]);
@@ -73,6 +76,13 @@ export function AiChat({
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  // Abre o painel a partir do botão da topbar (Cadu/Bruna na barra de navegação).
+  useEffect(() => {
+    const openFromNav = () => setOpen(true);
+    window.addEventListener("open-ai-chat", openFromNav);
+    return () => window.removeEventListener("open-ai-chat", openFromNav);
+  }, []);
 
   async function send(text: string) {
     const q = text.trim();
@@ -130,7 +140,7 @@ export function AiChat({
   return (
     <>
       {/* Botão flutuante */}
-      {!open && (
+      {floating && !open && (
         <button
           onClick={() => setOpen(true)}
           data-tour="assistant"

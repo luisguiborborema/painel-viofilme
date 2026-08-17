@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, HelpCircle, LogOut, Menu, Search, X } from "lucide-react";
+import { ChevronDown, HelpCircle, LogOut, Menu, Search, Sparkles, X } from "lucide-react";
 import { clearSession } from "@/lib/auth/actions";
 import { ROLE_LABEL, type SessionUser } from "@/lib/auth/types";
 import type { NavGroup } from "@/lib/nav";
@@ -67,6 +67,19 @@ export function Topbar({
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Buscar</span>
           <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
+        </button>
+      )}
+
+      {user.role === "gerencial" && (
+        <button
+          onClick={() => window.dispatchEvent(new Event("open-ai-chat"))}
+          data-tour="assistant"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 hover:opacity-90"
+          aria-label="Falar com o Cadu"
+          title="Falar com o Cadu (assistente de IA)"
+        >
+          <Sparkles className="h-4 w-4" />
+          <span className="hidden sm:inline">Cadu</span>
         </button>
       )}
 

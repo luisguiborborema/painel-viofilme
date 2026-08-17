@@ -992,38 +992,64 @@ function ActivityTypeTab({
   );
 }
 
+/** Rótulo de mês estilo HubSpot: "Agosto 2026". */
+function monthLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const m = d.toLocaleDateString("pt-BR", { month: "long" });
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${d.getFullYear()}`;
+}
+
 function ActivityStreamList({ events }: { events: ActivityEvent[] }) {
   if (events.length === 0) {
     return <p className="px-4 py-10 text-center text-sm text-muted">Nada por aqui ainda. Registre a primeira atividade acima.</p>;
   }
+  // Agrupa por mês (cabeçalho "Agosto 2026"), preservando a ordem da timeline.
+  const groups: { label: string; items: ActivityEvent[] }[] = [];
+  for (const e of events) {
+    const label = monthLabel(e.at);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(e);
+    else groups.push({ label, items: [e] });
+  }
   return (
-    <div className="space-y-3 px-4 py-4">
-      {events.map((e) => {
-        const meta = KIND_META[e.kind];
-        const done = e.kind === "task" && e.done;
-        const Icon = done ? CheckCircle2 : meta.icon;
-        return (
-          <div key={e.id} className="flex gap-3">
-            <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", done ? "bg-emerald-500/15 text-emerald-500" : meta.color)}>
-              <Icon className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                <span className="font-medium text-ink">{e.author ?? meta.label}</span>
-                <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{meta.label}</span>
-                {e.direction && (
-                  <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{e.direction === "in" ? "recebido" : "enviado"}</span>
-                )}
-                <span>· {dayMonth(e.at)} {clockLabel(e.at)}</span>
-              </div>
-              {e.title && (
-                <p className={cn("mt-0.5 text-sm font-medium text-ink", done && "text-muted line-through")}>{e.title}</p>
-              )}
-              {e.body && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{e.body}</p>}
-            </div>
+    <div className="px-4 py-4">
+      {groups.map((g) => (
+        <div key={g.label} className="mb-5 last:mb-0">
+          <div className="mb-3 flex items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{g.label}</p>
+            <span className="h-px flex-1 bg-line" />
           </div>
-        );
-      })}
+          <div className="space-y-3">
+            {g.items.map((e) => {
+              const meta = KIND_META[e.kind];
+              const done = e.kind === "task" && e.done;
+              const Icon = done ? CheckCircle2 : meta.icon;
+              return (
+                <div key={e.id} className="flex gap-3 rounded-xl border border-line bg-surface p-3">
+                  <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", done ? "bg-emerald-500/15 text-emerald-500" : meta.color)}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                      <span className="font-medium text-ink">{e.author ?? meta.label}</span>
+                      <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{meta.label}</span>
+                      {e.direction && (
+                        <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px]">{e.direction === "in" ? "recebido" : "enviado"}</span>
+                      )}
+                      <span className="ml-auto">{dayMonth(e.at)} {clockLabel(e.at)}</span>
+                    </div>
+                    {e.title && (
+                      <p className={cn("mt-0.5 text-sm font-medium text-ink", done && "text-muted line-through")}>{e.title}</p>
+                    )}
+                    {e.body && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{e.body}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default async function GerencialLayout({
         </div>
       )}
       {children}
-      <AiChat clientName={user.name} scope="gerencial" />
+      <AiChat clientName={user.name} scope="gerencial" floating={false} />
       <Toaster />
       <ActivityTracker />
     </AppShell>
