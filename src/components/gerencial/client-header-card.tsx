@@ -277,6 +277,14 @@ export function ClientHeaderCard({
           deliverablesText={ops?.deliverables ?? ""}
           responsibles={ops?.responsibles ?? {}}
           squadName={ops?.squadName ?? ""}
+          squadId={ops?.squadId ?? ""}
+          segment={c.segment}
+          city={c.city}
+          contactName={d.contactName}
+          contactRole={d.contactRole}
+          phone={d.phone}
+          email={d.email}
+          contractModel={d.contractModel}
         />
       </div>
     </Card>

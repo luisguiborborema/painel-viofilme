@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Megaphone,
   Package,
+  Pencil,
   Plus,
   Users,
   X,
@@ -87,6 +88,14 @@ export function ClientManageActions({
   deliverablesText,
   responsibles: initialResponsibles,
   squadName,
+  segment = "",
+  city = "",
+  contactName = "",
+  contactRole = "",
+  phone = "",
+  email = "",
+  contractModel = "recorrente",
+  squadId = "",
 }: {
   clientId: string;
   clientName: string;
@@ -95,11 +104,35 @@ export function ClientManageActions({
   deliverablesText: string;
   responsibles: Record<string, string>;
   squadName: string;
+  segment?: string;
+  city?: string;
+  contactName?: string;
+  contactRole?: string;
+  phone?: string;
+  email?: string;
+  contractModel?: string;
+  squadId?: string;
 }) {
   const router = useRouter();
-  const [modal, setModal] = useState<null | "brief" | "resp" | "ops">(null);
+  const [modal, setModal] = useState<null | "brief" | "resp" | "ops" | "perfil">(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [openRole, setOpenRole] = useState<string | null>(null);
+
+  // Editar dados (identidade + contato + squad)
+  const undash = (v: string) => (v && v !== "—" ? v : "");
+  const [profile, setProfile] = useState({
+    name: clientName,
+    segment: undash(segment),
+    city: undash(city),
+    contactName: undash(contactName),
+    contactRole: undash(contactRole),
+    phone: undash(phone),
+    email: undash(email),
+    contractModel: contractModel === "pontual" ? "pontual" : "recorrente",
+    squadId: squadId ?? "",
+  });
+  const [squads, setSquads] = useState<{ id: string; name: string }[]>([]);
+  const setP = (k: keyof typeof profile, v: string) => setProfile((p) => ({ ...p, [k]: v }));
 
   // Briefing (handoff)
   const [copiedArea, setCopiedArea] = useState<string | null>(null);
@@ -133,13 +166,22 @@ export function ClientManageActions({
   // "Contrato & referência" no Resumo) via evento — sem duplicar os editores.
   useEffect(() => {
     function onEdit(e: Event) {
-      const d = (e as CustomEvent).detail as { clientId?: string; target?: "brief" | "resp" | "ops" } | undefined;
+      const d = (e as CustomEvent).detail as { clientId?: string; target?: "brief" | "resp" | "ops" | "perfil" } | undefined;
       if (!d || d.clientId !== clientId) return;
-      if (d.target === "brief" || d.target === "resp" || d.target === "ops") setModal(d.target);
+      if (d.target === "brief" || d.target === "resp" || d.target === "ops" || d.target === "perfil") setModal(d.target);
     }
     window.addEventListener("vio:client-edit", onEdit as EventListener);
     return () => window.removeEventListener("vio:client-edit", onEdit as EventListener);
   }, [clientId]);
+
+  // Squads: carregados sob demanda ao abrir o modal "Editar dados".
+  useEffect(() => {
+    if (modal !== "perfil" || squads.length) return;
+    fetch("/api/gerencial/clients", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => Array.isArray(j?.squads) && setSquads(j.squads as { id: string; name: string }[]))
+      .catch(() => {});
+  }, [modal, squads.length]);
 
   // Entregáveis por formato: carregados sob demanda ao abrir o modal.
   useEffect(() => {
@@ -220,6 +262,43 @@ export function ClientManageActions({
     }
   }
 
+  async function saveProfile() {
+    if (busy) return;
+    if (!profile.name.trim()) {
+      toast("O nome do cliente é obrigatório.", "error");
+      return;
+    }
+    setBusy(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/gerencial/client-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          name: profile.name,
+          segment: profile.segment,
+          city: profile.city,
+          contactName: profile.contactName,
+          contactRole: profile.contactRole,
+          contactPhone: profile.phone,
+          contactEmail: profile.email,
+          contractModel: profile.contractModel,
+          squadId: profile.squadId,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setSaved(true);
+      router.refresh();
+      window.setTimeout(() => setSaved(false), 1400);
+      window.setTimeout(() => setModal(null), 500);
+    } catch {
+      toast("Não foi possível salvar os dados.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveOps() {
     if (busy) return;
     setBusy(true);
@@ -268,6 +347,9 @@ export function ClientManageActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
+        <button onClick={() => setModal("perfil")} className={btn}>
+          <Pencil className="h-3.5 w-3.5" /> Editar dados
+        </button>
         <button onClick={() => setModal("brief")} className={btn}>
           <Megaphone className="h-3.5 w-3.5" /> Mandar briefing
         </button>
@@ -278,6 +360,63 @@ export function ClientManageActions({
           <Package className="h-3.5 w-3.5" /> Serviços &amp; entregáveis
         </button>
       </div>
+
+      {/* Editar dados — identidade + contato + squad */}
+      <Modal
+        open={modal === "perfil"}
+        onClose={() => setModal(null)}
+        title="Editar dados do cliente"
+        description="Nome, segmento, contato principal, squad e modelo de contrato."
+        footer={saveBtn(saveProfile)}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Nome do cliente</span>
+            <input value={profile.name} onChange={(e) => setP("name", e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Segmento</span>
+            <input value={profile.segment} onChange={(e) => setP("segment", e.target.value)} placeholder="Ex.: Roupas" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Cidade</span>
+            <input value={profile.city} onChange={(e) => setP("city", e.target.value)} placeholder="Ex.: Vitória" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Contato (nome)</span>
+            <input value={profile.contactName} onChange={(e) => setP("contactName", e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Cargo</span>
+            <input value={profile.contactRole} onChange={(e) => setP("contactRole", e.target.value)} placeholder="Ex.: CEO" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Telefone</span>
+            <input value={profile.phone} onChange={(e) => setP("phone", e.target.value)} inputMode="tel" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">E-mail</span>
+            <input value={profile.email} onChange={(e) => setP("email", e.target.value)} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Squad</span>
+            <select value={profile.squadId} onChange={(e) => setP("squadId", e.target.value)} className={inputCls}>
+              <option value="">— Sem squad —</option>
+              {squads.length === 0 && squadId && squadName && <option value={squadId}>{squadName}</option>}
+              {squads.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Modelo de contrato</span>
+            <select value={profile.contractModel} onChange={(e) => setP("contractModel", e.target.value)} className={inputCls}>
+              <option value="recorrente">Recorrente (VioDelivery)</option>
+              <option value="pontual">Pontual (VioProjects)</option>
+            </select>
+          </label>
+        </div>
+      </Modal>
 
       {/* Briefing — handoff pro squad (Social + Performance) */}
       <Modal
