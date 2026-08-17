@@ -18,7 +18,7 @@ const TABLE: Record<string, string> = {
 const ALLOWED_FIELDS: Record<string, Set<string>> = {
   company: new Set(["name", "segment", "website", "phone", "email", "city", "size", "owner"]),
   contact: new Set(["name", "title", "phone", "email", "owner", "company_id", "is_primary"]),
-  deal: new Set(["name", "monthly_value", "media_budget", "plan", "source", "owner", "probability", "segment"]),
+  deal: new Set(["name", "monthly_value", "media_budget", "plan", "source", "owner", "probability", "segment", "expected_close_at"]),
   task: new Set(["title", "due_date", "status", "assignee"]),
 };
 

@@ -27,6 +27,7 @@ import {
   MessageCircle,
   Paperclip,
   PanelRight,
+  Pencil,
   Phone,
   Plus,
   RefreshCw,
@@ -354,6 +355,27 @@ export function LeadModalContent({
     );
   }
 
+  // Edita campos nativos do próprio negócio (Valor, Probabilidade, Origem,
+  // Fechamento previsto) inline na coluna esquerda. Otimista + persiste.
+  async function saveDealFields(
+    patch: Partial<{ monthlyValue: number; probability: number; source: string; expectedCloseAt: string }>,
+  ) {
+    setLead((l) => ({ ...l, ...patch }));
+    const fields: Record<string, unknown> = {};
+    if ("monthlyValue" in patch) fields.monthly_value = patch.monthlyValue;
+    if ("probability" in patch) fields.probability = patch.probability;
+    if ("source" in patch) fields.source = patch.source;
+    if ("expectedCloseAt" in patch) fields.expected_close_at = patch.expectedCloseAt;
+    await withToast(
+      fetch("/api/crm/object", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objectType: "deal", id: lead.id, fields }),
+      }),
+    );
+    router.refresh();
+  }
+
   async function saveObject(
     objectType: "company" | "contact",
     id: string,
@@ -503,6 +525,7 @@ export function LeadModalContent({
             onSaveAssignees={saveAssignees}
             onSaveProp={saveProp}
             onSaveObject={saveObject}
+            onSaveFields={saveDealFields}
             onNewTask={() => setShowFab(true)}
             onOpenSchedule={() => setShowSchedule(true)}
           />
@@ -830,6 +853,7 @@ function AboutPanel({
   onSaveAssignees,
   onSaveProp,
   onSaveObject,
+  onSaveFields,
   onNewTask,
   onOpenSchedule,
 }: {
@@ -852,6 +876,9 @@ function AboutPanel({
     id: string,
     fields?: Record<string, unknown>,
     properties?: Record<string, unknown>,
+  ) => void;
+  onSaveFields: (
+    patch: Partial<{ monthlyValue: number; probability: number; source: string; expectedCloseAt: string }>,
   ) => void;
   onNewTask: () => void;
   onOpenSchedule: () => void;
@@ -883,20 +910,51 @@ function AboutPanel({
 
       <div className="space-y-1 px-4 py-4">
         <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Sobre este negócio</p>
-        <MiniField icon={Wallet} label="Valor">
-          <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
-          <span className="text-muted">/mês</span>
-        </MiniField>
-        <MiniField icon={CalendarClock} label="Fechamento previsto">
-          {lead.expectedCloseAt ? dayMonth(lead.expectedCloseAt) : "—"}
-        </MiniField>
+        <EditableField
+          icon={Wallet}
+          label="Valor"
+          type="currency"
+          value={lead.monthlyValue ? String(lead.monthlyValue) : ""}
+          display={
+            <>
+              <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
+              <span className="text-muted">/mês</span>
+            </>
+          }
+          onSave={(raw) => onSaveFields({ monthlyValue: Number(raw) || 0 })}
+          placeholder="0"
+        />
+        <EditableField
+          icon={CalendarClock}
+          label="Fechamento previsto"
+          type="date"
+          value={lead.expectedCloseAt ? String(lead.expectedCloseAt).slice(0, 10) : ""}
+          display={lead.expectedCloseAt ? dayMonth(lead.expectedCloseAt) : "—"}
+          onSave={(raw) => onSaveFields({ expectedCloseAt: raw })}
+        />
         <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
         <MiniField icon={Circle} label="Etapa">{currentStage?.label ?? stageLabel(lead.stage)}</MiniField>
-        <MiniField icon={Target} label="Probabilidade">{lead.probability}%</MiniField>
+        <EditableField
+          icon={Target}
+          label="Probabilidade"
+          type="number"
+          value={lead.probability != null ? String(lead.probability) : ""}
+          display={`${lead.probability}%`}
+          onSave={(raw) => onSaveFields({ probability: Math.max(0, Math.min(100, Number(raw) || 0)) })}
+          placeholder="0–100"
+        />
         <MiniField icon={Users} label="Responsáveis">
           <AssigneesControl assignees={assignees} team={teamMembers} onChange={onSaveAssignees} />
         </MiniField>
-        <MiniField icon={TagIcon} label="Origem">{lead.source || "—"}</MiniField>
+        <EditableField
+          icon={TagIcon}
+          label="Origem"
+          type="text"
+          value={lead.source ?? ""}
+          display={lead.source || "—"}
+          onSave={(raw) => onSaveFields({ source: raw })}
+          placeholder="Ex.: Outbound, Indicação…"
+        />
         {configuredScore != null && (
           <MiniField icon={Sparkles} label="Pontuação (regras)">
             <span className="font-semibold">{configuredScore}</span> pts
@@ -1240,6 +1298,72 @@ function MiniField({ icon: Icon, label, children }: { icon: typeof Circle; label
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>
       <div className="text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Propriedade editável inline (estilo HubSpot): mostra o valor; ao clicar, vira
+ * campo. Enter/blur salva; Esc cancela. `value` é o valor cru do input.
+ */
+function EditableField({
+  icon: Icon,
+  label,
+  type,
+  value,
+  display,
+  onSave,
+  placeholder,
+}: {
+  icon: typeof Circle;
+  label: string;
+  type: "currency" | "number" | "date" | "text";
+  value: string;
+  display: ReactNode;
+  onSave: (raw: string) => void;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function commit() {
+    setEditing(false);
+    if (draft !== value) onSave(draft);
+  }
+
+  return (
+    <div className="group py-1.5">
+      <p className="mb-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </p>
+      {editing ? (
+        <div className="flex items-center gap-1.5">
+          {type === "currency" && <span className="text-sm text-muted">R$</span>}
+          <input
+            autoFocus
+            type={type === "currency" ? "number" : type === "text" ? "text" : type}
+            inputMode={type === "currency" || type === "number" ? "decimal" : undefined}
+            value={draft}
+            placeholder={placeholder}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commit(); }
+              if (e.key === "Escape") { e.preventDefault(); setDraft(value); setEditing(false); }
+            }}
+            className="w-full rounded-lg border border-brand-400 bg-surface px-2 py-1 text-sm text-ink outline-none"
+          />
+        </div>
+      ) : (
+        <button
+          onClick={() => { setDraft(value); setEditing(true); }}
+          className="-mx-1 flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left text-sm text-ink hover:bg-subtle"
+          title="Clique para editar"
+        >
+          <span className="min-w-0 truncate">{display}</span>
+          <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+      )}
     </div>
   );
 }
