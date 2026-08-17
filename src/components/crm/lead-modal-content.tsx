@@ -82,12 +82,10 @@ import {
 import {
   Composer,
   DeleteDealButton,
-  LoseButton,
   ScoreCard,
   StageHistoryCard,
 } from "./lead-detail";
 import { TagPicker } from "./tag-picker";
-import { DealHighlights } from "./deal-highlights";
 import { DealContacts } from "./deal-contacts";
 import { WinModal } from "./win-modal";
 import { ScheduleModal } from "./schedule-modal";
@@ -441,56 +439,42 @@ export function LeadModalContent({
           {stageErr && <span className="text-[11px] text-rose-500">{stageErr}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowProposal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
-          >
-            <FileText className="h-4 w-4" /> Proposta
-          </button>
-          {!closed && (
-            <>
-              <SequencePicker
-                flows={flows}
-                dealId={lead.id}
-                onApplied={(name) => {
-                  pushLocal({ channel: "system", body: `▶️ Sequência "${name}" iniciada — tarefas criadas.` });
-                  router.refresh();
-                }}
-              />
+          <ActionsMenu
+            closed={closed}
+            flows={flows}
+            dealId={lead.id}
+            lostReasons={lostReasons}
+            onProposal={() => setShowProposal(true)}
+            onSchedule={() => setShowSchedule(true)}
+            onLost={(r) => markLost(r ?? "")}
+            onSequenceApplied={(name) => {
+              pushLocal({ channel: "system", body: `▶️ Sequência "${name}" iniciada — tarefas criadas.` });
+              router.refresh();
+            }}
+          />
+          {!closed &&
+            (isSdr ? (
               <button
-                onClick={() => setShowSchedule(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+                onClick={() => setShowHandoff(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
               >
-                <CalendarClock className="h-4 w-4" /> Agendar
+                <ArrowRightLeft className="h-4 w-4" /> Passar bastão
               </button>
-              <LoseButton onConfirm={markLost} reasons={lostReasons} />
-              {isSdr ? (
-                <button
-                  onClick={() => setShowHandoff(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
-                >
-                  <ArrowRightLeft className="h-4 w-4" /> Passar bastão
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowWin(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  <Trophy className="h-4 w-4" /> Ganho
-                </button>
-              )}
-            </>
-          )}
+            ) : (
+              <button
+                onClick={() => setShowWin(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <Trophy className="h-4 w-4" /> Ganho
+              </button>
+            ))}
           {won && (
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-600">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-600">
               <CheckCircle2 className="h-4 w-4" /> Ganho
             </span>
           )}
         </div>
       </div>
-
-      {/* ── Highlights (KPIs) ─────────────────────────────────── */}
-      <DealHighlights lead={lead} stages={stages} />
 
       {/* ── 3 ZONAS: Sobre · Atividade · Associações ──────────── */}
       <div
@@ -515,7 +499,6 @@ export function LeadModalContent({
             configuredScore={configuredScore}
             currentStage={currentStage}
             pipeline={pipeline}
-            pipelines={pipelines}
             assignees={assignees}
             teamMembers={teamMembers}
             tags={tags}
@@ -527,6 +510,8 @@ export function LeadModalContent({
             onSaveAssignees={saveAssignees}
             onSaveProp={saveProp}
             onSaveObject={saveObject}
+            onNewTask={() => setShowFab(true)}
+            onOpenSchedule={() => setShowSchedule(true)}
           />
         </aside>
 
@@ -650,20 +635,35 @@ export function LeadModalContent({
 
 /* ── Sequências (cadências 1:1) — inicia um fluxo de tarefas no negócio ── */
 
-function SequencePicker({
+/**
+ * Menu "Ações" (estilo HubSpot): agrupa Proposta, Agendar, Sequências (cadências)
+ * e "Marcar como perdido" (com motivos) num único dropdown, deixando visível só
+ * a ação primária (Ganho / Passar bastão) na barra do topo.
+ */
+function ActionsMenu({
+  closed,
   flows,
   dealId,
-  onApplied,
+  lostReasons,
+  onProposal,
+  onSchedule,
+  onLost,
+  onSequenceApplied,
 }: {
+  closed: boolean;
   flows: TaskFlow[];
   dealId: string;
-  onApplied: (name: string) => void;
+  lostReasons: string[];
+  onProposal: () => void;
+  onSchedule: () => void;
+  onLost: (reason?: string) => void;
+  onSequenceApplied: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (flows.length === 0) return null;
+  const [loseOpen, setLoseOpen] = useState(false);
 
-  async function apply(f: TaskFlow) {
+  async function applyFlow(f: TaskFlow) {
     setBusy(true);
     await fetch("/api/crm/task-flows", {
       method: "POST",
@@ -672,37 +672,97 @@ function SequencePicker({
     }).catch(() => {});
     setBusy(false);
     setOpen(false);
-    onApplied(f.name);
+    onSequenceApplied(f.name);
+  }
+
+  function close() {
+    setOpen(false);
+    setLoseOpen(false);
   }
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-subtle"
       >
-        <Zap className="h-4 w-4" /> Sequência
+        <ChevronDown className="h-4 w-4" /> Ações
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
-            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Iniciar cadência</p>
-            {flows.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => apply(f)}
-                disabled={busy}
-                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle disabled:opacity-50"
-              >
-                <span className="min-w-0 truncate">{f.name}</span>
-                <span className="shrink-0 text-[11px] text-muted">{f.steps.length} passo{f.steps.length === 1 ? "" : "s"}</span>
-              </button>
-            ))}
+          <div className="fixed inset-0 z-10" onClick={close} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+            <MenuItem icon={FileText} label="Criar proposta" onClick={() => { close(); onProposal(); }} />
+            {!closed && <MenuItem icon={CalendarClock} label="Agendar reunião" onClick={() => { close(); onSchedule(); }} />}
+
+            {!closed && flows.length > 0 && (
+              <>
+                <div className="my-1 h-px bg-line" />
+                <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Iniciar sequência</p>
+                {flows.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => applyFlow(f)}
+                    disabled={busy}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle disabled:opacity-50"
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <Zap className="h-3.5 w-3.5 shrink-0 text-muted" />
+                      <span className="truncate">{f.name}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted">{f.steps.length} passo{f.steps.length === 1 ? "" : "s"}</span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            {!closed && (
+              <>
+                <div className="my-1 h-px bg-line" />
+                {loseOpen && lostReasons.length > 0 ? (
+                  <>
+                    <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Motivo da perda</p>
+                    {lostReasons.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => { close(); onLost(r); }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                      >
+                        <Flag className="h-3.5 w-3.5 shrink-0" /> {r}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => { close(); onLost(); }}
+                      className="w-full rounded-lg px-2 py-1.5 text-left text-sm text-muted hover:bg-subtle"
+                    >
+                      Sem motivo específico
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => (lostReasons.length > 0 ? setLoseOpen(true) : (close(), onLost()))}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                  >
+                    <Flag className="h-4 w-4" /> Marcar como perdido
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick }: { icon: typeof Circle; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-muted" /> {label}
+    </button>
   );
 }
 
@@ -736,12 +796,36 @@ function Collapsible({
   );
 }
 
+function aboutInitials(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((n) => n[0] ?? "")
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
+
+function QuickAction({ icon: Icon, label, onClick }: { icon: typeof Circle; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className="flex flex-col items-center gap-1 rounded-lg border border-line bg-surface px-1 py-2 text-[10px] font-medium text-muted hover:border-brand-300 hover:text-brand-600"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
 function AboutPanel({
   lead,
   configuredScore = null,
   currentStage,
   pipeline,
-  pipelines,
   assignees,
   teamMembers,
   tags,
@@ -753,12 +837,13 @@ function AboutPanel({
   onSaveAssignees,
   onSaveProp,
   onSaveObject,
+  onNewTask,
+  onOpenSchedule,
 }: {
   lead: CrmLead;
   configuredScore?: number | null;
   currentStage?: Stage;
   pipeline: Pipeline;
-  pipelines: Pipeline[];
   assignees: string[];
   teamMembers: Attendant[];
   tags: Tag[];
@@ -775,24 +860,50 @@ function AboutPanel({
     fields?: Record<string, unknown>,
     properties?: Record<string, unknown>,
   ) => void;
+  onNewTask: () => void;
+  onOpenSchedule: () => void;
 }) {
+  const dispatchChannel = (c: string) =>
+    window.dispatchEvent(new CustomEvent("crm-composer-channel", { detail: c }));
+
   return (
     <div>
+      {/* Cabeçalho: avatar + nome + linha de ícones (estilo HubSpot) */}
+      <div className="border-b border-line px-4 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
+            {aboutInitials(lead.name)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold text-ink">{lead.name}</p>
+            <p className="truncate text-xs text-muted">{company?.name ?? lead.source ?? "Negócio"}</p>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-5 gap-1">
+          <QuickAction icon={StickyNote} label="Nota" onClick={() => dispatchChannel("note")} />
+          <QuickAction icon={Mail} label="E-mail" onClick={() => dispatchChannel("email")} />
+          <QuickAction icon={Phone} label="Chamada" onClick={() => dispatchChannel("call")} />
+          <QuickAction icon={ListTodo} label="Tarefa" onClick={onNewTask} />
+          <QuickAction icon={CalendarClock} label="Reunião" onClick={onOpenSchedule} />
+        </div>
+      </div>
+
       <div className="space-y-1 px-4 py-4">
         <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Sobre este negócio</p>
+        <MiniField icon={Wallet} label="Valor">
+          <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
+          <span className="text-muted">/mês</span>
+        </MiniField>
+        <MiniField icon={CalendarClock} label="Fechamento previsto">
+          {lead.expectedCloseAt ? dayMonth(lead.expectedCloseAt) : "—"}
+        </MiniField>
+        <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
+        <MiniField icon={Circle} label="Etapa">{currentStage?.label ?? stageLabel(lead.stage)}</MiniField>
+        <MiniField icon={Target} label="Probabilidade">{lead.probability}%</MiniField>
         <MiniField icon={Users} label="Responsáveis">
           <AssigneesControl assignees={assignees} team={teamMembers} onChange={onSaveAssignees} />
         </MiniField>
         <MiniField icon={TagIcon} label="Origem">{lead.source || "—"}</MiniField>
-        <MiniField icon={Circle} label="Estágio">{currentStage?.label ?? stageLabel(lead.stage)}</MiniField>
-        <MiniField icon={Target} label="Probabilidade">{lead.probability}%</MiniField>
-        <MiniField icon={Wallet} label="Valor estimado">
-          <span className="font-semibold">{formatBRL(lead.monthlyValue)}</span>
-          <span className="text-muted">/mês</span>
-        </MiniField>
-        {pipelines.length > 1 && (
-          <MiniField icon={GitBranch} label="Funil">{pipeline.name}</MiniField>
-        )}
         {configuredScore != null && (
           <MiniField icon={Sparkles} label="Pontuação (regras)">
             <span className="font-semibold">{configuredScore}</span> pts

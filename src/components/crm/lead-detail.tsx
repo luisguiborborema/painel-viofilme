@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -480,6 +480,22 @@ export function Composer({
   const [bantMode, setBantMode] = useState(false);
   const [bant, setBantState] = useState<Bant>({});
   const [busy, setBusy] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // A linha de ícones (Nota/E-mail/Chamada) da coluna esquerda controla o canal
+  // do compositor e rola até ele — via evento global "crm-composer-channel".
+  useEffect(() => {
+    const onChannel = (ev: Event) => {
+      const c = (ev as CustomEvent).detail as Composer;
+      if (c === "note" || c === "whatsapp" || c === "email" || c === "call") {
+        setChannel(c);
+        setBantMode(false);
+        rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+    window.addEventListener("crm-composer-channel", onChannel);
+    return () => window.removeEventListener("crm-composer-channel", onChannel);
+  }, []);
 
   const showSlash = text.startsWith("/") && !bantMode;
 
@@ -532,7 +548,7 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-line p-3">
+    <div ref={rootRef} className="border-t border-line p-3">
       {bantMode ? (
         <div className="rounded-xl border border-brand-400/40 bg-brand-50/40 p-3">
           <div className="mb-2 flex items-center gap-1.5">
