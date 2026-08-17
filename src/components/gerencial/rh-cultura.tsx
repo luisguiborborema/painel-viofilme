@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Loader2,
   Megaphone,
+  Pencil,
   Plus,
   Star,
   Target,
@@ -19,6 +20,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toast } from "@/components/ui/toast";
+import { CollaboratorModal } from "@/components/gerencial/collaborator-modal";
 import { cn, formatNumber } from "@/lib/utils";
 import type {
   Announcement,
@@ -135,6 +138,29 @@ export function RhCultura({ data }: { data: RhData }) {
 
 // --- Time -------------------------------------------------------------------
 function TimeTab({ data }: { data: RhData }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function del(e: Employee) {
+    if (!window.confirm(`Excluir ${e.name} do time? Esta ação não pode ser desfeita.`)) return;
+    setBusyId(e.id);
+    try {
+      const res = await fetch("/api/gerencial/rh/collaborators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: e.id }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) toast(j?.error ?? "Não foi possível excluir.", "error");
+      else router.refresh();
+    } catch {
+      toast("Falha de rede ao excluir.", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {data.alerts.map((a) => (
@@ -154,20 +180,37 @@ function TimeTab({ data }: { data: RhData }) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.employees.map((e) => (
-          <Link
-            key={e.id}
-            href={`/gerencial/rh/${e.id}`}
-            className="rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-brand-300"
-          >
-            <div className="flex items-center gap-3">
-              <Avatar name={e.name} />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink">{e.name}</p>
-                <p className="truncate text-xs text-muted">
-                  {e.role} · {e.squad}
-                </p>
-              </div>
+          <div key={e.id} className="group relative">
+            <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                onClick={() => setEditing(e)}
+                className="rounded-lg border border-line bg-surface p-1.5 text-muted shadow-sm hover:bg-subtle hover:text-ink"
+                aria-label={`Editar ${e.name}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => del(e)}
+                disabled={busyId === e.id}
+                className="rounded-lg border border-line bg-surface p-1.5 text-muted shadow-sm hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50"
+                aria-label={`Excluir ${e.name}`}
+              >
+                {busyId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
             </div>
+            <Link
+              href={`/gerencial/rh/${e.id}`}
+              className="block rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-brand-300"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar name={e.name} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">{e.name}</p>
+                  <p className="truncate text-xs text-muted">
+                    {e.role} · {e.squad}
+                  </p>
+                </div>
+              </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <span className="rounded-full bg-subtle-strong px-2 py-0.5 text-[10px] font-medium text-muted">
                 {e.contractType.toUpperCase()}
@@ -195,9 +238,14 @@ function TimeTab({ data }: { data: RhData }) {
                 />
               </div>
             </div>
-          </Link>
+            </Link>
+          </div>
         ))}
       </div>
+
+      {editing && (
+        <CollaboratorModal mode="edit" employee={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }

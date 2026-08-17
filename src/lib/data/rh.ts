@@ -78,9 +78,9 @@ export function getEmployee(id: string): Employee | undefined {
 // --- Alertas da aba Time -----------------------------------------------------
 export type HrAlert = { id: string; tone: "warn" | "danger"; text: string };
 
-export function getHrAlerts(): HrAlert[] {
+export function getHrAlerts(employees: Employee[] = EMPLOYEES): HrAlert[] {
   const alerts: HrAlert[] = [];
-  for (const e of EMPLOYEES) {
+  for (const e of employees) {
     if (e.contractType === "clt" && e.hourBalance > 12) {
       alerts.push({
         id: `h-${e.id}`,
@@ -95,7 +95,7 @@ export function getHrAlerts(): HrAlert[] {
       });
     }
   }
-  const pending = EMPLOYEES.filter((e) => e.reviewPending).length;
+  const pending = employees.filter((e) => e.reviewPending).length;
   if (pending > 0) {
     alerts.push({
       id: "rev",

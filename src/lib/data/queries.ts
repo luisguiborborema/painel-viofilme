@@ -615,12 +615,57 @@ export async function getGerFinance(): Promise<GerFinance> {
   return gerFinanceMock();
 }
 
-import { getHourBank as hourBankMock, type HourBankView } from "./rh";
+import {
+  getHourBank as hourBankMock,
+  getEmployees as employeesMock,
+  getEmployeeProfile as employeeProfileMock,
+  type Employee,
+  type EmployeeProfile,
+  type HourBankView,
+} from "./rh";
 
 /** Banco de horas: saldo do mês por colaborador (real via hour_entries). */
 export async function getHourBankView(): Promise<HourBankView> {
   if (isSupabaseConfigured()) return sb.sbGetHourBank();
   return hourBankMock();
+}
+
+/**
+ * Colaboradores do RH. Real (tabela collaborators) quando Supabase configurado
+ * e a tabela existe; senão, mock. Tabela vazia = lista vazia (demo some).
+ */
+export async function getEmployeesView(): Promise<Employee[]> {
+  if (isSupabaseConfigured()) {
+    const rows = await sb.sbGetEmployees();
+    if (rows) return rows;
+  }
+  return employeesMock();
+}
+
+/** Um colaborador por id (para o perfil individual). */
+export async function getEmployeeView(id: string): Promise<Employee | null> {
+  const all = await getEmployeesView();
+  return all.find((e) => e.id === id) ?? null;
+}
+
+/**
+ * Perfil individual do colaborador. Para os ids de demonstração usa o mock rico;
+ * para colaboradores reais (banco) monta o perfil com as seções auxiliares
+ * vazias (banco de horas/PDI/avaliação ainda não têm dados por colaborador).
+ */
+export async function getEmployeeProfileView(id: string): Promise<EmployeeProfile | null> {
+  const mock = employeeProfileMock(id);
+  if (mock) return mock;
+  const emp = await getEmployeeView(id);
+  if (!emp) return null;
+  return {
+    employee: emp,
+    weeks: [],
+    documents: [],
+    pdiObjectives: [],
+    review: { self: 0, leader: 0, criteria: [], note: "" },
+    activity: [],
+  };
 }
 
 import { resolveReportSummary } from "./reports";

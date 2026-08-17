@@ -14,7 +14,8 @@ import {
   Star,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { getEmployeeProfile, type PdiObjectiveStatus } from "@/lib/data/rh";
+import { type PdiObjectiveStatus } from "@/lib/data/rh";
+import { getEmployeeProfileView } from "@/lib/data/queries";
 import { cn, formatNumber } from "@/lib/utils";
 
 function initials(name: string) {
@@ -72,7 +73,7 @@ export default async function EmployeeProfile({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const p = getEmployeeProfile(id);
+  const p = await getEmployeeProfileView(id);
   if (!p) notFound();
   const e = p.employee;
 

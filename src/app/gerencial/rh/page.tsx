@@ -1,18 +1,19 @@
-import { Download, HeartHandshake, Plus } from "lucide-react";
+import { HeartHandshake } from "lucide-react";
 import {
   getAnnouncements,
-  getEmployees,
   getHrAlerts,
   getPdiCycle,
   getReviewCycle,
 } from "@/lib/data/rh";
-import { getHourBankView } from "@/lib/data/queries";
+import { getEmployeesView, getHourBankView } from "@/lib/data/queries";
 import { RhCultura } from "@/components/gerencial/rh-cultura";
+import { RhHeaderActions } from "@/components/gerencial/rh-header-actions";
 
 export default async function GerencialRh() {
+  const employees = await getEmployeesView();
   const data = {
-    employees: getEmployees(),
-    alerts: getHrAlerts(),
+    employees,
+    alerts: getHrAlerts(employees),
     hourBank: await getHourBankView(),
     pdi: getPdiCycle(),
     review: getReviewCycle(),
@@ -35,14 +36,7 @@ export default async function GerencialRh() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle">
-            <Download className="h-4 w-4" /> Exportar
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600">
-            <Plus className="h-4 w-4" /> Novo colaborador
-          </button>
-        </div>
+        <RhHeaderActions employees={employees} />
       </div>
 
       <RhCultura data={data} />

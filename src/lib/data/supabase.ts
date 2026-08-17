@@ -49,7 +49,7 @@ import {
   type ExpenseCategory,
 } from "./gerfinance";
 
-import type { HourBankView, HourEntry, HourRow } from "./rh";
+import type { Employee, HourBankView, HourEntry, HourRow } from "./rh";
 import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
   VIOLAUNCH_WEEKS,
@@ -1301,6 +1301,43 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
 }
 
 // --- banco de horas (hour_entries → saldo do mês) ---------------------------
+/**
+ * Colaboradores do RH (tabela `collaborators`). Tolerante: se a tabela ainda não
+ * existe (migração 0111 não rodou) devolve null para o chamador cair no mock.
+ * Tabela existente e vazia devolve [] (os colaboradores de demonstração somem).
+ */
+export async function sbGetEmployees(): Promise<Employee[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("collaborators")
+    .select(
+      "id, name, role, squad, contract_type, salary, admission_date, email, phone, vacation_due, vacation_soon, weekly_load_pct, hour_balance, hour_limit, pdi_active, review_pending",
+    )
+    .order("name");
+  if (error) {
+    // 42P01 = tabela inexistente → fallback pro mock; outros erros → também.
+    return null;
+  }
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name ?? "—"),
+    role: (r.role as string) ?? "",
+    squad: (r.squad as string) ?? "",
+    contractType: r.contract_type === "pj" ? "pj" : "clt",
+    salary: Number(r.salary ?? 0),
+    admissionDate: (r.admission_date as string) ?? "—",
+    email: (r.email as string) ?? "",
+    phone: (r.phone as string) ?? "",
+    vacationDue: (r.vacation_due as string) ?? "—",
+    vacationSoon: Boolean(r.vacation_soon),
+    weeklyLoadPct: Number(r.weekly_load_pct ?? 0),
+    hourBalance: Number(r.hour_balance ?? 0),
+    hourLimit: Number(r.hour_limit ?? 8),
+    pdiActive: Boolean(r.pdi_active),
+    reviewPending: Boolean(r.review_pending),
+  }));
+}
+
 export async function sbGetHourBank(): Promise<HourBankView> {
   const supabase = await createClient();
   const now = new Date();
