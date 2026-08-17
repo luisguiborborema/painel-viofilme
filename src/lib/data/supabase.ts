@@ -3506,10 +3506,11 @@ export async function sbGetBrandHub(clientId: string): Promise<import("./queries
   const supabase = await createClient();
   const { data: c } = await supabase
     .from("clients")
-    .select("name, cs_responsavel")
+    .select("name, cs_responsavel, drive_folder_url")
     .eq("id", clientId)
     .maybeSingle();
   const name = c?.name ? String(c.name) : "Drive de marca";
+  const driveUrl = c?.drive_folder_url ? String(c.drive_folder_url) : undefined;
   const ini = (s: string) =>
     s.replace(/[^A-Za-zÀ-ú ]/g, "").split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
 
@@ -3560,7 +3561,7 @@ export async function sbGetBrandHub(clientId: string): Promise<import("./queries
     });
   }
 
-  return { driveName: name, accesses, assets: [], team, activity: [] };
+  return { driveName: name, driveUrl, accesses, assets: [], team, activity: [] };
 }
 
 /** Sugestões de ajustes do time (feedback board). */

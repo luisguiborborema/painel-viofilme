@@ -69,7 +69,18 @@ export default async function ClienteCentral({
               <FolderOpen className="h-4 w-4 text-brand-300" />
               Drive de marca — {hub.driveName}
             </span>
-            <FilterTabs param="ativo" options={ATIVOS_TABS} />
+            {hub.driveUrl ? (
+              <a
+                href={hub.driveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600"
+              >
+                <FolderOpen className="h-4 w-4" /> Abrir Drive de marca
+              </a>
+            ) : (
+              <FilterTabs param="ativo" options={ATIVOS_TABS} />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
@@ -86,7 +97,9 @@ export default async function ClienteCentral({
             <span>
               {hub.assets.length > 0
                 ? `${hub.assets.length} ativos disponíveis`
-                : "Os ativos da marca ficam no Drive — solicite novos à equipe."}
+                : hub.driveUrl
+                  ? "Logos, manual e fotos ficam na pasta do Drive de marca acima."
+                  : "Os ativos da marca ficam no Drive — solicite novos à equipe."}
             </span>
             <button className="inline-flex items-center gap-1 font-medium text-brand-300 hover:text-brand-200">
               <HelpCircle className="h-3.5 w-3.5" /> Como são atualizados?

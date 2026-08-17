@@ -872,6 +872,8 @@ export async function getReportSummaryView(clientId: string): Promise<ReportSumm
 // ---------------------------------------------------------------------------
 export type BrandHub = {
   driveName: string;
+  /** Link da pasta do Google Drive do cliente (ativos de marca), se cadastrado. */
+  driveUrl?: string;
   accesses: AccessItem[];
   assets: BrandAsset[];
   team: TeamMember[];
