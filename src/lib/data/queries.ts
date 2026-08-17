@@ -687,18 +687,27 @@ export async function getEmployeeView(id: string): Promise<Employee | null> {
  * vazias (banco de horas/PDI/avaliação ainda não têm dados por colaborador).
  */
 export async function getEmployeeProfileView(id: string): Promise<EmployeeProfile | null> {
-  const mock = employeeProfileMock(id);
-  if (mock) return mock;
   const emp = await getEmployeeView(id);
-  if (!emp) return null;
-  return {
-    employee: emp,
-    weeks: [],
-    documents: [],
-    pdiObjectives: [],
-    review: { self: 0, leader: 0, criteria: [], note: "" },
-    activity: [],
-  };
+  // Colaborador real: monta o perfil com PDIs, avaliações e banco de horas reais.
+  if (emp) {
+    const [pdis, reviews, bank] = await Promise.all([getPdisView(), getReviewsView(), getHourBankView()]);
+    const myPdis = pdis.filter((p) => p.collaboratorId === id);
+    const myReviews = reviews.filter((r) => r.collaboratorId === id);
+    const latest = myReviews[0];
+    const myEntries = bank.entries.filter((e) => e.employee === emp.name).slice(0, 6);
+    return {
+      employee: emp,
+      weeks: myEntries.map((e) => ({ label: e.workDate, hours: e.hours, extra: e.hours > 0 })),
+      documents: [],
+      pdiObjectives: myPdis.map((p) => ({ title: p.title, indicator: p.indicator, status: p.status, deadline: p.deadline })),
+      review: latest
+        ? { self: latest.selfScore, leader: latest.leaderScore, criteria: [], note: latest.note }
+        : { self: 0, leader: 0, criteria: [], note: "" },
+      activity: [],
+    };
+  }
+  // Sem Supabase / ids de demonstração: usa o mock rico.
+  return employeeProfileMock(id);
 }
 
 import { resolveReportSummary } from "./reports";
