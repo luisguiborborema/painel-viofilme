@@ -50,7 +50,11 @@ export async function provisionClientDrive(clientId: string): Promise<string | n
     if (!access?.token) return null;
 
     const parent = parseDriveFolderId(GOOGLE_DRIVE_CLIENTS_ROOT) ?? undefined;
-    const folder = await driveProvisionClientFolder(access.token, row.name ?? "Cliente", parent);
+    const now = new Date();
+    const folder = await driveProvisionClientFolder(access.token, row.name ?? "Cliente", parent, {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+    });
     await admin.from("clients").update({ drive_folder_url: folder.url }).eq("id", clientId);
     return folder.url;
   } catch {

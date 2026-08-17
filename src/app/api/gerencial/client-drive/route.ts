@@ -3,7 +3,15 @@ import { getSession } from "@/lib/auth/session";
 import { isGoogleConfigured } from "@/lib/google/config";
 import { getValidAccess } from "@/lib/google/client";
 import { clientDriveRoot, provisionClientDrive } from "@/lib/google/drive-store";
-import { driveListChildren, driveCreateFolder, driveRename, driveTrash, driveGetName, parseDriveFolderId } from "@/lib/google/drive";
+import {
+  driveListChildren,
+  driveCreateFolder,
+  driveRename,
+  driveTrash,
+  driveGetName,
+  parseDriveFolderId,
+  driveEnsureClientMonth,
+} from "@/lib/google/drive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +57,15 @@ export async function POST(req: Request) {
           return NextResponse.json({ connected: false, error: "sem-pasta" });
         }
         folderId = root;
+        // Auto todo mês: garante a pasta do mês atual sob 01/02 ao abrir o Drive.
+        if (writable) {
+          const now = new Date();
+          try {
+            await driveEnsureClientMonth(token, root, now.getFullYear(), now.getMonth() + 1);
+          } catch {
+            /* não bloqueia a listagem se a criação do mês falhar */
+          }
+        }
       }
       const [info, entries] = await Promise.all([driveGetName(token, folderId), driveListChildren(token, folderId)]);
       return NextResponse.json({ connected: true, folderId, folderName: info?.name ?? "Drive", entries });

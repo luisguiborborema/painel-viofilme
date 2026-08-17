@@ -7,14 +7,31 @@ const DRIVE = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 
-/** Estrutura padrão de pastas por cliente (prefixo → nome). Ordem preservada. */
-export const DRIVE_CATEGORIES: { key: string; name: string }[] = [
+/**
+ * Estrutura padrão de pastas por cliente (prefixo → nome). Ordem preservada.
+ * As categorias com `monthly` (Redes Sociais, Performance) recebem a árvore
+ * Ano → MM-Ano → (Material de Apoio / Histórico / Finalizadas / Desenvolvimento).
+ */
+export const DRIVE_CATEGORIES: { key: string; name: string; monthly?: boolean }[] = [
   { key: "00", name: "00. Material de Apoio" },
-  { key: "01", name: "01. Redes Sociais" },
-  { key: "02", name: "02. Performance" },
+  { key: "01", name: "01. Redes Sociais", monthly: true },
+  { key: "02", name: "02. Performance", monthly: true },
   { key: "03", name: "03. Relatórios" },
   { key: "04", name: "04. Materiais Pontuais" },
 ];
+
+/** Subpastas criadas dentro de cada pasta de mês (dentro de 01/02). */
+export const DRIVE_MONTH_SUBFOLDERS = [
+  "00. Material de Apoio",
+  "01. Histórico",
+  "02. Finalizadas",
+  "03. Desenvolvimento",
+] as const;
+
+/** Rótulo da pasta de mês: "MM-AAAA" (ex.: 03-2026). */
+export function driveMonthLabel(year: number, month: number): string {
+  return `${String(month).padStart(2, "0")}-${year}`;
+}
 
 export type DriveEntry = {
   id: string;
@@ -101,21 +118,48 @@ export function driveFolderUrl(folderId: string): string {
 }
 
 /**
- * Provisiona a pasta de um cliente: cria (ou reusa) `<nome>` dentro de parentId
- * e garante as 5 subpastas padrão (00–04). Idempotente — rodar de novo não
- * duplica. parentId omitido = raiz do "Meu Drive" da conta conectada ("root").
+ * Garante, dentro da pasta do cliente, a árvore do mês informado sob cada
+ * categoria "monthly" (01 Redes Sociais, 02 Performance):
+ *   <categoria>/<ano>/<MM-ano>/{Material de Apoio, Histórico, Finalizadas, Desenvolvimento}
+ * Idempotente. As duas categorias são processadas em paralelo.
+ */
+export async function driveEnsureClientMonth(
+  token: string,
+  clientRootId: string,
+  year: number,
+  month: number,
+): Promise<void> {
+  const monthly = DRIVE_CATEGORIES.filter((c) => c.monthly);
+  await Promise.all(
+    monthly.map(async (cat) => {
+      const catId = await driveEnsureChildFolder(token, clientRootId, cat.name);
+      const yearId = await driveEnsureChildFolder(token, catId, String(year));
+      const monthId = await driveEnsureChildFolder(token, yearId, driveMonthLabel(year, month));
+      for (const sub of DRIVE_MONTH_SUBFOLDERS) {
+        await driveEnsureChildFolder(token, monthId, sub);
+      }
+    }),
+  );
+}
+
+/**
+ * Provisiona a pasta de um cliente: cria (ou reusa) `<nome>` dentro de parentId,
+ * garante as 5 categorias (00–04) e, quando `month` é informado, a árvore do mês
+ * sob 01/02. Idempotente. parentId omitido = raiz do "Meu Drive" ("root").
  * Retorna id + link da pasta raiz do cliente.
  */
 export async function driveProvisionClientFolder(
   token: string,
   clientName: string,
   parentId?: string,
+  month?: { year: number; month: number },
 ): Promise<{ id: string; url: string }> {
   const name = (clientName || "Cliente").trim().slice(0, 120);
   const rootId = await driveEnsureChildFolder(token, parentId || "root", name);
   for (const cat of DRIVE_CATEGORIES) {
     await driveEnsureChildFolder(token, rootId, cat.name);
   }
+  if (month) await driveEnsureClientMonth(token, rootId, month.year, month.month);
   return { id: rootId, url: driveFolderUrl(rootId) };
 }
 

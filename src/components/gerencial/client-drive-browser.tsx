@@ -208,7 +208,8 @@ export function ClientDriveBrowser({ clientId }: { clientId: string }) {
         <div className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">
           <p>
             Este cliente ainda não tem pasta no Drive. Clique abaixo para criar a estrutura padrão
-            (<strong>{"<Cliente>"}</strong> → 00. Material de Apoio · 01. Redes Sociais · 02. Performance · 03. Relatórios · 04. Materiais Pontuais) na conta Google conectada.
+            na conta Google conectada: <strong>{"<Cliente>"}</strong> → 00. Material de Apoio · 01. Redes Sociais · 02. Performance · 03. Relatórios · 04. Materiais Pontuais, com a árvore
+            <strong> Ano → Mês → Histórico/Finalizadas/Desenvolvimento</strong> dentro de Redes Sociais e Performance.
           </p>
           <button
             onClick={provision}
