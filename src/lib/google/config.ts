@@ -14,15 +14,17 @@ export const APP_URL =
 export const GOOGLE_REDIRECT_URI = `${APP_URL}/api/google/callback`;
 
 /**
- * Escopos: e-mail (identificação) + Calendar (eventos) + Drive.file (pastas e
- * arquivos criados pela plataforma — escopo NÃO-restrito, dispensa verificação
- * do Google). Após adicionar, é preciso RECONECTAR o Google para conceder Drive.
+ * Escopos: e-mail (identificação) + Calendar (eventos) + Drive COMPLETO (navegar
+ * e editar/criar/excluir arquivos nas pastas do cliente que a conta possui ou que
+ * foram compartilhadas com ela). ATENÇÃO: `drive` é escopo RESTRITO — em produção
+ * exige verificação do Google; em modo "Testing" funciona com usuários de teste.
+ * Após alterar, é preciso RECONECTAR o Google.
  */
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
   "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive",
 ] as const;
 
 export function isGoogleConfigured(): boolean {

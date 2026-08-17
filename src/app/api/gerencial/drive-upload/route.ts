@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isGoogleConfigured } from "@/lib/google/config";
+import { getValidAccess } from "@/lib/google/client";
 import { uploadToClientDrive } from "@/lib/google/drive-store";
-import { DRIVE_CATEGORIES } from "@/lib/google/drive";
+import { DRIVE_CATEGORIES, driveUploadFile } from "@/lib/google/drive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,24 +25,44 @@ export async function POST(req: Request) {
   const file = form?.get("file");
   const clientId = String(form?.get("clientId") ?? "");
   const category = String(form?.get("category") ?? "00");
-  if (!clientId) return NextResponse.json({ error: "clientId ausente" }, { status: 400 });
+  const folderId = String(form?.get("folderId") ?? "");
   if (!(file instanceof File)) return NextResponse.json({ error: "arquivo ausente" }, { status: 400 });
+  if (!clientId && !folderId) return NextResponse.json({ error: "clientId/folderId ausente" }, { status: 400 });
   if (file.size > 100 * 1024 * 1024) return NextResponse.json({ error: "arquivo acima de 100MB" }, { status: 413 });
   const cat = CATS.has(category) ? category : "00";
 
   try {
     const bytes = await file.arrayBuffer();
-    const uploaded = await uploadToClientDrive(clientId, cat, {
-      name: file.name,
-      mimeType: file.type || "application/octet-stream",
-      bytes,
-    });
+    // folderId: sobe direto na pasta atual (navegador). Senão: categoria do cliente.
+    let uploaded;
+    if (folderId) {
+      const access = await getValidAccess();
+      if (!access?.token) throw new Error("google-desconectado");
+      uploaded = await driveUploadFile(access.token, {
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        bytes,
+        parentId: folderId,
+      });
+    } else {
+      uploaded = await uploadToClientDrive(clientId, cat, {
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        bytes,
+      });
+    }
     return NextResponse.json({ ok: true, file: uploaded });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (msg === "google-desconectado") {
       return NextResponse.json(
         { error: "Google Drive não conectado. Vá em Integrações e (re)conecte o Google para habilitar o Drive." },
+        { status: 409 },
+      );
+    }
+    if (msg === "sem-pasta") {
+      return NextResponse.json(
+        { error: "Cliente sem pasta do Drive. Cadastre o link da pasta em Contatos & briefing." },
         { status: 409 },
       );
     }

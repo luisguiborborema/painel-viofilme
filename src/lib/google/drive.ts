@@ -1,8 +1,7 @@
 /**
- * Cliente do Google Drive (server-only), escopo drive.file: a plataforma cria
- * e gerencia as pastas/arquivos que ela mesma cria — não acessa arquivos
- * pré-existentes do usuário (isso exigiria escopo restrito + verificação).
- * A conta é a mesma conexão "agency" do Calendar (getValidAccess).
+ * Cliente do Google Drive (server-only). Usa a conexão "agency" (getValidAccess)
+ * com escopo drive COMPLETO — navega e edita as pastas/arquivos que a conta
+ * conectada possui ou que foram compartilhados com ela (as pastas do cliente).
  */
 const DRIVE = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
@@ -17,26 +16,88 @@ export const DRIVE_CATEGORIES: { key: string; name: string }[] = [
   { key: "04", name: "04. Materiais Pontuais" },
 ];
 
-/** Cria uma pasta no Drive (opcionalmente dentro de parentId). Retorna o id. */
+export type DriveEntry = {
+  id: string;
+  name: string;
+  isFolder: boolean;
+  mimeType: string;
+  url?: string;
+  iconUrl?: string;
+  size?: number;
+  modifiedAt?: string;
+};
+
+/** Extrai o id da pasta de um link do Drive (…/folders/<id>, ?id=<id> ou id cru). */
+export function parseDriveFolderId(input?: string | null): string | null {
+  if (!input) return null;
+  const s = String(input).trim();
+  const m = s.match(/\/folders\/([\w-]+)/) || s.match(/[?&]id=([\w-]+)/);
+  if (m) return m[1];
+  if (/^[\w-]{16,}$/.test(s)) return s; // id cru
+  return null;
+}
+
+function auth(token: string) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** Nome de uma pasta/arquivo (para breadcrumb e validação). */
+export async function driveGetName(token: string, fileId: string): Promise<{ id: string; name: string } | null> {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=id,name&supportsAllDrives=true`, { headers: auth(token), cache: "no-store" });
+  if (!res.ok) return null;
+  return (await res.json()) as { id: string; name: string };
+}
+
+/** Lista o conteúdo de uma pasta (subpastas primeiro, depois arquivos). */
+export async function driveListChildren(token: string, folderId: string): Promise<DriveEntry[]> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,webViewLink,iconLink,size,modifiedTime)");
+  const res = await fetch(
+    `${DRIVE}/files?q=${q}&fields=${fields}&pageSize=200&orderBy=folder,name&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: auth(token), cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`drive: falha ao listar (${res.status})`);
+  const j = (await res.json()) as {
+    files?: { id: string; name: string; mimeType: string; webViewLink?: string; iconLink?: string; size?: string; modifiedTime?: string }[];
+  };
+  return (j.files ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    isFolder: f.mimeType === FOLDER_MIME,
+    mimeType: f.mimeType,
+    url: f.webViewLink,
+    iconUrl: f.iconLink,
+    size: f.size ? Number(f.size) : undefined,
+    modifiedAt: f.modifiedTime,
+  }));
+}
+
+/** Cria uma pasta dentro de parentId. Retorna o id. */
 export async function driveCreateFolder(token: string, name: string, parentId?: string): Promise<string> {
-  const res = await fetch(`${DRIVE}/files?fields=id`, {
+  const res = await fetch(`${DRIVE}/files?fields=id&supportsAllDrives=true`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { ...auth(token), "Content-Type": "application/json" },
     cache: "no-store",
-    body: JSON.stringify({
-      name,
-      mimeType: FOLDER_MIME,
-      ...(parentId ? { parents: [parentId] } : {}),
-    }),
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }),
   });
   if (!res.ok) throw new Error(`drive: falha ao criar pasta (${res.status})`);
-  const j = (await res.json()) as { id: string };
-  return j.id;
+  return ((await res.json()) as { id: string }).id;
+}
+
+/** Acha uma subpasta por nome dentro de parentId; cria se não existir. */
+export async function driveEnsureChildFolder(token: string, parentId: string, name: string): Promise<string> {
+  const q = encodeURIComponent(`'${parentId}' in parents and name='${name.replace(/'/g, "\\'")}' and mimeType='${FOLDER_MIME}' and trashed=false`);
+  const res = await fetch(`${DRIVE}/files?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: auth(token), cache: "no-store" });
+  if (res.ok) {
+    const j = (await res.json()) as { files?: { id: string }[] };
+    if (j.files?.[0]?.id) return j.files[0].id;
+  }
+  return driveCreateFolder(token, name, parentId);
 }
 
 export type DriveFile = { id: string; name: string; url?: string };
 
-/** Sobe um arquivo (bytes) para uma pasta do Drive via multipart. */
+/** Sobe um arquivo (bytes) para uma pasta via multipart. */
 export async function driveUploadFile(
   token: string,
   input: { name: string; mimeType: string; bytes: ArrayBuffer; parentId: string },
@@ -46,13 +107,35 @@ export async function driveUploadFile(
   const pre = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${input.mimeType || "application/octet-stream"}\r\n\r\n`;
   const post = `\r\n--${boundary}--`;
   const body = new Blob([pre, input.bytes, post]);
-  const res = await fetch(`${UPLOAD}/files?uploadType=multipart&fields=id,name,webViewLink`, {
+  const res = await fetch(`${UPLOAD}/files?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+    headers: { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` },
     cache: "no-store",
     body,
   });
   if (!res.ok) throw new Error(`drive: falha no upload (${res.status})`);
   const j = (await res.json()) as { id: string; name: string; webViewLink?: string };
   return { id: j.id, name: j.name, url: j.webViewLink };
+}
+
+/** Renomeia um arquivo/pasta. */
+export async function driveRename(token: string, fileId: string, name: string): Promise<void> {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=id&supportsAllDrives=true`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(`drive: falha ao renomear (${res.status})`);
+}
+
+/** Move um arquivo/pasta para a lixeira do Drive (reversível). */
+export async function driveTrash(token: string, fileId: string): Promise<void> {
+  const res = await fetch(`${DRIVE}/files/${fileId}?fields=id&supportsAllDrives=true`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ trashed: true }),
+  });
+  if (!res.ok) throw new Error(`drive: falha ao excluir (${res.status})`);
 }
