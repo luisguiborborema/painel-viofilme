@@ -628,6 +628,7 @@ import {
   type HourBankView,
   type PdiItem,
   type ReviewItem,
+  type RhDocument,
 } from "./rh";
 
 /** Banco de horas: saldo do mês por colaborador (real via hour_entries). */
@@ -673,6 +674,12 @@ export async function getReviewsView(): Promise<ReviewItem[]> {
     if (rows) return rows;
   }
   return getReviewsMock();
+}
+
+/** Documentos admissionais de um colaborador (real via rh_documents). */
+export async function getRhDocumentsView(collaboratorId: string): Promise<RhDocument[]> {
+  if (isSupabaseConfigured()) return sb.sbGetRhDocuments(collaboratorId);
+  return [];
 }
 
 /** Um colaborador por id (para o perfil individual). */

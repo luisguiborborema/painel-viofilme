@@ -308,6 +308,26 @@ export function getAnnouncements(): Announcement[] {
   ];
 }
 
+// --- Documentos admissionais -------------------------------------------------
+export type RhDocument = {
+  id: string;
+  title: string;
+  url: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  kind: string; // contrato|holerite|aso|cnd|outro
+  createdAt?: string;
+};
+
+export const RH_DOCUMENT_KINDS: { key: string; label: string }[] = [
+  { key: "contrato", label: "Contrato" },
+  { key: "holerite", label: "Holerite" },
+  { key: "aso", label: "ASO" },
+  { key: "cnd", label: "CND" },
+  { key: "outro", label: "Outro" },
+];
+
 // --- Perfil individual -------------------------------------------------------
 export type EmployeeProfile = {
   employee: Employee;

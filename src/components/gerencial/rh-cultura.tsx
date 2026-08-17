@@ -913,8 +913,10 @@ function DocumentosTab() {
         <FileText className="h-6 w-6" />
       </span>
       <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-        Repositório de documentos admissionais por colaborador — contratos,
-        holerites, ASOs e CNDs. <span className="text-muted/80">(em breve)</span>
+        Os documentos admissionais (contratos, holerites, ASOs e CNDs) ficam na
+        <strong className="text-ink"> ficha de cada colaborador</strong>. Abra um
+        colaborador na aba <strong className="text-ink">Time</strong> para enviar
+        e baixar os arquivos dele.
       </p>
     </Card>
   );

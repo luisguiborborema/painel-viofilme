@@ -60,6 +60,7 @@ import type {
   PdiObjectiveStatus,
   ReviewItem,
   ReviewStatus,
+  RhDocument,
 } from "./rh";
 import type { FluxPost, FluxState, FluxNetwork } from "./flux";
 import {
@@ -1418,6 +1419,29 @@ export async function sbGetReviews(): Promise<ReviewItem[] | null> {
     leaderScore: Number(r.leader_score ?? 0),
     note: (r.note as string) ?? "",
     status: (st.has(String(r.status)) ? r.status : "pending") as ReviewStatus,
+  }));
+}
+
+/** Documentos admissionais de um colaborador — tabela rh_documents. */
+export async function sbGetRhDocuments(collaboratorId: string): Promise<RhDocument[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("rh_documents")
+    .select("id, title, url, file_name, file_type, file_size, kind, created_at")
+    .eq("collaborator_id", collaboratorId)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as {
+    id: string; title: string; url: string; file_name: string | null;
+    file_type: string | null; file_size: number | null; kind: string | null; created_at: string | null;
+  }[]).map((d) => ({
+    id: d.id,
+    title: d.title,
+    url: d.url,
+    fileName: d.file_name ?? undefined,
+    fileType: d.file_type ?? undefined,
+    fileSize: d.file_size ?? undefined,
+    kind: d.kind ?? "outro",
+    createdAt: d.created_at ?? undefined,
   }));
 }
 

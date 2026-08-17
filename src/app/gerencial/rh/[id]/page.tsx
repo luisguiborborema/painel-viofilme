@@ -5,8 +5,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
-  Download,
-  FileText,
   Mail,
   Pencil,
   Phone,
@@ -15,7 +13,8 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { type PdiObjectiveStatus } from "@/lib/data/rh";
-import { getEmployeeProfileView } from "@/lib/data/queries";
+import { getEmployeeProfileView, getRhDocumentsView } from "@/lib/data/queries";
+import { RhDocumentsTab } from "@/components/gerencial/rh-documents-tab";
 import { cn, formatNumber } from "@/lib/utils";
 
 function initials(name: string) {
@@ -76,6 +75,7 @@ export default async function EmployeeProfile({
   const p = await getEmployeeProfileView(id);
   if (!p) notFound();
   const e = p.employee;
+  const rhDocs = await getRhDocumentsView(id);
 
   return (
     <div className="space-y-4">
@@ -194,25 +194,7 @@ export default async function EmployeeProfile({
             </button>
           </Card>
 
-          <Card className="p-5">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              Documentos
-            </h2>
-            <ul className="divide-y divide-line">
-              {p.documents.map((doc) => (
-                <li key={doc.id} className="flex items-center gap-3 py-2.5">
-                  <FileText className="h-4 w-4 text-muted" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-ink">{doc.title}</p>
-                    <p className="text-xs text-muted">{doc.meta}</p>
-                  </div>
-                  <button className="text-muted hover:text-ink">
-                    <Download className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          <RhDocumentsTab collaboratorId={id} initial={rhDocs} />
         </div>
 
         {/* Coluna direita */}
