@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Claude Code (config local da ferramenta)
 .claude/
+
+# Referência local de estrutura de pastas (não versionar)
+CLIENTE.zip
