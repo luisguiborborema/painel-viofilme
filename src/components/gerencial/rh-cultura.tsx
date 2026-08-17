@@ -914,11 +914,8 @@ function DocumentosTab() {
       </span>
       <p className="mx-auto mt-3 max-w-md text-sm text-muted">
         Repositório de documentos admissionais por colaborador — contratos,
-        holerites, ASOs e CNDs.
+        holerites, ASOs e CNDs. <span className="text-muted/80">(em breve)</span>
       </p>
-      <button className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">
-        <FolderOpen className="h-4 w-4" /> Abrir repositório
-      </button>
     </Card>
   );
 }

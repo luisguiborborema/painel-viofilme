@@ -1,6 +1,7 @@
-import { ChevronDown, Download, Plus, Wallet } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { getGerFinance } from "@/lib/data/queries";
 import { FinanceTabs } from "@/components/gerencial/finance-tabs";
+import { FinanceHeaderActions } from "@/components/gerencial/finance-header-actions";
 
 export default async function GerencialFinanceiro() {
   const data = await getGerFinance();
@@ -24,14 +25,8 @@ export default async function GerencialFinanceiro() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink">
             {data.periodLabel}
-            <ChevronDown className="h-4 w-4 text-muted" />
           </div>
-          <button className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle">
-            <Download className="h-4 w-4" /> Exportar
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600">
-            <Plus className="h-4 w-4" /> Nova cobrança
-          </button>
+          <FinanceHeaderActions />
         </div>
       </div>
 
