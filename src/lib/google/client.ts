@@ -15,6 +15,7 @@ import type { GoogleStatus } from "./types";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
+const TOKENINFO_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo";
 
 type TokenResponse = {
   access_token: string;
@@ -180,6 +181,39 @@ export async function disconnectGoogle(): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin.from("google_connections").delete().eq("scope", "agency");
   return !error;
+}
+
+export type GoogleScopeInfo = {
+  scopes: string[];
+  hasCalendar: boolean;
+  hasDriveFull: boolean;
+  hasDriveFile: boolean;
+};
+
+/**
+ * Escopos REALMENTE concedidos ao token atual — verdade de campo via o endpoint
+ * `tokeninfo` do Google (não o que o app pediu). null se não conectado/indisponível.
+ * Usado na tela de Integrações para diagnosticar o escopo do Drive.
+ */
+export async function getGoogleGrantedScopes(): Promise<GoogleScopeInfo | null> {
+  const access = await getValidAccess();
+  if (!access?.token) return null;
+  try {
+    const res = await fetch(`${TOKENINFO_URL}?access_token=${encodeURIComponent(access.token)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { scope?: string };
+    const scopes = j.scope ? j.scope.split(/\s+/).filter(Boolean) : [];
+    return {
+      scopes,
+      hasCalendar: scopes.includes("https://www.googleapis.com/auth/calendar"),
+      hasDriveFull: scopes.includes("https://www.googleapis.com/auth/drive"),
+      hasDriveFile: scopes.includes("https://www.googleapis.com/auth/drive.file"),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Status da conexão para as telas de Integrações/Agenda. */

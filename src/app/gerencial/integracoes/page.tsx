@@ -21,7 +21,7 @@ import {
   GOOGLE_REDIRECT_URI,
   isGoogleConfigured,
 } from "@/lib/google/config";
-import { getGoogleStatus } from "@/lib/google/client";
+import { getGoogleStatus, getGoogleGrantedScopes } from "@/lib/google/client";
 import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
 import { GoogleDisconnectButton } from "@/components/gerencial/google-disconnect-button";
 
@@ -51,6 +51,7 @@ export default async function GerencialIntegracoes({
   const configured = isMetaConfigured();
   const googleConfigured = isGoogleConfigured();
   const google = await getGoogleStatus();
+  const googleScopes = google.connected ? await getGoogleGrantedScopes() : null;
 
   return (
     <div>
@@ -123,6 +124,48 @@ export default async function GerencialIntegracoes({
           </div>
         </div>
         {google.connected && <GoogleCalendarPicker />}
+
+        {google.connected && (
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              Permissões concedidas ao token
+            </p>
+            {googleScopes ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {googleScopes.hasDriveFull ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                      <CheckCircle2 className="h-3 w-3" /> Google Drive completo — editar/criar/apagar nas pastas dos clientes
+                    </span>
+                  ) : googleScopes.hasDriveFile ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
+                      <AlertTriangle className="h-3 w-3" /> Drive limitado (drive.file) — reconecte para habilitar as pastas dos clientes
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700">
+                      <AlertTriangle className="h-3 w-3" /> Sem acesso ao Drive — reconecte o Google
+                    </span>
+                  )}
+                  {googleScopes.hasCalendar && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                      <CheckCircle2 className="h-3 w-3" /> Google Agenda
+                    </span>
+                  )}
+                </div>
+                {!googleScopes.hasDriveFull && (
+                  <p className="text-xs text-amber-700">
+                    A criação automática de pastas e o navegador do Drive só funcionam com o escopo{" "}
+                    <code>drive</code> completo. Clique em <strong>Reconectar</strong> acima para atualizar o token.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted">
+                Não foi possível ler os escopos do token agora. Se o Drive não funcionar, tente reconectar.
+              </p>
+            )}
+          </div>
+        )}
       </Card>
 
       {!googleConfigured && (
