@@ -85,7 +85,7 @@ export const RESPONSIBLE_ROLES: { key: ResponsibleRole; label: string }[] = [
   { key: "social", label: "Social" },
   { key: "performance", label: "Performance" },
   { key: "designer", label: "Designer" },
-  { key: "copy", label: "Copy" },
+  { key: "copy", label: "Editor de Vídeo" },
 ];
 
 /** Serviços contratados a partir do plano. */

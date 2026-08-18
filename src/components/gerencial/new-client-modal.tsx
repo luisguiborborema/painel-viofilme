@@ -24,7 +24,7 @@ const RESP_ROLES = [
   { key: "social", label: "Social" },
   { key: "performance", label: "Performance" },
   { key: "designer", label: "Designer" },
-  { key: "copy", label: "Copy" },
+  { key: "copy", label: "Editor de Vídeo" },
 ] as const;
 const COMMON_SERVICES = ["Social", "Tráfego", "Design", "Copy", "UGC", "Site", "E-commerce"];
 const DEL_FORMATS = ["Reels", "Feed", "Stories", "Carrossel"] as const;
