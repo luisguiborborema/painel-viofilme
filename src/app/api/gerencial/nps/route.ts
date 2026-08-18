@@ -7,12 +7,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = {
-  action?: "create" | "delete";
+  action?: "create" | "delete" | "invite";
   id?: string;
   clientId?: string;
   score?: number;
   comment?: string;
   respondent?: string;
+  channel?: string;
 };
 
 /** Pesquisas de NPS por cliente (gerencial). Registro manual pelo CS. */
@@ -38,6 +39,41 @@ export async function POST(req: Request) {
     const { error } = await supabase.from("nps_surveys").delete().eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true });
+  }
+
+  // invite: cria um convite pendente (sem nota) e devolve o token + contato
+  // do cliente para o botão montar o link (WhatsApp / e-mail / copiar).
+  if (action === "invite") {
+    const clientId = (b.clientId ?? "").trim();
+    if (!clientId) return NextResponse.json({ error: "clientId ausente" }, { status: 400 });
+    const channel = ["whatsapp", "email", "manual"].includes(String(b.channel)) ? b.channel : "manual";
+    const { data, error } = await supabase
+      .from("nps_surveys")
+      .insert({ client_id: clientId, status: "pending", channel, sent_at: new Date().toISOString(), created_by: user.id })
+      .select("id, public_token")
+      .single();
+    if (error) {
+      if (/public_token|status|42703|column .* does not exist/i.test(error.message)) {
+        return NextResponse.json(
+          { error: "Recurso de NPS por link ainda não ativado. Rode a migração 0116_nps_invites.sql." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const { data: c } = await supabase
+      .from("clients")
+      .select("name, whatsapp, contact_email")
+      .eq("id", clientId)
+      .maybeSingle();
+    return NextResponse.json({
+      ok: true,
+      id: data.id,
+      token: data.public_token,
+      clientName: c?.name ?? "",
+      whatsapp: c?.whatsapp ?? "",
+      email: c?.contact_email ?? "",
+    });
   }
 
   // create

@@ -1772,7 +1772,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       .not("client_id", "is", null)
       .lte("due_date", todayStr),
     supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
-    supabase.from("nps_surveys").select("client_id, score, created_at").order("created_at", { ascending: false }),
+    supabase.from("nps_surveys").select("client_id, score, created_at").not("score", "is", null).order("created_at", { ascending: false }),
     supabase.from("editorial_lines").select("client_id, month, stage"),
     supabase.from("client_services").select("client_id, services(name)"),
     supabase.from("client_deliverables").select("client_id, format, monthly_qty"),
@@ -1959,6 +1959,7 @@ export async function sbGetCSClientDetail(id: string): Promise<CSClientDetail | 
       .from("nps_surveys")
       .select("score, comment, created_at")
       .eq("client_id", id)
+      .not("score", "is", null)
       .order("created_at", { ascending: false })
       .limit(20),
     supabase
