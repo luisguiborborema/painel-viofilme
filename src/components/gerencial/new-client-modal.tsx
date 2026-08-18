@@ -230,7 +230,12 @@ export function NewClientButton() {
                 <div className="space-y-2">
                   {recurring.map((l) => {
                     const svc = cat.services.find((s) => s.id === l.serviceId);
-                    const squadOpts = svc ? cat.squads.filter((s) => s.area === svc.area) : [];
+                    // Mostra TODOS os squads (os da mesma área do serviço primeiro),
+                    // não só os que casam a área — squads criados em Usuários podem
+                    // não ter área alinhada às áreas de serviço.
+                    const squadOpts = svc
+                      ? [...cat.squads].sort((a, b) => Number(b.area === svc.area) - Number(a.area === svc.area))
+                      : cat.squads;
                     const analystOpts = l.squadId ? (cat.people.filter((p) => p.squadId === l.squadId).length ? cat.people.filter((p) => p.squadId === l.squadId) : cat.people) : [];
                     return (
                       <div key={l.key} className="rounded-xl border border-line p-2.5">
