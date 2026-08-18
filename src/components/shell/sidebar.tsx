@@ -121,7 +121,7 @@ export function Sidebar({
                     <ChevronRight className="ml-auto h-4 w-4 opacity-60" />
                   </Link>
                   <div className="absolute left-full top-0 z-50 hidden pl-2 group-hover/hub:block">
-                    <div className="min-w-56 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+                    <div className="max-h-[calc(100dvh-1.5rem)] min-w-56 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl">
                       <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
                         Abas do cliente
                       </p>
@@ -259,7 +259,7 @@ export function Sidebar({
                 </button>
                 {/* Flyout lateral — o pl-2 faz a ponte de hover sem gap. */}
                 <div className="absolute left-full top-0 z-50 hidden pl-2 group-hover/gr:block">
-                  <div className="min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+                  <div className="max-h-[calc(100dvh-1.5rem)] min-w-52 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl">
                     <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{group.title}</p>
                     {group.items.map(renderFlyoutItem)}
                   </div>
