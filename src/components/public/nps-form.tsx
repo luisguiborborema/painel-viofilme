@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NPS_DEFAULTS, type NpsConfig } from "@/lib/data/nps";
 
 function scoreTone(n: number, active: boolean) {
   if (!active) return "border-line bg-surface text-ink hover:border-brand-400 hover:bg-subtle";
@@ -16,10 +17,12 @@ export function NpsForm({
   token,
   clientName,
   alreadyAnswered,
+  config = NPS_DEFAULTS,
 }: {
   token: string;
   clientName: string;
   alreadyAnswered: boolean;
+  config?: NpsConfig;
 }) {
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
@@ -66,18 +69,16 @@ export function NpsForm({
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
               <CheckCircle2 className="h-7 w-7" />
             </span>
-            <h1 className="mt-4 text-xl font-bold text-ink">Obrigado pelo seu feedback! 💚</h1>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-              Sua opinião nos ajuda a melhorar cada vez mais o trabalho{clientName ? ` com a ${clientName}` : ""}.
-            </p>
+            <h1 className="mt-4 text-xl font-bold text-ink">Obrigado pelo seu feedback!</h1>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">{config.thankYou}</p>
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-bold leading-snug text-ink">
-              De 0 a 10, o quanto você recomendaria a <span className="text-brand-600">Viofilme</span> para um amigo ou colega?
-            </h1>
-            {clientName && (
-              <p className="mt-1.5 text-sm text-muted">Pesquisa de satisfação · {clientName}</p>
+            <h1 className="text-2xl font-bold leading-snug text-ink">{config.headline}</h1>
+            {(config.intro || clientName) && (
+              <p className="mt-1.5 text-sm text-muted">
+                {config.intro || `Pesquisa de satisfação${clientName ? ` · ${clientName}` : ""}`}
+              </p>
             )}
 
             {/* Escala 0–10 */}
@@ -102,7 +103,7 @@ export function NpsForm({
 
             <label className="mt-6 block">
               <span className="mb-1.5 block text-sm font-medium text-ink">
-                Quer deixar um comentário? <span className="font-normal text-muted">(opcional)</span>
+                {config.commentLabel} <span className="font-normal text-muted">(opcional)</span>
               </span>
               <textarea
                 value={comment}

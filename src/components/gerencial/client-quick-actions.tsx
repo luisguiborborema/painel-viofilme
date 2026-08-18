@@ -13,8 +13,10 @@ import {
   Loader2,
   Mail,
   MessageCircle,
+  Settings2,
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
+import { NpsConfigModal } from "@/components/gerencial/nps-config-modal";
 
 type CaptureFormItem = { id: string; name: string; slug: string; destination: string };
 
@@ -42,6 +44,7 @@ export function ClientQuickActions({
   const [npsBusy, setNpsBusy] = useState(false);
   const [npsCopied, setNpsCopied] = useState(false);
   const [nps, setNps] = useState<{ token: string; whatsapp: string; email: string } | null>(null);
+  const [npsCfgOpen, setNpsCfgOpen] = useState(false);
 
   async function toggleNps() {
     const next = !npsOpen;
@@ -222,10 +225,19 @@ export function ClientQuickActions({
                   </a>
                 </div>
               )}
+              <div className="mt-1 border-t border-line pt-1">
+                <button
+                  onClick={() => { setNpsOpen(false); setNpsCfgOpen(true); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-muted hover:bg-subtle hover:text-ink"
+                >
+                  <Settings2 className="h-3.5 w-3.5" /> Personalizar perguntas
+                </button>
+              </div>
             </div>
           </>
         )}
       </div>
+      {npsCfgOpen && <NpsConfigModal onClose={() => setNpsCfgOpen(false)} />}
 
       <a
         href={`/api/relatorio/pdf?clientId=${clientId}`}
