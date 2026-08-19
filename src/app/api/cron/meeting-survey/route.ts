@@ -33,8 +33,11 @@ export async function GET(request: Request) {
 
   const n = Math.max(0, Math.min(Number(cfg.delay_hours) || 2, 168));
   const now = Date.now();
+  // Cron roda 1×/dia (limite do plano Hobby). Captamos reuniões cujo "horário de
+  // envio" (fim + N horas) já passou, olhando ~2 dias para trás. O dedup por
+  // meeting_ref garante que cada reunião recebe a pesquisa uma única vez.
   const windowEnd = new Date(now - n * HOUR).toISOString(); // terminou até N horas atrás
-  const windowStart = new Date(now - (n + 1) * HOUR).toISOString(); // ...e não antes de N+1h (janela do cron horário)
+  const windowStart = new Date(now - (n + 48) * HOUR).toISOString(); // ...dentro dos últimos ~2 dias
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 
   const { data: events } = await admin
