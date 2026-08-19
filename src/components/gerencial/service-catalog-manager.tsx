@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Repeat, Trash2, Zap } from "lucide-react";
+import { Check, Loader2, Pencil, Plus, Repeat, Trash2, X, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,9 @@ export function ServiceCatalogManager() {
   const [nsArea, setNsArea] = useState("Social");
   // novo plano por serviço
   const [planDraft, setPlanDraft] = useState<Record<string, { label: string; price: string }>>({});
+  // edição inline
+  const [editSvc, setEditSvc] = useState<{ id: string; label: string; type: string; area: string } | null>(null);
+  const [editPlan, setEditPlan] = useState<{ id: string; label: string; price: string } | null>(null);
 
   async function load() {
     const res = await fetch("/api/gerencial/service-catalog", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
@@ -81,6 +84,28 @@ export function ServiceCatalogManager() {
     load();
   }
 
+  async function saveSvc() {
+    if (!editSvc) return;
+    if (!editSvc.label.trim()) { toast("Informe o nome do serviço.", "error"); return; }
+    setBusy(`edit-${editSvc.id}`);
+    const r = await api({ action: "update-service", id: editSvc.id, label: editSvc.label.trim(), type: editSvc.type, area: editSvc.area });
+    setBusy(null);
+    if (!r.ok) { toast(r.error ?? "Falha.", "error"); return; }
+    setEditSvc(null);
+    load();
+  }
+
+  async function savePlan() {
+    if (!editPlan) return;
+    if (!editPlan.label.trim()) { toast("Informe o nome do plano/formato.", "error"); return; }
+    setBusy(`editp-${editPlan.id}`);
+    const r = await api({ action: "update-plan", id: editPlan.id, label: editPlan.label.trim(), defaultPrice: num(editPlan.price) });
+    setBusy(null);
+    if (!r.ok) { toast(r.error ?? "Falha.", "error"); return; }
+    setEditPlan(null);
+    load();
+  }
+
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted" /></div>;
 
   const recorrentes = services.filter((s) => s.type === "recorrente");
@@ -88,30 +113,65 @@ export function ServiceCatalogManager() {
 
   const renderService = (s: Svc) => {
     const d = planDraft[s.id] ?? { label: "", price: "" };
+    const isEditing = editSvc?.id === s.id;
     return (
       <Card key={s.id} className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">{s.label}</p>
-            <p className="text-[11px] uppercase tracking-wide text-brand-600">{s.area}</p>
+        {isEditing ? (
+          <div className="space-y-2">
+            <input value={editSvc.label} onChange={(e) => setEditSvc({ ...editSvc, label: e.target.value })} placeholder="Nome do serviço" className={inputCls} />
+            <div className="flex gap-2">
+              <select value={editSvc.type} onChange={(e) => setEditSvc({ ...editSvc, type: e.target.value })} className={inputCls}>
+                <option value="recorrente">Recorrente</option>
+                <option value="pontual">Pontual</option>
+              </select>
+              <select value={editSvc.area} onChange={(e) => setEditSvc({ ...editSvc, area: e.target.value })} className={inputCls}>
+                {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <button onClick={saveSvc} disabled={busy === `edit-${s.id}`} className="inline-flex h-9 shrink-0 items-center rounded-lg bg-brand-600 px-2.5 text-white hover:bg-brand-700 disabled:opacity-60">
+                {busy === `edit-${s.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </button>
+              <button onClick={() => setEditSvc(null)} className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line px-2.5 text-muted hover:text-ink"><X className="h-4 w-4" /></button>
+            </div>
           </div>
-          <button onClick={() => delService(s.id)} disabled={busy === s.id} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50">
-            {busy === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{s.label}</p>
+              <p className="text-[11px] uppercase tracking-wide text-brand-600">{s.area}</p>
+            </div>
+            <div className="flex shrink-0 items-center">
+              <button onClick={() => setEditSvc({ id: s.id, label: s.label, type: s.type, area: s.area })} className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-ink" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+              <button onClick={() => delService(s.id)} disabled={busy === s.id} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50">
+                {busy === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-2 space-y-1">
           {s.plans.length === 0 && <p className="text-xs text-muted">Nenhum plano/formato ainda.</p>}
           {s.plans.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg bg-subtle px-2.5 py-1.5 text-sm">
-              <span className="text-ink">{p.label}</span>
-              <span className="flex items-center gap-2">
-                <span className="text-xs text-muted">{p.defaultPrice > 0 ? money(p.defaultPrice) : "sem preço"}</span>
-                <button onClick={() => delPlan(p.id)} disabled={busy === p.id} className="text-muted hover:text-rose-500 disabled:opacity-50">
-                  {busy === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+            editPlan?.id === p.id ? (
+              <div key={p.id} className="flex items-center gap-1.5 rounded-lg bg-subtle px-2 py-1.5">
+                <input value={editPlan.label} onChange={(e) => setEditPlan({ ...editPlan, label: e.target.value })} className={inputCls + " flex-1"} />
+                <input value={editPlan.price} onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })} inputMode="decimal" placeholder="Preço" className={inputCls + " w-24"} />
+                <button onClick={savePlan} disabled={busy === `editp-${p.id}`} className="inline-flex h-9 items-center rounded-lg bg-brand-600 px-2 text-white hover:bg-brand-700 disabled:opacity-60">
+                  {busy === `editp-${p.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </button>
-              </span>
-            </div>
+                <button onClick={() => setEditPlan(null)} className="inline-flex h-9 items-center rounded-lg border border-line px-2 text-muted hover:text-ink"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ) : (
+              <div key={p.id} className="flex items-center justify-between rounded-lg bg-subtle px-2.5 py-1.5 text-sm">
+                <span className="text-ink">{p.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-xs text-muted">{p.defaultPrice > 0 ? money(p.defaultPrice) : "sem preço"}</span>
+                  <button onClick={() => setEditPlan({ id: p.id, label: p.label, price: p.defaultPrice ? String(p.defaultPrice) : "" })} className="text-muted hover:text-ink" title="Editar"><Pencil className="h-3 w-3" /></button>
+                  <button onClick={() => delPlan(p.id)} disabled={busy === p.id} className="text-muted hover:text-rose-500 disabled:opacity-50">
+                    {busy === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  </button>
+                </span>
+              </div>
+            )
           ))}
         </div>
 
