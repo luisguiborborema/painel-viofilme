@@ -30,6 +30,7 @@ import type { KnowledgeCategory, KnowledgePageCard, ServiceCatalog } from "@/lib
 import { ListaShell, type Col } from "./listas-shell";
 import { CrmList } from "./crm-list";
 import { TabNav } from "@/components/ui/tab-nav";
+import { ServiceCatalogManager } from "@/components/gerencial/service-catalog-manager";
 import { NewContactModal } from "./new-contact-modal";
 import { NewCompanyModal } from "./new-company-modal";
 import { BulkTaskModal } from "./bulk-task-modal";
@@ -266,7 +267,15 @@ export function CrmListas({
         />
       )}
 
-      {sub === "produtos" && <ProdutosCasca services={serviceCatalog} />}
+      {sub === "produtos" && (
+        <div className="space-y-6">
+          <ServiceCatalogManager />
+          <details className="rounded-xl border border-dashed border-line">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-muted">Catálogo rico (custo/margem/proposta) · em construção</summary>
+            <div className="p-4 pt-0"><ProdutosCasca services={serviceCatalog} /></div>
+          </details>
+        </div>
+      )}
       {sub === "processos" && <ProcessosCasca knowledge={knowledge} />}
 
       {newPerson && <NewContactModal companies={companies} onClose={() => setNewPerson(false)} />}
