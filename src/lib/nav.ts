@@ -69,6 +69,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Calendário/Agenda", href: "/gerencial/agenda", icon: CalendarDays, section: "crm" },
       { label: "Atividades", href: "/gerencial/comercial/atividades", icon: ListChecks, section: "crm" },
       { label: "Listas", href: "/gerencial/comercial/listas", icon: Database, section: "crm" },
+      { label: "Disparos em massa", href: "/gerencial/comercial/disparos", icon: Megaphone, section: "crm" },
       { label: "Insights", href: "/gerencial/comercial/insights", icon: BarChart3, section: "crm" },
       { label: "Diagnóstico", href: "/gerencial/diagnostico", icon: Stethoscope, anySection: ["crm", "entregas", "clientes"] },
       { label: "Configurações", href: "/gerencial/comercial/configuracoes", icon: SlidersHorizontal, section: "crm" },
