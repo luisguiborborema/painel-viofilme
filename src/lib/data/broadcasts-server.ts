@@ -45,7 +45,29 @@ export async function getBroadcasts(): Promise<Broadcast[]> {
   try {
     const supabase = await createClient();
     const { data } = await supabase.from("broadcasts").select(COLS).order("created_at", { ascending: false }).limit(200);
-    return (data ?? []).map((r) => toBroadcast(r as Record<string, unknown>));
+    const list = (data ?? []).map((r) => toBroadcast(r as Record<string, unknown>));
+
+    // Amostra de erro para os disparos com falha (1 query só).
+    const failedIds = list.filter((b) => b.failed > 0).map((b) => b.id);
+    if (failedIds.length > 0) {
+      const { data: errs } = await supabase
+        .from("broadcast_recipients")
+        .select("broadcast_id, target, error")
+        .in("broadcast_id", failedIds)
+        .eq("status", "failed")
+        .limit(2000);
+      const sample = new Map<string, string>();
+      for (const e of errs ?? []) {
+        const bid = String((e as { broadcast_id?: unknown }).broadcast_id ?? "");
+        if (bid && !sample.has(bid)) {
+          const t = String((e as { target?: unknown }).target ?? "");
+          const msg = String((e as { error?: unknown }).error ?? "").trim();
+          sample.set(bid, `${t}${msg ? `: ${msg}` : ""}`);
+        }
+      }
+      for (const b of list) b.errorSample = sample.get(b.id) ?? null;
+    }
+    return list;
   } catch {
     return [];
   }

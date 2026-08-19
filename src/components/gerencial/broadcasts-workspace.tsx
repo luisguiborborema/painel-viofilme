@@ -3,12 +3,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Activity, CalendarClock, History, Send, Users } from "lucide-react";
+import { Activity, CalendarClock, History, Loader2, Send, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { TabNav, type TabItem } from "@/components/ui/tab-nav";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { broadcastProgress, statusLabel, statusTone, type Broadcast } from "@/lib/data/broadcasts";
+import { statusLabel, statusTone, type Broadcast } from "@/lib/data/broadcasts";
 import { BroadcastComposer } from "./broadcast-composer";
+import { BroadcastHistory } from "./broadcast-history";
+import { BroadcastDelivery } from "./broadcast-delivery";
 
 type TabKey = "novo" | "agendados" | "historico" | "entrega";
 
@@ -18,36 +21,45 @@ function fmtDate(iso?: string | null) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-function BroadcastRow({ b, dateField }: { b: Broadcast; dateField: "scheduled" | "created" }) {
-  const pct = broadcastProgress(b);
-  return (
-    <li>
-      <Link href={`/gerencial/comercial/disparos/${b.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-subtle">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-subtle text-muted">
-          <Send className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{b.title}</p>
-          <p className="truncate text-xs text-muted">{b.message || "(sem texto)"}</p>
-        </div>
-        <div className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
-          <Users className="h-3.5 w-3.5" /> {b.total}
-        </div>
-        <div className="hidden w-28 sm:block">
-          <div className="h-1.5 overflow-hidden rounded-full bg-subtle">
-            <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mt-0.5 text-right text-[10px] text-muted">{b.sent}/{b.total}{b.failed > 0 ? ` · ${b.failed} falhou` : ""}</p>
-        </div>
-        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", statusTone(b.status))}>{statusLabel(b.status)}</span>
-        <span className="hidden shrink-0 text-xs text-muted md:block">{dateField === "scheduled" ? fmtDate(b.scheduledFor) : fmtDate(b.createdAt)}</span>
-      </Link>
-    </li>
-  );
-}
+function ScheduledList({ items }: { items: Broadcast[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
 
-function EmptyList({ label }: { label: string }) {
-  return <p className="py-12 text-center text-sm text-muted">{label}</p>;
+  async function act(id: string, action: "send" | "cancel") {
+    if (action === "cancel" && !window.confirm("Cancelar este disparo agendado?")) return;
+    setBusy(id);
+    try {
+      const res = await fetch("/api/gerencial/broadcasts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id }),
+      });
+      if (!res.ok) { toast("Não foi possível concluir.", "error"); return; }
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (items.length === 0) return <Card className="p-10 text-center text-sm text-muted">Nenhum disparo agendado.</Card>;
+  return (
+    <div className="space-y-3">
+      {items.map((b) => (
+        <Card key={b.id} className="flex flex-wrap items-center gap-3 p-4">
+          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", statusTone(b.status))}>{statusLabel(b.status)}</span>
+          <div className="min-w-0 flex-1">
+            <Link href={`/gerencial/comercial/disparos/${b.id}`} className="truncate text-sm font-medium text-ink hover:underline">{b.title}</Link>
+            <p className="text-xs text-muted">Envio: {fmtDate(b.scheduledFor)} · {b.total} destino(s){b.instanceName ? ` · ${b.instanceName}` : ""}</p>
+          </div>
+          <button onClick={() => act(b.id, "send")} disabled={busy === b.id} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+            {busy === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Enviar agora
+          </button>
+          <button onClick={() => act(b.id, "cancel")} disabled={busy === b.id} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:text-ink disabled:opacity-60">
+            <X className="h-3.5 w-3.5" /> Cancelar
+          </button>
+        </Card>
+      ))}
+    </div>
+  );
 }
 
 export function BroadcastsWorkspace({
@@ -61,25 +73,12 @@ export function BroadcastsWorkspace({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>("novo");
-
   const scheduled = useMemo(() => broadcasts.filter((b) => b.status === "scheduled"), [broadcasts]);
-  const history = useMemo(() => broadcasts.filter((b) => b.status !== "scheduled"), [broadcasts]);
-
-  // Métricas de entrega (agregado).
-  const stats = useMemo(() => {
-    const done = broadcasts.filter((b) => b.status === "done" || b.status === "sending");
-    const totalSent = broadcasts.reduce((s, b) => s + b.sent, 0);
-    const totalFailed = broadcasts.reduce((s, b) => s + b.failed, 0);
-    const totalTargets = broadcasts.reduce((s, b) => s + b.total, 0);
-    const attempted = totalSent + totalFailed;
-    const rate = attempted > 0 ? Math.round((totalSent / attempted) * 100) : 0;
-    return { campaigns: done.length, totalSent, totalFailed, totalTargets, rate };
-  }, [broadcasts]);
 
   const tabs: TabItem<TabKey>[] = [
     { key: "novo", label: "Novo disparo", icon: Send },
     { key: "agendados", label: "Agendados", icon: CalendarClock, count: scheduled.length },
-    { key: "historico", label: "Histórico", icon: History, count: history.length },
+    { key: "historico", label: "Histórico", icon: History, count: broadcasts.length },
     { key: "entrega", label: "Entrega", icon: Activity },
   ];
 
@@ -91,68 +90,12 @@ export function BroadcastsWorkspace({
         <BroadcastComposer
           clientsWithWa={clientsWithWa}
           leadsWithPhone={leadsWithPhone}
-          onDone={(id) => {
-            if (id) router.push(`/gerencial/comercial/disparos/${id}`);
-            else router.refresh();
-          }}
+          onDone={(id) => { if (id) router.push(`/gerencial/comercial/disparos/${id}`); else router.refresh(); }}
         />
       )}
-
-      {tab === "agendados" && (
-        <Card className="overflow-hidden p-0">
-          {scheduled.length === 0 ? (
-            <EmptyList label="Nenhum disparo agendado." />
-          ) : (
-            <ul className="divide-y divide-line">{scheduled.map((b) => <BroadcastRow key={b.id} b={b} dateField="scheduled" />)}</ul>
-          )}
-        </Card>
-      )}
-
-      {tab === "historico" && (
-        <Card className="overflow-hidden p-0">
-          {history.length === 0 ? (
-            <EmptyList label="Nenhum disparo ainda." />
-          ) : (
-            <ul className="divide-y divide-line">{history.map((b) => <BroadcastRow key={b.id} b={b} dateField="created" />)}</ul>
-          )}
-        </Card>
-      )}
-
-      {tab === "entrega" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Card className="p-4"><p className="text-xs text-muted">Campanhas</p><p className="mt-1 text-2xl font-bold text-ink">{stats.campaigns}</p></Card>
-            <Card className="p-4"><p className="text-xs text-muted">Enviados</p><p className="mt-1 text-2xl font-bold text-emerald-600">{stats.totalSent}</p></Card>
-            <Card className="p-4"><p className="text-xs text-muted">Falhas</p><p className="mt-1 text-2xl font-bold text-rose-600">{stats.totalFailed}</p></Card>
-            <Card className="p-4"><p className="text-xs text-muted">Taxa de entrega</p><p className="mt-1 text-2xl font-bold text-ink">{stats.rate}%</p></Card>
-          </div>
-          <Card className="overflow-hidden p-0">
-            <div className="border-b border-line px-4 py-2.5"><p className="text-sm font-semibold text-ink">Entregas por disparo</p></div>
-            {broadcasts.length === 0 ? (
-              <EmptyList label="Sem dados de entrega ainda." />
-            ) : (
-              <ul className="divide-y divide-line">
-                {broadcasts.map((b) => {
-                  const attempted = b.sent + b.failed;
-                  const rate = attempted > 0 ? Math.round((b.sent / attempted) * 100) : 0;
-                  return (
-                    <li key={b.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/gerencial/comercial/disparos/${b.id}`} className="truncate text-sm font-medium text-ink hover:underline">{b.title}</Link>
-                        <p className="text-xs text-muted">{fmtDate(b.createdAt)} · {b.total} destinatário(s){b.instanceName ? ` · ${b.instanceName}` : ""}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-ink">{b.sent}<span className="font-normal text-muted">/{b.total}</span></p>
-                        <p className="text-[11px] text-muted">{rate}% entregue{b.failed > 0 ? ` · ${b.failed} falhou` : ""}</p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Card>
-        </div>
-      )}
+      {tab === "agendados" && <ScheduledList items={scheduled} />}
+      {tab === "historico" && <BroadcastHistory broadcasts={broadcasts} />}
+      {tab === "entrega" && <BroadcastDelivery />}
     </div>
   );
 }

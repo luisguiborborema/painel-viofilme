@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Loader2, Pause, Play, Send, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Loader2, Pause, Play, RotateCw, Send, Trash2, Users, X, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { broadcastProgress, statusLabel, statusTone, type BroadcastDetail as TBroadcastDetail, type RecipientStatus } from "@/lib/data/broadcasts";
+import { broadcastProgress, personalize, statusLabel, statusTone, type BroadcastDetail as TBroadcastDetail, type RecipientStatus } from "@/lib/data/broadcasts";
 
 function fmtDate(iso?: string | null) {
   if (!iso) return "—";
@@ -59,6 +59,11 @@ export function BroadcastDetail({ broadcast }: { broadcast: TBroadcastDetail }) 
 
   const canSend = broadcast.status === "draft" || broadcast.status === "scheduled" || broadcast.status === "paused";
   const pendingCount = broadcast.recipients.filter((r) => r.status === "pending").length;
+  const sheetCount = broadcast.recipients.filter((r) => r.vars && Object.keys(r.vars).length > 0).length;
+
+  // Amostra personalizada para a prévia estilo WhatsApp.
+  const sample = broadcast.recipients.find((r) => r.name || (r.vars && Object.keys(r.vars).length)) ?? broadcast.recipients[0];
+  const previewText = personalize(broadcast.message || "", sample?.name, sample?.vars);
 
   return (
     <div className="space-y-4">
@@ -75,6 +80,16 @@ export function BroadcastDetail({ broadcast }: { broadcast: TBroadcastDetail }) 
           {broadcast.status === "paused" && (
             <button onClick={() => act("resume")} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-subtle disabled:opacity-60">
               {busy === "resume" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Retomar
+            </button>
+          )}
+          {broadcast.failed > 0 && (
+            <button onClick={() => act("retry-failed")} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60">
+              {busy === "retry-failed" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />} Reenviar falhas ({broadcast.failed})
+            </button>
+          )}
+          {(broadcast.status === "scheduled" || broadcast.status === "paused") && (
+            <button onClick={() => { if (window.confirm("Cancelar este disparo?")) act("cancel"); }} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-muted hover:text-ink disabled:opacity-60">
+              <X className="h-4 w-4" /> Cancelar
             </button>
           )}
           {canSend && (
@@ -116,6 +131,37 @@ export function BroadcastDetail({ broadcast }: { broadcast: TBroadcastDetail }) 
           {broadcast.instanceName && <span>Instância: {broadcast.instanceName}</span>}
           {broadcast.aiRewrite && <span className="text-brand-600">Reescrita com IA</span>}
         </p>
+      </Card>
+
+      {/* Prévia estilo WhatsApp + metadados + downloads */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center gap-3 bg-emerald-700 px-4 py-3 text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20"><Users className="h-4 w-4" /></span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{broadcast.total} destino(s)</p>
+            <p className="text-xs text-white/80">via {broadcast.instanceName || "instância"}</p>
+          </div>
+        </div>
+        <div className="bg-[#e6ddd4] px-4 py-5 dark:bg-[#0b141a]">
+          <div className="ml-auto max-w-md rounded-xl rounded-tr-sm bg-[#d9fdd3] px-3 py-2 text-sm text-[#111b21] shadow dark:bg-[#005c4b] dark:text-white">
+            {broadcast.mediaUrl && <p className="mb-1 text-xs opacity-70">[{broadcast.mediaType}] {broadcast.mediaUrl}</p>}
+            <p className="whitespace-pre-wrap">{previewText || "(sem texto)"}</p>
+          </div>
+        </div>
+        <div className="space-y-2 px-4 py-4 text-sm">
+          <div className="flex justify-between"><span className="text-muted">Enviado em</span><span className="text-ink">{broadcast.startedAt ? fmtDate(broadcast.startedAt) : broadcast.scheduledFor ? `agendado ${fmtDate(broadcast.scheduledFor)}` : "—"}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Instância</span><span className="text-ink">{broadcast.instanceName || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Destino(s)</span><span className="text-ink">{broadcast.total}</span></div>
+          {sheetCount > 0 && <div className="flex justify-between"><span className="text-muted">Da planilha</span><span className="text-ink">{sheetCount} contato(s) com variáveis</span></div>}
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+            <a href={`/api/gerencial/broadcasts/${broadcast.id}/log?type=contacts`} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
+              <Download className="h-4 w-4" /> Baixar planilha (.xlsx) — {broadcast.total} contato(s)
+            </a>
+            <a href={`/api/gerencial/broadcasts/${broadcast.id}/log?type=log`} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-subtle">
+              <Download className="h-4 w-4" /> Baixar planilha de Log (.xlsx)
+            </a>
+          </div>
+        </div>
       </Card>
 
       <Card className="overflow-hidden p-0">

@@ -21,7 +21,7 @@ type Audiences = {
 };
 
 type Body = {
-  action?: "create" | "update" | "delete" | "send" | "schedule" | "pause" | "resume";
+  action?: "create" | "update" | "delete" | "send" | "schedule" | "pause" | "resume" | "retry-failed" | "cancel";
   id?: string;
   title?: string;
   message?: string;
@@ -126,6 +126,31 @@ export async function POST(req: Request) {
         .eq("id", b.id);
       if (error) throw error;
       return NextResponse.json({ ok: true });
+    }
+
+    if (b.action === "cancel") {
+      if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      await supabase.from("broadcast_recipients").update({ status: "skipped" }).eq("broadcast_id", b.id).eq("status", "pending");
+      const { error } = await supabase.from("broadcasts").update({ status: "canceled", updated_at: new Date().toISOString() }).eq("id", b.id);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (b.action === "retry-failed") {
+      if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      const { error: e1 } = await supabase
+        .from("broadcast_recipients")
+        .update({ status: "pending", error: null, sent_at: null })
+        .eq("broadcast_id", b.id)
+        .eq("status", "failed");
+      if (e1) throw e1;
+      const { error } = await supabase
+        .from("broadcasts")
+        .update({ status: "sending", started_at: new Date().toISOString(), finished_at: null, updated_at: new Date().toISOString() })
+        .eq("id", b.id);
+      if (error) throw error;
+      const res = await runBroadcasts({ onlyId: b.id, budgetMs: 50_000 });
+      return NextResponse.json({ ok: true, run: res });
     }
 
     if (b.action === "send") {

@@ -42,30 +42,77 @@ const connUrl = (c?: WaConn) => (c?.url && c.url.startsWith("http") ? c.url.repl
 const connToken = (c?: WaConn) => (c?.token && c.token.length > 0 ? c.token : UAZAPI_TOKEN);
 const connReady = (c?: WaConn) => connUrl(c).startsWith("http") && connToken(c).length > 0;
 
-/**
- * Envia um texto para um alvo que pode ser número OU JID de grupo (…@g.us).
- * Grupos não passam por normalizeNumber (o JID contém "@" e "-").
- */
-export async function sendWhatsappTo(target: string, text: string, conn?: WaConn): Promise<boolean> {
-  if (!connReady(conn)) return false;
-  const isJid = target.includes("@");
-  const num = isJid ? target : normalizeNumber(target);
-  if (!num || (!isJid && num.length < 10)) return false;
+/** Resultado detalhado de um envio — carrega o motivo do erro (para o log). */
+export type WaSendResult = { ok: boolean; error?: string };
+const TIMEOUT_MS = 20_000;
 
+/** Extrai um motivo curto e legível da resposta da Uazapi. */
+async function readError(res: Response): Promise<string> {
+  let body = "";
   try {
-    const res = await fetch(`${connUrl(conn)}/send/text`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", token: connToken(conn) },
-      body: JSON.stringify({ number: num, text }),
-      cache: "no-store",
-    });
-    return res.ok;
+    body = (await res.text()).slice(0, 300);
   } catch {
-    return false;
+    /* ignore */
+  }
+  return `uazapi_${res.status}${body ? ` ${body}` : ""}`.trim();
+}
+
+async function post(url: string, token: string, payload: unknown): Promise<WaSendResult> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: await readError(res) };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "erro";
+    return { ok: false, error: /abort/i.test(msg) ? "timeout" : msg };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/** Envia mídia por URL para número OU JID de grupo. */
+/** Texto para número OU JID de grupo, com motivo do erro. */
+export async function sendWhatsappToDetailed(target: string, text: string, conn?: WaConn): Promise<WaSendResult> {
+  if (!connReady(conn)) return { ok: false, error: "whatsapp não configurado" };
+  const isJid = target.includes("@");
+  const num = isJid ? target : normalizeNumber(target);
+  if (!num || (!isJid && num.length < 10)) return { ok: false, error: "número inválido" };
+  return post(`${connUrl(conn)}/send/text`, connToken(conn), { number: num, text });
+}
+
+/** Mídia por URL para número OU JID de grupo, com motivo do erro. */
+export async function sendWhatsappMediaToDetailed(
+  target: string,
+  type: WaMediaType,
+  fileUrl: string,
+  opts?: { caption?: string; filename?: string },
+  conn?: WaConn,
+): Promise<WaSendResult> {
+  if (!connReady(conn)) return { ok: false, error: "whatsapp não configurado" };
+  const isJid = target.includes("@");
+  const num = isJid ? target : normalizeNumber(target);
+  if (!num || (!isJid && num.length < 10)) return { ok: false, error: "número inválido" };
+  if (!fileUrl) return { ok: false, error: "mídia ausente" };
+  return post(`${connUrl(conn)}/send/media`, connToken(conn), {
+    number: num,
+    type,
+    file: fileUrl,
+    ...(opts?.caption ? { text: opts.caption } : {}),
+    ...(opts?.filename ? { docName: opts.filename } : {}),
+  });
+}
+
+/** Versões boolean (compat). */
+export async function sendWhatsappTo(target: string, text: string, conn?: WaConn): Promise<boolean> {
+  return (await sendWhatsappToDetailed(target, text, conn)).ok;
+}
 export async function sendWhatsappMediaTo(
   target: string,
   type: WaMediaType,
@@ -73,28 +120,7 @@ export async function sendWhatsappMediaTo(
   opts?: { caption?: string; filename?: string },
   conn?: WaConn,
 ): Promise<boolean> {
-  if (!connReady(conn)) return false;
-  const isJid = target.includes("@");
-  const num = isJid ? target : normalizeNumber(target);
-  if (!num || (!isJid && num.length < 10) || !fileUrl) return false;
-
-  try {
-    const res = await fetch(`${connUrl(conn)}/send/media`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", token: connToken(conn) },
-      body: JSON.stringify({
-        number: num,
-        type,
-        file: fileUrl,
-        ...(opts?.caption ? { text: opts.caption } : {}),
-        ...(opts?.filename ? { docName: opts.filename } : {}),
-      }),
-      cache: "no-store",
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  return (await sendWhatsappMediaToDetailed(target, type, fileUrl, opts, conn)).ok;
 }
 
 /**

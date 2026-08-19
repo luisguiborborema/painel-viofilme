@@ -3,7 +3,7 @@
  * Leituras reais em broadcasts-server.ts; escritas em /api/gerencial/broadcasts.
  */
 
-export type BroadcastStatus = "draft" | "scheduled" | "sending" | "done" | "paused";
+export type BroadcastStatus = "draft" | "scheduled" | "sending" | "done" | "paused" | "canceled";
 export type BroadcastMediaType = "image" | "video" | "document";
 /** Tipo da mensagem (aba do compositor). 'text' não leva mídia. */
 export type BroadcastMsgType = "text" | "image" | "video" | "audio" | "document";
@@ -39,6 +39,8 @@ export type Broadcast = {
   updatedAt: string;
   startedAt?: string | null;
   finishedAt?: string | null;
+  /** Amostra do 1º erro (só na listagem, para o card do Histórico). */
+  errorSample?: string | null;
 };
 
 export type BroadcastRecipient = {
@@ -60,6 +62,7 @@ export const BROADCAST_STATUS: { key: BroadcastStatus; label: string; tone: stri
   { key: "sending", label: "Enviando", tone: "bg-blue-500/15 text-blue-600" },
   { key: "done", label: "Concluído", tone: "bg-emerald-500/15 text-emerald-600" },
   { key: "paused", label: "Pausado", tone: "bg-orange-500/15 text-orange-600" },
+  { key: "canceled", label: "Cancelado", tone: "bg-rose-500/15 text-rose-600" },
 ];
 
 export function statusLabel(s: BroadcastStatus): string {
@@ -99,6 +102,21 @@ export function personalize(message: string, name?: string, vars?: Record<string
 /** É um JID de grupo do WhatsApp? (…@g.us) */
 export function isGroupTarget(target: string): boolean {
   return target.includes("@g.us") || (target.includes("@") && target.includes("-"));
+}
+
+/** Agrupa uma mensagem de erro crua num motivo legível (painel de Entrega). */
+export function errorReason(error?: string | null): string {
+  const e = (error ?? "").toLowerCase();
+  if (!e) return "Outro";
+  if (/not on whatsapp|not-whatsapp|não está no whatsapp|invalid.*number|número inválido/.test(e)) return "Número não está no WhatsApp";
+  if (/disconnec|not connected|desconect|offline|instance.*(not|closed)|logged out|unauthorized|401|403/.test(e)) return "WhatsApp desconectado";
+  if (/timeout|abort/.test(e)) return "Timeout";
+  if (/not.*(in|member).*group|fora do grupo|participant|group.*not/.test(e)) return "Fora do grupo";
+  if (/uazapi_5|_50\d|\b50\d\b|server error|internal/.test(e)) return "Erro do servidor (5xx)";
+  if (/uazapi_4|\b40\d\b|bad request/.test(e)) return "Requisição inválida (4xx)";
+  if (/mídia|media|file/.test(e)) return "Falha de mídia";
+  if (/não configurado/.test(e)) return "WhatsApp não configurado";
+  return "Outro";
 }
 
 /** Normaliza um número colado (mantém só dígitos; assume DDI 55 se faltar). */

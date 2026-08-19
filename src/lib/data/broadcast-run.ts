@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
-import { sendWhatsappMediaTo, sendWhatsappTo, type WaConn, type WaMediaType } from "@/lib/whatsapp/send";
+import { sendWhatsappMediaToDetailed, sendWhatsappToDetailed, type WaConn, type WaMediaType, type WaSendResult } from "@/lib/whatsapp/send";
 import { resolveInstance } from "@/lib/whatsapp/instances";
 import { rewriteAntiBan } from "@/lib/ai/rewrite";
 import { personalize, randomDelayMs } from "./broadcasts";
@@ -95,25 +95,26 @@ export async function runBroadcasts(opts: { onlyId?: string; budgetMs?: number }
         let text = personalize(message, r.name ? String(r.name) : "", vars);
         if (aiRewrite && text.trim()) text = await rewriteAntiBan(text);
 
-        let ok = false;
+        let out: WaSendResult = { ok: false, error: "erro" };
         try {
           if (isMedia && mediaUrl) {
             // Áudio não leva legenda: envia o áudio e, se houver texto, manda em seguida.
             if (mediaType === "audio") {
-              ok = await sendWhatsappMediaTo(target, "audio", mediaUrl, undefined, conn);
-              if (ok && text.trim()) await sendWhatsappTo(target, text, conn);
+              out = await sendWhatsappMediaToDetailed(target, "audio", mediaUrl, undefined, conn);
+              if (out.ok && text.trim()) await sendWhatsappToDetailed(target, text, conn);
             } else {
-              ok = await sendWhatsappMediaTo(target, mediaType, mediaUrl, { caption: text }, conn);
+              out = await sendWhatsappMediaToDetailed(target, mediaType, mediaUrl, { caption: text }, conn);
             }
           } else {
-            ok = await sendWhatsappTo(target, text, conn);
+            out = await sendWhatsappToDetailed(target, text, conn);
           }
-        } catch {
-          ok = false;
+        } catch (e) {
+          out = { ok: false, error: e instanceof Error ? e.message : "erro" };
         }
+        const ok = out.ok;
         await admin
           .from("broadcast_recipients")
-          .update({ status: ok ? "sent" : "failed", sent_at: new Date().toISOString(), error: ok ? null : "envio recusado" })
+          .update({ status: ok ? "sent" : "failed", sent_at: new Date().toISOString(), error: ok ? null : (out.error ?? "envio recusado").slice(0, 400) })
           .eq("id", r.id);
         processed += 1;
         if (ok) sent += 1;
