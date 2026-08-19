@@ -13,6 +13,8 @@ const AREAS = ["Social", "Performance", "Conteúdo", "Criação", "Audiovisual",
 const money = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const num = (v: string) => { const n = Number(String(v).replace(/\./g, "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const inputCls = "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-sm text-ink outline-none focus:border-brand-400";
+// Sem w-full — para inputs em linha (flex), onde a largura é controlada por flex-1/w-*.
+const fieldCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink outline-none focus:border-brand-400";
 
 async function api(body: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/gerencial/service-catalog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -120,11 +122,11 @@ export function ServiceCatalogManager() {
           <div className="space-y-2">
             <input value={editSvc.label} onChange={(e) => setEditSvc({ ...editSvc, label: e.target.value })} placeholder="Nome do serviço" className={inputCls} />
             <div className="flex gap-2">
-              <select value={editSvc.type} onChange={(e) => setEditSvc({ ...editSvc, type: e.target.value })} className={inputCls}>
+              <select value={editSvc.type} onChange={(e) => setEditSvc({ ...editSvc, type: e.target.value })} className={fieldCls + " min-w-0 flex-1"}>
                 <option value="recorrente">Recorrente</option>
                 <option value="pontual">Pontual</option>
               </select>
-              <select value={editSvc.area} onChange={(e) => setEditSvc({ ...editSvc, area: e.target.value })} className={inputCls}>
+              <select value={editSvc.area} onChange={(e) => setEditSvc({ ...editSvc, area: e.target.value })} className={fieldCls + " min-w-0 flex-1"}>
                 {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
               <button onClick={saveSvc} disabled={busy === `edit-${s.id}`} className="inline-flex h-9 shrink-0 items-center rounded-lg bg-brand-600 px-2.5 text-white hover:bg-brand-700 disabled:opacity-60">
@@ -153,8 +155,8 @@ export function ServiceCatalogManager() {
           {s.plans.map((p) => (
             editPlan?.id === p.id ? (
               <div key={p.id} className="flex items-center gap-1.5 rounded-lg bg-subtle px-2 py-1.5">
-                <input value={editPlan.label} onChange={(e) => setEditPlan({ ...editPlan, label: e.target.value })} className={inputCls + " flex-1"} />
-                <input value={editPlan.price} onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })} inputMode="decimal" placeholder="Preço" className={inputCls + " w-24"} />
+                <input value={editPlan.label} onChange={(e) => setEditPlan({ ...editPlan, label: e.target.value })} className={fieldCls + " min-w-0 flex-1"} />
+                <input value={editPlan.price} onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })} inputMode="decimal" placeholder="Preço" className={fieldCls + " w-24 shrink-0"} />
                 <button onClick={savePlan} disabled={busy === `editp-${p.id}`} className="inline-flex h-9 items-center rounded-lg bg-brand-600 px-2 text-white hover:bg-brand-700 disabled:opacity-60">
                   {busy === `editp-${p.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </button>
@@ -176,8 +178,8 @@ export function ServiceCatalogManager() {
         </div>
 
         <div className="mt-2 flex items-center gap-1.5">
-          <input value={d.label} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, label: e.target.value } }))} placeholder={s.type === "recorrente" ? "Novo plano" : "Novo formato"} className={inputCls + " flex-1"} />
-          <input value={d.price} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, price: e.target.value } }))} inputMode="decimal" placeholder="Preço sugerido" className={inputCls + " w-28"} />
+          <input value={d.label} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, label: e.target.value } }))} placeholder={s.type === "recorrente" ? "Novo plano" : "Novo formato"} className={fieldCls + " min-w-0 flex-1"} />
+          <input value={d.price} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, price: e.target.value } }))} inputMode="decimal" placeholder="Preço sugerido" className={fieldCls + " w-28 shrink-0"} />
           <button onClick={() => addPlan(s.id)} disabled={busy === `plan-${s.id}`} className="inline-flex h-9 items-center gap-1 rounded-lg bg-brand-600 px-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
             {busy === `plan-${s.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </button>
