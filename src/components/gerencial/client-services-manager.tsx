@@ -10,7 +10,7 @@ type Svc = { id: string; label: string; type: string; area: string; plans: { id:
 type Squad = { id: string; name: string; area: string };
 type Person = { id: string; name: string; squadId: string | null; canBePo: boolean };
 type Line = {
-  id: string; service_id: string; plan_id: string | null; type: string;
+  id: string; service_id: string | null; plan_id: string | null; service_label: string | null; plan_label: string | null; type: string;
   base_value: number; discount: number; final_value: number;
   squad_id: string | null; analyst_id: string | null; executor_id: string | null; po_id: string | null;
 };
@@ -30,8 +30,8 @@ export function ClientServicesManager({ clientId }: { clientId: string }) {
 
   // formulário de nova linha
   const [type, setType] = useState<"recorrente" | "pontual">("recorrente");
-  const [serviceId, setServiceId] = useState("");
-  const [planId, setPlanId] = useState("");
+  const [service, setService] = useState("");
+  const [plan, setPlan] = useState("");
   const [base, setBase] = useState("");
   const [discount, setDiscount] = useState("");
   const [squadId, setSquadId] = useState("");
@@ -53,43 +53,32 @@ export function ClientServicesManager({ clientId }: { clientId: string }) {
     return () => { alive = false; };
   }, [clientId]);
 
-  const svcById = (id: string) => services.find((s) => s.id === id);
+  const svcById = (id: string | null) => (id ? services.find((s) => s.id === id) : undefined);
   const nameById = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? squads.find((s) => s.id === id)?.name ?? "" : "");
-  const options = services.filter((s) => s.type === type);
-  const selectedSvc = svcById(serviceId);
-
-  function onService(id: string) {
-    setServiceId(id);
-    setPlanId(""); setBase(""); setDiscount("");
-  }
-  function onPlan(id: string) {
-    setPlanId(id);
-    const price = selectedSvc?.plans.find((pl) => pl.id === id)?.defaultPrice ?? 0;
-    setBase(price ? String(price) : "");
-  }
+  const serviceNames = [...new Set(services.filter((s) => s.type === type).map((s) => s.label))];
+  const planNames = [...new Set(services.flatMap((s) => s.plans.map((p) => p.label)))];
 
   const recorrentes = lines.filter((l) => l.type === "recorrente");
   const pontuais = lines.filter((l) => l.type === "pontual");
   const mrr = recorrentes.reduce((a, l) => a + Number(l.final_value ?? 0), 0);
 
   async function add() {
-    if (!serviceId) { toast("Selecione o serviço.", "error"); return; }
-    if (type === "recorrente" && !squadId) { toast("Selecione o squad.", "error"); return; }
+    if (!service.trim()) { toast("Informe o serviço.", "error"); return; }
     setBusy("add");
     try {
       const res = await fetch("/api/gerencial/client-services", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "add", clientId, type, serviceId, planId: planId || undefined,
+          action: "add", clientId, type, serviceLabel: service.trim(), planLabel: plan.trim() || undefined,
           baseValue: num(base), discount: num(discount),
-          squadId: type === "recorrente" ? squadId : undefined,
-          executorId: type === "pontual" ? executorId : undefined,
+          squadId: type === "recorrente" ? squadId || undefined : undefined,
+          executorId: type === "pontual" ? executorId || undefined : undefined,
         }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) { toast(j?.error ?? "Não foi possível adicionar.", "error"); return; }
       if (j?.line) setLines((p) => [...p, j.line as Line]);
-      setServiceId(""); setPlanId(""); setBase(""); setDiscount(""); setSquadId(""); setExecutorId("");
+      setService(""); setPlan(""); setBase(""); setDiscount(""); setSquadId(""); setExecutorId("");
       toast("Serviço adicionado.", "success");
     } finally {
       setBusy(null);
@@ -115,12 +104,14 @@ export function ClientServicesManager({ clientId }: { clientId: string }) {
 
   const renderLine = (l: Line) => {
     const svc = svcById(l.service_id);
-    const plan = svc?.plans.find((pl) => pl.id === l.plan_id);
+    const planCat = svc?.plans.find((pl) => pl.id === l.plan_id);
+    const svcName = l.service_label || svc?.label || "Serviço";
+    const planName = l.plan_label || planCat?.label || "";
     const owner = nameById(l.squad_id) || nameById(l.executor_id);
     return (
       <li key={l.id} className="flex items-center gap-3 px-3 py-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{svc?.label ?? "Serviço"}{plan ? ` · ${plan.label}` : ""}</p>
+          <p className="truncate text-sm font-medium text-ink">{svcName}{planName ? ` · ${planName}` : ""}</p>
           <p className="truncate text-xs text-muted">{owner || "—"}{l.discount > 0 ? ` · desconto ${money(Number(l.discount))}` : ""}</p>
         </div>
         <span className="shrink-0 text-sm font-semibold text-ink">{money(Number(l.final_value ?? 0))}{l.type === "recorrente" ? "/mês" : ""}</span>
@@ -163,20 +154,16 @@ export function ClientServicesManager({ clientId }: { clientId: string }) {
         <div className="rounded-xl border border-dashed border-line p-3">
           <div className="mb-2 inline-flex overflow-hidden rounded-lg border border-line text-xs">
             {(["recorrente", "pontual"] as const).map((t) => (
-              <button key={t} onClick={() => { setType(t); setServiceId(""); setPlanId(""); setBase(""); }} className={cn("px-3 py-1.5 font-medium capitalize", type === t ? "bg-ink text-white" : "bg-surface text-muted hover:text-ink")}>
+              <button key={t} onClick={() => { setType(t); setService(""); setPlan(""); setBase(""); }} className={cn("px-3 py-1.5 font-medium capitalize", type === t ? "bg-ink text-white" : "bg-surface text-muted hover:text-ink")}>
                 {t}
               </button>
             ))}
           </div>
+          <datalist id="cs-service-list">{serviceNames.map((n) => <option key={n} value={n} />)}</datalist>
+          <datalist id="cs-plan-list">{planNames.map((n) => <option key={n} value={n} />)}</datalist>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <select value={serviceId} onChange={(e) => onService(e.target.value)} className={inputCls + " col-span-2 sm:col-span-1"}>
-              <option value="">Serviço…</option>
-              {options.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            <select value={planId} onChange={(e) => onPlan(e.target.value)} className={inputCls} disabled={!selectedSvc?.plans.length}>
-              <option value="">{selectedSvc?.plans.length ? "Plano…" : "Sem plano"}</option>
-              {selectedSvc?.plans.map((pl) => <option key={pl.id} value={pl.id}>{pl.label}</option>)}
-            </select>
+            <input list="cs-service-list" value={service} onChange={(e) => setService(e.target.value)} placeholder="Serviço" className={inputCls + " col-span-2 sm:col-span-1"} />
+            <input list="cs-plan-list" value={plan} onChange={(e) => setPlan(e.target.value)} placeholder={type === "recorrente" ? "Plano" : "Formato"} className={inputCls} />
             {type === "recorrente" ? (
               <select value={squadId} onChange={(e) => setSquadId(e.target.value)} className={inputCls}>
                 <option value="">Squad…</option>

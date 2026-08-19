@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const LINE_COLS = "id, service_id, plan_id, type, base_value, discount, final_value, squad_id, analyst_id, executor_id, po_id";
+const LINE_COLS = "id, service_id, plan_id, service_label, plan_label, type, base_value, discount, final_value, squad_id, analyst_id, executor_id, po_id";
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const clean = (v?: string | null) => (v && String(v).trim() ? String(v).trim() : null);
 
@@ -51,6 +51,8 @@ type Body = {
   type?: "recorrente" | "pontual";
   serviceId?: string;
   planId?: string;
+  serviceLabel?: string;
+  planLabel?: string;
   baseValue?: number;
   discount?: number;
   squadId?: string;
@@ -83,14 +85,15 @@ export async function POST(req: Request) {
     }
 
     // add
-    if (!b.serviceId) return NextResponse.json({ error: "Selecione o serviço." }, { status: 400 });
+    if (!b.serviceId && !clean(b.serviceLabel)) return NextResponse.json({ error: "Informe o serviço." }, { status: 400 });
     const type = b.type === "pontual" ? "pontual" : "recorrente";
-    if (type === "recorrente" && !b.squadId) return NextResponse.json({ error: "Selecione o squad do serviço recorrente." }, { status: 400 });
     const finalValue = Math.max(0, num(b.baseValue) - num(b.discount));
     const row = {
       client_id: b.clientId,
-      service_id: b.serviceId,
+      service_id: clean(b.serviceId),
       plan_id: clean(b.planId),
+      service_label: clean(b.serviceLabel),
+      plan_label: clean(b.planLabel),
       type,
       base_value: num(b.baseValue),
       discount: num(b.discount),

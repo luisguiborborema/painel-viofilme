@@ -35,8 +35,8 @@ type Squad = { id: string; name: string; area: string };
 type Person = { id: string; name: string; squadId: string | null; canBePo: boolean };
 type Catalog = { services: Svc[]; squads: Squad[]; people: Person[] };
 
-type RecLine = { key: number; serviceId: string; planId: string; base: string; discount: string; squadId: string; analystId: string };
-type PntLine = { key: number; serviceId: string; planId: string; base: string; discount: string; executorId: string; poId: string };
+type RecLine = { key: number; service: string; plan: string; base: string; discount: string; squadId: string; analystId: string };
+type PntLine = { key: number; service: string; plan: string; base: string; discount: string; executorId: string; poId: string };
 type ContactRow = { key: number; name: string; role: string; whatsapp: string; email: string; isPrimary: boolean };
 
 let seq = 1;
@@ -93,12 +93,13 @@ export function NewClientButton() {
 
   const feeMensal = recurring.reduce((a, l) => a + lineFinal(l), 0);
   const pontualTotal = pontual.reduce((a, l) => a + lineFinal(l), 0);
+  const areaOf = (name: string) => cat.services.find((s) => s.label.toLowerCase() === name.trim().toLowerCase())?.area;
   const activeAreas = [...new Set([
-    ...recurring.map((l) => cat.services.find((s) => s.id === l.serviceId)?.area).filter(Boolean),
-    ...pontual.map((l) => cat.services.find((s) => s.id === l.serviceId)?.area).filter(Boolean),
+    ...recurring.map((l) => areaOf(l.service)).filter(Boolean),
+    ...pontual.map((l) => areaOf(l.service)).filter(Boolean),
   ])] as string[];
   const activeSquads = [...new Set(recurring.map((l) => cat.squads.find((s) => s.id === l.squadId)?.name).filter(Boolean))] as string[];
-  const hasTraffic = recurring.some((l) => cat.services.find((s) => s.id === l.serviceId)?.area === "Performance");
+  const hasTraffic = recurring.some((l) => areaOf(l.service) === "Performance");
 
   function reset() {
     setName(""); setCity(""); setClientType("local_business"); setSegment("");
@@ -109,22 +110,17 @@ export function NewClientButton() {
   }
 
   // ── Recorrente ──
-  function addRec() { setRecurring((p) => [...p, { key: nextKey(), serviceId: "", planId: "", base: "", discount: "", squadId: "", analystId: "" }]); }
+  function addRec() { setRecurring((p) => [...p, { key: nextKey(), service: "", plan: "", base: "", discount: "", squadId: "", analystId: "" }]); }
   function setRec(key: number, patch: Partial<RecLine>) { setRecurring((p) => p.map((l) => (l.key === key ? { ...l, ...patch } : l))); }
-  function onRecService(key: number, serviceId: string) { setRec(key, { serviceId, planId: "", base: "", discount: "", squadId: "", analystId: "" }); }
-  function onRecPlan(key: number, planId: string, svc?: Svc) {
-    const price = svc?.plans.find((pl) => pl.id === planId)?.defaultPrice ?? 0;
-    setRec(key, { planId, base: price ? String(price) : "" });
-  }
 
   // ── Pontual ──
-  function addPnt() { setPontual((p) => [...p, { key: nextKey(), serviceId: "", planId: "", base: "", discount: "", executorId: "", poId: "" }]); }
+  function addPnt() { setPontual((p) => [...p, { key: nextKey(), service: "", plan: "", base: "", discount: "", executorId: "", poId: "" }]); }
   function setPnt(key: number, patch: Partial<PntLine>) { setPontual((p) => p.map((l) => (l.key === key ? { ...l, ...patch } : l))); }
-  function onPntService(key: number, serviceId: string) { setPnt(key, { serviceId, planId: "", base: "", discount: "" }); }
-  function onPntPlan(key: number, planId: string, svc?: Svc) {
-    const price = svc?.plans.find((pl) => pl.id === planId)?.defaultPrice ?? 0;
-    setPnt(key, { planId, base: price ? String(price) : "" });
-  }
+
+  // Sugestões (datalist) a partir do catálogo, se existir.
+  const recServiceNames = [...new Set(recServices.map((s) => s.label))];
+  const pntServiceNames = [...new Set(pntServices.map((s) => s.label))];
+  const planNames = [...new Set(cat.services.flatMap((s) => s.plans.map((p) => p.label)))];
 
   // ── Contatos ──
   function addContact() { setContacts((p) => [...p, { key: nextKey(), name: "", role: "", whatsapp: "", email: "", isPrimary: p.length === 0 }]); }
@@ -142,7 +138,6 @@ export function NewClientButton() {
 
   async function submit() {
     if (!name.trim()) { setError("Nome do cliente é obrigatório."); return; }
-    if (recurring.some((l) => l.serviceId && !l.squadId)) { setError("Selecione o squad em cada serviço recorrente."); return; }
     setSaving(true);
     setError(null);
     try {
@@ -155,8 +150,8 @@ export function NewClientButton() {
           kickoffDate: kickoffDate || undefined,
           csMainId: csMainId || undefined,
           csSupportId: csSupportId || undefined,
-          recurring: recurring.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId, planId: l.planId || undefined, baseValue: num(l.base), discount: num(l.discount), squadId: l.squadId || undefined, analystId: l.analystId || undefined })),
-          pontual: pontual.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId, planId: l.planId || undefined, baseValue: num(l.base), discount: num(l.discount), executorId: l.executorId || undefined, poId: l.poId || undefined })),
+          recurring: recurring.filter((l) => l.service.trim()).map((l) => ({ serviceLabel: l.service.trim(), planLabel: l.plan.trim() || undefined, baseValue: num(l.base), discount: num(l.discount), squadId: l.squadId || undefined, analystId: l.analystId || undefined })),
+          pontual: pontual.filter((l) => l.service.trim()).map((l) => ({ serviceLabel: l.service.trim(), planLabel: l.plan.trim() || undefined, baseValue: num(l.base), discount: num(l.discount), executorId: l.executorId || undefined, poId: l.poId || undefined })),
           contacts: contacts.filter((c) => c.name.trim()).map((c) => ({ name: c.name, role: c.role, whatsapp: c.whatsapp, email: c.email, isPrimary: c.isPrimary })),
           responsibles: resp,
           servicesList: svcTags,
@@ -221,6 +216,11 @@ export function NewClientButton() {
                 </div>
               </section>
 
+              {/* Sugestões (opcionais) — você pode digitar qualquer valor */}
+              <datalist id="rec-service-list">{recServiceNames.map((n) => <option key={n} value={n} />)}</datalist>
+              <datalist id="pnt-service-list">{pntServiceNames.map((n) => <option key={n} value={n} />)}</datalist>
+              <datalist id="plan-list">{planNames.map((n) => <option key={n} value={n} />)}</datalist>
+
               {/* Bloco 2 · Recorrentes */}
               <section>
                 <div className="mb-2 flex items-center justify-between">
@@ -230,10 +230,7 @@ export function NewClientButton() {
                 {recurring.length === 0 && <p className="rounded-lg bg-subtle px-3 py-2 text-xs text-muted">Nenhum serviço recorrente.</p>}
                 <div className="space-y-2">
                   {recurring.map((l) => {
-                    const svc = cat.services.find((s) => s.id === l.serviceId);
-                    // Mostra TODOS os squads (os da mesma área do serviço primeiro),
-                    // não só os que casam a área — squads criados em Usuários podem
-                    // não ter área alinhada às áreas de serviço.
+                    const svc = cat.services.find((s) => s.label.toLowerCase() === l.service.trim().toLowerCase());
                     const squadOpts = svc
                       ? [...cat.squads].sort((a, b) => Number(b.area === svc.area) - Number(a.area === svc.area))
                       : cat.squads;
@@ -241,18 +238,12 @@ export function NewClientButton() {
                     return (
                       <div key={l.key} className="rounded-xl border border-line p-2.5">
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                          <select value={l.serviceId} onChange={(e) => onRecService(l.key, e.target.value)} className={selCls}>
-                            <option value="">Serviço…</option>
-                            {recServices.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                          </select>
-                          <select value={l.planId} onChange={(e) => onRecPlan(l.key, e.target.value, svc)} disabled={!svc} className={selCls}>
-                            <option value="">Plano…</option>
-                            {svc?.plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                          </select>
+                          <input list="rec-service-list" value={l.service} onChange={(e) => setRec(l.key, { service: e.target.value })} placeholder="Serviço" className={inputCls} />
+                          <input list="plan-list" value={l.plan} onChange={(e) => setRec(l.key, { plan: e.target.value })} placeholder="Plano" className={inputCls} />
                           <div className="flex items-center gap-1">
                             {svc && <span className="shrink-0 rounded-md bg-subtle px-1.5 py-1 text-[10px] font-semibold text-muted">{svc.area}</span>}
-                            <select value={l.squadId} onChange={(e) => setRec(l.key, { squadId: e.target.value, analystId: "" })} disabled={!svc} className={selCls}>
-                              <option value="">Squad… *</option>
+                            <select value={l.squadId} onChange={(e) => setRec(l.key, { squadId: e.target.value, analystId: "" })} className={selCls}>
+                              <option value="">Squad…</option>
                               {squadOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                           </div>
@@ -260,8 +251,8 @@ export function NewClientButton() {
                             <option value="">{l.squadId ? "Analista (líder define depois)" : "Analista…"}</option>
                             {analystOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
-                          <input value={l.base} onChange={(e) => setRec(l.key, { base: e.target.value })} disabled={!l.planId} placeholder="Valor base" className={inputCls} />
-                          <input value={l.discount} onChange={(e) => setRec(l.key, { discount: e.target.value })} disabled={!l.planId} placeholder="Desconto R$" className={inputCls} />
+                          <input value={l.base} onChange={(e) => setRec(l.key, { base: e.target.value })} inputMode="decimal" placeholder="Valor base" className={inputCls} />
+                          <input value={l.discount} onChange={(e) => setRec(l.key, { discount: e.target.value })} inputMode="decimal" placeholder="Desconto R$" className={inputCls} />
                         </div>
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[11px] text-muted">Final: <span className="font-semibold text-ink">{money(lineFinal(l))}</span></span>
@@ -281,18 +272,11 @@ export function NewClientButton() {
                 </div>
                 <div className="space-y-2">
                   {pontual.map((l) => {
-                    const svc = cat.services.find((s) => s.id === l.serviceId);
                     return (
                       <div key={l.key} className="rounded-xl border-l-4 border-l-amber-400 border-y border-r border-line p-2.5">
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                          <select value={l.serviceId} onChange={(e) => onPntService(l.key, e.target.value)} className={selCls}>
-                            <option value="">Serviço…</option>
-                            {pntServices.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                          </select>
-                          <select value={l.planId} onChange={(e) => onPntPlan(l.key, e.target.value, svc)} disabled={!svc} className={selCls}>
-                            <option value="">Formato…</option>
-                            {svc?.plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                          </select>
+                          <input list="pnt-service-list" value={l.service} onChange={(e) => setPnt(l.key, { service: e.target.value })} placeholder="Serviço" className={inputCls} />
+                          <input list="plan-list" value={l.plan} onChange={(e) => setPnt(l.key, { plan: e.target.value })} placeholder="Formato" className={inputCls} />
                           <select value={l.executorId} onChange={(e) => setPnt(l.key, { executorId: e.target.value })} className={selCls}>
                             <option value="">Responsável técnico…</option>
                             {cat.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -301,8 +285,8 @@ export function NewClientButton() {
                             <option value="">PO do projeto…</option>
                             {poPeople.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
-                          <input value={l.base} onChange={(e) => setPnt(l.key, { base: e.target.value })} placeholder="Valor base" className={inputCls} />
-                          <input value={l.discount} onChange={(e) => setPnt(l.key, { discount: e.target.value })} placeholder="Desconto R$" className={inputCls} />
+                          <input value={l.base} onChange={(e) => setPnt(l.key, { base: e.target.value })} inputMode="decimal" placeholder="Valor base" className={inputCls} />
+                          <input value={l.discount} onChange={(e) => setPnt(l.key, { discount: e.target.value })} inputMode="decimal" placeholder="Desconto R$" className={inputCls} />
                         </div>
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[11px] text-muted">Final: <span className="font-semibold text-ink">{money(lineFinal(l))}</span></span>

@@ -58,6 +58,8 @@ export async function GET() {
 type ServiceLine = {
   serviceId?: string;
   planId?: string;
+  serviceLabel?: string; // nome do serviço digitado na hora
+  planLabel?: string;    // plano/formato digitado na hora
   baseValue?: number;
   discount?: number;
   squadId?: string;
@@ -108,29 +110,31 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "nome é obrigatório" }, { status: 400 });
   const clientType = b.clientType && CLIENT_TYPES.has(b.clientType) ? b.clientType : "local_business";
 
-  const recurring = (b.recurring ?? []).filter((l) => l.serviceId);
-  const pontual = (b.pontual ?? []).filter((l) => l.serviceId);
-  // Trava recomendada: squad obrigatório em cada linha recorrente.
-  if (recurring.some((l) => !l.squadId)) {
-    return NextResponse.json({ error: "Selecione o squad em cada serviço recorrente." }, { status: 400 });
-  }
+  const hasLine = (l: ServiceLine) => Boolean(l.serviceId || (l.serviceLabel ?? "").trim());
+  const recurring = (b.recurring ?? []).filter(hasLine);
+  const pontual = (b.pontual ?? []).filter(hasLine);
 
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: true, persisted: false, id: "demo" });
   }
   const supabase = await createClient();
 
-  // Áreas dos serviços (para derivar has_paid_traffic).
-  const svcIds = [...new Set([...recurring, ...pontual].map((l) => l.serviceId!))];
+  // Áreas dos serviços (para derivar has_paid_traffic) — por id e por nome.
   const areaBySvc = new Map<string, string>();
-  if (svcIds.length) {
-    const { data: svcs } = await supabase.from("services").select("id, area").in("id", svcIds);
-    for (const s of (svcs ?? []) as { id: string; area: string }[]) areaBySvc.set(s.id, s.area);
+  const areaByName = new Map<string, string>();
+  {
+    const { data: svcs } = await supabase.from("services").select("id, label, area");
+    for (const s of (svcs ?? []) as { id: string; label: string; area: string }[]) {
+      areaBySvc.set(s.id, s.area);
+      if (s.label) areaByName.set(s.label.toLowerCase(), s.area);
+    }
   }
+  const areaOf = (l: ServiceLine) =>
+    (l.serviceId && areaBySvc.get(l.serviceId)) || areaByName.get((l.serviceLabel ?? "").trim().toLowerCase()) || "";
 
   const lineFinal = (l: ServiceLine) => Math.max(0, num(l.baseValue) - num(l.discount));
   const feeMensal = recurring.reduce((a, l) => a + lineFinal(l), 0);
-  const hasPaidTraffic = recurring.some((l) => areaBySvc.get(l.serviceId!) === "Performance");
+  const hasPaidTraffic = recurring.some((l) => areaOf(l) === "Performance");
   const firstSquad = recurring.find((l) => l.squadId)?.squadId ?? null;
 
   // slug único.
@@ -197,12 +201,14 @@ export async function POST(req: Request) {
   // Linhas de serviço.
   const serviceRows = [
     ...recurring.map((l) => ({
-      client_id: clientId, service_id: l.serviceId, plan_id: clean(l.planId), type: "recorrente",
+      client_id: clientId, service_id: clean(l.serviceId), plan_id: clean(l.planId),
+      service_label: clean(l.serviceLabel), plan_label: clean(l.planLabel), type: "recorrente",
       base_value: num(l.baseValue), discount: num(l.discount), final_value: lineFinal(l),
       squad_id: clean(l.squadId), analyst_id: clean(l.analystId), executor_id: null, po_id: null,
     })),
     ...pontual.map((l) => ({
-      client_id: clientId, service_id: l.serviceId, plan_id: clean(l.planId), type: "pontual",
+      client_id: clientId, service_id: clean(l.serviceId), plan_id: clean(l.planId),
+      service_label: clean(l.serviceLabel), plan_label: clean(l.planLabel), type: "pontual",
       base_value: num(l.baseValue), discount: num(l.discount), final_value: lineFinal(l),
       squad_id: null, analyst_id: null, executor_id: clean(l.executorId), po_id: clean(l.poId),
     })),
