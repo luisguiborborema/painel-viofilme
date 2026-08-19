@@ -3,11 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import { FileText, Loader2, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { DiagnosticConfigModal } from "@/components/gerencial/diagnostic-config-modal";
 import type { DiagnosticListItem } from "@/lib/data/diagnostic";
 
 const inputCls = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
@@ -20,26 +19,33 @@ function fmtDate(iso: string) {
 
 export function DiagnosticList({
   diagnostics,
+  templates,
   clients,
   leads,
 }: {
   diagnostics: DiagnosticListItem[];
+  templates: { id: string; name: string; area: string }[];
   clients: { id: string; name: string }[];
   leads: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [cfgOpen, setCfgOpen] = useState(false);
   const [open, setOpen] = useState(false);
+  const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [mode, setMode] = useState<"cliente" | "negocio">("cliente");
   const [refId, setRefId] = useState("");
-  const [title, setTitle] = useState("Diagnóstico");
+  const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const options = mode === "cliente" ? clients : leads;
   const subject = options.find((o) => o.id === refId)?.name ?? "";
+  const tpl = templates.find((t) => t.id === templateId);
 
   async function create() {
+    if (!templateId) {
+      toast("Cadastre um modelo em Perguntas / Modelos.", "error");
+      return;
+    }
     if (!refId || !subject) {
       toast(`Escolha o ${mode === "cliente" ? "cliente" : "negócio"}.`, "error");
       return;
@@ -51,8 +57,9 @@ export function DiagnosticList({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create",
+          templateId,
           subject,
-          title,
+          title: title.trim() || tpl?.name || "Diagnóstico",
           clientId: mode === "cliente" ? refId : undefined,
           leadId: mode === "negocio" ? refId : undefined,
         }),
@@ -84,9 +91,9 @@ export function DiagnosticList({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button onClick={() => setCfgOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle">
-          <Settings2 className="h-4 w-4" /> Perguntas
-        </button>
+        <Link href="/gerencial/diagnostico/modelos" className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink hover:bg-subtle">
+          <SlidersHorizontal className="h-4 w-4" /> Modelos & perguntas
+        </Link>
         <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600">
           {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {open ? "Cancelar" : "Novo diagnóstico"}
         </button>
@@ -96,13 +103,20 @@ export function DiagnosticList({
         <Card className="space-y-3 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="block">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Modelo</span>
+              <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputCls}>
+                {templates.length === 0 && <option value="">Nenhum modelo — crie em Modelos</option>}
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+            <label className="block">
               <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Vincular a</span>
               <select value={mode} onChange={(e) => { setMode(e.target.value as "cliente" | "negocio"); setRefId(""); }} className={inputCls}>
                 <option value="cliente">Cliente</option>
                 <option value="negocio">Negócio (comercial)</option>
               </select>
             </label>
-            <label className="block sm:col-span-2">
+            <label className="block">
               <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">{mode === "cliente" ? "Cliente" : "Negócio"}</span>
               <select value={refId} onChange={(e) => setRefId(e.target.value)} className={inputCls}>
                 <option value="">Selecione…</option>
@@ -110,12 +124,12 @@ export function DiagnosticList({
               </select>
             </label>
             <label className="block sm:col-span-3">
-              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Título</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Título (opcional)</span>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tpl?.name ?? "Diagnóstico"} className={inputCls} />
             </label>
           </div>
           <div className="flex justify-end">
-            <button onClick={create} disabled={busy || !refId} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+            <button onClick={create} disabled={busy || !refId || !templateId} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />} Criar e preencher
             </button>
           </div>
@@ -135,10 +149,10 @@ export function DiagnosticList({
                 <Link href={`/gerencial/diagnostico/${d.id}`} className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{d.subject}</p>
                   <p className="truncate text-xs text-muted">
-                    {d.title} · {d.leadId ? "Comercial" : "Cliente"} · {fmtDate(d.createdAt)}
+                    {d.templateName || d.title} · {d.leadId ? "Comercial" : "Cliente"} · {fmtDate(d.createdAt)}
                   </p>
                 </Link>
-                <Link href={`/gerencial/diagnostico/${d.id}`} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle">
+                <Link href={`/gerencial/diagnostico/${d.id}`} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle" title="Preencher">
                   <Pencil className="h-3.5 w-3.5" />
                 </Link>
                 <Link href={`/gerencial/diagnostico/${d.id}/documento`} className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-subtle" title="Documento">
@@ -152,8 +166,6 @@ export function DiagnosticList({
           </ul>
         )}
       </Card>
-
-      {cfgOpen && <DiagnosticConfigModal onClose={() => setCfgOpen(false)} />}
     </div>
   );
 }

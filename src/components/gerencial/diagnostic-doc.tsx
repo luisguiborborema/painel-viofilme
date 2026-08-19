@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Printer, Sparkles } from "lucide-react";
-import type { Diagnostic, DiagnosticConfig, DiagnosticQuestion } from "@/lib/data/diagnostic";
+import { answerToNumber, evalFormula, formatComputed, type Diagnostic, type DiagnosticQuestion, type DiagnosticTemplate } from "@/lib/data/diagnostic";
 
 function fmtValue(q: DiagnosticQuestion, raw: string): string {
   const v = (raw ?? "").trim();
@@ -18,11 +18,22 @@ function fmtValue(q: DiagnosticQuestion, raw: string): string {
   return v;
 }
 
-export function DiagnosticDoc({ diagnostic, config }: { diagnostic: Diagnostic; config: DiagnosticConfig }) {
+export function DiagnosticDoc({ diagnostic, template }: { diagnostic: Diagnostic; template: DiagnosticTemplate | null }) {
   const date = diagnostic.createdAt
     ? new Date(diagnostic.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : "";
-  const answered = config.questions.filter((q) => (diagnostic.answers[q.id] ?? "").trim());
+  const questions = template?.questions ?? [];
+  const computed = template?.computed ?? [];
+  const answered = questions.filter((q) => (diagnostic.answers[q.id] ?? "").trim());
+
+  const vars: Record<string, number> = {};
+  for (const q of questions) vars[q.id] = answerToNumber(diagnostic.answers[q.id]);
+  const results = computed
+    .map((c) => {
+      const val = evalFormula(c.formula, vars);
+      return { label: c.label, text: val == null ? null : formatComputed(val, c.format) };
+    })
+    .filter((r) => r.text != null);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -48,6 +59,18 @@ export function DiagnosticDoc({ diagnostic, config }: { diagnostic: Diagnostic; 
 
         <h1 className="text-2xl font-bold text-ink">{diagnostic.title}</h1>
         <p className="mt-1 text-base text-muted">{diagnostic.subject}</p>
+
+        {/* Destaque dos resultados calculados */}
+        {results.length > 0 && (
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {results.map((r, i) => (
+              <div key={i} className="break-inside-avoid rounded-xl border border-brand-200 bg-brand-50 p-3 print:border-line">
+                <p className="text-xs text-brand-700 print:text-muted">{r.label}</p>
+                <p className="mt-0.5 text-xl font-bold text-ink">{r.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-6 space-y-4">
           {answered.length === 0 ? (

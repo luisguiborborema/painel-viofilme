@@ -1,10 +1,15 @@
 import { PageHeader } from "@/components/dashboard/page-header";
 import { getClients, getCrmLeads } from "@/lib/data/queries";
-import { getDiagnostics } from "@/lib/data/diagnostic-server";
+import { getDiagnostics, getDiagnosticTemplates } from "@/lib/data/diagnostic-server";
 import { DiagnosticList } from "@/components/gerencial/diagnostic-list";
 
 export default async function GerencialDiagnostico() {
-  const [diagnostics, clients, leads] = await Promise.all([getDiagnostics(), getClients(), getCrmLeads()]);
+  const [diagnostics, templates, clients, leads] = await Promise.all([
+    getDiagnostics(),
+    getDiagnosticTemplates(),
+    getClients(),
+    getCrmLeads(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -14,6 +19,7 @@ export default async function GerencialDiagnostico() {
       />
       <DiagnosticList
         diagnostics={diagnostics}
+        templates={templates.map((t) => ({ id: t.id, name: t.name, area: t.area }))}
         clients={clients.map((c) => ({ id: c.id, name: c.name }))}
         leads={leads.map((l) => ({ id: l.id, name: l.name }))}
       />

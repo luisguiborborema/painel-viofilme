@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 type Body = {
   action?: "create" | "update" | "delete";
   id?: string;
+  templateId?: string;
   clientId?: string;
   leadId?: string;
   subject?: string;
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       .insert({
         subject,
         title: b.title?.trim() || "Diagnóstico",
+        template_id: clean(b.templateId),
         client_id: clean(b.clientId),
         lead_id: clean(b.leadId),
         answers,

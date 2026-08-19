@@ -1,22 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Calculator, Check, FileText, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-import type { Diagnostic, DiagnosticConfig } from "@/lib/data/diagnostic";
+import { answerToNumber, evalFormula, formatComputed, type Diagnostic, type DiagnosticTemplate } from "@/lib/data/diagnostic";
 
 const inputCls = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400";
 
-export function DiagnosticEditor({ diagnostic, config }: { diagnostic: Diagnostic; config: DiagnosticConfig }) {
+export function DiagnosticEditor({ diagnostic, template }: { diagnostic: Diagnostic; template: DiagnosticTemplate | null }) {
   const router = useRouter();
   const [title, setTitle] = useState(diagnostic.title);
   const [answers, setAnswers] = useState<Record<string, string>>({ ...diagnostic.answers });
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const set = (id: string, v: string) => { setAnswers((a) => ({ ...a, [id]: v })); setSaved(false); };
+
+  const questions = template?.questions ?? [];
+
+  // Cálculos ao vivo a partir das respostas.
+  const results = useMemo(() => {
+    const qs = template?.questions ?? [];
+    const cs = template?.computed ?? [];
+    const vars: Record<string, number> = {};
+    for (const q of qs) vars[q.id] = answerToNumber(answers[q.id]);
+    return cs.map((c) => {
+      const val = evalFormula(c.formula, vars);
+      return { label: c.label, text: val == null ? "—" : formatComputed(val, c.format) };
+    });
+  }, [answers, template]);
 
   async function save(thenDoc = false) {
     setBusy(true);
@@ -57,35 +71,57 @@ export function DiagnosticEditor({ diagnostic, config }: { diagnostic: Diagnosti
 
       <Card className="p-5">
         <p className="text-lg font-bold text-ink">{diagnostic.subject}</p>
+        {template && <p className="text-xs text-muted">Modelo: {template.name}</p>}
         <label className="mt-3 block">
           <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Título do diagnóstico</span>
           <input value={title} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} className={inputCls} />
         </label>
 
-        <div className="mt-4 space-y-4 border-t border-line pt-4">
-          {config.questions.map((q) => (
-            <div key={q.id}>
-              <label className="mb-1 block text-sm font-medium text-ink">{q.label}</label>
-              {q.hint && <p className="mb-1.5 text-xs text-muted">{q.hint}</p>}
-              {q.type === "textarea" ? (
-                <textarea value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} rows={3} className={inputCls + " resize-y"} />
-              ) : q.type === "choice" && q.options.length > 0 ? (
-                <select value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} className={inputCls}>
-                  <option value="">Selecione…</option>
-                  {q.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : q.type === "number" || q.type === "currency" ? (
-                <div className="flex items-center gap-1.5">
-                  {q.type === "currency" && <span className="text-sm text-muted">R$</span>}
-                  <input value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} inputMode="decimal" className={inputCls} />
-                </div>
-              ) : (
-                <input value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} className={inputCls} />
-              )}
-            </div>
-          ))}
-        </div>
+        {questions.length === 0 ? (
+          <p className="mt-4 rounded-lg bg-subtle px-3 py-2 text-sm text-muted">Este modelo ainda não tem perguntas. Edite em Modelos & perguntas.</p>
+        ) : (
+          <div className="mt-4 space-y-4 border-t border-line pt-4">
+            {questions.map((q) => (
+              <div key={q.id}>
+                <label className="mb-1 block text-sm font-medium text-ink">{q.label}</label>
+                {q.hint && <p className="mb-1.5 text-xs text-muted">{q.hint}</p>}
+                {q.type === "textarea" ? (
+                  <textarea value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} rows={3} className={inputCls + " resize-y"} />
+                ) : q.type === "choice" && q.options.length > 0 ? (
+                  <select value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} className={inputCls}>
+                    <option value="">Selecione…</option>
+                    {q.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : q.type === "number" || q.type === "currency" ? (
+                  <div className="flex items-center gap-1.5">
+                    {q.type === "currency" && <span className="text-sm text-muted">R$</span>}
+                    <input value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} inputMode="decimal" className={inputCls} />
+                  </div>
+                ) : (
+                  <input value={answers[q.id] ?? ""} onChange={(e) => set(q.id, e.target.value)} className={inputCls} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* Resultados calculados (ao vivo) */}
+      {results.length > 0 && (
+        <Card className="p-5">
+          <p className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-ink">
+            <Calculator className="h-4 w-4 text-brand-500" /> Resultados calculados
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {results.map((r, i) => (
+              <div key={i} className="rounded-xl border border-line bg-canvas p-3">
+                <p className="text-xs text-muted">{r.label}</p>
+                <p className="mt-0.5 text-xl font-bold text-ink">{r.text}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
