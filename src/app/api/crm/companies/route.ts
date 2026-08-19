@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { tierHasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
   const supabase = await createClient();
 
   if (action === "delete") {
+    if (!tierHasFullAccess(user.tier)) return NextResponse.json({ error: "Apenas Gestor ou Admin podem apagar empresas." }, { status: 403 });
     if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const { error } = await supabase.from("crm_companies").delete().eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

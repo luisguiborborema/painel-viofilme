@@ -1,10 +1,12 @@
 import { Users } from "lucide-react";
 import { getHubClientsOps } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
+import { tierHasFullAccess } from "@/lib/access";
 import { HubClientes } from "@/components/gerencial/hub-clientes";
 
 export default async function GerencialClientes() {
   const [clients, user] = await Promise.all([getHubClientsOps(), getSession()]);
+  const canDelete = tierHasFullAccess(user?.tier);
 
   return (
     <div className="space-y-4">
@@ -22,7 +24,7 @@ export default async function GerencialClientes() {
         </div>
       </div>
 
-      <HubClientes clients={clients} meName={user?.name} />
+      <HubClientes clients={clients} meName={user?.name} canDelete={canDelete} />
     </div>
   );
 }

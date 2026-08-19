@@ -12,7 +12,9 @@ import {
   List,
   MessageCircle,
   MoreVertical,
+  Pencil,
   Search,
+  Trash2,
 } from "lucide-react";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
@@ -138,15 +140,35 @@ function StatusChip({ c }: { c: HubClientOps }) {
   );
 }
 
-/** Ações rápidas (Grupo 1) — sem RBAC. Só botões (sem <a> aninhado no card). */
-function ClientActions({ c, align = "right" }: { c: HubClientOps; align?: "right" | "left" }) {
+/** Ações rápidas do card. Apagar só aparece para Gestor/Admin (canDelete). */
+function ClientActions({ c, align = "right", canDelete = false }: { c: HubClientOps; align?: "right" | "left"; canDelete?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const wa = c.whatsapp?.replace(/\D/g, "");
 
   const stop = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
+
+  async function del(e: MouseEvent) {
+    stop(e);
+    if (!window.confirm(`Apagar o cliente "${c.name}"? Esta ação remove os dados ligados e não pode ser desfeita.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/gerencial/clients", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: c.id }) });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        window.alert(j?.error ?? "Não foi possível apagar.");
+        setDeleting(false);
+        return;
+      }
+      window.location.reload();
+    } catch {
+      window.alert("Não foi possível apagar.");
+      setDeleting(false);
+    }
+  }
 
   const item =
     "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-ink hover:bg-subtle";
@@ -214,6 +236,27 @@ function ClientActions({ c, align = "right" }: { c: HubClientOps; align?: "right
             >
               <Copy className="h-3.5 w-3.5 text-muted" /> Copiar link do cliente
             </button>
+
+            <div className="my-1 border-t border-line" />
+            <button
+              onClick={(e) => {
+                stop(e);
+                setOpen(false);
+                window.location.href = `/gerencial/clientes/${c.id}`;
+              }}
+              className={item}
+            >
+              <Pencil className="h-3.5 w-3.5 text-muted" /> Editar
+            </button>
+            {canDelete && (
+              <button
+                onClick={del}
+                disabled={deleting}
+                className={cn(item, "text-rose-600 hover:bg-rose-500/10 disabled:opacity-50")}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Apagando…" : "Apagar"}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -239,7 +282,7 @@ function SortTh({ label, k, sort, onSort, align }: {
   );
 }
 
-export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meName?: string }) {
+export function HubClientes({ clients, meName, canDelete = false }: { clients: HubClientOps[]; meName?: string; canDelete?: boolean }) {
   const [layout, setLayout] = usePersistentState<"card" | "lista">("vio-hub-layout", "card");
   const [scope, setScope] = useState<Scope>("squad");
   const [query, setQuery] = useState("");
@@ -393,7 +436,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                 </p>
               </div>
               <div className="pointer-events-auto absolute right-3 top-3 z-10">
-                <ClientActions c={c} />
+                <ClientActions c={c} canDelete={canDelete} />
               </div>
             </div>
           ))}
@@ -448,7 +491,7 @@ export function HubClientes({ clients, meName }: { clients: HubClientOps[]; meNa
                   <td className="px-3 py-2.5"><LeCiclo le={c.leNextMonth} /></td>
                   <td className="px-3 py-2.5 text-muted">{c.nextAgenda}</td>
                   <td className="px-3 py-2.5 text-right">
-                    <ClientActions c={c} />
+                    <ClientActions c={c} canDelete={canDelete} />
                   </td>
                 </tr>
               ))}

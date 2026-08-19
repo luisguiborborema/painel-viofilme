@@ -1,11 +1,31 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { tierHasFullAccess } from "@/lib/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { provisionClientDrive } from "@/lib/google/drive-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Apaga um cliente (cascata nas tabelas ligadas). Só Gestor/Admin. */
+export async function DELETE(req: Request) {
+  const user = await getSession();
+  if (!user || user.role !== "gerencial") return NextResponse.json({ error: "não autorizado" }, { status: 401 });
+  if (!tierHasFullAccess(user.tier)) return NextResponse.json({ error: "Apenas Gestor ou Admin podem apagar clientes." }, { status: 403 });
+  let id: string | undefined;
+  try {
+    id = (await req.json())?.id;
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+  if (!id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
 
 const CLIENT_TYPES = new Set(["lead_gen", "ecommerce", "local_business"]);
 const clean = (v: string | undefined | null) => (v && v.trim() ? v.trim() : null);

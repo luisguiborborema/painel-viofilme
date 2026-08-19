@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { tierHasFullAccess } from "@/lib/access";
 import { logEvent, logFromUser } from "@/lib/audit/log";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -181,6 +182,7 @@ export async function POST(req: Request) {
   const now = new Date().toISOString();
 
   if (action === "delete") {
+    if (!tierHasFullAccess(user.tier)) return NextResponse.json({ error: "Apenas Gestor ou Admin podem apagar negócios." }, { status: 403 });
     if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     // Cascata (interações, tarefas, deal_contacts, histórico) já cai por FK.
     const { error } = await supabase.from("crm_leads").delete().eq("id", body.id);
