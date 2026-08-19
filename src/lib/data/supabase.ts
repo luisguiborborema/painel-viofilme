@@ -1445,6 +1445,39 @@ export async function sbGetRhDocuments(collaboratorId: string): Promise<RhDocume
   }));
 }
 
+/** Todas as respostas de NPS (gerência) — junta o nome do cliente. */
+export async function sbGetAllNps(): Promise<import("./nps").NpsEntry[]> {
+  const { npsClass } = await import("./nps");
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("nps_surveys")
+    .select("id, client_id, score, comment, extra, respondent, channel, created_at, answered_at, clients(name)")
+    .not("score", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => {
+    const cRel = r.clients as { name?: string } | { name?: string }[] | null;
+    const clientName = Array.isArray(cRel) ? (cRel[0]?.name ?? "—") : (cRel?.name ?? "—");
+    const score = Number(r.score ?? 0);
+    const extraRaw = r.extra;
+    const extra = Array.isArray(extraRaw)
+      ? (extraRaw as Record<string, unknown>[]).map((a) => ({ id: String(a.id ?? ""), label: String(a.label ?? ""), value: String(a.value ?? "") }))
+      : [];
+    return {
+      id: String(r.id),
+      clientId: String(r.client_id),
+      clientName: String(clientName),
+      score,
+      classification: npsClass(score),
+      comment: (r.comment as string) ?? "",
+      extra,
+      respondent: (r.respondent as string) ?? "",
+      channel: (r.channel as string) ?? "",
+      date: (r.answered_at as string) ?? (r.created_at as string) ?? "",
+    };
+  });
+}
+
 export async function sbGetHourBank(): Promise<HourBankView> {
   const supabase = await createClient();
   const now = new Date();

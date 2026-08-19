@@ -22,6 +22,15 @@ export async function POST(req: Request) {
   const score = Number(b.score);
   const comment = str(b.comment);
   const respondent = str(b.respondent);
+  const extra = Array.isArray(b.extra)
+    ? (b.extra as unknown[])
+        .map((a) => {
+          const o = (a ?? {}) as Record<string, unknown>;
+          return { id: str(o.id), label: str(o.label), value: str(o.value) };
+        })
+        .filter((a) => a.label && a.value)
+        .slice(0, 20)
+    : [];
   if (!token || !Number.isInteger(score) || score < 0 || score > 10) {
     return NextResponse.json({ error: "nota inválida" }, { status: 400 });
   }
@@ -44,6 +53,7 @@ export async function POST(req: Request) {
       score,
       comment: comment || null,
       respondent: respondent || null,
+      extra: extra.length ? extra : null,
       status: "answered",
       answered_at: new Date().toISOString(),
     })

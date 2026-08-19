@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   const now = Date.now();
 
   const [{ data: clients }, { data: surveys }] = await Promise.all([
-    admin.from("clients").select("id, name, whatsapp").not("whatsapp", "is", null),
+    admin.from("clients").select("id, name, slug, whatsapp").not("whatsapp", "is", null),
     admin.from("nps_surveys").select("client_id, status, score, created_at, sent_at, answered_at"),
   ]);
 
@@ -62,7 +62,8 @@ export async function GET(request: Request) {
       .single();
     if (!inv?.public_token) continue;
     created += 1;
-    const link = `${base}/nps/${inv.public_token}`;
+    const slug = String(c.slug ?? "").trim() || "cliente";
+    const link = `${base}/nps/${slug}/${inv.public_token}`;
     const msg = `Oi! Aqui é da Viofilme 💚 Sua opinião é muito importante pra gente. Pode responder nossa pesquisa rápida de satisfação? Leva menos de 1 minuto: ${link}`;
     const ok = await sendWhatsappText(wa, msg).catch(() => false);
     if (ok) sent += 1;

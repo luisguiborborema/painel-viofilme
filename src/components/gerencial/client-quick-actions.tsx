@@ -43,7 +43,7 @@ export function ClientQuickActions({
   const [npsOpen, setNpsOpen] = useState(false);
   const [npsBusy, setNpsBusy] = useState(false);
   const [npsCopied, setNpsCopied] = useState(false);
-  const [nps, setNps] = useState<{ token: string; whatsapp: string; email: string } | null>(null);
+  const [nps, setNps] = useState<{ token: string; slug: string; whatsapp: string; email: string } | null>(null);
   const [npsCfgOpen, setNpsCfgOpen] = useState(false);
 
   async function toggleNps() {
@@ -62,7 +62,7 @@ export function ClientQuickActions({
           toast(j?.error ?? "Não foi possível gerar o link do NPS.", "error");
           setNpsOpen(false);
         } else {
-          setNps({ token: j.token, whatsapp: (j.whatsapp || whatsapp || "").replace(/\D/g, ""), email: j.email || "" });
+          setNps({ token: j.token, slug: j.slug || "", whatsapp: (j.whatsapp || whatsapp || "").replace(/\D/g, ""), email: j.email || "" });
         }
       } finally {
         setNpsBusy(false);
@@ -70,7 +70,7 @@ export function ClientQuickActions({
     }
   }
 
-  const npsLink = () => (nps ? `${window.location.origin}/nps/${nps.token}` : "");
+  const npsLink = () => (nps ? `${window.location.origin}/nps/${nps.slug || "cliente"}/${nps.token}` : "");
   const npsMsg = () => `Oi! Sua opinião é muito importante pra gente. Pode responder nossa pesquisa rápida de satisfação? Leva menos de 1 minuto: ${npsLink()}`;
   function copyNps() {
     void navigator.clipboard?.writeText(npsLink()).then(() => {

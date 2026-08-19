@@ -78,6 +78,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     items: [
       { label: "Meu dia", href: "/gerencial/meu-dia", icon: Sun },
       { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
+      { label: "NPS", href: "/gerencial/nps", icon: Gauge, section: "clientes" },
       { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
       { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
       { label: "VioFlux", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },

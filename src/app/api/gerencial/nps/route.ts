@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     }
     const { data: c } = await supabase
       .from("clients")
-      .select("name, whatsapp, contact_email")
+      .select("name, slug, whatsapp, contact_email")
       .eq("id", clientId)
       .maybeSingle();
     return NextResponse.json({
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       id: data.id,
       token: data.public_token,
       clientName: c?.name ?? "",
+      slug: c?.slug ?? "",
       whatsapp: c?.whatsapp ?? "",
       email: c?.contact_email ?? "",
     });

@@ -7,11 +7,14 @@ import { toNpsConfig } from "@/lib/data/nps";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Página pública de resposta do NPS (link estilo Tally, sem login). */
-export default async function NpsPage({
+/**
+ * Página pública do NPS com o nome do cliente na URL (/nps/<slug>/<token>).
+ * O `slug` é decorativo — a validação é sempre pelo token.
+ */
+export default async function NpsPageWithSlug({
   params,
 }: {
-  params: Promise<{ token: string }>;
+  params: Promise<{ slug: string; token: string }>;
 }) {
   const { token } = await params;
   if (!isSupabaseConfigured() || !hasServiceRole()) notFound();

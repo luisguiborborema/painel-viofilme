@@ -26,10 +26,12 @@ export function NpsForm({
 }) {
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [website, setWebsite] = useState(""); // honeypot
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(alreadyAnswered);
   const [error, setError] = useState<string | null>(null);
+  const setAnswer = (id: string, v: string) => setAnswers((a) => ({ ...a, [id]: v }));
 
   async function submit() {
     if (score === null) {
@@ -39,10 +41,13 @@ export function NpsForm({
     setBusy(true);
     setError(null);
     try {
+      const extra = config.questions
+        .map((q) => ({ id: q.id, label: q.label, value: (answers[q.id] ?? "").trim() }))
+        .filter((a) => a.value);
       const res = await fetch("/api/public/nps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, score, comment, website }),
+        body: JSON.stringify({ token, score, comment, website, extra }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) {
@@ -113,6 +118,39 @@ export function NpsForm({
                 className="w-full resize-y rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand-400"
               />
             </label>
+
+            {/* Perguntas extras configuradas */}
+            {config.questions.map((q) => (
+              <div key={q.id} className="mt-5">
+                <span className="mb-1.5 block text-sm font-medium text-ink">{q.label}</span>
+                {q.type === "choice" && q.options.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {q.options.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setAnswer(q.id, opt)}
+                        className={cn(
+                          "rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors",
+                          answers[q.id] === opt
+                            ? "border-brand-500 bg-brand-500 text-white"
+                            : "border-line bg-surface text-ink hover:border-brand-400 hover:bg-subtle",
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <textarea
+                    value={answers[q.id] ?? ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value)}
+                    rows={2}
+                    className="w-full resize-y rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand-400"
+                  />
+                )}
+              </div>
+            ))}
 
             {/* honeypot */}
             <input

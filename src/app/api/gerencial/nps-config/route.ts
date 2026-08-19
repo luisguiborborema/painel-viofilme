@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { NPS_DEFAULTS, toNpsConfig } from "@/lib/data/nps";
+import { NPS_DEFAULTS, parseQuestions, toNpsConfig } from "@/lib/data/nps";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("nps_config")
-    .select("headline, intro, comment_label, thank_you")
+    .select("headline, intro, comment_label, thank_you, questions")
     .eq("id", 1)
     .maybeSingle();
   return NextResponse.json({ config: toNpsConfig(data) });
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial") return NextResponse.json({ error: "não autorizado" }, { status: 401 });
 
-  let b: { headline?: string; intro?: string; commentLabel?: string; thankYou?: string };
+  let b: { headline?: string; intro?: string; commentLabel?: string; thankYou?: string; questions?: unknown };
   try {
     b = await req.json();
   } catch {
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
     intro: clean(b.intro),
     comment_label: clean(b.commentLabel),
     thank_you: clean(b.thankYou),
+    questions: parseQuestions(b.questions),
     updated_at: new Date().toISOString(),
   });
   if (error) {

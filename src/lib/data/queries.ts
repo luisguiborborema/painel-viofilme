@@ -649,6 +649,12 @@ export async function getEmployeesView(): Promise<Employee[]> {
   return employeesMock();
 }
 
+/** Todas as respostas de NPS (visão global da gerência). */
+export async function getAllNpsView(): Promise<import("./nps").NpsEntry[]> {
+  if (isSupabaseConfigured()) return sb.sbGetAllNps();
+  return [];
+}
+
 /** Mural de comunicados (real via rh_announcements; senão mock). */
 export async function getAnnouncementsView(): Promise<Announcement[]> {
   if (isSupabaseConfigured()) {
