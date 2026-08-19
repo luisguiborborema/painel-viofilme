@@ -655,6 +655,12 @@ export async function getAllNpsView(): Promise<import("./nps").NpsEntry[]> {
   return [];
 }
 
+/** Todas as respostas da pesquisa pós-reunião (visão global). */
+export async function getAllMeetingSurveysView(): Promise<import("./meeting-survey").MeetingEntry[]> {
+  if (isSupabaseConfigured()) return sb.sbGetAllMeetingSurveys();
+  return [];
+}
+
 /** Mural de comunicados (real via rh_announcements; senão mock). */
 export async function getAnnouncementsView(): Promise<Announcement[]> {
   if (isSupabaseConfigured()) {

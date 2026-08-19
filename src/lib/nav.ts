@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Sun,
   Lightbulb,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -79,6 +80,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Meu dia", href: "/gerencial/meu-dia", icon: Sun },
       { label: "Hub de Clientes", href: "/gerencial/clientes", icon: Users, section: "clientes" },
       { label: "NPS", href: "/gerencial/nps", icon: Gauge, section: "clientes" },
+      { label: "Pós-reunião", href: "/gerencial/pos-reuniao", icon: Star, section: "clientes" },
       { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
       { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
       { label: "VioFlux", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },

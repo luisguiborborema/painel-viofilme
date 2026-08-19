@@ -139,6 +139,7 @@ export function pathToSection(pathname: string): SectionKey | null {
 const COMBINED_ROUTES: { href: string; anyOf: SectionKey[] }[] = [
   { href: "/gerencial/gestao-a-vista", anyOf: ["campanhas", "resultados"] },
   { href: "/gerencial/nps", anyOf: ["clientes"] },
+  { href: "/gerencial/pos-reuniao", anyOf: ["clientes"] },
 ];
 
 /** O usuário pode acessar esta rota do painel gerencial? */

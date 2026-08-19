@@ -14,9 +14,11 @@ import {
   Mail,
   MessageCircle,
   Settings2,
+  Star,
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { NpsConfigModal } from "@/components/gerencial/nps-config-modal";
+import { MeetingSurveyConfigModal } from "@/components/gerencial/meeting-survey-config-modal";
 
 type CaptureFormItem = { id: string; name: string; slug: string; destination: string };
 
@@ -76,6 +78,46 @@ export function ClientQuickActions({
     void navigator.clipboard?.writeText(npsLink()).then(() => {
       setNpsCopied(true);
       window.setTimeout(() => setNpsCopied(false), 1800);
+    });
+  }
+
+  // Pesquisa pós-reunião (estrelas)
+  const [msOpen, setMsOpen] = useState(false);
+  const [msBusy, setMsBusy] = useState(false);
+  const [msCopied, setMsCopied] = useState(false);
+  const [ms, setMs] = useState<{ token: string; slug: string; whatsapp: string; email: string } | null>(null);
+  const [msCfgOpen, setMsCfgOpen] = useState(false);
+
+  async function toggleMs() {
+    const next = !msOpen;
+    setMsOpen(next);
+    if (next && !ms && !msBusy) {
+      setMsBusy(true);
+      try {
+        const res = await fetch("/api/gerencial/meeting-survey", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "invite", clientId, channel: "manual" }),
+        });
+        const j = await res.json().catch(() => null);
+        if (!res.ok || !j?.token) {
+          toast(j?.error ?? "Não foi possível gerar o link.", "error");
+          setMsOpen(false);
+        } else {
+          setMs({ token: j.token, slug: j.slug || "", whatsapp: (j.whatsapp || whatsapp || "").replace(/\D/g, ""), email: j.email || "" });
+        }
+      } finally {
+        setMsBusy(false);
+      }
+    }
+  }
+
+  const msLink = () => (ms ? `${window.location.origin}/pesquisa/${ms.slug || "cliente"}/${ms.token}` : "");
+  const msMsg = () => `Oi! Como foi nossa reunião? Responda rapidinho nossa pesquisa (leva 1 min): ${msLink()}`;
+  function copyMs() {
+    void navigator.clipboard?.writeText(msLink()).then(() => {
+      setMsCopied(true);
+      window.setTimeout(() => setMsCopied(false), 1800);
     });
   }
 
@@ -238,6 +280,54 @@ export function ClientQuickActions({
         )}
       </div>
       {npsCfgOpen && <NpsConfigModal onClose={() => setNpsCfgOpen(false)} />}
+
+      {/* Pesquisa de satisfação pós-reunião (estrelas) */}
+      <div className="relative">
+        <button onClick={toggleMs} className={base}>
+          <Star className="h-3.5 w-3.5" /> Pesquisa pós-reunião
+          <ChevronDown className={`h-3 w-3 transition-transform ${msOpen ? "rotate-180" : ""}`} />
+        </button>
+        {msOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMsOpen(false)} />
+            <div className="absolute left-0 z-20 mt-1 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Avaliação da reunião — link único
+              </p>
+              {msBusy || !ms ? (
+                <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando link…
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  <button onClick={copyMs} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle">
+                    {msCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted" />}
+                    {msCopied ? "Link copiado" : "Copiar link"}
+                  </button>
+                  {ms.whatsapp ? (
+                    <a href={`https://wa.me/${ms.whatsapp}?text=${encodeURIComponent(msMsg())}`} target="_blank" rel="noopener noreferrer" onClick={() => setMsOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle">
+                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" /> Enviar no WhatsApp
+                    </a>
+                  ) : (
+                    <span className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted">
+                      <MessageCircle className="h-3.5 w-3.5" /> Sem WhatsApp cadastrado
+                    </span>
+                  )}
+                  <a href={`mailto:${ms.email}?subject=${encodeURIComponent("Como foi nossa reunião? — Viofilme")}&body=${encodeURIComponent(msMsg())}`} onClick={() => setMsOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-subtle">
+                    <Mail className="h-3.5 w-3.5 text-brand-600" /> Enviar por e-mail
+                  </a>
+                </div>
+              )}
+              <div className="mt-1 border-t border-line pt-1">
+                <button onClick={() => { setMsOpen(false); setMsCfgOpen(true); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-muted hover:bg-subtle hover:text-ink">
+                  <Settings2 className="h-3.5 w-3.5" /> Personalizar perguntas
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+      {msCfgOpen && <MeetingSurveyConfigModal onClose={() => setMsCfgOpen(false)} />}
 
       <a
         href={`/api/relatorio/pdf?clientId=${clientId}`}
