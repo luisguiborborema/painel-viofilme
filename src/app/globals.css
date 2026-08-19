@@ -222,3 +222,21 @@ body {
    e cantos pequenos ficam intactos. */
 .hs-crm .rounded-2xl { border-radius: 0.5rem; }
 .hs-crm .rounded-xl { border-radius: 0.375rem; }
+
+/* Formulário público em modo Tally (uma pergunta por vez): transição de entrada
+   de cada pergunta (fade + slide, com direção via --cap-tx) e barra de progresso. */
+@keyframes captureStepIn {
+  from { opacity: 0; transform: translateX(var(--cap-tx, 24px)); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.capture-step-in { animation: captureStepIn 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+@keyframes captureFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.capture-fade-up { animation: captureFadeUp 0.4s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-step-in, .capture-fade-up { animation: none; }
+}

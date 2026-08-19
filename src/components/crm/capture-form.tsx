@@ -78,6 +78,7 @@ export function CaptureForm({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
+  const [dir, setDir] = useState(1); // 1 = avançar, -1 = voltar (direção da animação)
 
   function set(key: string, v: string) {
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -117,7 +118,7 @@ export function CaptureForm({
       <div className="flex min-h-screen flex-col">
         <BrandHeader title="" />
         <div className="flex flex-1 items-center justify-center px-5 py-12 text-center">
-          <div>
+          <div className="capture-fade-up">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
             <h1 className="mt-4 text-xl font-bold text-ink">Recebemos suas respostas!</h1>
             <p className="mt-1 text-sm text-muted">Em breve nossa equipe dá sequência. Obrigado. 💙</p>
@@ -203,14 +204,18 @@ export function CaptureForm({
     const emptyRequired = !!cur && cur.fieldType !== "section" && cur.required && !((values[cur.fieldKey] ?? "").trim());
     const pct = steps.length ? Math.round(((idx + 1) / steps.length) * 100) : 0;
 
-    const goNext = () => { if (emptyRequired) return; if (last) submit(); else setStepIdx(idx + 1); };
+    const goNext = () => { if (emptyRequired) return; if (last) { submit(); return; } setDir(1); setStepIdx(idx + 1); };
+    const goBack = () => { if (idx === 0) return; setDir(-1); setStepIdx(idx - 1); };
 
     return (
-      <div className="flex min-h-screen flex-col">
-        <div className="h-1 w-full bg-subtle"><div className="h-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} /></div>
+      <div className="flex min-h-screen flex-col overflow-hidden">
+        <div className="h-1 w-full bg-subtle"><div className="h-full bg-brand-500 transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-10 sm:px-6">
           {cur && (
             <div
+              key={idx}
+              className="capture-step-in"
+              style={{ "--cap-tx": dir >= 0 ? "28px" : "-28px" } as React.CSSProperties}
               onKeyDown={(e) => { if (e.key === "Enter" && cur.fieldType !== "textarea") { e.preventDefault(); goNext(); } }}
             >
               {cur.fieldType === "section" ? (
@@ -225,9 +230,9 @@ export function CaptureForm({
               {error && <p className="mt-3 text-xs text-rose-500">Ops, algo deu errado. Tente de novo.</p>}
 
               <div className="mt-6 flex items-center justify-between gap-2">
-                <button type="button" onClick={() => setStepIdx(Math.max(0, idx - 1))} disabled={idx === 0} className="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:text-ink disabled:opacity-0">Voltar</button>
+                <button type="button" onClick={goBack} disabled={idx === 0} className="rounded-xl px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-ink disabled:opacity-0">Voltar</button>
                 <span className="text-xs text-muted">{idx + 1} / {steps.length}</span>
-                <button type="button" onClick={goNext} disabled={emptyRequired || busy} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+                <button type="button" onClick={goNext} disabled={emptyRequired || busy} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:bg-brand-700 active:scale-95 disabled:opacity-60">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : last ? <Send className="h-4 w-4" /> : null}
                   {last ? "Enviar" : cur.fieldType === "section" ? "Começar" : "Avançar"}
                 </button>
