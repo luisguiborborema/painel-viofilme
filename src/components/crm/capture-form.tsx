@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2, Send } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Loader2, Send } from "lucide-react";
 import { LogoHorizontal } from "@/components/brand/logo";
+import { cn } from "@/lib/utils";
 
 export type PublicField = {
   fieldKey: string;
@@ -16,6 +17,9 @@ export type PublicField = {
 
 const inputCls =
   "w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15";
+// Input maior, para o modo Tally (uma pergunta por tela).
+const stepInputCls =
+  "w-full rounded-2xl border border-line bg-surface px-5 py-4 text-base text-ink outline-none transition-colors focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10";
 
 // Fallback quando o formulário não tem campos configurados (compat. com os
 // formulários de captação antigos): nome/empresa/e-mail/telefone/mensagem.
@@ -204,38 +208,128 @@ export function CaptureForm({
     const emptyRequired = !!cur && cur.fieldType !== "section" && cur.required && !((values[cur.fieldKey] ?? "").trim());
     const pct = steps.length ? Math.round(((idx + 1) / steps.length) * 100) : 0;
 
-    const goNext = () => { if (emptyRequired) return; if (last) { submit(); return; } setDir(1); setStepIdx(idx + 1); };
+    const advance = () => { setDir(1); setStepIdx(idx + 1); };
+    const goNext = () => { if (emptyRequired) return; if (last) { submit(); return; } advance(); };
     const goBack = () => { if (idx === 0) return; setDir(-1); setStepIdx(idx - 1); };
 
+    // Render rico da pergunta atual (botões para escolhas, inputs grandes).
+    function stepControl(f: PublicField) {
+      const val = values[f.fieldKey] ?? "";
+      if (f.fieldType === "select") {
+        return (
+          <div className="space-y-2.5">
+            {f.options.map((o) => {
+              const on = val === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { set(f.fieldKey, o.value); if (!last) setTimeout(advance, 180); }}
+                  className={cn("flex w-full items-center justify-between rounded-2xl border px-5 py-4 text-left text-base transition-all",
+                    on ? "border-brand-500 bg-brand-50 text-ink shadow-sm" : "border-line bg-surface text-ink hover:border-brand-300 hover:bg-subtle")}
+                >
+                  {o.label}
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border", on ? "border-brand-500 bg-brand-500 text-white" : "border-line")}>
+                    {on && <Check className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
+      if (f.fieldType === "multiselect") {
+        const selected = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+        const toggle = (v: string) => {
+          const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];
+          set(f.fieldKey, next.join(", "));
+        };
+        return (
+          <div className="space-y-2.5">
+            {f.options.map((o) => {
+              const on = selected.includes(o.value);
+              return (
+                <button key={o.value} type="button" onClick={() => toggle(o.value)}
+                  className={cn("flex w-full items-center justify-between rounded-2xl border px-5 py-4 text-left text-base transition-all",
+                    on ? "border-brand-500 bg-brand-50 text-ink shadow-sm" : "border-line bg-surface text-ink hover:border-brand-300 hover:bg-subtle")}>
+                  {o.label}
+                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border", on ? "border-brand-500 bg-brand-500 text-white" : "border-line")}>
+                    {on && <Check className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
+      if (f.fieldType === "checkbox") {
+        return (
+          <div className="flex gap-2.5">
+            {[["true", "Sim"], ["false", "Não"]].map(([v, lbl]) => (
+              <button key={lbl} type="button" onClick={() => { set(f.fieldKey, v); if (!last) setTimeout(advance, 180); }}
+                className={cn("flex-1 rounded-2xl border px-5 py-4 text-base font-medium transition-all",
+                  val === v ? "border-brand-500 bg-brand-50 text-ink" : "border-line bg-surface text-ink hover:bg-subtle")}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        );
+      }
+      if (f.fieldType === "textarea") {
+        return <textarea autoFocus value={val} onChange={(e) => set(f.fieldKey, e.target.value)} rows={4} className={stepInputCls + " resize-none"} required={f.required} />;
+      }
+      const type = f.fieldType === "email" ? "email" : f.fieldType === "number" ? "number" : f.fieldType === "date" ? "date" : f.fieldType === "url" ? "url" : "text";
+      return (
+        <input autoFocus type={type} inputMode={f.fieldType === "phone" ? "tel" : undefined} value={val} onChange={(e) => set(f.fieldKey, e.target.value)}
+          placeholder={f.fieldType === "phone" ? "(00) 00000-0000" : "Digite aqui…"} className={stepInputCls} required={f.required} />
+      );
+    }
+
     return (
-      <div className="flex min-h-screen flex-col overflow-hidden">
-        <div className="h-1 w-full bg-subtle"><div className="h-full bg-brand-500 transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} /></div>
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-10 sm:px-6">
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-canvas">
+        {/* Barra de progresso fixa no topo */}
+        <div className="fixed inset-x-0 top-0 z-20 h-1.5 bg-subtle">
+          <div className="h-full bg-brand-500 transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+        </div>
+        {/* Brilho de marca no fundo */}
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-60 blur-3xl" style={{ background: "radial-gradient(closest-side, var(--color-brand-200, #dbeafe), transparent)" }} />
+
+        <header className="relative px-6 pt-8 sm:px-10">
+          <LogoHorizontal className="h-7 text-brand-600 sm:h-8" />
+        </header>
+
+        <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-24 sm:px-10">
           {cur && (
             <div
               key={idx}
               className="capture-step-in"
-              style={{ "--cap-tx": dir >= 0 ? "28px" : "-28px" } as React.CSSProperties}
+              style={{ "--cap-tx": dir >= 0 ? "32px" : "-32px" } as React.CSSProperties}
               onKeyDown={(e) => { if (e.key === "Enter" && cur.fieldType !== "textarea") { e.preventDefault(); goNext(); } }}
             >
               {cur.fieldType === "section" ? (
-                <h2 className="whitespace-pre-wrap text-xl font-bold leading-snug text-ink sm:text-2xl">{cur.label}</h2>
+                <h2 className="whitespace-pre-wrap text-2xl font-bold leading-snug text-ink sm:text-3xl">{cur.label}</h2>
               ) : (
                 <>
-                  <p className="mb-3 text-lg font-semibold text-ink">{cur.label}{cur.required && <span className="text-rose-500"> *</span>}</p>
-                  {fieldControl(cur)}
+                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-500">
+                    Pergunta {steps.slice(0, idx + 1).filter((s) => s.fieldType !== "section").length}
+                  </div>
+                  <p className="mb-5 text-2xl font-bold leading-snug text-ink sm:text-3xl">{cur.label}{cur.required && <span className="text-brand-500"> *</span>}</p>
+                  {stepControl(cur)}
                 </>
               )}
               {honeypot}
-              {error && <p className="mt-3 text-xs text-rose-500">Ops, algo deu errado. Tente de novo.</p>}
+              {error && <p className="mt-4 text-sm text-rose-500">Ops, algo deu errado. Tente de novo.</p>}
 
-              <div className="mt-6 flex items-center justify-between gap-2">
-                <button type="button" onClick={goBack} disabled={idx === 0} className="rounded-xl px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-ink disabled:opacity-0">Voltar</button>
-                <span className="text-xs text-muted">{idx + 1} / {steps.length}</span>
-                <button type="button" onClick={goNext} disabled={emptyRequired || busy} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:bg-brand-700 active:scale-95 disabled:opacity-60">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : last ? <Send className="h-4 w-4" /> : null}
-                  {last ? "Enviar" : cur.fieldType === "section" ? "Começar" : "Avançar"}
+              <div className="mt-8 flex items-center gap-4">
+                <button type="button" onClick={goNext} disabled={emptyRequired || busy} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : last ? <Send className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
+                  {last ? "Enviar" : cur.fieldType === "section" ? "Começar" : "OK"}
                 </button>
+                {!last && cur.fieldType !== "section" && <span className="hidden text-xs text-muted sm:inline">pressione <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 font-sans">Enter ↵</kbd></span>}
+                <div className="ml-auto flex items-center gap-3 text-xs text-muted">
+                  <span>{idx + 1} / {steps.length}</span>
+                  <button type="button" onClick={goBack} disabled={idx === 0} className="rounded-lg px-2 py-1 font-medium transition-colors hover:text-ink disabled:opacity-0">Voltar</button>
+                </div>
               </div>
             </div>
           )}
