@@ -206,7 +206,7 @@ export function CaptureForm({
     {
       let s = "";
       for (const f of activeFields) {
-        if (f.fieldType === "section") s = f.label;
+        if (f.fieldType === "section") s = f.label.split("\n")[0].trim(); // só o título
         else sectionOf[f.fieldKey] = s;
       }
     }
@@ -318,7 +318,22 @@ export function CaptureForm({
               onKeyDown={(e) => { if (e.key === "Enter" && cur.fieldType !== "textarea") { e.preventDefault(); goNext(); } }}
             >
               {cur.fieldType === "section" ? (
-                <h2 className="whitespace-pre-wrap text-2xl font-bold leading-snug text-ink sm:text-3xl">{cur.label}</h2>
+                (() => {
+                  // 1ª linha = título; demais linhas = parágrafos de apoio.
+                  const [head, ...rest] = cur.label.split("\n").map((s) => s.trim()).filter(Boolean);
+                  return (
+                    <div>
+                      <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">{head}</h2>
+                      {rest.length > 0 && (
+                        <div className="mt-5 space-y-3">
+                          {rest.map((p, i) => (
+                            <p key={i} className="text-base leading-relaxed text-muted sm:text-lg">{p}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <>
                   <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs font-semibold uppercase tracking-wide text-brand-500">
@@ -365,7 +380,15 @@ export function CaptureForm({
         <div className="space-y-5">
           {activeFields.map((f) => {
             if (f.fieldType === "section") {
-              return <h2 key={f.fieldKey} className="border-b border-line pb-1.5 pt-2 text-base font-bold text-ink first:pt-0">{f.label}</h2>;
+              const [head, ...rest] = f.label.split("\n").map((s) => s.trim()).filter(Boolean);
+              return (
+                <div key={f.fieldKey} className="pt-3 first:pt-0">
+                  <h2 className="border-b border-line pb-1.5 text-base font-bold text-ink">{head}</h2>
+                  {rest.map((p, i) => (
+                    <p key={i} className="mt-2 text-sm leading-relaxed text-muted">{p}</p>
+                  ))}
+                </div>
+              );
             }
             if (!visible(f)) return null;
             return renderField(f);
