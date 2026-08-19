@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LogoHorizontal } from "@/components/brand/logo";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { cn } from "@/lib/utils";
@@ -95,7 +95,7 @@ export function Sidebar({
         </div>
       )}
 
-      <nav className={cn("flex-1 space-y-2 py-3", collapsed ? "px-2" : "px-3")}>
+      <nav className={cn("flex-1 space-y-2 py-3", collapsed ? "px-2" : "min-h-0 overflow-y-auto px-3")}>
         {groups.map((group, gi) => {
           const hasActive = group.items.some((it) => isActive(it.href));
 
@@ -104,11 +104,12 @@ export function Sidebar({
             const active = isActive(item.href);
             const Icon = item.icon;
 
-            // Hub de Clientes dentro de um cliente: link + flyout (hover) com as
-            // abas do cliente. O pl-2 faz a ponte de hover sem gap.
+            // Hub de Clientes dentro de um cliente: link + abas do cliente
+            // INLINE (accordion). Inline evita flyout absoluto, que seria cortado
+            // pela rolagem vertical do menu.
             if (item.href === CLIENTES_HREF && clientTabs.length > 0) {
               return (
-                <div key={item.href} className="group/hub relative">
+                <div key={item.href}>
                   <Link
                     href={item.href}
                     className={cn(
@@ -118,31 +119,25 @@ export function Sidebar({
                   >
                     <Icon className="h-[18px] w-[18px] shrink-0" />
                     {item.label}
-                    <ChevronRight className="ml-auto h-4 w-4 opacity-60" />
                   </Link>
-                  <div className="absolute left-full top-0 z-50 hidden pl-2 group-hover/hub:block">
-                    <div className="max-h-[calc(100dvh-1.5rem)] min-w-56 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-                      <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                        Abas do cliente
-                      </p>
-                      {clientTabs.map((t) => {
-                        const TIcon = t.icon;
-                        const tActive = tabActive(t.href);
-                        return (
-                          <Link
-                            key={t.href}
-                            href={t.href}
-                            className={cn(
-                              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-                              tActive ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
-                            )}
-                          >
-                            <TIcon className="h-4 w-4 shrink-0" />
-                            {t.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
+                    {clientTabs.map((t) => {
+                      const TIcon = t.icon;
+                      const tActive = tabActive(t.href);
+                      return (
+                        <Link
+                          key={t.href}
+                          href={t.href}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+                            tActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white",
+                          )}
+                        >
+                          <TIcon className="h-3.5 w-3.5 shrink-0" />
+                          {t.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               );
