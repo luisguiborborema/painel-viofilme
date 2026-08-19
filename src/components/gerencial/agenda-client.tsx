@@ -20,12 +20,14 @@ import {
   PanelRightOpen,
   Plus,
   Settings2,
+  Star,
   Trash2,
   Users,
   Video,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 import { clockLabel } from "@/lib/datetime";
 import {
   ROUTINE_ACTIVITIES,
@@ -49,6 +51,7 @@ type Meeting = {
   description?: string;
   attendees?: string[];
   calendarId?: string;
+  clientId?: string;
 };
 type Task = { id: string; title: string; dueDate?: string; status: string; type?: string; leadId?: string; dealName?: string };
 
@@ -76,11 +79,13 @@ export function AgendaClient({
   googleConfigured = false,
   tasks = [],
   currentUser = "",
+  clients = [],
 }: {
   routineBlocks: RoutineBlock[];
   templates?: RoutineTemplate[];
   schedulingLinks: SchedulingLink[];
   events?: CalendarEvent[];
+  clients?: { id: string; name: string }[];
   googleEvents?: {
     id: string;
     summary: string;
@@ -162,7 +167,7 @@ export function AgendaClient({
 
   // Reuniões unificadas (próprias + Google).
   const meetings: Meeting[] = useMemo(() => {
-    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own", type: e.type, link: e.meetLink }));
+    const own: Meeting[] = events.map((e) => ({ id: e.id, title: e.title, start: e.startAt, end: e.endAt, source: "own", type: e.type, link: e.meetLink, clientId: e.clientId }));
     // Dedupe: eventos criados por agendamento têm par local + Google (mesmo id) —
     // mostra só o local (que já carrega o Meet).
     const linkedGoogleIds = new Set(events.map((e) => e.googleEventId).filter(Boolean) as string[]);
@@ -309,6 +314,7 @@ export function AgendaClient({
         <EventModal
           at={newAt}
           googleConnected={googleConnected}
+          clients={clients}
           onClose={() => setNewAt(null)}
           onSaved={() => { setNewAt(null); router.refresh(); }}
         />
@@ -318,6 +324,7 @@ export function AgendaClient({
           at={new Date(editMeeting.start)}
           edit={editMeeting}
           googleConnected={googleConnected}
+          clients={clients}
           onClose={() => setEditMeeting(null)}
           onSaved={() => { setEditMeeting(null); router.refresh(); }}
         />
@@ -774,12 +781,14 @@ function EventModal({
   at,
   edit,
   googleConnected,
+  clients = [],
   onClose,
   onSaved,
 }: {
   at: Date;
   edit?: Meeting;
   googleConnected: boolean;
+  clients?: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -792,6 +801,9 @@ function EventModal({
 
   const [title, setTitle] = useState(edit?.title ?? "");
   const [type, setType] = useState(edit?.type ?? "meeting");
+  const [clientId, setClientId] = useState(edit?.clientId ?? "");
+  const [surveyBusy, setSurveyBusy] = useState(false);
+  const canLinkClient = !isEdit || edit!.source === "own";
   const [date, setDate] = useState(`${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-${String(startD.getDate()).padStart(2, "0")}`);
   const [start, setStart] = useState(`${String(startD.getHours()).padStart(2, "0")}:${String(startD.getMinutes()).padStart(2, "0")}`);
   const [end, setEnd] = useState(`${String(endD.getHours()).padStart(2, "0")}:${String(endD.getMinutes()).padStart(2, "0")}`);
@@ -820,6 +832,7 @@ function EventModal({
           type,
           startAt,
           endAt,
+          clientId: canLinkClient ? clientId || "" : undefined,
           description: canRich ? description.trim() : undefined,
           attendees: canRich ? attendees : undefined,
           addMeet: canRich ? addMeet : undefined,
@@ -830,6 +843,7 @@ function EventModal({
           type,
           startAt,
           endAt,
+          clientId: clientId || undefined,
           useGoogle: googleConnected,
           description: description.trim() || undefined,
           attendees,
@@ -893,6 +907,34 @@ function EventModal({
     }
   }
 
+  /** Gera e envia a pesquisa pós-reunião para o cliente vinculado à reunião. */
+  async function sendSurvey() {
+    if (!edit?.clientId) return;
+    setSurveyBusy(true);
+    try {
+      const res = await fetch("/api/gerencial/meeting-survey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "invite", clientId: edit.clientId, channel: "whatsapp", meetingRef: edit.id }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.token) {
+        toast(j?.error ?? "Não foi possível gerar a pesquisa.", "error");
+        return;
+      }
+      const link = `${window.location.origin}/pesquisa/${j.slug || "cliente"}/${j.token}`;
+      const wa = String(j.whatsapp || "").replace(/\D/g, "");
+      if (wa.length >= 10) {
+        window.open(`https://wa.me/${wa}?text=${encodeURIComponent(`Oi! Como foi nossa reunião? Responda rapidinho nossa pesquisa (leva 1 min): ${link}`)}`, "_blank");
+      } else {
+        await navigator.clipboard?.writeText(link).catch(() => {});
+        toast("Link da pesquisa copiado (cliente sem WhatsApp).", "success");
+      }
+    } finally {
+      setSurveyBusy(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -941,6 +983,17 @@ function EventModal({
                 <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className={inputCls} />
               </div>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              {canLinkClient && (
+                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
+                  <option value="">Cliente (opcional — habilita a pesquisa pós-reunião)</option>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+              {isEdit && edit!.clientId && (
+                <button onClick={sendSurvey} disabled={surveyBusy} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-brand-300 px-3 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50 disabled:opacity-60">
+                  {surveyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />} Enviar pesquisa pós-reunião
+                </button>
+              )}
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Descrição / pauta (opcional)" disabled={!canRich} className={inputCls + " resize-y" + (canRich ? "" : " opacity-60")} />
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted"><Users className="h-3.5 w-3.5" /> Convidados (e-mails separados por vírgula)</label>
               <input value={guests} onChange={(e) => setGuests(e.target.value)} placeholder="fulano@empresa.com, ciclano@..." disabled={!canRich} className={inputCls + (canRich ? "" : " opacity-60")} />

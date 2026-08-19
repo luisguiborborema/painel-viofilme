@@ -59,7 +59,7 @@ export async function getCalendarEvents(ownerId: string, fromIso: string, toIso:
   const supabase = await createClient();
   const { data } = await supabase
     .from("calendar_events")
-    .select("id,owner_id,title,type,start_at,end_at,deal_id,google_event_id,meet_link")
+    .select("id,owner_id,title,type,start_at,end_at,deal_id,client_id,google_event_id,meet_link")
     .eq("owner_id", ownerId)
     .gte("start_at", fromIso)
     .lte("start_at", toIso);
@@ -71,6 +71,7 @@ export async function getCalendarEvents(ownerId: string, fromIso: string, toIso:
     startAt: String(r.start_at),
     endAt: r.end_at ? String(r.end_at) : undefined,
     dealId: r.deal_id ? String(r.deal_id) : undefined,
+    clientId: r.client_id ? String(r.client_id) : undefined,
     googleEventId: r.google_event_id ? String(r.google_event_id) : undefined,
     meetLink: r.meet_link ? String(r.meet_link) : undefined,
   }));

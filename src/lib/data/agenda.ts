@@ -28,6 +28,7 @@ export type CalendarEvent = {
   startAt: string;
   endAt?: string;
   dealId?: string;
+  clientId?: string;
   googleEventId?: string;
   meetLink?: string;
 };

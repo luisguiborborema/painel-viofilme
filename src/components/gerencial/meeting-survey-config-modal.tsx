@@ -18,6 +18,8 @@ let seq = 1;
 export function MeetingSurveyConfigModal({ onClose }: { onClose: () => void }) {
   const [f, setF] = useState({ headline: "", intro: "", commentLabel: "", thankYou: "" });
   const [questions, setQuestions] = useState<QDraft[]>([]);
+  const [autoEnabled, setAutoEnabled] = useState(false);
+  const [delayHours, setDelayHours] = useState("2");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -29,6 +31,8 @@ export function MeetingSurveyConfigModal({ onClose }: { onClose: () => void }) {
         const c = j?.config ?? MEETING_DEFAULTS;
         setF({ headline: c.headline ?? "", intro: c.intro ?? "", commentLabel: c.commentLabel ?? "", thankYou: c.thankYou ?? "" });
         setQuestions(((c.questions ?? []) as NpsQuestion[]).map((q) => ({ ...q, key: seq++ })));
+        setAutoEnabled(Boolean(c.autoEnabled));
+        setDelayHours(String(c.delayHours ?? 2));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -49,6 +53,8 @@ export function MeetingSurveyConfigModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           ...f,
           questions: questions.filter((q) => q.label.trim()).map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options })),
+          autoEnabled,
+          delayHours: Number(delayHours) || 0,
         }),
       });
       const j = await res.json().catch(() => null);
@@ -98,6 +104,27 @@ export function MeetingSurveyConfigModal({ onClose }: { onClose: () => void }) {
               <span className={labelCls}>Mensagem de agradecimento</span>
               <textarea value={f.thankYou} onChange={(e) => set("thankYou", e.target.value)} rows={2} placeholder={MEETING_DEFAULTS.thankYou} className={inputCls + " resize-y"} />
             </label>
+          </div>
+
+          {/* Envio automático */}
+          <div className="rounded-xl border border-line p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink">
+              <input type="checkbox" checked={autoEnabled} onChange={(e) => setAutoEnabled(e.target.checked)} />
+              Enviar automaticamente após a reunião (Agenda)
+            </label>
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+              <span>Disparar</span>
+              <input
+                type="number"
+                min={0}
+                max={168}
+                value={delayHours}
+                onChange={(e) => setDelayHours(e.target.value)}
+                disabled={!autoEnabled}
+                className="w-16 rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand-400 disabled:opacity-50"
+              />
+              <span>hora(s) após o fim da reunião. Vale para reuniões da Agenda com cliente e WhatsApp.</span>
+            </div>
           </div>
 
           <div className="border-t border-line pt-4">

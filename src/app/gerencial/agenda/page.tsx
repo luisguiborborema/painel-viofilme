@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { getGoogleStatus } from "@/lib/google/client";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { isGoogleConfigured } from "@/lib/google/config";
-import { getCrmLeads, getCrmTasks } from "@/lib/data/queries";
+import { getCrmLeads, getCrmTasks, getClients } from "@/lib/data/queries";
 import { buildTaskItems } from "@/lib/data/crm";
 import {
   getRoutineBlocks,
@@ -21,7 +21,7 @@ export default async function AgendaPage() {
   const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 60).toISOString();
 
   const status = await getGoogleStatus();
-  const [googleEvents, routineBlocks, templates, links, events, leads, tasks] = await Promise.all([
+  const [googleEvents, routineBlocks, templates, links, events, leads, tasks, clients] = await Promise.all([
     status.connected ? listUpcomingEvents(60) : Promise.resolve([]),
     getRoutineBlocks(ownerId),
     getRoutineTemplates(ownerId),
@@ -29,6 +29,7 @@ export default async function AgendaPage() {
     getCalendarEvents(ownerId, from, to),
     getCrmLeads(),
     getCrmTasks(),
+    getClients(),
   ]);
 
   const me = user?.name ?? "";
@@ -61,6 +62,7 @@ export default async function AgendaPage() {
         googleConfigured={isGoogleConfigured()}
         tasks={taskItems}
         currentUser={me}
+        clients={clients.map((c) => ({ id: c.id, name: c.name }))}
       />
     </div>
   );

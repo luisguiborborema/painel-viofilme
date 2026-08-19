@@ -7,6 +7,10 @@ export type MeetingSurveyConfig = {
   commentLabel: string;
   thankYou: string;
   questions: NpsQuestion[];
+  /** Envio automático após a reunião. */
+  autoEnabled: boolean;
+  /** Quantas horas após o FIM da reunião disparar o envio. */
+  delayHours: number;
 };
 
 export const MEETING_DEFAULTS: MeetingSurveyConfig = {
@@ -15,6 +19,8 @@ export const MEETING_DEFAULTS: MeetingSurveyConfig = {
   commentLabel: "Quer deixar um comentário sobre a reunião?",
   thankYou: "Obrigado! Seu retorno nos ajuda a deixar as reuniões cada vez melhores. 💙",
   questions: [],
+  autoEnabled: false,
+  delayHours: 2,
 };
 
 export function toMeetingConfig(row: {
@@ -23,13 +29,18 @@ export function toMeetingConfig(row: {
   comment_label?: string | null;
   thank_you?: string | null;
   questions?: unknown;
+  auto_enabled?: boolean | null;
+  delay_hours?: number | null;
 } | null | undefined): MeetingSurveyConfig {
+  const delay = Number(row?.delay_hours);
   return {
     headline: row?.headline?.trim() || MEETING_DEFAULTS.headline,
     intro: row?.intro?.trim() || MEETING_DEFAULTS.intro,
     commentLabel: row?.comment_label?.trim() || MEETING_DEFAULTS.commentLabel,
     thankYou: row?.thank_you?.trim() || MEETING_DEFAULTS.thankYou,
     questions: parseQuestions(row?.questions),
+    autoEnabled: Boolean(row?.auto_enabled),
+    delayHours: Number.isFinite(delay) && delay >= 0 ? Math.min(delay, 168) : MEETING_DEFAULTS.delayHours,
   };
 }
 

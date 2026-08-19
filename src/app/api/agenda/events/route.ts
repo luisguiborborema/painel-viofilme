@@ -18,6 +18,7 @@ type Body = {
   startAt?: string;
   endAt?: string;
   dealId?: string;
+  clientId?: string;
   /** Origem do evento sendo editado/apagado: "google" (real) ou "own" (local). */
   source?: "own" | "google";
   /** Calendário do Google onde o evento vive (edição/exclusão no lugar certo). */
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
     if (b.type != null && TYPES.has(b.type)) patch.type = b.type;
     if (b.startAt != null) patch.start_at = b.startAt;
     if (b.endAt !== undefined) patch.end_at = b.endAt ?? null;
+    if (b.clientId !== undefined) patch.client_id = b.clientId || null;
     const { error } = await supabase.from("calendar_events").update(patch).eq("id", b.id).eq("owner_id", user.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -111,6 +113,21 @@ export async function POST(req: Request) {
       addMeet: b.addMeet !== false,
     });
     if (result.error) return NextResponse.json({ error: result.error }, { status: 502 });
+    // Persiste uma linha local espelhando o evento do Google (para vincular ao
+    // cliente e permitir a pesquisa pós-reunião). A exibição deduplica pelo
+    // google_event_id (não mostra duas vezes).
+    if (b.clientId) {
+      await supabase.from("calendar_events").insert({
+        owner_id: user.id,
+        title: b.title.trim(),
+        type: b.type && TYPES.has(b.type) ? b.type : "meeting",
+        start_at: b.startAt,
+        end_at: b.endAt ?? new Date(new Date(b.startAt).getTime() + 60 * 60 * 1000).toISOString(),
+        client_id: b.clientId,
+        google_event_id: result.event?.id ?? null,
+        meet_link: result.event?.hangoutLink ?? null,
+      }).select("id").maybeSingle();
+    }
     return NextResponse.json({
       ok: true,
       google: true,
@@ -128,6 +145,7 @@ export async function POST(req: Request) {
       start_at: b.startAt,
       end_at: b.endAt ?? null,
       deal_id: b.dealId ?? null,
+      client_id: b.clientId ?? null,
     })
     .select("id")
     .single();
