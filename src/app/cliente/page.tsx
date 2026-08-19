@@ -21,6 +21,9 @@ import {
   type MeetingItem,
 } from "@/components/cliente/meetings-card";
 
+export const metadata = { title: "Visão geral" };
+
+
 export default async function ClienteHome() {
   const user = await getSession();
   if (!user?.clientId) {

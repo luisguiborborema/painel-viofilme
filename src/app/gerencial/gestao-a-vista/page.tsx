@@ -18,6 +18,9 @@ import {
   periodLabel,
 } from "@/lib/data/gestao-vista";
 
+export const metadata = { title: "Gestão à vista" };
+
+
 export default async function GestaoAVista() {
   const user = await getSession();
   const isFull = hasFullAccess(user?.allowedSections);

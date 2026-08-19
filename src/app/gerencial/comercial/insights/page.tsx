@@ -8,6 +8,9 @@ import { buildForecast, buildStageTimings, monthKey } from "@/lib/data/crm";
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
 
+export const metadata = { title: "Insights" };
+
+
 export default async function InsightsPage() {
   const nowIso = crmNowIso();
   const curMonth = monthKey(nowIso);

@@ -24,6 +24,13 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
+/** Aba do navegador: "Cliente — Nome". A leitura é cacheada (não refaz query). */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const d = await getClientDetailCached(id);
+  return { title: d?.client?.name ? `Cliente — ${d.client.name}` : "Cliente" };
+}
+
 export default async function ClienteLayout({
   params,
   children,

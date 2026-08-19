@@ -19,6 +19,9 @@ import { AiInsights } from "@/components/dashboard/ai-insights";
 import { TeamInsight } from "@/components/cliente/team-insight";
 import type { FormatReach, Platform } from "@/lib/data/types";
 
+export const metadata = { title: "Resultados" };
+
+
 const FORMAT_COLORS: Record<keyof FormatReach, string> = {
   reels: "#ec4899",
   feed: "#38bdf8",

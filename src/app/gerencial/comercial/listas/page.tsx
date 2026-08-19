@@ -5,6 +5,9 @@ import { buildTaskItems, toCard } from "@/lib/data/crm";
 import { getSavedViews, getServiceCatalog, getKnowledge } from "@/lib/data/listas-server";
 import { getSession } from "@/lib/auth/session";
 
+export const metadata = { title: "Listas" };
+
+
 export default async function ListasPage() {
   const [leads, crmTasks, companies, contacts, tags, team, pipelines, user] = await Promise.all([
     getCrmLeads(),

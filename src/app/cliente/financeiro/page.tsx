@@ -13,6 +13,9 @@ import { InvoicesTable } from "@/components/cliente/invoices-table";
 import { DocumentsCard } from "@/components/cliente/documents-card";
 import { PaymentTimeline } from "@/components/cliente/payment-timeline";
 
+export const metadata = { title: "Financeiro" };
+
+
 const FATURA_TABS = [
   { label: "Todas", value: "todas" },
   { label: "Em aberto", value: "aberto" },

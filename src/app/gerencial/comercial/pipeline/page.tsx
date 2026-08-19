@@ -13,6 +13,9 @@ import { toCard } from "@/lib/data/crm";
 import { getSavedViews } from "@/lib/data/listas-server";
 import { getSession } from "@/lib/auth/session";
 
+export const metadata = { title: "Pipeline" };
+
+
 export default async function PipelinePage() {
   const [leads, companies, contacts, tags, pipelines, team, user, lostReasons] = await Promise.all([
     getCrmLeads(),

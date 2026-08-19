@@ -3,6 +3,9 @@ import { getAllNpsView } from "@/lib/data/queries";
 import { npsSummary } from "@/lib/data/nps";
 import { NpsOverview } from "@/components/gerencial/nps-overview";
 
+export const metadata = { title: "NPS" };
+
+
 export default async function GerencialNps() {
   const entries = await getAllNpsView();
   const summary = npsSummary(entries);

@@ -12,7 +12,11 @@ const barlow = Barlow({
 });
 
 export const metadata: Metadata = {
-  title: "Painel Viofilme",
+  // Cada página define seu título; a aba mostra "Página · Painel Viofilme".
+  title: {
+    default: "Painel Viofilme",
+    template: "%s · Painel Viofilme",
+  },
   description:
     "Painel da Viofilme — acompanhe campanhas, conteúdo e resultados de Instagram e Facebook.",
   applicationName: "Painel Viofilme",

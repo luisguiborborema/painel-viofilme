@@ -8,6 +8,9 @@ import { AdCampaignsTable } from "@/components/cliente/ad-campaigns-table";
 import { AiInsights } from "@/components/dashboard/ai-insights";
 import { TeamInsight } from "@/components/cliente/team-insight";
 
+export const metadata = { title: "Campanhas" };
+
+
 export default async function ClienteCampanhas() {
   const user = await getSession();
   if (!user?.clientId) {

@@ -1,6 +1,9 @@
 import { InboxClient } from "@/components/inbox/inbox-client";
 import { getConversations, getAttendants, getCrmLeads, getSalesMaterials } from "@/lib/data/queries";
 
+export const metadata = { title: "Comunicações" };
+
+
 export default async function InboxPage() {
   const [conversations, attendants, leads, materials] = await Promise.all([
     getConversations(),

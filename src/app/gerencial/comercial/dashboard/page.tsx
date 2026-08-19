@@ -6,6 +6,9 @@ import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
 import { CRM_AGENDA } from "@/lib/data/crm";
 
+export const metadata = { title: "Dashboard Comercial" };
+
+
 const TZ = "America/Sao_Paulo";
 
 export default async function DashboardComercialPage() {

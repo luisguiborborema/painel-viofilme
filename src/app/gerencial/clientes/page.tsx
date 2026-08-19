@@ -4,6 +4,9 @@ import { getSession } from "@/lib/auth/session";
 import { tierHasFullAccess } from "@/lib/access";
 import { HubClientes } from "@/components/gerencial/hub-clientes";
 
+export const metadata = { title: "Hub de clientes" };
+
+
 export default async function GerencialClientes() {
   const [clients, user] = await Promise.all([getHubClientsOps(), getSession()]);
   const canDelete = tierHasFullAccess(user?.tier);

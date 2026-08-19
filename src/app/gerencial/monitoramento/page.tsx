@@ -7,6 +7,9 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isoDaysAgo } from "@/lib/audit/labels";
 import { MonitoringView, type AuditRow, type Analytics } from "@/components/gerencial/monitoring-view";
 
+export const metadata = { title: "Monitoramento" };
+
+
 export const dynamic = "force-dynamic";
 
 export default async function MonitoramentoPage() {

@@ -15,6 +15,9 @@ import { WhatsappTest } from "@/components/settings/whatsapp-test";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { AvatarUpload } from "@/components/settings/avatar-upload";
 
+export const metadata = { title: "Configurações" };
+
+
 function SectionHeader({
   icon: Icon,
   title,

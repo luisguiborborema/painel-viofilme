@@ -2,6 +2,13 @@ import { notFound } from "next/navigation";
 import { LeadModalContent } from "@/components/crm/lead-modal-content";
 import { getLeadDetailProps } from "@/app/gerencial/crm/_lib/lead-props";
 
+/** Aba do navegador: "Negócio — Nome". */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const props = await getLeadDetailProps(id);
+  return { title: props?.lead?.name ? `Negócio — ${props.lead.name}` : "Negócio" };
+}
+
 /**
  * Página cheia do negócio (estilo HubSpot): abre como página real dentro do app
  * — não mais como modal sobreposto. Layout de 3 colunas (Sobre · Atividades ·

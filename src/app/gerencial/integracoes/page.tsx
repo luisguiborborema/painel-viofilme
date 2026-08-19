@@ -25,6 +25,9 @@ import { getGoogleStatus, getGoogleGrantedScopes } from "@/lib/google/client";
 import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
 import { GoogleDisconnectButton } from "@/components/gerencial/google-disconnect-button";
 
+export const metadata = { title: "Integrações" };
+
+
 const GERROS: Record<string, string> = {
   config: "Google ainda não configurado (defina GOOGLE_CLIENT_ID/SECRET).",
   negado: "Conexão cancelada.",

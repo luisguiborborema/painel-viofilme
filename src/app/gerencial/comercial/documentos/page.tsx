@@ -2,6 +2,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { CrmDocumentos } from "@/components/crm/crm-documentos";
 import { getCrmLeads, getCrmCompanies, getCrmDocuments, getDocTemplates, getSalesMaterials, getAttendants } from "@/lib/data/queries";
 
+export const metadata = { title: "Documentos" };
+
+
 export default async function DocumentosComercialPage() {
   const [leads, companies, documents, templates, materials, team] = await Promise.all([
     getCrmLeads(),

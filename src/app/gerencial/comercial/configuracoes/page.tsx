@@ -24,6 +24,9 @@ import {
 import { getSession } from "@/lib/auth/session";
 import { hasFullAccess } from "@/lib/access";
 
+export const metadata = { title: "Configurações do Comercial" };
+
+
 export default async function ConfiguracoesComercialPage() {
   const [leads, companies, contacts, tags, properties, pipelines, team, user] = await Promise.all([
     getCrmLeads(),

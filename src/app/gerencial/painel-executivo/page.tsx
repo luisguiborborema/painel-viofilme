@@ -19,6 +19,9 @@ import { getSession } from "@/lib/auth/session";
 import { canAccessSection, firstAllowedHref } from "@/lib/access";
 import { getCLevel, getGerFinance, getDeliveryTasks, getHubClientsOps } from "@/lib/data/queries";
 
+export const metadata = { title: "Painel executivo" };
+
+
 export const dynamic = "force-dynamic";
 
 // Fora do componente — evita a regra de pureza com Date.now.

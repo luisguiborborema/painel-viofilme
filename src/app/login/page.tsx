@@ -3,6 +3,9 @@ import { LoginForm } from "@/components/auth/login-form";
 import { ThemeToggle } from "@/components/theme/theme-provider";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
+export const metadata = { title: "Entrar" };
+
+
 export default function LoginPage() {
   const demoMode = !isSupabaseConfigured();
 

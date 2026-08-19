@@ -3,6 +3,9 @@ import { getAllMeetingSurveysView } from "@/lib/data/queries";
 import { meetingSummary } from "@/lib/data/meeting-survey";
 import { MeetingOverview } from "@/components/gerencial/meeting-overview";
 
+export const metadata = { title: "Pós-reunião" };
+
+
 export default async function GerencialPosReuniao() {
   const entries = await getAllMeetingSurveysView();
   const summary = meetingSummary(entries);

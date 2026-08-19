@@ -12,6 +12,9 @@ import { AssetCard } from "@/components/cliente/asset-card";
 import { TeamCard } from "@/components/cliente/team-card";
 import { ActivityLog } from "@/components/cliente/activity-log";
 
+export const metadata = { title: "Marca & acessos" };
+
+
 const ATIVOS_TABS = [
   { label: "Todos", value: "todos" },
   { label: "Logos", value: "logos" },

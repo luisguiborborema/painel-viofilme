@@ -3,6 +3,9 @@ import { getGerFinance } from "@/lib/data/queries";
 import { FinanceTabs } from "@/components/gerencial/finance-tabs";
 import { FinanceHeaderActions } from "@/components/gerencial/finance-header-actions";
 
+export const metadata = { title: "Financeiro" };
+
+
 export default async function GerencialFinanceiro() {
   const data = await getGerFinance();
 

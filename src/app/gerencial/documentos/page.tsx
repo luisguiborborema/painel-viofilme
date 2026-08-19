@@ -2,6 +2,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { PlaybooksApp } from "@/components/gerencial/playbooks-app";
 import { getPlaybookSectors } from "@/lib/data/queries";
 
+export const metadata = { title: "Playbooks" };
+
+
 export default async function GerencialDocumentos() {
   const sectors = await getPlaybookSectors();
   return (

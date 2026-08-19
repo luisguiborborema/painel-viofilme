@@ -3,6 +3,9 @@ import { getHubClientsOps, getVioFluxPosts } from "@/lib/data/queries";
 import { getSession } from "@/lib/auth/session";
 import { VioFlux } from "@/components/gerencial/vioflux";
 
+export const metadata = { title: "VioFlux" };
+
+
 export default async function GerencialConteudo() {
   const [ops, posts, user] = await Promise.all([
     getHubClientsOps(),

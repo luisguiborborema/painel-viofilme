@@ -27,6 +27,9 @@ import { buildTaskItems } from "@/lib/data/crm";
 import { OPS_TEAM } from "@/lib/data/operacao";
 import { cn } from "@/lib/utils";
 
+export const metadata = { title: "Meu dia" };
+
+
 export const dynamic = "force-dynamic";
 
 const TZ = "America/Sao_Paulo";

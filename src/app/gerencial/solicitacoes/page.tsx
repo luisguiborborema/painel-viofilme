@@ -2,6 +2,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { RequestsBoard } from "@/components/gerencial/requests-board";
 import { getClientRequests } from "@/lib/data/queries";
 
+export const metadata = { title: "Solicitações" };
+
+
 export default async function SolicitacoesPage() {
   const requests = await getClientRequests();
 

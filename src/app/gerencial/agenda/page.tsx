@@ -13,6 +13,9 @@ import {
   getCalendarEvents,
 } from "@/lib/data/agenda-server";
 
+export const metadata = { title: "Agenda" };
+
+
 export default async function AgendaPage() {
   const user = await getSession();
   const ownerId = user?.id ?? "";

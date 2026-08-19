@@ -5,6 +5,9 @@ import { REFERENCE_DATE } from "@/lib/data/mock";
 import { ContentApprovalModule } from "@/components/cliente/content-approval-module";
 import { VioFluxApproval } from "@/components/cliente/vioflux-approval";
 
+export const metadata = { title: "Conteúdo" };
+
+
 export default async function ClienteConteudo({
   searchParams,
 }: {

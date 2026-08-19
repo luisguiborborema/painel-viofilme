@@ -2,6 +2,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { getDiagnosticTemplates } from "@/lib/data/diagnostic-server";
 import { DiagnosticTemplatesManager } from "@/components/gerencial/diagnostic-templates-manager";
 
+export const metadata = { title: "Modelos de diagnóstico" };
+
+
 export default async function DiagnosticoModelos() {
   const templates = await getDiagnosticTemplates();
   return (

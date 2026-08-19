@@ -3,6 +3,9 @@ import { getClients, getCrmLeads } from "@/lib/data/queries";
 import { getDiagnostics, getDiagnosticTemplates } from "@/lib/data/diagnostic-server";
 import { DiagnosticList } from "@/components/gerencial/diagnostic-list";
 
+export const metadata = { title: "Diagnóstico" };
+
+
 export default async function GerencialDiagnostico() {
   const [diagnostics, templates, clients, leads] = await Promise.all([
     getDiagnostics(),

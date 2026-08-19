@@ -8,6 +8,9 @@ import { TeamLoadCard } from "@/components/gerencial/team-load-card";
 import { DreCard } from "@/components/gerencial/dre-card";
 import { FunnelCard } from "@/components/gerencial/funnel-card";
 
+export const metadata = { title: "Visão geral" };
+
+
 export default async function GerencialDashboard() {
   const c = await getCLevel();
 

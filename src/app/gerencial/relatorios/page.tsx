@@ -3,6 +3,9 @@ import { RelatoriosCentral } from "@/components/gerencial/relatorios-central";
 import { ReportsAutomation } from "@/components/gerencial/reports-automation";
 import { getClients } from "@/lib/data/queries";
 
+export const metadata = { title: "Central de relatórios" };
+
+
 export default async function GerencialRelatorios() {
   const clients = await getClients();
   const opts = clients.map((c) => ({ id: c.id, name: c.name }));

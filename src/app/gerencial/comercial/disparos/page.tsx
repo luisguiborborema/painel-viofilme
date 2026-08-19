@@ -4,6 +4,9 @@ import { getBroadcasts } from "@/lib/data/broadcasts-server";
 import { cleanNumber } from "@/lib/data/broadcasts";
 import { BroadcastsWorkspace } from "@/components/gerencial/broadcasts-workspace";
 
+export const metadata = { title: "Disparos em massa" };
+
+
 export default async function DisparosPage() {
   const [broadcasts, clients, leads] = await Promise.all([getBroadcasts(), getClients(), getCrmLeads()]);
   const clientsWithWa = clients.filter((c) => cleanNumber(c.whatsapp ?? "").length >= 12).length;

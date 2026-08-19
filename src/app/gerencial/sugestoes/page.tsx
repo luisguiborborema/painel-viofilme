@@ -4,6 +4,9 @@ import { SuggestionsBoard } from "@/components/gerencial/suggestions-board";
 import { getSession } from "@/lib/auth/session";
 import { getSuggestions } from "@/lib/data/queries";
 
+export const metadata = { title: "Sugestões" };
+
+
 export const dynamic = "force-dynamic";
 
 export default async function SugestoesPage() {

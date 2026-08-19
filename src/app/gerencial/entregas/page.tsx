@@ -3,6 +3,9 @@ import { getDeliveryTasks, getClients, getAttendants, getDeliveryConfig } from "
 import { getSession } from "@/lib/auth/session";
 import { DeliveryPanel } from "@/components/gerencial/delivery-panel";
 
+export const metadata = { title: "Painel de entregas" };
+
+
 export default async function GerencialEntregas() {
   const [tasks, clients, team, user, config] = await Promise.all([
     getDeliveryTasks(),

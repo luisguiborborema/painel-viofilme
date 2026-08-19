@@ -10,6 +10,9 @@ import {
 import { RhCultura } from "@/components/gerencial/rh-cultura";
 import { RhHeaderActions } from "@/components/gerencial/rh-header-actions";
 
+export const metadata = { title: "RH & cultura" };
+
+
 export default async function GerencialRh() {
   const employees = await getEmployeesView();
   const data = {

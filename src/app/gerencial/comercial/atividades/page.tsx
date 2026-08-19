@@ -4,6 +4,9 @@ import { getCrmLeads, getCrmTasks, getCrmPipelines, getCrmScripts, getAttendants
 import { buildTaskItems } from "@/lib/data/crm";
 import { getSession } from "@/lib/auth/session";
 
+export const metadata = { title: "Atividades" };
+
+
 export default async function AtividadesPage() {
   const [leads, crmTasks, pipelines, scripts, team, user] = await Promise.all([
     getCrmLeads(),

@@ -5,6 +5,9 @@ import { firstAllowedHref, isAdminTier } from "@/lib/access";
 import { listSquads, listTeam } from "@/lib/auth/team";
 import { UsersAdmin } from "@/components/gerencial/users-admin";
 
+export const metadata = { title: "Usuários" };
+
+
 export const dynamic = "force-dynamic";
 
 export default async function UsuariosPage() {

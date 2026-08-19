@@ -2,6 +2,9 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { CaptureFormsManager } from "@/components/crm/capture-forms-manager";
 import { getCaptureForms, getCrmPipelines, getAttendants, getClients } from "@/lib/data/queries";
 
+export const metadata = { title: "Formulários" };
+
+
 export default async function FormulariosPage() {
   const [captureForms, pipelines, team, clients] = await Promise.all([
     getCaptureForms(),

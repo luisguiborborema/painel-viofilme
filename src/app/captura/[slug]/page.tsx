@@ -5,6 +5,15 @@ import { CaptureForm, type PublicField } from "@/components/crm/capture-form";
 
 export const dynamic = "force-dynamic";
 
+/** Aba do navegador: o nome do formulário. */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  if (!isSupabaseConfigured() || !hasServiceRole()) return { title: "Formulário" };
+  const admin = createAdminClient();
+  const { data } = await admin.from("crm_capture_forms").select("name").eq("slug", slug).maybeSingle();
+  return { title: data?.name ? String(data.name) : "Formulário" };
+}
+
 export default async function CapturePage({
   params,
   searchParams,
