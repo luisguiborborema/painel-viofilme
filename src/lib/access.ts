@@ -142,6 +142,7 @@ const COMBINED_ROUTES: { href: string; anyOf: SectionKey[] }[] = [
   { href: "/gerencial/pos-reuniao", anyOf: ["clientes"] },
   { href: "/gerencial/diagnostico", anyOf: ["crm", "entregas", "clientes"] },
   { href: "/gerencial/comercial/disparos", anyOf: ["crm"] },
+  { href: "/gerencial/comercial/formularios", anyOf: ["crm"] },
 ];
 
 /** O usuário pode acessar esta rota do painel gerencial? */
