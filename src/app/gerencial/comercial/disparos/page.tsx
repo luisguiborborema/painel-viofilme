@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { getClients, getCrmLeads } from "@/lib/data/queries";
 import { getBroadcasts } from "@/lib/data/broadcasts-server";
 import { cleanNumber } from "@/lib/data/broadcasts";
-import { BroadcastsPanel } from "@/components/gerencial/broadcasts-panel";
+import { BroadcastsWorkspace } from "@/components/gerencial/broadcasts-workspace";
 
 export default async function DisparosPage() {
   const [broadcasts, clients, leads] = await Promise.all([getBroadcasts(), getClients(), getCrmLeads()]);
@@ -13,9 +13,9 @@ export default async function DisparosPage() {
     <div className="space-y-4">
       <PageHeader
         title="Disparos em massa"
-        subtitle="Envie mensagens de WhatsApp para clientes, leads, listas e grupos. Intervalo anti-ban entre envios e agendamento."
+        subtitle="Envie mensagens de WhatsApp para clientes, leads, listas e grupos. Intervalo anti-ban, variáveis de planilha e agendamento."
       />
-      <BroadcastsPanel broadcasts={broadcasts} clientsWithWa={clientsWithWa} leadsWithPhone={leadsWithPhone} />
+      <BroadcastsWorkspace broadcasts={broadcasts} clientsWithWa={clientsWithWa} leadsWithPhone={leadsWithPhone} />
     </div>
   );
 }

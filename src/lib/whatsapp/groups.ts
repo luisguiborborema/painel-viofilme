@@ -3,9 +3,10 @@
  * Uazapi: GET /group/list. A forma da resposta varia entre versões, então
  * parseamos defensivamente. Retorna [] se não configurado ou em erro.
  */
-import { UAZAPI_TOKEN, UAZAPI_URL, isWhatsappConfigured } from "./config";
+import { UAZAPI_TOKEN, UAZAPI_URL } from "./config";
 
 export type WaGroup = { jid: string; name: string; participants: number };
+export type WaConn = { url?: string; token?: string };
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null;
@@ -29,11 +30,13 @@ function pickNum(obj: Obj, keys: string[]): number {
   return 0;
 }
 
-export async function listWhatsappGroups(force = false): Promise<WaGroup[]> {
-  if (!isWhatsappConfigured()) return [];
+export async function listWhatsappGroups(force = false, conn?: WaConn): Promise<WaGroup[]> {
+  const url = (conn?.url && conn.url.startsWith("http") ? conn.url.replace(/\/+$/, "") : UAZAPI_URL);
+  const token = conn?.token && conn.token.length > 0 ? conn.token : UAZAPI_TOKEN;
+  if (!url.startsWith("http") || !token) return [];
   try {
-    const res = await fetch(`${UAZAPI_URL}/group/list?force=${force ? "true" : "false"}`, {
-      headers: { token: UAZAPI_TOKEN },
+    const res = await fetch(`${url}/group/list?force=${force ? "true" : "false"}`, {
+      headers: { token },
       cache: "no-store",
     });
     if (!res.ok) return [];

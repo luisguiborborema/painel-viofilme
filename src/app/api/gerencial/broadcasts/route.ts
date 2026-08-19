@@ -3,17 +3,21 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { runBroadcasts } from "@/lib/data/broadcast-run";
-import { cleanNumber, type BroadcastMediaType } from "@/lib/data/broadcasts";
+import { resolveInstance } from "@/lib/whatsapp/instances";
+import { cleanNumber, type BroadcastMsgType } from "@/lib/data/broadcasts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+type SheetRow = { number: string; name?: string; vars?: Record<string, string> };
 
 type Audiences = {
   clients?: boolean;
   leads?: boolean;
   numbers?: string[];
   groups?: { jid: string; name?: string }[];
+  rows?: SheetRow[];
 };
 
 type Body = {
@@ -21,18 +25,21 @@ type Body = {
   id?: string;
   title?: string;
   message?: string;
+  msgType?: string;
   mediaUrl?: string;
-  mediaType?: string;
-  delaySeconds?: number;
+  instanceId?: string;
+  delayMin?: number;
+  delayMax?: number;
+  aiRewrite?: boolean;
   scheduledFor?: string;
   mode?: "draft" | "now" | "scheduled";
   audiences?: Audiences;
 };
 
-const MEDIA = new Set(["image", "video", "document"]);
+const MSG_TYPES = new Set(["text", "image", "video", "audio", "document"]);
 const clean = (v?: string) => (v && v.trim() ? v.trim() : null);
 
-type Rec = { kind: "number" | "group"; target: string; name: string };
+type Rec = { kind: "number" | "group"; target: string; name: string; vars: Record<string, string> };
 
 /** Resolve os públicos escolhidos em destinatários únicos. */
 async function buildRecipients(
@@ -51,7 +58,7 @@ async function buildRecipients(
     const { data } = await supabase.from("clients").select("name, whatsapp").not("whatsapp", "is", null);
     for (const c of data ?? []) {
       const num = cleanNumber(String((c as { whatsapp?: string }).whatsapp ?? ""));
-      if (num.length >= 12) push({ kind: "number", target: num, name: String((c as { name?: string }).name ?? "") });
+      if (num.length >= 12) push({ kind: "number", target: num, name: String((c as { name?: string }).name ?? ""), vars: {} });
     }
   }
   if (a.leads) {
@@ -59,16 +66,23 @@ async function buildRecipients(
     for (const l of data ?? []) {
       const row = l as { name?: string; contact_name?: string; contact_phone?: string };
       const num = cleanNumber(String(row.contact_phone ?? ""));
-      if (num.length >= 12) push({ kind: "number", target: num, name: row.contact_name || row.name || "" });
+      if (num.length >= 12) push({ kind: "number", target: num, name: row.contact_name || row.name || "", vars: {} });
     }
   }
   for (const raw of a.numbers ?? []) {
     const num = cleanNumber(raw);
-    if (num.length >= 12) push({ kind: "number", target: num, name: "" });
+    if (num.length >= 12) push({ kind: "number", target: num, name: "", vars: {} });
+  }
+  for (const r of a.rows ?? []) {
+    const num = cleanNumber(String(r.number ?? ""));
+    if (num.length < 12) continue;
+    const vars: Record<string, string> = {};
+    for (const [k, v] of Object.entries(r.vars ?? {})) vars[String(k)] = String(v ?? "");
+    push({ kind: "number", target: num, name: String(r.name ?? ""), vars });
   }
   for (const g of a.groups ?? []) {
     const jid = String(g.jid ?? "").trim();
-    if (jid.includes("@")) push({ kind: "group", target: jid, name: String(g.name ?? "") });
+    if (jid.includes("@")) push({ kind: "group", target: jid, name: String(g.name ?? ""), vars: {} });
   }
   return out;
 }
@@ -132,16 +146,26 @@ export async function POST(req: Request) {
     const mode = b.mode ?? "draft";
     const scheduledFor = mode === "scheduled" ? clean(b.scheduledFor) : null;
     const status = mode === "now" ? "sending" : mode === "scheduled" ? "scheduled" : "draft";
-    const mediaType = b.mediaType && MEDIA.has(b.mediaType) ? (b.mediaType as BroadcastMediaType) : null;
+    const msgType: BroadcastMsgType = (b.msgType && MSG_TYPES.has(b.msgType) ? b.msgType : "text") as BroadcastMsgType;
+    const isMedia = msgType !== "text";
+    const mediaUrl = clean(b.mediaUrl);
+    const inst = resolveInstance(b.instanceId ?? null);
+    const dMin = Math.max(0, Math.min(Number(b.delayMin) || 3, 600));
+    const dMax = Math.max(dMin, Math.min(Number(b.delayMax) || 8, 600));
 
     const { data: created, error } = await supabase
       .from("broadcasts")
       .insert({
         title: clean(b.title) ?? "Disparo",
         message: b.message?.trim() ?? "",
-        media_url: clean(b.mediaUrl),
-        media_type: clean(b.mediaUrl) ? mediaType : null,
-        delay_seconds: Math.max(1, Math.min(Number(b.delaySeconds) || 8, 120)),
+        msg_type: msgType,
+        media_url: isMedia ? mediaUrl : null,
+        media_type: isMedia ? (msgType === "audio" ? "audio" : msgType) : null,
+        instance_token: inst?.id ?? null,
+        instance_name: inst?.name ?? null,
+        delay_min_seconds: dMin,
+        delay_max_seconds: dMax,
+        ai_rewrite: Boolean(b.aiRewrite),
         status,
         scheduled_for: scheduledFor,
         total: recipients.length,
@@ -155,7 +179,13 @@ export async function POST(req: Request) {
 
     // Insere destinatários em lotes.
     for (let i = 0; i < recipients.length; i += 500) {
-      const chunk = recipients.slice(i, i + 500).map((r) => ({ broadcast_id: broadcastId, kind: r.kind, target: r.target, name: r.name || null }));
+      const chunk = recipients.slice(i, i + 500).map((r) => ({
+        broadcast_id: broadcastId,
+        kind: r.kind,
+        target: r.target,
+        name: r.name || null,
+        vars: r.vars && Object.keys(r.vars).length ? r.vars : {},
+      }));
       const { error: e2 } = await supabase.from("broadcast_recipients").insert(chunk);
       if (e2) throw e2;
     }
@@ -168,6 +198,9 @@ export async function POST(req: Request) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/broadcasts?.* does not exist|42P01/i.test(msg)) {
       return NextResponse.json({ error: "Tabela ainda não existe. Rode a migração 0124_broadcasts.sql." }, { status: 409 });
+    }
+    if (/column .* does not exist|42703/i.test(msg)) {
+      return NextResponse.json({ error: "Faltam colunas novas. Rode a migração 0125_broadcasts_v2.sql." }, { status: 409 });
     }
     return NextResponse.json({ error: msg }, { status: 500 });
   }

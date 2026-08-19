@@ -4,6 +4,7 @@ import type {
   Broadcast,
   BroadcastDetail,
   BroadcastMediaType,
+  BroadcastMsgType,
   BroadcastRecipient,
   BroadcastStatus,
   RecipientKind,
@@ -11,16 +12,21 @@ import type {
 } from "./broadcasts";
 
 const COLS =
-  "id, title, message, media_url, media_type, delay_seconds, status, scheduled_for, total, sent, failed, created_by, created_at, updated_at, started_at, finished_at";
+  "id, title, message, msg_type, media_url, media_type, instance_token, instance_name, delay_min_seconds, delay_max_seconds, ai_rewrite, status, scheduled_for, total, sent, failed, created_by, created_at, updated_at, started_at, finished_at";
 
 function toBroadcast(r: Record<string, unknown>): Broadcast {
   return {
     id: String(r.id),
     title: String(r.title ?? "Disparo"),
     message: String(r.message ?? ""),
+    msgType: String(r.msg_type ?? "text") as BroadcastMsgType,
     mediaUrl: r.media_url ? String(r.media_url) : null,
     mediaType: (r.media_type ? String(r.media_type) : null) as BroadcastMediaType | null,
-    delaySeconds: Number(r.delay_seconds ?? 8),
+    instanceToken: r.instance_token ? String(r.instance_token) : null,
+    instanceName: r.instance_name ? String(r.instance_name) : null,
+    delayMin: Number(r.delay_min_seconds ?? 3),
+    delayMax: Number(r.delay_max_seconds ?? 8),
+    aiRewrite: Boolean(r.ai_rewrite),
     status: String(r.status ?? "draft") as BroadcastStatus,
     scheduledFor: r.scheduled_for ? String(r.scheduled_for) : null,
     total: Number(r.total ?? 0),
@@ -53,7 +59,7 @@ export async function getBroadcast(id: string): Promise<BroadcastDetail | null> 
     if (!data) return null;
     const { data: recs } = await supabase
       .from("broadcast_recipients")
-      .select("id, kind, target, name, status, error, sent_at")
+      .select("id, kind, target, name, vars, status, error, sent_at")
       .eq("broadcast_id", id)
       .order("status", { ascending: true })
       .limit(2000);
@@ -62,6 +68,7 @@ export async function getBroadcast(id: string): Promise<BroadcastDetail | null> 
       kind: String(r.kind ?? "number") as RecipientKind,
       target: String(r.target ?? ""),
       name: r.name ? String(r.name) : "",
+      vars: r.vars && typeof r.vars === "object" ? (r.vars as Record<string, string>) : {},
       status: String(r.status ?? "pending") as RecipientStatus,
       error: r.error ? String(r.error) : null,
       sentAt: r.sent_at ? String(r.sent_at) : null,

@@ -5,16 +5,30 @@
 
 export type BroadcastStatus = "draft" | "scheduled" | "sending" | "done" | "paused";
 export type BroadcastMediaType = "image" | "video" | "document";
+/** Tipo da mensagem (aba do compositor). 'text' não leva mídia. */
+export type BroadcastMsgType = "text" | "image" | "video" | "audio" | "document";
 export type RecipientKind = "number" | "group";
 export type RecipientStatus = "pending" | "sent" | "failed" | "skipped";
+
+export const MSG_TYPES: { key: BroadcastMsgType; label: string }[] = [
+  { key: "text", label: "Texto" },
+  { key: "image", label: "Imagem" },
+  { key: "video", label: "Vídeo" },
+  { key: "audio", label: "Áudio" },
+];
 
 export type Broadcast = {
   id: string;
   title: string;
   message: string;
+  msgType: BroadcastMsgType;
   mediaUrl?: string | null;
   mediaType?: BroadcastMediaType | null;
-  delaySeconds: number;
+  instanceToken?: string | null;
+  instanceName?: string | null;
+  delayMin: number;
+  delayMax: number;
+  aiRewrite: boolean;
   status: BroadcastStatus;
   scheduledFor?: string | null;
   total: number;
@@ -32,6 +46,7 @@ export type BroadcastRecipient = {
   kind: RecipientKind;
   target: string;
   name?: string;
+  vars?: Record<string, string>;
   status: RecipientStatus;
   error?: string | null;
   sentAt?: string | null;
@@ -60,13 +75,25 @@ export function broadcastProgress(b: Pick<Broadcast, "total" | "sent" | "failed"
   return Math.min(100, Math.round(((b.sent + b.failed) / b.total) * 100));
 }
 
-/** Substitui {nome} / {primeiro_nome} pela pessoa/grupo do destinatário. */
-export function personalize(message: string, name?: string): string {
+/**
+ * Substitui {nome}/{primeiro_nome} e cada variável de planilha ({empresa}, …).
+ * Variáveis desconhecidas viram string vazia (não deixa "{x}" na mensagem).
+ */
+export function personalize(message: string, name?: string, vars?: Record<string, string>): string {
   const full = (name ?? "").trim();
   const first = full.split(/\s+/)[0] ?? "";
-  return message
-    .replace(/\{nome\}/gi, full || "tudo bem")
-    .replace(/\{primeiro_nome\}/gi, first || "tudo bem");
+  const map: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars ?? {})) map[k.toLowerCase().trim()] = String(v ?? "");
+  if (full) {
+    map.nome = map.nome || full;
+    map.primeiro_nome = map.primeiro_nome || first;
+  }
+  return message.replace(/\{([\w.-]+)\}/g, (_, key: string) => {
+    const k = key.toLowerCase().trim();
+    if (k in map) return map[k];
+    if (k === "nome" || k === "primeiro_nome") return "tudo bem";
+    return "";
+  });
 }
 
 /** É um JID de grupo do WhatsApp? (…@g.us) */
@@ -83,16 +110,60 @@ export function cleanNumber(raw: string): string {
   return d;
 }
 
-/** Parseia uma lista colada (linhas, vírgulas ou ponto-e-vírgula) em números. */
-export function parseNumberList(raw: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
+/** Parseia uma lista colada (linhas, vírgulas ou ponto-e-vírgula) em números OU JIDs de grupo. */
+export function parseNumberList(raw: string): { numbers: string[]; groups: string[] } {
+  const seenN = new Set<string>();
+  const seenG = new Set<string>();
+  const numbers: string[] = [];
+  const groups: string[] = [];
   for (const part of (raw ?? "").split(/[\n,;]+/)) {
-    const n = cleanNumber(part);
-    if (n.length >= 12 && !seen.has(n)) {
-      seen.add(n);
-      out.push(n);
+    const t = part.trim();
+    if (!t) continue;
+    if (t.includes("@") || /g\.us$/i.test(t)) {
+      const jid = t.includes("@") ? t : `${t}@g.us`;
+      if (!seenG.has(jid)) { seenG.add(jid); groups.push(jid); }
+      continue;
     }
+    const n = cleanNumber(t);
+    if (n.length >= 12 && !seenN.has(n)) { seenN.add(n); numbers.push(n); }
   }
-  return out;
+  return { numbers, groups };
+}
+
+/** Milissegundos aleatórios em [min,max] segundos (anti-ban). */
+export function randomDelayMs(minSec: number, maxSec: number): number {
+  const lo = Math.max(0, Math.min(minSec, maxSec));
+  const hi = Math.max(minSec, maxSec);
+  return Math.round((lo + Math.random() * (hi - lo)) * 1000);
+}
+
+/** CSV modelo para "Baixar modelo". 1ª coluna = número; demais viram variáveis. */
+export const SHEET_TEMPLATE = "numero,nome,empresa\n5527999998888,Maria,Loja da Maria\n5531988887777,João,Auto Center JP\n";
+
+export type SheetRecipient = { target: string; name: string; vars: Record<string, string> };
+
+/**
+ * Converte uma matriz (planilha CSV/XLSX) em destinatários. A 1ª linha são
+ * cabeçalhos; a 1ª coluna é o número; demais colunas viram variáveis {cabecalho}.
+ * Uma coluna chamada "nome" também alimenta a personalização {nome}.
+ */
+export function sheetToRecipients(rows: unknown[][]): { headers: string[]; recipients: SheetRecipient[] } {
+  if (!rows || rows.length < 2) return { headers: [], recipients: [] };
+  const headers = (rows[0] ?? []).map((h) => String(h ?? "").trim());
+  const nameIdx = headers.findIndex((h) => h.toLowerCase() === "nome");
+  const seen = new Set<string>();
+  const recipients: SheetRecipient[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i] ?? [];
+    const target = cleanNumber(String(row[0] ?? ""));
+    if (target.length < 12 || seen.has(target)) continue;
+    seen.add(target);
+    const vars: Record<string, string> = {};
+    for (let c = 1; c < headers.length; c++) {
+      const key = headers[c];
+      if (key) vars[key] = String(row[c] ?? "").trim();
+    }
+    recipients.push({ target, name: nameIdx >= 0 ? String(row[nameIdx] ?? "").trim() : "", vars });
+  }
+  return { headers: headers.filter(Boolean), recipients };
 }

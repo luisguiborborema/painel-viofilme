@@ -111,7 +111,11 @@ export function BroadcastDetail({ broadcast }: { broadcast: TBroadcastDetail }) 
 
         <div className="mt-4 whitespace-pre-wrap rounded-xl bg-subtle px-3 py-2 text-sm text-ink">{broadcast.message || "(sem texto)"}</div>
         {broadcast.mediaUrl && <p className="mt-2 truncate text-xs text-muted">Mídia ({broadcast.mediaType}): {broadcast.mediaUrl}</p>}
-        <p className="mt-2 text-[11px] text-muted">Intervalo entre envios: {broadcast.delaySeconds}s</p>
+        <p className="mt-2 flex flex-wrap gap-x-3 text-[11px] text-muted">
+          <span>Intervalo: {broadcast.delayMin}–{broadcast.delayMax}s</span>
+          {broadcast.instanceName && <span>Instância: {broadcast.instanceName}</span>}
+          {broadcast.aiRewrite && <span className="text-brand-600">Reescrita com IA</span>}
+        </p>
       </Card>
 
       <Card className="overflow-hidden p-0">
