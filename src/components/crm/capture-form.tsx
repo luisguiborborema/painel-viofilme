@@ -201,7 +201,18 @@ export function CaptureForm({
 
   // ── Modo Tally: uma pergunta por tela ──────────────────────────────────────
   if (layout === "steps") {
-    const steps = activeFields.filter((f) => f.fieldType === "section" || visible(f));
+    // Seção de cada pergunta (rótulo aparece junto com ela, não em tela própria).
+    const sectionOf: Record<string, string> = {};
+    {
+      let s = "";
+      for (const f of activeFields) {
+        if (f.fieldType === "section") s = f.label;
+        else sectionOf[f.fieldKey] = s;
+      }
+    }
+    // Passos: mantém só a 1ª seção (boas-vindas) como tela; demais viram rótulo.
+    const allVisible = activeFields.filter((f) => f.fieldType === "section" || visible(f));
+    const steps = allVisible.filter((f, i) => f.fieldType !== "section" || i === 0);
     const idx = Math.min(Math.max(stepIdx, 0), Math.max(0, steps.length - 1));
     const cur = steps[idx];
     const last = idx === steps.length - 1;
@@ -310,8 +321,14 @@ export function CaptureForm({
                 <h2 className="whitespace-pre-wrap text-2xl font-bold leading-snug text-ink sm:text-3xl">{cur.label}</h2>
               ) : (
                 <>
-                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-500">
-                    Pergunta {steps.slice(0, idx + 1).filter((s) => s.fieldType !== "section").length}
+                  <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs font-semibold uppercase tracking-wide text-brand-500">
+                    {sectionOf[cur.fieldKey] && (
+                      <>
+                        <span className="text-muted">{sectionOf[cur.fieldKey]}</span>
+                        <span className="text-line">·</span>
+                      </>
+                    )}
+                    <span>Pergunta {steps.slice(0, idx + 1).filter((s) => s.fieldType !== "section").length}</span>
                   </div>
                   <p className="mb-5 text-2xl font-bold leading-snug text-ink sm:text-3xl">{cur.label}{cur.required && <span className="text-brand-500"> *</span>}</p>
                   {stepControl(cur)}
