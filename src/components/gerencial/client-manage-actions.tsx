@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/toast";
+import { ClientServicesManager } from "@/components/gerencial/client-services-manager";
 import { RESPONSIBLE_ROLES, type ResponsibleRole } from "@/lib/data/operacao";
 import { cn } from "@/lib/utils";
 
@@ -541,7 +542,11 @@ export function ClientManageActions({
         description="Escopo contratado e o que a produção entrega no ciclo."
         footer={saveBtn(saveOps)}
       >
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Serviços</p>
+        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Serviços contratados (recorrente / pontual)</p>
+        <p className="mb-2 text-[11px] text-muted">Serviços com valor — alimentam a mensalidade (MRR) e o modelo de contrato do cliente. Salvos na hora.</p>
+        <ClientServicesManager clientId={clientId} />
+
+        <p className="mb-1.5 mt-5 text-[11px] font-bold uppercase tracking-wide text-muted">Etiquetas de serviço</p>
         {services.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {services.map((s) => (

@@ -80,7 +80,7 @@ type Body = {
   pontual?: ServiceLine[];
   contacts?: Contact[];
   // Equipe/operação definidas já na criação (opcional).
-  responsibles?: { social?: string; performance?: string; designer?: string; copy?: string };
+  responsibles?: { social?: string; performance?: string; designer?: string; copy?: string; desenvolvedor?: string };
   servicesList?: string[];
   deliverables?: Record<string, number>;
   // compat com o modal antigo
@@ -150,6 +150,7 @@ export async function POST(req: Request) {
     performance: clean(rIn.performance) ?? "",
     designer: clean(rIn.designer) ?? "",
     copy: clean(rIn.copy) ?? "",
+    desenvolvedor: clean(rIn.desenvolvedor) ?? "",
   };
   const hasResp = Object.values(responsibles).some((v) => v);
   const servicesList = Array.isArray(b.servicesList)

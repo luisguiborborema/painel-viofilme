@@ -80,12 +80,13 @@ export const HUB_PLANS: HubPlan[] = [
 // Escopo por squad modelado desde já (hoje só existe 1 squad).
 export const SQUADS = [{ id: "sq-1", name: "Produção" }];
 
-export type ResponsibleRole = "social" | "performance" | "designer" | "copy";
+export type ResponsibleRole = "social" | "performance" | "designer" | "copy" | "desenvolvedor";
 export const RESPONSIBLE_ROLES: { key: ResponsibleRole; label: string }[] = [
   { key: "social", label: "Social" },
   { key: "performance", label: "Performance" },
   { key: "designer", label: "Designer" },
   { key: "copy", label: "Editor de Vídeo" },
+  { key: "desenvolvedor", label: "Desenvolvedor" },
 ];
 
 /** Serviços contratados a partir do plano. */
@@ -110,6 +111,7 @@ export function responsiblesFor(idx: number): Record<ResponsibleRole, string> {
     performance: perfs[0],
     designer: designers[idx % designers.length],
     copy: "Gustavo",
+    desenvolvedor: "",
   };
 }
 

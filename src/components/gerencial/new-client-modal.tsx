@@ -25,6 +25,7 @@ const RESP_ROLES = [
   { key: "performance", label: "Performance" },
   { key: "designer", label: "Designer" },
   { key: "copy", label: "Editor de Vídeo" },
+  { key: "desenvolvedor", label: "Desenvolvedor" },
 ] as const;
 const COMMON_SERVICES = ["Social", "Tráfego", "Design", "Copy", "UGC", "Site", "E-commerce"];
 const DEL_FORMATS = ["Reels", "Feed", "Stories", "Carrossel"] as const;
@@ -66,7 +67,7 @@ export function NewClientButton() {
   const [csMainId, setCsMainId] = useState("");
   const [csSupportId, setCsSupportId] = useState("");
   // Bloco 5b · Equipe responsável + operação (opcional na criação)
-  const [resp, setResp] = useState<Record<string, string>>({ social: "", performance: "", designer: "", copy: "" });
+  const [resp, setResp] = useState<Record<string, string>>({ social: "", performance: "", designer: "", copy: "", desenvolvedor: "" });
   const [svcTags, setSvcTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [dels, setDels] = useState<Record<string, number>>({});
@@ -102,7 +103,7 @@ export function NewClientButton() {
   function reset() {
     setName(""); setCity(""); setClientType("local_business"); setSegment("");
     setRecurring([]); setPontual([]); setCsMainId(""); setCsSupportId("");
-    setResp({ social: "", performance: "", designer: "", copy: "" }); setSvcTags([]); setNewTag(""); setDels({});
+    setResp({ social: "", performance: "", designer: "", copy: "", desenvolvedor: "" }); setSvcTags([]); setNewTag(""); setDels({});
     setContacts([{ key: nextKey(), name: "", role: "", whatsapp: "", email: "", isPrimary: true }]);
     setKickoffDate(""); setNetworks(["instagram", "facebook"]); setError(null);
   }

@@ -1955,6 +1955,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
           performance: r.performance ?? "",
           designer: r.designer ?? "",
           copy: r.copy ?? "",
+          desenvolvedor: r.desenvolvedor ?? "",
         };
       })(),
       services: Array.isArray(c.services_list) && c.services_list.length
