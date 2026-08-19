@@ -31,6 +31,7 @@ import {
   Sun,
   Lightbulb,
   Star,
+  Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 import type { Role, SessionUser } from "@/lib/auth/types";
@@ -69,6 +70,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Atividades", href: "/gerencial/comercial/atividades", icon: ListChecks, section: "crm" },
       { label: "Listas", href: "/gerencial/comercial/listas", icon: Database, section: "crm" },
       { label: "Insights", href: "/gerencial/comercial/insights", icon: BarChart3, section: "crm" },
+      { label: "Diagnóstico", href: "/gerencial/diagnostico", icon: Stethoscope, anySection: ["crm", "entregas", "clientes"] },
       { label: "Configurações", href: "/gerencial/comercial/configuracoes", icon: SlidersHorizontal, section: "crm" },
       { label: "Documentos", href: "/gerencial/comercial/documentos", icon: FileText, section: "crm" },
     ],
@@ -83,6 +85,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Pós-reunião", href: "/gerencial/pos-reuniao", icon: Star, section: "clientes" },
       { label: "Solicitações", href: "/gerencial/solicitacoes", icon: Inbox, section: "clientes" },
       { label: "Painel de Entregas", href: "/gerencial/entregas", icon: ListChecks, section: "entregas" },
+      { label: "Diagnóstico", href: "/gerencial/diagnostico", icon: Stethoscope, anySection: ["crm", "entregas", "clientes"] },
       { label: "VioFlux", href: "/gerencial/conteudo", icon: Images, section: "conteudo" },
       {
         label: "Gestão à Vista",
