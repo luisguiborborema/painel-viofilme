@@ -43,6 +43,7 @@ const FIELD_TYPES = new Set([
   "textarea",
   "number",
   "select",
+  "multiselect",
   "date",
   "checkbox",
   "url",

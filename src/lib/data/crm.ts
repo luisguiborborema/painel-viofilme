@@ -1611,6 +1611,7 @@ export type FormFieldType =
   | "textarea"
   | "number"
   | "select"
+  | "multiselect" // marcar várias opções
   | "date"
   | "checkbox"
   | "url"
@@ -1649,7 +1650,8 @@ export const FORM_FIELD_TYPES: { key: FormFieldType; label: string }[] = [
   { key: "text", label: "Texto" },
   { key: "textarea", label: "Texto longo" },
   { key: "number", label: "Número" },
-  { key: "select", label: "Seleção" },
+  { key: "select", label: "Escolha única" },
+  { key: "multiselect", label: "Múltipla escolha" },
   { key: "date", label: "Data" },
   { key: "checkbox", label: "Sim/Não" },
   { key: "url", label: "Link" },
@@ -1699,6 +1701,11 @@ export type FormTemplate = {
     required?: boolean;
     mapTo?: FormFieldMap;
     options?: { value: string; label: string }[];
+    /** Chave estável (para condicionais referenciarem). Senão, derivada do label. */
+    fieldKey?: string;
+    /** Condicional: só exibe se o campo `showIfKey` tiver valor = `showIfValue`. */
+    showIfKey?: string;
+    showIfValue?: string;
   }[];
 };
 
@@ -1751,6 +1758,99 @@ export const FORM_TEMPLATES: FormTemplate[] = [
       { label: "Quais plataformas?", fieldType: "select", options: opt("Meta (Face/Insta)", "Google", "Meta + Google", "TikTok") },
       { label: "Já tem pixel/GA instalado?", fieldType: "select", options: opt("Sim", "Não", "Não sei") },
       { label: "Link do site/página de destino", fieldType: "url" },
+    ],
+  },
+  {
+    key: "ecommerce",
+    name: "E-commerce — Lançamento (MVP)",
+    description: "Briefing de descoberta para colocar a primeira versão da loja no ar (Fase 1).",
+    destination: "crm",
+    fields: [
+      {
+        label:
+          "Formulário 1 — Lançamento (MVP) · ~12 minutos. Este formulário serve para colocarmos a primeira versão da loja no ar. Não é necessário conhecimento técnico — perguntamos como vocês vendem hoje; as decisões de tecnologia são nossas. Sempre que houver a opção \"Não sei\", pode marcar. Importante: o projeto tem 3 fases; este formulário é só da primeira.",
+        fieldType: "section",
+      },
+
+      // Seção 1 — Identificação
+      { label: "Seção 1 — Identificação", fieldType: "section" },
+      { label: "1.2 Quem está preenchendo (nome e cargo)", fieldType: "text", required: true, mapTo: "contact_name" },
+      { label: "1.4 Quem aprova as entregas do projeto?", fieldType: "text" },
+      { label: "1.5 Quem será nosso contato do dia a dia durante o desenvolvimento?", fieldType: "text" },
+      { label: "1.6 Site atual, se houver (deixe em branco se não tiver)", fieldType: "url" },
+
+      // Seção 2 — Como vocês vendem hoje
+      { label: "Seção 2 — Como vocês vendem hoje", fieldType: "section" },
+      { label: "2.1 Por onde chegam os pedidos hoje?", fieldType: "multiselect", options: opt("Balcão", "Telefone", "WhatsApp", "E-mail", "Representante", "Marketplace", "Outro") },
+      { label: "2.1 Se marcou \"Outro\", qual?", fieldType: "text" },
+      { label: "2.2 Qual desses canais traz mais faturamento?", fieldType: "select", options: opt("Balcão", "Telefone", "WhatsApp", "E-mail", "Representante", "Marketplace", "Outro") },
+      { label: "2.3 Quem compra de vocês?", fieldType: "multiselect", options: opt("Indústrias", "Integradores e montadores de painel", "Eletricistas e instaladores", "Construtoras", "Revendas", "Consumidor final", "Órgão público") },
+      { label: "2.4 Qual desses é o mais importante hoje?", fieldType: "select", options: opt("Indústrias", "Integradores e montadores de painel", "Eletricistas e instaladores", "Construtoras", "Revendas", "Consumidor final", "Órgão público") },
+      { label: "2.5 Se um cliente comprar sozinho pelo site, o vendedor dele ganha comissão? (não existe resposta certa — precisamos saber para não criar atrito com o comercial)", fieldType: "select", options: opt("Sim", "Não", "Ainda não decidimos") },
+      { label: "2.6 O que mais consome tempo da equipe hoje e vocês gostariam que o site resolvesse?", fieldType: "textarea" },
+
+      // Seção 3 — Catálogo do lançamento
+      { label: "Seção 3 — Catálogo do lançamento", fieldType: "section" },
+      { label: "3.1 Quantos produtos diferentes vocês vendem no total?", fieldType: "select", options: opt("Até 500", "500 a 2.000", "2.000 a 10.000", "Mais de 10.000", "Não sei") },
+      { label: "3.2 Quais categorias vocês trabalham?", fieldType: "multiselect", options: opt("Cabos e fios", "Disjuntores e proteção", "Quadros e caixas", "Iluminação", "Eletrocalhas e infraestrutura", "Contatores e comando", "Inversores e partida", "CLP e IHM", "Sensores", "Instrumentação", "Motores", "Ferramentas e EPI", "Outro") },
+      { label: "3.2 Se marcou \"Outro\", qual categoria?", fieldType: "text" },
+      { label: "3.3 Se o site lançasse com apenas 3 categorias, quais seriam? (recomendamos começar pelas mais vendidas — nada fica de fora do projeto)", fieldType: "text" },
+      { label: "3.4 Onde estão os dados dos produtos hoje?", fieldType: "select", options: opt("No ERP", "Em planilha", "Nos dois", "Em sistema antigo", "Não temos organizado", "Não sei") },
+      { label: "3.5 Link de uma exportação ou amostra desses dados (Google Drive, WeTransfer… mesmo desorganizado ajuda muito)", fieldType: "url" },
+      { label: "3.6 Quando o cliente liga pedindo um disjuntor, o que o vendedor precisa saber antes de indicar o modelo certo? (use as palavras da equipe no dia a dia)", fieldType: "textarea" },
+      { label: "3.7 Mesma pergunta para outra categoria importante de vocês", fieldType: "textarea" },
+      { label: "3.8 O cliente costuma pedir pelo quê?", fieldType: "multiselect", options: opt("Nome do produto", "Código do fabricante", "Código interno de vocês", "Descrição da aplicação") },
+      { label: "3.9 Vocês vendem algo de forma fracionada?", fieldType: "multiselect", options: opt("Por metro (cabo)", "Por rolo ou bobina fechada", "Só caixa fechada", "Com quantidade mínima", "Não, tudo é vendido por peça") },
+      { label: "3.10 Existe produto que NÃO pode ter preço anunciado na internet?", fieldType: "select", fieldKey: "sem_preco_publico", options: opt("Sim", "Não", "Não sei") },
+      { label: "3.10a Se sim: quais e por quê? (ex.: exigência do fabricante, preço mínimo de venda)", fieldType: "textarea", showIfKey: "sem_preco_publico", showIfValue: "Sim" },
+      { label: "3.11 Fotos dos produtos", fieldType: "select", options: opt("Temos fotos próprias", "Usamos as do fabricante", "Temos de alguns só", "Não temos") },
+
+      // Seção 4 — Preço e pagamento
+      { label: "Seção 4 — Preço e pagamento", fieldType: "section" },
+      { label: "4.1 Todo cliente paga o mesmo preço? (se depender do cliente, isso entra na Fase 2 — mas precisamos saber desde já)", fieldType: "select", options: opt("Sim, preço único", "Depende do cliente", "Depende da quantidade", "Depende dos dois", "Não sei") },
+      { label: "4.2 Como o cliente paga hoje?", fieldType: "multiselect", options: opt("Pix", "Dinheiro", "Cartão", "Boleto à vista", "Boleto a prazo (faturado)", "Transferência") },
+      { label: "4.3 Já usam algum sistema de pagamento online?", fieldType: "select", options: opt("Sim", "Não", "Não sei") },
+      { label: "4.3 Se sim, qual sistema de pagamento?", fieldType: "text" },
+      { label: "4.4 Para quais estados vocês vendem hoje?", fieldType: "select", options: opt("Todo o Brasil", "Apenas alguns estados") },
+      { label: "4.4 Se apenas alguns, liste as UFs", fieldType: "text" },
+
+      // Seção 5 — Estoque e entrega
+      { label: "Seção 5 — Estoque e entrega", fieldType: "section" },
+      { label: "5.1 Quantos depósitos ou lojas vocês têm?", fieldType: "select", options: opt("1", "2 a 3", "Mais de 3") },
+      { label: "5.2 Se o site mostrasse o estoque desatualizado por algumas horas, isso viraria problema?", fieldType: "select", options: opt("Sim, vende rápido demais", "Um pouco, mas dá para contornar", "Não, o giro é tranquilo", "Não sei") },
+      { label: "5.3 Já aconteceu de vender algo que não tinha em estoque?", fieldType: "select", options: opt("Com frequência", "Raramente", "Nunca") },
+      { label: "5.4 Como calculam o frete de um item pesado hoje (bobina de cabo, painel)?", fieldType: "textarea" },
+      { label: "5.5 Vocês entregam com veículo próprio?", fieldType: "select", fieldKey: "veiculo_proprio", options: opt("Sim", "Não, só transportadora", "Os dois") },
+      { label: "5.5a Se sim: até que região?", fieldType: "text", showIfKey: "veiculo_proprio", showIfValue: "Sim" },
+      { label: "5.6 Cliente costuma retirar na loja?", fieldType: "select", options: opt("Sim, é comum", "Às vezes", "Não") },
+
+      // Seção 6 — Sistemas e fiscal
+      { label: "Seção 6 — Sistemas e fiscal", fieldType: "section" },
+      { label: "6.1 Qual ERP vocês usam? (se não usa, escreva \"nenhum\")", fieldType: "text" },
+      { label: "6.2 Quem dá suporte a esse ERP? (nome da empresa ou do responsável)", fieldType: "text" },
+      { label: "6.3 Quem cuida da parte fiscal?", fieldType: "select", options: opt("Equipe interna", "Escritório de contabilidade externo", "Os dois") },
+      { label: "6.4 Nome e contato dessa pessoa (vamos precisar de ~30 minutos com ela)", fieldType: "text" },
+      { label: "6.5 Quem administra o domínio e a hospedagem do site?", fieldType: "select", options: opt("Nós mesmos", "Uma agência", "Não sei", "Não temos site") },
+
+      // Seção 7 — Decisões guiadas do lançamento
+      { label: "Seção 7 — Decisões guiadas do lançamento. Aqui já trazemos a recomendação; se concordarem, é só confirmar; em caso de dúvida, marquem \"preciso ver as opções\" e discutimos na reunião.", fieldType: "section" },
+      { label: "7.1 Custo mensal. Vamos recomendar a plataforma com base nas respostas. Existe limite de custo mensal a respeitar?", fieldType: "select", options: opt("Até R$ 500/mês", "Até R$ 1.500/mês", "Até R$ 3.000/mês", "Sem limite definido", "Preciso ver as opções antes de responder") },
+
+      // Seção 8 — Perguntas estruturais
+      { label: "Seção 8 — Perguntas estruturais. Nada aqui é escopo do lançamento: são perguntas sobre o futuro que mudam como construímos a base do sistema. Responder \"sim\" não adiciona custo nem prazo à Fase 1.", fieldType: "section" },
+      { label: "8.1 Em algum momento cada cliente terá tabela de preço própria?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+      { label: "8.2 Em algum momento haverá controle de estoque por filial ou depósito separado?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+      { label: "8.3 Em algum momento haverá venda a prazo com limite de crédito pelo site?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+      { label: "8.4 Uma mesma empresa cliente terá vários usuários (comprador, aprovador, financeiro)?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+      { label: "8.5 Pretendem vender em marketplace usando o mesmo estoque?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+      { label: "8.6 Pretendem vender para fora do Brasil?", fieldType: "select", options: opt("Sim", "Não", "Talvez", "Não sei") },
+
+      // Seção 9 — Fechamento
+      { label: "Seção 9 — Fechamento", fieldType: "section" },
+      { label: "9.2 Quem vai cadastrar e atualizar produtos depois do lançamento?", fieldType: "text" },
+      { label: "9.3 Essa pessoa tem facilidade com sistemas?", fieldType: "select", options: opt("Muita", "Média", "Pouca") },
+      { label: "9.4 O que seria sucesso seis meses após o lançamento?", fieldType: "textarea" },
+      { label: "9.5 Tem algo importante que não perguntamos?", fieldType: "textarea" },
     ],
   },
 ];

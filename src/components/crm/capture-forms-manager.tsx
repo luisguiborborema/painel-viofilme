@@ -99,12 +99,15 @@ export function CaptureFormsManager({
           id: j.id,
           fields: tpl.fields.map((f, i) => ({
             label: f.label,
+            fieldKey: f.fieldKey,
             fieldType: f.fieldType,
             required: Boolean(f.required),
             mapTo: f.mapTo ?? "custom",
             options: f.options ?? [],
             position: i,
             active: true,
+            showIfKey: f.showIfKey ?? null,
+            showIfValue: f.showIfValue ?? null,
           })),
         }),
       });
@@ -640,7 +643,7 @@ function FormEditor({
         label: f.label,
         fieldType: f.fieldType,
         options:
-          f.fieldType === "select"
+          f.fieldType === "select" || f.fieldType === "multiselect"
             ? f.options
                 .map((o) => ({ value: o.label.trim(), label: o.label.trim() }))
                 .filter((o) => o.label)
@@ -866,9 +869,9 @@ function FormEditor({
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {f.fieldType === "select" && (
+              {(f.fieldType === "select" || f.fieldType === "multiselect") && (
                 <div className="mt-2 space-y-1.5 rounded-lg bg-canvas p-2">
-                  <p className="text-[11px] font-medium text-muted">Opções da seleção</p>
+                  <p className="text-[11px] font-medium text-muted">Opções {f.fieldType === "multiselect" ? "(múltipla escolha)" : "da seleção"}</p>
                   {f.options.length === 0 && (
                     <p className="text-[11px] text-muted">Nenhuma opção ainda — adicione abaixo.</p>
                   )}

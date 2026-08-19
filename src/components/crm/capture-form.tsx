@@ -161,6 +161,32 @@ export function CaptureForm({
               );
             }
 
+            if (f.fieldType === "multiselect") {
+              const selected = val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+              const toggle = (v: string) => {
+                const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];
+                set(f.fieldKey, next.join(", "));
+              };
+              return (
+                <fieldset key={f.fieldKey} className="block">
+                  <legend className="mb-1.5 block text-sm font-medium text-ink">{f.label}{req}</legend>
+                  <div className="space-y-1.5">
+                    {f.options.map((o) => (
+                      <label key={o.value} className="flex items-center gap-2 text-sm text-ink">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(o.value)}
+                          onChange={() => toggle(o.value)}
+                          className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500/30"
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              );
+            }
+
             let control;
             if (f.fieldType === "textarea") {
               control = (
