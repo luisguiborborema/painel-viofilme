@@ -511,6 +511,7 @@ function FormEditor({
   const [owner, setOwner] = useState(form.owner ?? "");
   const [source, setSource] = useState(form.source);
   const [description, setDescription] = useState(form.description ?? "");
+  const [layout, setLayout] = useState<"list" | "steps">(form.layout === "steps" ? "steps" : "list");
   const [fields, setFields] = useState<EditField[]>(() =>
     form.fields.map((f, i) => ({ ...f, uid: i })),
   );
@@ -634,6 +635,7 @@ function FormEditor({
       owner: owner || "",
       source: source.trim() || "Formulário",
       description: description || null,
+      layout,
     });
     const okFields = await post({
       action: "save-fields",
@@ -749,6 +751,13 @@ function FormEditor({
         <label className="text-xs">
           <span className="mb-0.5 block font-medium text-muted">Descrição (topo do formulário)</span>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" className={inputCls} />
+        </label>
+        <label className="text-xs">
+          <span className="mb-0.5 block font-medium text-muted">Exibição pública</span>
+          <select value={layout} onChange={(e) => setLayout(e.target.value as "list" | "steps")} className={inputCls}>
+            <option value="list">Lista (tudo numa página)</option>
+            <option value="steps">Uma pergunta por vez (estilo Tally)</option>
+          </select>
         </label>
       </div>
 

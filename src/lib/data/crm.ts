@@ -1684,6 +1684,8 @@ export type CaptureForm = {
   clientId?: string;
   taskType?: string;
   description?: string;
+  /** Exibição pública: 'list' (tudo numa página) ou 'steps' (uma pergunta por vez). */
+  layout?: "list" | "steps";
   fields: FormField[];
   submissions?: number;
   views?: number;

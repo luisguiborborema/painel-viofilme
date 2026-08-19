@@ -17,6 +17,7 @@ export default async function CapturePage({
   let title = "Fale com a gente";
   let description: string | undefined;
   let fields: PublicField[] = [];
+  let layout: "list" | "steps" = "list";
 
   if (isSupabaseConfigured() && hasServiceRole()) {
     const admin = createAdminClient();
@@ -28,6 +29,14 @@ export default async function CapturePage({
     if (!data || !data.active) notFound();
     title = String(data.name);
     description = data.description ? String(data.description) : undefined;
+
+    // Layout tolerante: a coluna pode não existir antes da migração 0127.
+    try {
+      const { data: lay } = await admin.from("crm_capture_forms").select("layout").eq("id", data.id).maybeSingle();
+      if (String((lay as { layout?: string } | null)?.layout) === "steps") layout = "steps";
+    } catch {
+      /* coluna ausente → mantém list */
+    }
 
     // Conta a visita (best-effort) para a taxa de conversão.
     await admin.rpc("increment_form_views", { p_slug: slug }).then(
@@ -56,7 +65,7 @@ export default async function CapturePage({
 
   return (
     <main className="min-h-screen bg-canvas">
-      <CaptureForm slug={slug} title={title} description={description} fields={fields} client={client} />
+      <CaptureForm slug={slug} title={title} description={description} fields={fields} client={client} layout={layout} />
     </main>
   );
 }

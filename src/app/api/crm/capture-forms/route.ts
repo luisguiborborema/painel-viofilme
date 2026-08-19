@@ -35,6 +35,7 @@ type Body = {
   clientId?: string | null;
   taskType?: string | null;
   description?: string | null;
+  layout?: string;
   fields?: FieldInput[];
 };
 
@@ -314,6 +315,7 @@ export async function POST(req: Request) {
     if (b.clientId !== undefined) patch.client_id = b.clientId || null;
     if (b.taskType !== undefined) patch.task_type = b.taskType || null;
     if (b.description !== undefined) patch.description = b.description || null;
+    if (b.layout !== undefined) patch.layout = b.layout === "steps" ? "steps" : "list";
     const { error } = await supabase.from("crm_capture_forms").update(patch).eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });

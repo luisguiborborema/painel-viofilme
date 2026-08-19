@@ -2821,13 +2821,18 @@ export async function sbGetPlaybookSectors(): Promise<PlaybookSector[]> {
 
 export async function sbGetCaptureForms(): Promise<CaptureForm[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  // Tolerante: 'layout' pode não existir antes da migração 0127 → fallback sem ela.
+  const withLayout = await supabase
     .from("crm_capture_forms")
-    .select(
-      "id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description,views",
-    )
+    .select("id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description,views,layout")
     .order("created_at", { ascending: true });
-  const forms = data ?? [];
+  const res = withLayout.error
+    ? await supabase
+        .from("crm_capture_forms")
+        .select("id,name,slug,owner,source,active,destination,pipeline_id,stage_id,client_id,task_type,description,views")
+        .order("created_at", { ascending: true })
+    : withLayout;
+  const forms = res.data ?? [];
   const ids = forms.map((r) => String(r.id));
 
   // Campos de todos os formulários (uma query), agrupados por form_id.
