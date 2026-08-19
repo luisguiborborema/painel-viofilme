@@ -7,14 +7,23 @@ import { toNpsConfig } from "@/lib/data/nps";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Página pública de resposta do NPS (link estilo Tally, sem login). */
+export const metadata = { title: "Pesquisa NPS" };
+
+/**
+ * Página pública de resposta do NPS (link estilo Tally, sem login).
+ *
+ * Aceita as duas formas de link — /nps/<token> (antigo) e /nps/<slug>/<token>
+ * (com o nome do cliente na URL). O slug é decorativo: a validação é sempre
+ * pelo token, que é o ÚLTIMO segmento.
+ */
 export default async function NpsPage({
   params,
 }: {
-  params: Promise<{ token: string }>;
+  params: Promise<{ parts: string[] }>;
 }) {
-  const { token } = await params;
-  if (!isSupabaseConfigured() || !hasServiceRole()) notFound();
+  const { parts } = await params;
+  const token = parts?.[parts.length - 1] ?? "";
+  if (!token || !isSupabaseConfigured() || !hasServiceRole()) notFound();
 
   const admin = createAdminClient();
   const { data: survey } = await admin

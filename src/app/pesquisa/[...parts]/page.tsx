@@ -7,14 +7,22 @@ import { toMeetingConfig } from "@/lib/data/meeting-survey";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Página pública da pesquisa pós-reunião com o nome do cliente na URL. */
+export const metadata = { title: "Pesquisa pós-reunião" };
+
+/**
+ * Página pública da pesquisa pós-reunião.
+ *
+ * Aceita /pesquisa/<token> (antigo) e /pesquisa/<slug>/<token> (com o nome do
+ * cliente na URL). O token é sempre o ÚLTIMO segmento; o slug é decorativo.
+ */
 export default async function MeetingSurveyPage({
   params,
 }: {
-  params: Promise<{ slug: string; token: string }>;
+  params: Promise<{ parts: string[] }>;
 }) {
-  const { token } = await params;
-  if (!isSupabaseConfigured() || !hasServiceRole()) notFound();
+  const { parts } = await params;
+  const token = parts?.[parts.length - 1] ?? "";
+  if (!token || !isSupabaseConfigured() || !hasServiceRole()) notFound();
 
   const admin = createAdminClient();
   const { data: survey } = await admin
