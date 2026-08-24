@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Sun,
   Lightbulb,
+  BookOpen,
   Star,
   Stethoscope,
   type LucideIcon,
@@ -123,6 +124,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     icon: CircleUser,
     items: [
       { label: "Sugestões", href: "/gerencial/sugestoes", icon: Lightbulb },
+      { label: "Documentação", href: "/gerencial/documentacao", icon: BookOpen },
       { label: "Configurações", href: "/configuracoes", icon: Settings },
     ],
   },
