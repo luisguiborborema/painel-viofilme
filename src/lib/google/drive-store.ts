@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getValidAccess } from "@/lib/google/client";
-import { GOOGLE_DRIVE_CLIENTS_ROOT } from "@/lib/google/config";
+import { getDriveRoot } from "@/lib/google/drive-root";
 import {
   DRIVE_CATEGORIES,
   driveEnsureChildFolder,
@@ -27,7 +27,7 @@ export async function clientDriveRoot(clientId: string): Promise<string | null> 
 /**
  * Garante a pasta do cliente no Drive quando ele entra em operações. Se já houver
  * drive_folder_url, não faz nada. Senão cria `<nome>` + subpastas 00–04 sob a
- * pasta-mãe configurada (GOOGLE_DRIVE_CLIENTS_ROOT) e grava o link em clients.
+ * pasta-mãe configurada em Integrações e grava o link em clients.
  * Best-effort: nunca lança — devolve null se o Google não estiver conectado ou
  * faltar service_role. Retorna a URL da pasta quando cria/já existe.
  */
@@ -49,7 +49,9 @@ export async function provisionClientDrive(clientId: string): Promise<string | n
     const access = await getValidAccess();
     if (!access?.token) return null;
 
-    const parent = parseDriveFolderId(GOOGLE_DRIVE_CLIENTS_ROOT) ?? undefined;
+    // Pasta-mãe: configurada em Integrações (ex.: a pasta compartilhada
+    // "Gerenciamento"); senão o env legado; senão a raiz do Meu Drive.
+    const parent = (await getDriveRoot(admin)).id ?? undefined;
     const now = new Date();
     const folder = await driveProvisionClientFolder(access.token, row.name ?? "Cliente", parent, {
       year: now.getFullYear(),

@@ -22,6 +22,7 @@ import {
   isGoogleConfigured,
 } from "@/lib/google/config";
 import { getGoogleStatus, getGoogleGrantedScopes } from "@/lib/google/client";
+import { DriveSettings } from "@/components/gerencial/drive-settings";
 import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
 import { GoogleDisconnectButton } from "@/components/gerencial/google-disconnect-button";
 
@@ -169,6 +170,8 @@ export default async function GerencialIntegracoes({
             )}
           </div>
         )}
+
+        {google.connected && <DriveSettings />}
       </Card>
 
       {!googleConfigured && (
