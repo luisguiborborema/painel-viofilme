@@ -94,6 +94,7 @@ export function CommandPalette({
       label: "Sair",
       run: async () => {
         await clearSession();
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- logout: recarrega para descartar todo o estado do cliente
         window.location.assign("/login");
       },
       icon: LogOut,

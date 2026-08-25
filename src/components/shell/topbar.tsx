@@ -128,6 +128,7 @@ export function Topbar({
                 type="button"
                 onClick={async () => {
                   await clearSession();
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- logout: recarrega para descartar todo o estado do cliente
                   window.location.assign("/login");
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"

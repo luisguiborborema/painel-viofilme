@@ -42,6 +42,7 @@ export default function DefinirSenha() {
       return;
     }
     setPhase("done");
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- sessão nova: recarrega para o servidor reavaliar o acesso
     setTimeout(() => window.location.assign("/"), 1400);
   }
 

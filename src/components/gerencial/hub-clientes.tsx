@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -142,6 +143,7 @@ function StatusChip({ c }: { c: HubClientOps }) {
 
 /** Ações rápidas do card. Apagar só aparece para Gestor/Admin (canDelete). */
 function ClientActions({ c, align = "right", canDelete = false }: { c: HubClientOps; align?: "right" | "left"; canDelete?: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const wa = c.whatsapp?.replace(/\D/g, "");
@@ -206,6 +208,8 @@ function ClientActions({ c, align = "right", canDelete = false }: { c: HubClient
               onClick={(e) => {
                 stop(e);
                 setOpen(false);
+                // Troca de painel: recarga inteira para o middleware reavaliar a sessão.
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- troca de painel
                 window.location.href = "/cliente";
               }}
               className={item}
@@ -242,7 +246,7 @@ function ClientActions({ c, align = "right", canDelete = false }: { c: HubClient
               onClick={(e) => {
                 stop(e);
                 setOpen(false);
-                window.location.href = `/gerencial/clientes/${c.id}`;
+                router.push(`/gerencial/clientes/${c.id}`);
               }}
               className={item}
             >
