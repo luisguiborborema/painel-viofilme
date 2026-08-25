@@ -11,6 +11,8 @@ import {
   Phone,
   Plus,
   Receipt,
+  Pencil,
+  Repeat,
   RotateCcw,
   Trash2,
   X,
@@ -26,6 +28,7 @@ import {
   type GerFinance,
   type Receivable,
 } from "@/lib/data/gerfinance";
+import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
 
 type TabKey = "visao" | "receber" | "pagar" | "inadimplencia" | "dre";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
@@ -459,29 +462,46 @@ function fmtDay(iso: string | null): string {
   return d ? `${d}/${m}/${y.slice(2)}` : iso;
 }
 
-async function postExpense(body: unknown): Promise<boolean> {
+async function postExpense(body: unknown): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/gerencial/expenses", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).catch(() => null);
-  return Boolean(res?.ok);
+  if (!res) return { ok: false, error: "Sem conexão com o servidor." };
+  const j = await res.json().catch(() => null);
+  return { ok: res.ok, error: res.ok ? undefined : (j?.error ?? "Não foi possível salvar.") };
 }
 
 function ContasPagar({ data }: { data: GerFinance }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [editando, setEditando] = useState<Expense | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const expenses = data.expenses;
   const totalPending = expenses.filter((e) => e.status === "pending").reduce((s, e) => s + e.amount, 0);
   const totalPaid = expenses.filter((e) => e.status === "paid").reduce((s, e) => s + e.amount, 0);
 
-  async function act(body: { action: "pay" | "unpay" | "delete"; id: string }) {
+  async function act(body: { action: "pay" | "unpay" | "delete"; id: string; scope?: "one" | "future" }) {
     setBusyId(body.id);
     await postExpense(body);
     setBusyId(null);
     router.refresh();
+  }
+
+  /** Excluir: numa série, oferece apagar só a parcela ou as futuras em aberto. */
+  function excluir(e: Expense) {
+    if (e.seriesId) {
+      const futuras = window.confirm(
+        `"${e.description}" faz parte de uma recorrência.\n\n` +
+          "OK = apagar esta e as PRÓXIMAS ainda não pagas\n" +
+          "Cancelar = apagar só esta parcela",
+      );
+      act({ action: "delete", id: e.id, scope: futuras ? "future" : "one" });
+      return;
+    }
+    if (window.confirm(`Excluir "${e.description}"?`)) act({ action: "delete", id: e.id });
   }
 
   return (
@@ -505,11 +525,14 @@ function ContasPagar({ data }: { data: GerFinance }) {
         </button>
       </div>
 
-      {showForm && (
+      {(showForm || editando) && (
         <ExpenseForm
-          onClose={() => setShowForm(false)}
+          key={editando?.id ?? "novo"}
+          editar={editando}
+          onClose={() => { setShowForm(false); setEditando(null); }}
           onSaved={() => {
             setShowForm(false);
+            setEditando(null);
             router.refresh();
           }}
         />
@@ -544,9 +567,18 @@ function ContasPagar({ data }: { data: GerFinance }) {
                   <tr key={e.id} className="border-b border-line last:border-0 hover:bg-subtle">
                     <td className="px-4 py-3">
                       <p className="font-medium text-ink">{e.description}</p>
-                      <p className="text-xs text-muted">
-                        {e.vendor ? `${e.vendor} · ` : ""}
-                        {e.recurring ? "recorrente" : "avulsa"}
+                      <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                        {e.vendor ? <span>{e.vendor}</span> : null}
+                        {e.seriesId ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-1.5 py-0.5 font-medium text-brand-600">
+                            <Repeat className="h-3 w-3" />
+                            {e.installment && e.installmentsTotal
+                              ? `${e.installment}/${e.installmentsTotal}`
+                              : "recorrente"}
+                          </span>
+                        ) : (
+                          <span>avulsa</span>
+                        )}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-muted">{EXPENSE_CATEGORY_LABEL[e.category]}</td>
@@ -584,7 +616,16 @@ function ContasPagar({ data }: { data: GerFinance }) {
                           </button>
                         )}
                         <button
-                          onClick={() => act({ action: "delete", id: e.id })}
+                          onClick={() => { setEditando(e); setShowForm(false); }}
+                          disabled={busyId === e.id}
+                          className="inline-flex items-center justify-center rounded-lg border border-line p-1.5 text-muted hover:text-ink disabled:opacity-60"
+                          aria-label="Editar despesa"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => excluir(e)}
                           disabled={busyId === e.id}
                           className="inline-flex items-center justify-center rounded-lg border border-line p-1.5 text-muted hover:text-rose-300 disabled:opacity-60"
                           aria-label="Excluir despesa"
@@ -610,41 +651,85 @@ const NEW_EXPENSE = {
   amount: "",
   dueDate: "",
   vendor: "",
-  recurring: false,
   status: "pending" as Expense["status"],
+  /** "unica" | "parcelada" (nº fixo) | "aberta" (sem fim) */
+  repeticao: "unica" as "unica" | "parcelada" | "aberta",
+  recorrencia: "monthly" as Recurrence,
+  parcelas: "12",
 };
 
 function ExpenseForm({
   onClose,
   onSaved,
+  editar,
 }: {
   onClose: () => void;
   onSaved: () => void;
+  /** Quando presente, o formulário edita esta despesa em vez de criar. */
+  editar?: Expense | null;
 }) {
-  const [f, setF] = useState(NEW_EXPENSE);
+  const emSerie = Boolean(editar?.seriesId);
+  const [f, setF] = useState(() =>
+    editar
+      ? {
+          ...NEW_EXPENSE,
+          description: editar.description,
+          category: editar.category,
+          amount: String(editar.amount).replace(".", ","),
+          dueDate: editar.dueDate ?? "",
+          vendor: editar.vendor ?? "",
+          status: editar.status,
+        }
+      : NEW_EXPENSE,
+  );
+  const [escopo, setEscopo] = useState<"one" | "future">("one");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const amountNum = Number(f.amount.replace(",", "."));
   const valid = f.description.trim().length > 0 && Number.isFinite(amountNum) && amountNum > 0;
 
+  // Prévia dos vencimentos — evita surpresa em fim de mês (31/jan → 28/fev).
+  const previa =
+    !editar && f.repeticao !== "unica" && f.dueDate
+      ? planejarParcelas(f.dueDate, f.recorrencia, f.repeticao === "aberta" ? 3 : Number(f.parcelas) || 1)
+      : [];
+  const totalParcelas = f.repeticao === "parcelada" ? Math.max(1, Number(f.parcelas) || 1) : 0;
+
   async function save() {
     if (!valid || busy) return;
     setBusy(true);
     setErr(null);
-    const ok = await postExpense({
-      action: "create",
-      description: f.description.trim(),
-      category: f.category,
-      amount: amountNum,
-      dueDate: f.dueDate || undefined,
-      vendor: f.vendor.trim() || undefined,
-      recurring: f.recurring,
-      status: f.status,
-    });
+    const r = editar
+      ? await postExpense({
+          action: "update",
+          id: editar.id,
+          scope: emSerie ? escopo : "one",
+          description: f.description.trim(),
+          category: f.category,
+          amount: amountNum,
+          dueDate: f.dueDate || undefined,
+          vendor: f.vendor.trim() || undefined,
+        })
+      : await postExpense({
+          action: "create",
+          description: f.description.trim(),
+          category: f.category,
+          amount: amountNum,
+          dueDate: f.dueDate || undefined,
+          vendor: f.vendor.trim() || undefined,
+          status: f.status,
+          ...(f.repeticao === "unica"
+            ? {}
+            : {
+                recurrence: f.recorrencia,
+                openEnded: f.repeticao === "aberta",
+                installments: f.repeticao === "parcelada" ? Number(f.parcelas) || 1 : undefined,
+              }),
+        });
     setBusy(false);
-    if (ok) onSaved();
-    else setErr("Não foi possível salvar. Tente novamente.");
+    if (r.ok) onSaved();
+    else setErr(r.error ?? "Não foi possível salvar.");
   }
 
   const inputCls =
@@ -653,7 +738,7 @@ function ExpenseForm({
   return (
     <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Nova despesa</p>
+        <p className="text-sm font-semibold text-ink">{editar ? "Editar despesa" : "Nova despesa"}</p>
         <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
           <X className="h-4 w-4" />
         </button>
@@ -664,7 +749,7 @@ function ExpenseForm({
           <input
             value={f.description}
             onChange={(e) => setF({ ...f, description: e.target.value })}
-            placeholder="Ex.: Folha de pagamento — julho"
+            placeholder="Ex.: Folha de pagamento"
             className={inputCls}
           />
         </label>
@@ -693,7 +778,9 @@ function ExpenseForm({
           />
         </label>
         <label className="block">
-          <span className="mb-0.5 block text-[11px] font-medium text-muted">Vencimento</span>
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">
+            {editar || f.repeticao === "unica" ? "Vencimento" : "1º vencimento"}
+          </span>
           <input
             type="date"
             value={f.dueDate}
@@ -710,28 +797,117 @@ function ExpenseForm({
             className={inputCls}
           />
         </label>
-        <div className="flex items-center gap-4 sm:col-span-2">
-          <label className="inline-flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={f.recurring}
-              onChange={(e) => setF({ ...f, recurring: e.target.checked })}
-              className="h-4 w-4 rounded border-line"
-            />
-            Recorrente (todo mês)
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={f.status === "paid"}
-              onChange={(e) => setF({ ...f, status: e.target.checked ? "paid" : "pending" })}
-              className="h-4 w-4 rounded border-line"
-            />
-            Já paga
-          </label>
-        </div>
+
+        {/* Recorrência — só na criação; editar série usa o seletor de escopo. */}
+        {!editar && (
+          <div className="sm:col-span-2">
+            <span className="mb-1 block text-[11px] font-medium text-muted">Repetição</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {([
+                ["unica", "Única"],
+                ["parcelada", "Parcelada"],
+                ["aberta", "Sem fim"],
+              ] as const).map(([k, lbl]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setF({ ...f, repeticao: k })}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium",
+                    f.repeticao === k ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-surface text-muted hover:text-ink",
+                  )}
+                >
+                  {lbl}
+                </button>
+              ))}
+              {f.repeticao !== "unica" && (
+                <select
+                  value={f.recorrencia}
+                  onChange={(e) => setF({ ...f, recorrencia: e.target.value as Recurrence })}
+                  className="h-8 rounded-lg border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-400"
+                >
+                  {RECURRENCES.map((r) => (
+                    <option key={r.key} value={r.key}>{r.label}</option>
+                  ))}
+                </select>
+              )}
+              {f.repeticao === "parcelada" && (
+                <label className="inline-flex items-center gap-1.5 text-xs text-muted">
+                  <input
+                    value={f.parcelas}
+                    onChange={(e) => setF({ ...f, parcelas: e.target.value })}
+                    inputMode="numeric"
+                    className="h-8 w-16 rounded-lg border border-line bg-surface px-2 text-center text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                  parcelas
+                </label>
+              )}
+            </div>
+            {f.repeticao !== "unica" && (
+              <p className="mt-1.5 text-[11px] text-muted">
+                {f.repeticao === "aberta"
+                  ? "Sem data final: o sistema mantém 12 meses de contas geradas à frente."
+                  : `Cria ${totalParcelas} conta(s), uma por vencimento.`}
+                {previa.length > 0 && (
+                  <>
+                    {" "}Começa em {previa.map((x) => ddmmFromIso(x.dueDate)).join(" · ")}
+                    {f.repeticao === "aberta" ? "…" : totalParcelas > 3 ? "…" : ""}
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Editar parcela de uma série: alcance da alteração */}
+        {editar && emSerie && (
+          <div className="sm:col-span-2 rounded-lg bg-subtle p-2.5">
+            <span className="mb-1 block text-[11px] font-medium text-muted">Aplicar em</span>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ["one", "Só esta parcela"],
+                ["future", "Esta e as próximas (não pagas)"],
+              ] as const).map(([k, lbl]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setEscopo(k)}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-medium",
+                    escopo === k ? "border-brand-500 bg-brand-500 text-white" : "border-line bg-surface text-muted hover:text-ink",
+                  )}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            {escopo === "future" && (
+              <p className="mt-1.5 text-[11px] text-muted">
+                O vencimento não é propagado — cada parcela mantém a data dela.
+              </p>
+            )}
+          </div>
+        )}
+
+        {!editar && (
+          <div className="flex items-center gap-4 sm:col-span-2">
+            <label className="inline-flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={f.status === "paid"}
+                disabled={f.repeticao !== "unica"}
+                onChange={(e) => setF({ ...f, status: e.target.checked ? "paid" : "pending" })}
+                className="h-4 w-4 rounded border-line disabled:opacity-40"
+              />
+              Já paga
+            </label>
+            {f.repeticao !== "unica" && (
+              <span className="text-[11px] text-muted">Parcelas nascem em aberto; baixe uma a uma.</span>
+            )}
+          </div>
+        )}
       </div>
-      {err && <p className="mt-2 text-xs text-rose-400">{err}</p>}
+      {err && <p className="mt-2 text-xs text-rose-500">{err}</p>}
       <div className="mt-3 flex justify-end gap-2">
         <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">
           Cancelar
@@ -741,12 +917,18 @@ function ExpenseForm({
           disabled={!valid || busy}
           className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Lançar
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : editar ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+          {editar ? "Salvar" : "Lançar"}
         </button>
       </div>
     </div>
   );
+}
+
+/** dd/mm a partir de uma data ISO (para a prévia das parcelas). */
+function ddmmFromIso(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return d && m ? `${d}/${m}` : iso;
 }
 
 /* -------------------------------- Inadimplência ---------------------------- */

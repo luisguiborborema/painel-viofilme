@@ -57,6 +57,12 @@ export type Expense = {
   status: "pending" | "paid";
   recurring: boolean;
   vendor: string | null;
+  /** Série de recorrência: agrupa as parcelas geradas juntas. */
+  seriesId?: string | null;
+  installment?: number | null;
+  installmentsTotal?: number | null;
+  recurrence?: "monthly" | "weekly" | "yearly" | null;
+  openEnded?: boolean;
 };
 
 export type GerFinance = {

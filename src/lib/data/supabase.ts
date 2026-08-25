@@ -1184,11 +1184,18 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       : "sem base do mês anterior";
 
   // --- despesas → DRE real ---------------------------------------------------
-  const { data: expData } = await supabase
+  // Tolerante: as colunas de série só existem após a migração 0130.
+  const EXP_BASE = "id, description, category, amount, due_date, paid_date, status, recurring, vendor";
+  const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended`;
+  const expComSerie = await supabase
     .from("expenses")
-    .select("id, description, category, amount, due_date, paid_date, status, recurring, vendor")
+    .select(EXP_SERIE)
     .order("due_date", { ascending: false })
     .limit(400);
+  const expRes = expComSerie.error
+    ? await supabase.from("expenses").select(EXP_BASE).order("due_date", { ascending: false }).limit(400)
+    : expComSerie;
+  const expData = expRes.data as Record<string, unknown>[] | null;
   const expenses: Expense[] = (expData ?? []).map((e) => {
     const cat = (e.category as string) ?? "outros";
     return {
@@ -1201,6 +1208,11 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       status: e.status === "paid" ? "paid" : "pending",
       recurring: Boolean(e.recurring),
       vendor: (e.vendor as string) ?? null,
+      seriesId: (e.series_id as string) ?? null,
+      installment: e.installment == null ? null : Number(e.installment),
+      installmentsTotal: e.installments_total == null ? null : Number(e.installments_total),
+      recurrence: (e.recurrence as Expense["recurrence"]) ?? null,
+      openEnded: Boolean(e.open_ended),
     } satisfies Expense;
   });
 

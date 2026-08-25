@@ -13,7 +13,7 @@ export const maxDuration = 300;
  *
  * Autoriza via CRON_SECRET (o Vercel envia "Authorization: Bearer <CRON_SECRET>").
  */
-const JOBS = ["notifications", "nps", "meeting-survey", "backup"] as const;
+const JOBS = ["notifications", "nps", "meeting-survey", "expenses", "backup"] as const;
 
 async function getHandler(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
