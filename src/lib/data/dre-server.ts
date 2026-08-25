@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import type { ExpenseCategory } from "./gerfinance";
 
 /**
  * DRE gerencial por período — leitura no banco.
@@ -9,27 +8,50 @@ import type { ExpenseCategory } from "./gerfinance";
  * (não pela de pagamento). Uma mensalidade de agosto paga em setembro pertence
  * a agosto. As regras puras de período ficam em ./dre.
  */
-export type { DrePeriodo, DreLinha, DreResultado } from "./dre";
-export { intervalo, variacao, STATUS_PAGO } from "./dre";
-import { MESES_CURTOS, STATUS_IGNORAR, intervalo, type DrePeriodo, type DreLinha, type DreResultado } from "./dre";
+export type { DrePeriodo, DreLinha, DreResultado, DreCategoriaLinha } from "./dre";
+export { intervalo, variacao } from "./dre";
+import { MESES_CURTOS, STATUS_IGNORAR, intervalo, type DreCategoriaLinha, type DrePeriodo, type DreLinha, type DreResultado } from "./dre";
+import { CATEGORIAS_PADRAO } from "./expense-categories";
 
 type Pgto = { value: number | null; due_date: string | null; status: string | null; clients?: { name?: string } | { name?: string }[] | null };
 type Desp = { amount: number | null; due_date: string | null; category: string | null; description: string | null };
 
-function montarLinha(pgtos: Pgto[], desps: Desp[]): DreLinha {
+type CatDef = { key: string; label: string; dreGroup: string };
+
+/**
+ * Monta uma coluna do DRE somando as despesas por CATEGORIA cadastrada.
+ * Categoria sem movimento não vira linha — o demonstrativo fica enxuto.
+ */
+function montarLinha(pgtos: Pgto[], desps: Desp[], cats: CatDef[]): DreLinha {
   const grossRevenue = Math.round(
     pgtos.filter((p) => !STATUS_IGNORAR.has(String(p.status ?? ""))).reduce((s, p) => s + Number(p.value ?? 0), 0),
   );
-  const porCat = (c: ExpenseCategory) =>
-    Math.round(desps.filter((e) => (e.category ?? "outros") === c).reduce((s, e) => s + Number(e.amount ?? 0), 0));
 
-  const taxes = porCat("impostos");
-  const salaries = porCat("salarios");
-  const tools = porCat("ferramentas");
-  const commissions = porCat("comissoes");
-  const variableCosts = porCat("variavel") + porCat("outros");
+  const porChave = new Map<string, number>();
+  for (const e of desps) {
+    const k = String(e.category ?? "outros");
+    porChave.set(k, (porChave.get(k) ?? 0) + Number(e.amount ?? 0));
+  }
+
+  const conhecidas = new Set(cats.map((c) => c.key));
+  const linhaDe = (c: CatDef): DreCategoriaLinha => ({
+    key: c.key,
+    label: c.label,
+    value: Math.round(porChave.get(c.key) ?? 0),
+  });
+
+  const deducoes = cats.filter((c) => c.dreGroup === "deducao").map(linhaDe).filter((l) => l.value !== 0);
+  const custos = cats.filter((c) => c.dreGroup !== "deducao").map(linhaDe).filter((l) => l.value !== 0);
+
+  // Lançamento com categoria que não existe mais na tabela não some do DRE:
+  // entra agrupado, para o total continuar batendo com o extrato.
+  const orfas = [...porChave.entries()].filter(([k]) => !conhecidas.has(k));
+  const totalOrfas = Math.round(orfas.reduce((s, [, v]) => s + v, 0));
+  if (totalOrfas !== 0) custos.push({ key: "__outras__", label: "Outras (categoria removida)", value: totalOrfas });
+
+  const taxes = deducoes.reduce((s, l) => s + l.value, 0);
+  const totalCosts = custos.reduce((s, l) => s + l.value, 0);
   const netRevenue = grossRevenue - taxes;
-  const totalCosts = salaries + tools + commissions + variableCosts;
   const netProfit = netRevenue - totalCosts;
 
   return {
@@ -37,10 +59,8 @@ function montarLinha(pgtos: Pgto[], desps: Desp[]): DreLinha {
     taxes,
     taxPct: grossRevenue > 0 ? Math.round((taxes / grossRevenue) * 100) : 0,
     netRevenue,
-    salaries,
-    tools,
-    commissions,
-    variableCosts,
+    deducoes,
+    custos,
     totalCosts,
     netProfit,
     margin: grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 100) : 0,
@@ -48,8 +68,8 @@ function montarLinha(pgtos: Pgto[], desps: Desp[]): DreLinha {
 }
 
 const VAZIA: DreLinha = {
-  grossRevenue: 0, taxes: 0, taxPct: 0, netRevenue: 0, salaries: 0, tools: 0,
-  commissions: 0, variableCosts: 0, totalCosts: 0, netProfit: 0, margin: 0,
+  grossRevenue: 0, taxes: 0, taxPct: 0, netRevenue: 0,
+  deducoes: [], custos: [], totalCosts: 0, netProfit: 0, margin: 0,
 };
 
 export async function getDre(periodo: DrePeriodo, ref = new Date()): Promise<DreResultado> {
@@ -63,18 +83,27 @@ export async function getDre(periodo: DrePeriodo, ref = new Date()): Promise<Dre
 
   try {
     const supabase = await createClient();
-    const [pgAtual, pgAnt, dpAtual, dpAnt, cfg] = await Promise.all([
+    const [pgAtual, pgAnt, dpAtual, dpAnt, cfg, catsRes] = await Promise.all([
       supabase.from("payments").select("value, due_date, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
       supabase.from("payments").select("value, due_date, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo).limit(5000),
       supabase.from("expenses").select("amount, due_date, category, description").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
       supabase.from("expenses").select("amount, due_date, category, description").gte("due_date", r.prevFrom).lte("due_date", r.prevTo).limit(5000),
       supabase.from("finance_settings").select("meta_margin").eq("id", 1).maybeSingle(),
+      supabase.from("expense_categories").select("key, label, dre_group, position").order("position"),
     ]);
 
     const pAtual = (pgAtual.data ?? []) as Pgto[];
     const dAtual = (dpAtual.data ?? []) as Desp[];
-    const atual = montarLinha(pAtual, dAtual);
-    const anterior = montarLinha((pgAnt.data ?? []) as Pgto[], (dpAnt.data ?? []) as Desp[]);
+
+    // Categorias cadastradas; sem a migração 0133, cai nas padrão do código.
+    const cats: CatDef[] = catsRes.error
+      ? CATEGORIAS_PADRAO.map((c) => ({ key: c.key, label: c.label, dreGroup: c.dreGroup }))
+      : ((catsRes.data ?? []) as { key: string; label: string; dre_group: string }[]).map((c) => ({
+          key: c.key, label: c.label, dreGroup: c.dre_group,
+        }));
+
+    const atual = montarLinha(pAtual, dAtual, cats);
+    const anterior = montarLinha((pgAnt.data ?? []) as Pgto[], (dpAnt.data ?? []) as Desp[], cats);
 
     // Série mês a mês dentro do período.
     const porMes = new Map<string, { receita: number; custos: number }>();

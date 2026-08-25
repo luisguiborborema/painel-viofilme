@@ -23,14 +23,14 @@ import { MediaMetricCard } from "@/components/cliente/media-metric-card";
 import { MultiBarChart } from "@/components/dashboard/charts";
 import { cn, formatBRL, formatNumber } from "@/lib/utils";
 import {
-  EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,
   type Expense,
   type GerFinance,
   type Receivable,
 } from "@/lib/data/gerfinance";
 import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
-import { variacao, type DreLinha, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
+import { variacao, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
+import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
@@ -44,7 +44,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
   { key: "receber", label: "Contas a receber" },
   { key: "pagar", label: "Contas a pagar" },
-  { key: "contas", label: "Contas & saldos" },
+  { key: "contas", label: "Contas & categorias" },
   { key: "inadimplencia", label: "Inadimplência" },
   { key: "dre", label: "DRE gerencial" },
 ];
@@ -551,6 +551,11 @@ async function postExpense(body: unknown): Promise<{ ok: boolean; error?: string
   return { ok: res.ok, error: res.ok ? undefined : (j?.error ?? "Não foi possível salvar.") };
 }
 
+/** Rótulo da categoria pela chave gravada; cai no próprio código se foi removida. */
+function rotuloCategoria(cats: ExpenseCategoryDef[] | undefined, key: string): string {
+  return (cats ?? []).find((c) => c.key === key)?.label ?? EXPENSE_CATEGORY_LABEL[key as Expense["category"]] ?? key;
+}
+
 function ContasPagar({ data }: { data: GerFinance }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -607,6 +612,7 @@ function ContasPagar({ data }: { data: GerFinance }) {
         <ExpenseForm
           key={editando?.id ?? "novo"}
           editar={editando}
+          categorias={data.categories ?? []}
           onClose={() => { setShowForm(false); setEditando(null); }}
           onSaved={() => {
             setShowForm(false);
@@ -659,7 +665,7 @@ function ContasPagar({ data }: { data: GerFinance }) {
                         )}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-muted">{EXPENSE_CATEGORY_LABEL[e.category]}</td>
+                    <td className="px-4 py-3 text-muted">{rotuloCategoria(data.categories, e.category)}</td>
                     <td className="px-4 py-3 text-ink">{fmtDay(e.dueDate)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink">{formatBRL(e.amount)}</td>
                     <td className="px-4 py-3">
@@ -740,11 +746,13 @@ function ExpenseForm({
   onClose,
   onSaved,
   editar,
+  categorias,
 }: {
   onClose: () => void;
   onSaved: () => void;
   /** Quando presente, o formulário edita esta despesa em vez de criar. */
   editar?: Expense | null;
+  categorias: ExpenseCategoryDef[];
 }) {
   const emSerie = Boolean(editar?.seriesId);
   const [f, setF] = useState(() =>
@@ -838,7 +846,7 @@ function ExpenseForm({
             onChange={(e) => setF({ ...f, category: e.target.value as Expense["category"] })}
             className={inputCls}
           >
-            {EXPENSE_CATEGORIES.map((c) => (
+            {categorias.filter((c) => c.active).map((c) => (
               <option key={c.key} value={c.key}>
                 {c.label}
               </option>
@@ -1328,7 +1336,125 @@ function ContasFinanceiras({ data }: { data: GerFinance }) {
       <p className="text-[11px] text-muted">
         O saldo é <strong>inicial + recebido − pago</strong>, contando só o que já foi liquidado. Lançamentos em aberto não entram.
       </p>
+
+      <CategoriasDespesa categorias={data.categories ?? []} />
     </div>
+  );
+}
+
+/* --------------------------- Categorias de despesa -------------------------- */
+
+/** Personalização das categorias — definem também as linhas do DRE. */
+function CategoriasDespesa({ categorias }: { categorias: ExpenseCategoryDef[] }) {
+  const router = useRouter();
+  const [novo, setNovo] = useState({ label: "", dreGroup: "custo" as DreGroup });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ label: "", dreGroup: "custo" as DreGroup });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function acao(body: Record<string, unknown>, chave: string) {
+    setBusy(chave); setErro(null); setMsg(null);
+    const res = await fetch("/api/gerencial/expense-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setBusy(null);
+    if (!res?.ok) { setErro(j?.error ?? "Não foi possível salvar."); return false; }
+    if (j?.mensagem) setMsg(j.mensagem);
+    router.refresh();
+    return true;
+  }
+
+  const inputCls =
+    "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink">Categorias de despesa</h2>
+        <span className="text-[11px] text-muted">definem as linhas do DRE</span>
+      </div>
+      <p className="mb-3 text-[11px] leading-relaxed text-muted">
+        Cada categoria vira uma linha no demonstrativo. <strong>Dedução</strong> abate da receita bruta
+        (impostos, taxas); <strong>custo</strong> abate da receita líquida e forma o lucro.
+      </p>
+
+      <div className="space-y-1.5">
+        {categorias.map((c) => (
+          <div key={c.id} className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-line px-2.5 py-2", !c.active && "opacity-50")}>
+            {editId === c.id ? (
+              <>
+                <input value={editForm.label} onChange={(e) => setEditForm({ ...editForm, label: e.target.value })} className={inputCls + " min-w-0 flex-1"} />
+                <select value={editForm.dreGroup} onChange={(e) => setEditForm({ ...editForm, dreGroup: e.target.value as DreGroup })} className="h-8 rounded-lg border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-400">
+                  {DRE_GROUPS.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+                </select>
+                <button
+                  onClick={async () => { if (await acao({ action: "update", id: c.id, label: editForm.label, dreGroup: editForm.dreGroup }, c.id)) setEditId(null); }}
+                  disabled={busy === c.id}
+                  className="inline-flex h-8 items-center rounded-lg bg-brand-600 px-2.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {busy === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </button>
+                <button onClick={() => setEditId(null)} className="text-xs text-muted hover:text-ink">cancelar</button>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 flex-1 truncate text-sm text-ink">{c.label}</span>
+                <span className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  c.dreGroup === "deducao" ? "bg-amber-500/15 text-amber-600" : "bg-subtle text-muted",
+                )}>
+                  {c.dreGroup === "deducao" ? "dedução" : "custo"}
+                </span>
+                {!c.active && <span className="shrink-0 text-[10px] text-muted">inativa</span>}
+                <button
+                  onClick={() => { setEditId(c.id); setEditForm({ label: c.label, dreGroup: c.dreGroup }); }}
+                  className="shrink-0 rounded-lg p-1.5 text-muted hover:text-ink" title="Renomear"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                {c.active ? (
+                  <button
+                    onClick={() => { if (window.confirm(`Remover "${c.label}"? Se houver lançamentos, ela só será desativada.`)) acao({ action: "delete", id: c.id }, c.id); }}
+                    disabled={busy === c.id}
+                    className="shrink-0 rounded-lg p-1.5 text-muted hover:text-rose-500 disabled:opacity-50" title="Remover"
+                  >
+                    {busy === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
+                ) : (
+                  <button onClick={() => acao({ action: "update", id: c.id, active: true }, c.id)} className="shrink-0 text-[11px] font-medium text-brand-600 hover:underline">reativar</button>
+                )}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+        <input
+          value={novo.label}
+          onChange={(e) => setNovo({ ...novo, label: e.target.value })}
+          placeholder="Nova categoria — ex.: Aluguel, Marketing, Contabilidade"
+          className={inputCls + " min-w-0 flex-1"}
+        />
+        <select value={novo.dreGroup} onChange={(e) => setNovo({ ...novo, dreGroup: e.target.value as DreGroup })} className="h-8 rounded-lg border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-400">
+          {DRE_GROUPS.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+        </select>
+        <button
+          onClick={async () => { if (await acao({ action: "create", label: novo.label, dreGroup: novo.dreGroup }, "novo")) setNovo({ label: "", dreGroup: "custo" }); }}
+          disabled={!novo.label.trim() || busy === "novo"}
+          className="inline-flex h-8 items-center gap-1 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy === "novo" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Criar
+        </button>
+      </div>
+      {msg && <p className="mt-2 text-[11px] text-amber-600">{msg}</p>}
+      {erro && <p className="mt-2 text-[11px] text-rose-500">{erro}</p>}
+    </Card>
   );
 }
 
@@ -1449,11 +1575,9 @@ function Dre() {
       ["Regime", "competência (por vencimento)"],
       [],
       ["Linha", d.label, d.labelAnterior, "Variação %"],
-      ...DRE_LINHAS.map((l) => {
-        const a = l.get(d.atual);
-        const b = l.get(d.anterior);
-        const v = variacao(a, b);
-        return [l.label, a, b, v === null ? "—" : v];
+      ...montarLinhasDre(d).map((l) => {
+        const v = variacao(l.atual, l.anterior);
+        return [l.label, l.atual, l.anterior, v === null ? "—" : v];
       }),
     ];
     const csv = linhas.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -1524,17 +1648,15 @@ function Dre() {
           </div>
 
           <div className="space-y-1.5">
-            {DRE_LINHAS.map((l) => {
-              const a = l.get(d.atual);
-              const b = l.get(d.anterior);
+            {montarLinhasDre(d).map((l, idx) => {
+              const a = l.atual;
+              const b = l.anterior;
               const v = variacao(a, b);
               // Em custo, subir é ruim; em receita/lucro, subir é bom.
               const bom = v === null ? null : l.negativo ? v <= 0 : v >= 0;
               return (
-                <div key={l.label} className={cn("grid grid-cols-[1fr_auto_auto] items-center gap-x-3", l.divisor && "border-t border-line pt-1.5")}>
-                  <span className={l.forte ? "text-sm font-medium text-ink" : "text-sm text-muted"}>
-                    {l.label === "Impostos e deduções" ? `${l.label} (−${d.atual.taxPct}%)` : l.label}
-                  </span>
+                <div key={`${l.label}-${idx}`} className={cn("grid grid-cols-[1fr_auto_auto] items-center gap-x-3", l.divisor && "border-t border-line pt-1.5")}>
+                  <span className={l.forte ? "text-sm font-medium text-ink" : "text-sm text-muted"}>{l.label}</span>
                   <span className={cn("text-right text-sm tabular-nums", l.negativo ? "text-rose-500" : l.forte ? "font-semibold text-ink" : "text-ink")}>
                     {l.negativo ? "− " : ""}{formatBRL(a)}
                   </span>
@@ -1652,21 +1774,39 @@ function Dre() {
   );
 }
 
-/** Linhas do demonstrativo, na ordem contábil. */
-const DRE_LINHAS: {
+/**
+ * Linhas do demonstrativo, na ordem contábil.
+ *
+ * As deduções e os custos saem das CATEGORIAS cadastradas — por isso a lista é
+ * montada a partir do resultado, e não fixa no código. Para o comparativo, o
+ * valor do período anterior é buscado pela chave da categoria.
+ */
+type LinhaDre = {
   label: string;
-  get: (l: DreLinha) => number;
+  atual: number;
+  anterior: number;
   negativo?: boolean;
   forte?: boolean;
   divisor?: boolean;
-}[] = [
-  { label: "Receita bruta", get: (l) => l.grossRevenue, forte: true },
-  { label: "Impostos e deduções", get: (l) => l.taxes, negativo: true },
-  { label: "Receita líquida", get: (l) => l.netRevenue, forte: true },
-  { label: "Salários & pró-labore", get: (l) => l.salaries, negativo: true, divisor: true },
-  { label: "Ferramentas & infraestrutura", get: (l) => l.tools, negativo: true },
-  { label: "Comissões comerciais", get: (l) => l.commissions, negativo: true },
-  { label: "Custos variáveis", get: (l) => l.variableCosts, negativo: true },
-  { label: "Total de custos", get: (l) => l.totalCosts, negativo: true, forte: true },
-  { label: "Lucro líquido", get: (l) => l.netProfit, forte: true, divisor: true },
-];
+};
+
+function montarLinhasDre(d: DreResultado): LinhaDre[] {
+  const antPorChave = new Map<string, number>();
+  for (const l of [...d.anterior.deducoes, ...d.anterior.custos]) antPorChave.set(l.key, l.value);
+  const ant = (k: string) => antPorChave.get(k) ?? 0;
+
+  return [
+    { label: "Receita bruta", atual: d.atual.grossRevenue, anterior: d.anterior.grossRevenue, forte: true },
+    ...d.atual.deducoes.map((l) => ({ label: l.label, atual: l.value, anterior: ant(l.key), negativo: true })),
+    { label: "Receita líquida", atual: d.atual.netRevenue, anterior: d.anterior.netRevenue, forte: true },
+    ...d.atual.custos.map((l, i) => ({
+      label: l.label,
+      atual: l.value,
+      anterior: ant(l.key),
+      negativo: true,
+      divisor: i === 0,
+    })),
+    { label: "Total de custos", atual: d.atual.totalCosts, anterior: d.anterior.totalCosts, negativo: true, forte: true },
+    { label: "Lucro líquido", atual: d.atual.netProfit, anterior: d.anterior.netProfit, forte: true, divisor: true },
+  ];
+}

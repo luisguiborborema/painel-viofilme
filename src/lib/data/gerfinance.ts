@@ -31,6 +31,8 @@ export type CriticalDelinquent = {
   action: "cs" | "whatsapp";
 };
 
+import { CATEGORIAS_PADRAO, type ExpenseCategoryDef } from "./expense-categories";
+
 /** Conta por onde o dinheiro entra/sai (Asaas, BTG, Inter, caixa…). */
 export type AccountKind = "banco" | "gateway" | "caixa";
 
@@ -143,6 +145,8 @@ export type GerFinance = {
   revenueByClient: { name: string; value: number }[];
   expenses: Expense[];
   accounts: FinancialAccount[];
+  /** Categorias cadastradas (personalizáveis). */
+  categories: ExpenseCategoryDef[];
 };
 
 export function getGerFinance(): GerFinance {
@@ -220,5 +224,6 @@ export function getGerFinance(): GerFinance {
       { id: "e5", description: "Custos de produção (freelas/impressão)", category: "variavel", amount: 2240, dueDate: "2026-07-15", paidDate: null, status: "pending", recurring: false, vendor: null },
     ],
     accounts: [],
+    categories: CATEGORIAS_PADRAO,
   };
 }

@@ -4,23 +4,25 @@
  * Client-safe (sem banco): a tela usa os mesmos rótulos e o mesmo cálculo de
  * variação que o servidor, sem duplicar regra.
  */
-/** Status do Asaas que contam como recebido. */
-export const STATUS_PAGO = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
 /** Status que NÃO entram na receita (estorno, chargeback, excluído). */
 export const STATUS_IGNORAR = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
 export const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 export type DrePeriodo = "mes" | "trimestre" | "ano";
 
+/** Uma linha de custo/dedução: vem de uma categoria cadastrada. */
+export type DreCategoriaLinha = { key: string; label: string; value: number };
+
 export type DreLinha = {
   grossRevenue: number;
+  /** Deduções (categorias com grupo "deducao"), somadas. */
   taxes: number;
   taxPct: number;
   netRevenue: number;
-  salaries: number;
-  tools: number;
-  commissions: number;
-  variableCosts: number;
+  /** Uma linha por categoria de dedução com movimento. */
+  deducoes: DreCategoriaLinha[];
+  /** Uma linha por categoria de custo com movimento. */
+  custos: DreCategoriaLinha[];
   totalCosts: number;
   netProfit: number;
   margin: number;
@@ -41,10 +43,6 @@ export type DreResultado = {
   revenueByClient: { name: string; value: number }[];
   semDados: boolean;
 };
-
-const PAGO = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
-const IGNORAR = new Set(["REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "DELETED"]);
-const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 

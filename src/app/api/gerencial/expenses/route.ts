@@ -9,7 +9,12 @@ import { logFromUser } from "@/lib/audit/log";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CATS = new Set<string>(EXPENSE_CATEGORIES.map((c) => c.key));
+/** Chaves válidas: as cadastradas (0133) ou as padrão, se a migração não rodou. */
+async function chavesValidas(db: Awaited<ReturnType<typeof createClient>>): Promise<Set<string>> {
+  const { data, error } = await db.from("expense_categories").select("key");
+  if (error || !data?.length) return new Set(EXPENSE_CATEGORIES.map((c) => c.key));
+  return new Set(data.map((c) => String((c as { key: unknown }).key)));
+}
 const RECS = new Set<string>(["monthly", "weekly", "yearly"]);
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -47,6 +52,7 @@ export async function POST(req: Request) {
 
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
+  const CATS = await chavesValidas(supabase);
   const action = b.action ?? "create";
   await logFromUser(user, { action, area: "Financeiro", target: b.description ?? b.id ?? null });
 

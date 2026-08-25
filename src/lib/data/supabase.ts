@@ -49,6 +49,7 @@ import {
   type ExpenseCategory,
   type FinancialAccount,
 } from "./gerfinance";
+import { CATEGORIAS_PADRAO, type ExpenseCategoryDef } from "./expense-categories";
 
 import type {
   Announcement,
@@ -1063,6 +1064,23 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   }[];
   const contaNome = new Map(contasRaw.map((c) => [String(c.id), c.name]));
 
+  // Categorias personalizadas; sem a migração 0133, usa as padrão do código.
+  const catsRes = await supabase
+    .from("expense_categories")
+    .select("id, key, label, dre_group, color, position, active")
+    .order("position");
+  const categories: ExpenseCategoryDef[] = catsRes.error
+    ? CATEGORIAS_PADRAO
+    : ((catsRes.data ?? []) as Record<string, unknown>[]).map((c) => ({
+        id: String(c.id),
+        key: String(c.key),
+        label: String(c.label),
+        dreGroup: String(c.dre_group) === "deducao" ? "deducao" : "custo",
+        color: (c.color as string) ?? null,
+        position: Number(c.position ?? 0),
+        active: Boolean(c.active),
+      }));
+
   // MRR real = soma das assinaturas ativas (valor contratado, normalizado p/ mês).
   const { data: subsData } = await supabase
     .from("asaas_subscriptions")
@@ -1223,7 +1241,8 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     return {
       id: String(e.id),
       description: String(e.description ?? "Despesa"),
-      category: (EXPENSE_CATS.has(cat as ExpenseCategory) ? cat : "outros") as ExpenseCategory,
+      // Preserva a chave gravada — a categoria pode ser personalizada (0133).
+      category: (cat || "outros") as ExpenseCategory,
       amount: Number(e.amount ?? 0),
       dueDate: (e.due_date as string) ?? "",
       paidDate: (e.paid_date as string) ?? null,
@@ -1331,6 +1350,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   return {
     ...base,
     accounts,
+    categories,
     periodLabel: periodLabel(now),
     kpis: {
       ...base.kpis,
