@@ -407,6 +407,33 @@ Content-Type: application/json
         notes: ["Agendado no Supabase (pg_cron + pg_net) para rodar de minuto em minuto — ver o rodapé da migração 0124."],
       },
       {
+        id: "cron-backup",
+        method: "GET",
+        path: "/api/cron/backup",
+        title: "Backup para o Google Drive",
+        description:
+          "Exporta as tabelas de dados em um JSON comprimido e sobe para a pasta \"Backups do Painel\" no Drive da agência. Mantém os últimos 30 dias. Tokens de integração (Google/Meta) são redigidos — reconecte após restaurar.",
+        auth: "Bearer CRON_SECRET",
+        request: `curl https://SEU-APP/api/cron/backup -H "Authorization: Bearer $CRON_SECRET"`,
+        response: `{
+  "ok": true,
+  "arquivo": "painel-2026-08-25.json.gz",
+  "url": "https://drive.google.com/file/d/...",
+  "tabelas": 62,
+  "linhas": 18432,
+  "bytes": 1048576,
+  "removidosPorRetencao": 1
+}`,
+        errors: [
+          { code: "401", description: "CRON_SECRET ausente ou incorreto." },
+          { code: "500", description: "Backup não concluído — o corpo traz o motivo (ex.: Google não conectado)." },
+        ],
+        notes: [
+          "Roda junto do despachante diário; não precisa de cron próprio.",
+          "Complementa o backup gerenciado do Supabase: fica em outra conta, então sobrevive à perda do projeto.",
+        ],
+      },
+      {
         id: "meta-sync",
         method: "GET",
         path: "/api/meta/sync",
