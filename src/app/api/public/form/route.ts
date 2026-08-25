@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { trigger } from "@/lib/push/triggers";
 import { registerFormProperties } from "@/lib/data/form-properties";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ function addBusinessDays(fromIso: string, days: number): string {
  * Sem sessão: usa service-role, valida o slug e cria um card no destino do
  * formulário — negócio no Comercial (crm) OU tarefa no Painel de Entregas.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const cors = corsHeaders(req);
   const json = (data: unknown, init?: { status?: number }) =>
     NextResponse.json(data, { status: init?.status ?? 200, headers: cors });
@@ -386,3 +387,5 @@ export async function POST(req: Request) {
     .catch(() => {});
   return json({ ok: true, persisted: true });
 }
+
+export const POST = withApiLog("public:form", postHandler);

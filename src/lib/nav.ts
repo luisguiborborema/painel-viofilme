@@ -32,6 +32,7 @@ import {
   Sun,
   Lightbulb,
   BookOpen,
+  ScrollText,
   Star,
   Stethoscope,
   type LucideIcon,
@@ -117,6 +118,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
       { label: "Usuários", href: "/gerencial/usuarios", icon: ShieldCheck, adminOnly: true },
       { label: "Monitoramento", href: "/gerencial/monitoramento", icon: Activity, adminOnly: true },
+      { label: "Logs de API", href: "/gerencial/logs", icon: ScrollText, adminOnly: true },
     ],
   },
   {

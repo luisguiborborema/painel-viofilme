@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ function collectProperties(b: Body): Record<string, unknown> {
  * Sem sessão: usa service-role e valida o slug do formulário. Honeypot simples
  * contra bots. Cria empresa + contato + negócio no CRM.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const cors = corsHeaders(req);
   const json = (data: unknown, init?: { status?: number }) =>
     NextResponse.json(data, { status: init?.status ?? 200, headers: cors });
@@ -195,3 +196,5 @@ export async function POST(req: Request) {
 
   return json({ ok: true, persisted: true });
 }
+
+export const POST = withApiLog("public:lead", postHandler);

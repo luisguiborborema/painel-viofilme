@@ -7,6 +7,7 @@ import {
   safeEqual,
 } from "@/lib/asaas/config";
 import { trigger } from "@/lib/push/triggers";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ type AsaasWebhook = {
   payment?: AsaasPayment;
 };
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   // 1. Autenticação: token que o Asaas envia no header.
   const provided = req.headers.get("asaas-access-token") ?? "";
   if (!isAsaasWebhookConfigured() || !safeEqual(provided, ASAAS_WEBHOOK_TOKEN)) {
@@ -144,3 +145,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiLog("webhook:asaas", postHandler);

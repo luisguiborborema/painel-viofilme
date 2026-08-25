@@ -3,6 +3,7 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { UAZAPI_WEBHOOK_SECRET } from "@/lib/whatsapp/config";
 import { downloadUazapiMedia } from "@/lib/whatsapp/download";
+import { withApiLog } from "@/lib/audit/api-log";
 
 type MediaType = "image" | "audio" | "video" | "document";
 
@@ -89,7 +90,7 @@ async function log(raw: unknown, note: string) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const body = await req.text();
   let payload: unknown;
   try {
@@ -311,3 +312,5 @@ async function uploadIncoming(
 function defaultMime(type: MediaType): string {
   return { image: "image/jpeg", audio: "audio/mpeg", video: "video/mp4", document: "application/octet-stream" }[type];
 }
+
+export const POST = withApiLog("webhook:uazapi", postHandler);

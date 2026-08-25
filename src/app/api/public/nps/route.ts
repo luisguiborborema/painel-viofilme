@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/audit/log";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 const str = (v: unknown) => (v == null ? "" : String(v).trim());
 
 /** Resposta pública de NPS (link estilo Tally, sem login). */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -73,3 +74,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiLog("public:nps", postHandler);

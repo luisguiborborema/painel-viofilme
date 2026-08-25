@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { TOOLS, runTool } from "@/lib/mcp/tools";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,7 +105,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   if (!tokenOk(request.headers.get("authorization"))) {
     return NextResponse.json(
       { jsonrpc: "2.0", id: null, error: { code: -32001, message: "não autorizado" } },
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
 }
 
 /** GET serve só para checar se o endpoint está de pé (o MCP usa POST). */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   const authed = tokenOk(request.headers.get("authorization"));
   return NextResponse.json(
     {
@@ -150,3 +151,7 @@ export async function GET(request: NextRequest) {
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
+
+export const POST = withApiLog("mcp", postHandler);
+
+export const GET = withApiLog("mcp", getHandler);

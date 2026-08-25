@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export const maxDuration = 300;
  */
 const JOBS = ["notifications", "nps", "meeting-survey"] as const;
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {
@@ -39,3 +40,5 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), results });
 }
+
+export const GET = withApiLog("cron:daily", getHandler);

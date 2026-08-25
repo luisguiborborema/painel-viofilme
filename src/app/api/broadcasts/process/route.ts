@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runBroadcasts } from "@/lib/data/broadcast-run";
+import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,5 +21,5 @@ async function handle(request: NextRequest) {
   return NextResponse.json(res);
 }
 
-export const GET = handle;
-export const POST = handle;
+export const GET = withApiLog("cron:broadcasts", handle);
+export const POST = withApiLog("cron:broadcasts", handle);
