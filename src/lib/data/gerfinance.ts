@@ -16,6 +16,11 @@ export type Receivable = {
   ruler: string;
   statusKey: "avencer" | "vencida" | "pago";
   action: "pix" | "whatsapp" | "cs" | "download";
+  /** "asaas" (veio do gateway) ou "manual" (lançado no painel). */
+  source?: "asaas" | "manual";
+  accountName?: string | null;
+  /** Só nos manuais: permite editar/excluir. */
+  rowId?: string | null;
 };
 
 export type CriticalDelinquent = {
@@ -25,6 +30,39 @@ export type CriticalDelinquent = {
   note: string;
   action: "cs" | "whatsapp";
 };
+
+/** Conta por onde o dinheiro entra/sai (Asaas, BTG, Inter, caixa…). */
+export type AccountKind = "banco" | "gateway" | "caixa";
+
+export const ACCOUNT_KINDS: { key: AccountKind; label: string }[] = [
+  { key: "banco", label: "Banco" },
+  { key: "gateway", label: "Gateway de pagamento" },
+  { key: "caixa", label: "Caixa / dinheiro" },
+];
+
+export type FinancialAccount = {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  institution: string | null;
+  openingBalance: number;
+  active: boolean;
+  isDefault: boolean;
+  /** Saldo calculado: inicial + recebido − pago. */
+  balance?: number;
+  received?: number;
+  paid?: number;
+};
+
+/** Formas de recebimento manual (fora do Asaas). */
+export const MANUAL_METHODS: { key: string; label: string }[] = [
+  { key: "PIX", label: "Pix" },
+  { key: "CASH", label: "Dinheiro" },
+  { key: "TRANSFER", label: "Transferência" },
+  { key: "CARD", label: "Cartão" },
+  { key: "BARTER", label: "Permuta" },
+  { key: "OTHER", label: "Outro" },
+];
 
 export type ExpenseCategory =
   | "salarios"
@@ -63,6 +101,8 @@ export type Expense = {
   installmentsTotal?: number | null;
   recurrence?: "monthly" | "weekly" | "yearly" | null;
   openEnded?: boolean;
+  accountId?: string | null;
+  accountName?: string | null;
 };
 
 export type GerFinance = {
@@ -102,6 +142,7 @@ export type GerFinance = {
   topExpenses: { label: string; value: number }[];
   revenueByClient: { name: string; value: number }[];
   expenses: Expense[];
+  accounts: FinancialAccount[];
 };
 
 export function getGerFinance(): GerFinance {
@@ -178,5 +219,6 @@ export function getGerFinance(): GerFinance {
       { id: "e4", description: "Simples Nacional — competência jun", category: "impostos", amount: 5590, dueDate: "2026-07-20", paidDate: null, status: "pending", recurring: true, vendor: "Receita Federal" },
       { id: "e5", description: "Custos de produção (freelas/impressão)", category: "variavel", amount: 2240, dueDate: "2026-07-15", paidDate: null, status: "pending", recurring: false, vendor: null },
     ],
+    accounts: [],
   };
 }

@@ -11,6 +11,7 @@ import {
   Phone,
   Plus,
   Receipt,
+  Landmark,
   Pencil,
   Repeat,
   RotateCcw,
@@ -29,14 +30,20 @@ import {
   type Receivable,
 } from "@/lib/data/gerfinance";
 import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
+import {
+  ACCOUNT_KINDS,
+  MANUAL_METHODS,
+  type FinancialAccount,
+} from "@/lib/data/gerfinance";
 
-type TabKey = "visao" | "receber" | "pagar" | "inadimplencia" | "dre";
+type TabKey = "visao" | "receber" | "pagar" | "contas" | "inadimplencia" | "dre";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
   { key: "receber", label: "Contas a receber" },
   { key: "pagar", label: "Contas a pagar" },
+  { key: "contas", label: "Contas & saldos" },
   { key: "inadimplencia", label: "Inadimplência" },
   { key: "dre", label: "DRE gerencial" },
 ];
@@ -87,6 +94,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "visao" && <VisaoGeral data={data} />}
       {tab === "receber" && <ContasReceber data={data} />}
       {tab === "pagar" && <ContasPagar data={data} />}
+      {tab === "contas" && <ContasFinanceiras data={data} />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
       {tab === "dre" && <Dre data={data} />}
     </div>
@@ -350,7 +358,21 @@ const REC_TABS: { key: RecFilter; label: string }[] = [
 ];
 
 function ContasReceber({ data }: { data: GerFinance }) {
+  const router = useRouter();
   const [filter, setFilter] = useState<RecFilter>("todas");
+  const [novoManual, setNovoManual] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function actManual(body: Record<string, unknown>, id: string) {
+    setBusyId(id);
+    await fetch("/api/gerencial/receivables", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+    setBusyId(null);
+    router.refresh();
+  }
   const rows = useMemo(
     () =>
       filter === "todas"
@@ -365,7 +387,13 @@ function ContasReceber({ data }: { data: GerFinance }) {
         <h2 className="text-sm font-semibold text-ink">
           Contas a receber — {data.periodLabel}
         </h2>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setNovoManual((v) => !v)}
+            className="mr-1 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+          >
+            {novoManual ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />} Lançar recebimento
+          </button>
           {REC_TABS.map((t) => (
             <button
               key={t.key}
@@ -382,6 +410,14 @@ function ContasReceber({ data }: { data: GerFinance }) {
           ))}
         </div>
       </div>
+
+      {novoManual && (
+        <ReceivableForm
+          accounts={data.accounts ?? []}
+          onClose={() => setNovoManual(false)}
+          onSaved={() => { setNovoManual(false); router.refresh(); }}
+        />
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[820px] text-sm">
@@ -410,7 +446,17 @@ function ContasReceber({ data }: { data: GerFinance }) {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-muted">{r.description}</td>
+                <td className="px-4 py-3 text-muted">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {r.description}
+                    {r.source === "manual" && (
+                      <span className="rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-600">manual</span>
+                    )}
+                    {r.accountName && (
+                      <span className="rounded-full bg-subtle px-1.5 py-0.5 text-[10px] text-muted">{r.accountName}</span>
+                    )}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-ink">{r.dueLabel}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-ink">
                   {formatBRL(r.value)}
@@ -420,7 +466,38 @@ function ContasReceber({ data }: { data: GerFinance }) {
                 </td>
                 <td className="px-4 py-3 text-xs text-muted">{r.ruler}</td>
                 <td className="px-4 py-3 text-right">
-                  <ActionButton action={r.action} />
+                  {r.source === "manual" && r.rowId ? (
+                    <div className="flex items-center justify-end gap-1.5">
+                      {r.statusKey === "pago" ? (
+                        <button
+                          onClick={() => actManual({ action: "unreceive", id: r.rowId }, r.rowId!)}
+                          disabled={busyId === r.rowId}
+                          className="inline-flex items-center justify-center rounded-lg border border-line p-1.5 text-muted hover:text-ink disabled:opacity-60"
+                          title="Estornar recebimento"
+                        >
+                          {busyId === r.rowId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => actManual({ action: "receive", id: r.rowId }, r.rowId!)}
+                          disabled={busyId === r.rowId}
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-500/25 disabled:opacity-60"
+                        >
+                          {busyId === r.rowId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Recebi
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { if (window.confirm(`Excluir "${r.description}"?`)) actManual({ action: "delete", id: r.rowId }, r.rowId!); }}
+                        disabled={busyId === r.rowId}
+                        className="inline-flex items-center justify-center rounded-lg border border-line p-1.5 text-muted hover:text-rose-500 disabled:opacity-60"
+                        aria-label="Excluir lançamento"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <ActionButton action={r.action} />
+                  )}
                 </td>
               </tr>
             ))}
@@ -929,6 +1006,329 @@ function ExpenseForm({
 function ddmmFromIso(iso: string): string {
   const [, m, d] = iso.split("-");
   return d && m ? `${d}/${m}` : iso;
+}
+
+/* --------------------------- Recebimento manual ---------------------------- */
+
+const NOVO_RECEBIVEL = {
+  description: "",
+  value: "",
+  dueDate: "",
+  method: "PIX",
+  accountId: "",
+  note: "",
+  status: "pending" as "pending" | "received",
+  parcelas: "1",
+  recorrencia: "monthly" as Recurrence,
+};
+
+/** Lançamento de entrada fora do Asaas (PIX, dinheiro, permuta…). */
+function ReceivableForm({
+  accounts,
+  onClose,
+  onSaved,
+}: {
+  accounts: FinancialAccount[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const padrao = accounts.find((a) => a.isDefault) ?? accounts[0];
+  const [f, setF] = useState({ ...NOVO_RECEBIVEL, accountId: padrao?.id ?? "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const valorNum = Number(f.value.replace(",", "."));
+  const valid = f.description.trim().length > 0 && Number.isFinite(valorNum) && valorNum > 0;
+  const nParcelas = Math.max(1, Number(f.parcelas) || 1);
+
+  async function salvar() {
+    if (!valid || busy) return;
+    setBusy(true);
+    setErr(null);
+    const res = await fetch("/api/gerencial/receivables", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        description: f.description.trim(),
+        value: valorNum,
+        dueDate: f.dueDate || undefined,
+        method: f.method,
+        accountId: f.accountId || undefined,
+        note: f.note.trim() || undefined,
+        status: f.status === "received" ? "received" : undefined,
+        installments: nParcelas,
+        recurrence: f.recorrencia,
+      }),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setBusy(false);
+    if (res?.ok) onSaved();
+    else setErr(j?.error ?? "Não foi possível lançar.");
+  }
+
+  const inputCls =
+    "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <div className="mb-3 rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-ink">Lançar recebimento (fora do Asaas)</p>
+        <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-subtle">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <label className="block sm:col-span-2">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Descrição *</span>
+          <input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Ex.: Projeto de site — entrada" className={inputCls} />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Valor (R$) *</span>
+          <input value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} inputMode="decimal" placeholder="0,00" className={inputCls} />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">{nParcelas > 1 ? "1º vencimento" : "Vencimento"}</span>
+          <input type="date" value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} className={inputCls} />
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Forma</span>
+          <select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })} className={inputCls}>
+            {MANUAL_METHODS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Conta</span>
+          <select value={f.accountId} onChange={(e) => setF({ ...f, accountId: e.target.value })} className={inputCls}>
+            <option value="">— sem conta —</option>
+            {accounts.filter((a) => a.active).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Parcelas</span>
+          <input value={f.parcelas} onChange={(e) => setF({ ...f, parcelas: e.target.value })} inputMode="numeric" className={inputCls} />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Observação</span>
+          <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Opcional" className={inputCls} />
+        </label>
+        <div className="flex items-center sm:col-span-3">
+          <label className="inline-flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={f.status === "received"}
+              disabled={nParcelas > 1}
+              onChange={(e) => setF({ ...f, status: e.target.checked ? "received" : "pending" })}
+              className="h-4 w-4 rounded border-line disabled:opacity-40"
+            />
+            Já recebido
+          </label>
+          {nParcelas > 1 && (
+            <span className="ml-3 text-[11px] text-muted">
+              {nParcelas} parcelas mensais de {formatBRL(valorNum || 0)} — todas em aberto.
+            </span>
+          )}
+        </div>
+      </div>
+      {err && <p className="mt-2 text-xs text-rose-500">{err}</p>}
+      {accounts.length === 0 && (
+        <p className="mt-2 text-[11px] text-amber-600">
+          Nenhuma conta cadastrada — o lançamento funciona, mas não entra em nenhum saldo. Crie em &quot;Contas &amp; saldos&quot;.
+        </p>
+      )}
+      <div className="mt-3 flex justify-end gap-2">
+        <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">Cancelar</button>
+        <button onClick={salvar} disabled={!valid || busy} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Lançar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ Contas & saldos ----------------------------- */
+
+async function postAccount(body: unknown): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/gerencial/accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (!res) return { ok: false, error: "Sem conexão com o servidor." };
+  const j = await res.json().catch(() => null);
+  return { ok: res.ok, error: res.ok ? undefined : (j?.error ?? "Não foi possível salvar.") };
+}
+
+const NOVA_CONTA = { name: "", kind: "banco" as FinancialAccount["kind"], institution: "", openingBalance: "" };
+
+function ContasFinanceiras({ data }: { data: GerFinance }) {
+  const router = useRouter();
+  const [form, setForm] = useState(NOVA_CONTA);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const contas = data.accounts ?? [];
+  const saldoTotal = contas.filter((c) => c.active).reduce((s, c) => s + (c.balance ?? 0), 0);
+
+  async function salvar() {
+    if (!form.name.trim()) { setErr("Informe o nome da conta."); return; }
+    setBusy("save");
+    setErr(null);
+    const r = await postAccount({
+      action: editId ? "update" : "create",
+      id: editId ?? undefined,
+      name: form.name.trim(),
+      kind: form.kind,
+      institution: form.institution.trim() || undefined,
+      openingBalance: Number(form.openingBalance.replace(",", ".")) || 0,
+    });
+    setBusy(null);
+    if (!r.ok) { setErr(r.error ?? "Falha ao salvar."); return; }
+    setForm(NOVA_CONTA); setEditId(null); setAberto(false);
+    router.refresh();
+  }
+
+  async function acao(body: Record<string, unknown>, id: string) {
+    setBusy(id);
+    const r = await postAccount(body);
+    setBusy(null);
+    if (!r.ok) { setErr(r.error ?? "Falha."); return; }
+    router.refresh();
+  }
+
+  const inputCls =
+    "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  if (contas.length === 0 && !aberto) {
+    return (
+      <Card className="p-8 text-center">
+        <Landmark className="mx-auto h-8 w-8 text-muted/50" />
+        <p className="mt-2 text-sm font-semibold text-ink">Nenhuma conta cadastrada</p>
+        <p className="mt-1 text-xs text-muted">
+          Cadastre suas contas (Asaas, BTG, Inter, caixa…) para acompanhar o saldo de cada uma e
+          dizer por onde cada recebimento e pagamento passou.
+        </p>
+        <button
+          onClick={() => setAberto(true)}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Nova conta
+        </button>
+        {err && <p className="mt-2 text-xs text-rose-500">{err}</p>}
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm text-muted">
+          Saldo somado:{" "}
+          <span className={cn("font-semibold", saldoTotal >= 0 ? "text-emerald-500" : "text-rose-500")}>
+            {formatBRL(saldoTotal)}
+          </span>
+        </span>
+        <button
+          onClick={() => { setAberto(true); setEditId(null); setForm(NOVA_CONTA); }}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Nova conta
+        </button>
+      </div>
+
+      {aberto && (
+        <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink">{editId ? "Editar conta" : "Nova conta"}</p>
+            <button onClick={() => { setAberto(false); setEditId(null); setForm(NOVA_CONTA); }} className="rounded-lg p-1 text-muted hover:bg-subtle">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <label className="block sm:col-span-2">
+              <span className="mb-0.5 block text-[11px] font-medium text-muted">Nome *</span>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Inter · PJ" className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[11px] font-medium text-muted">Tipo</span>
+              <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as FinancialAccount["kind"] })} className={inputCls}>
+                {ACCOUNT_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[11px] font-medium text-muted">Saldo inicial (R$)</span>
+              <input value={form.openingBalance} onChange={(e) => setForm({ ...form, openingBalance: e.target.value })} inputMode="decimal" placeholder="0,00" className={inputCls} />
+            </label>
+          </div>
+          {err && <p className="mt-2 text-xs text-rose-500">{err}</p>}
+          <div className="mt-3 flex justify-end gap-2">
+            <button onClick={() => { setAberto(false); setEditId(null); }} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-subtle">Cancelar</button>
+            <button onClick={salvar} disabled={busy === "save"} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
+              {busy === "save" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {contas.map((c) => (
+          <Card key={c.id} className={cn("p-4", !c.active && "opacity-60")}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
+                  <Landmark className="h-3.5 w-3.5 text-muted" /> {c.name}
+                  {c.isDefault && <span className="rounded-full bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-600">padrão</span>}
+                </p>
+                <p className="text-[11px] uppercase tracking-wide text-muted">
+                  {ACCOUNT_KINDS.find((k) => k.key === c.kind)?.label ?? c.kind}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center">
+                <button
+                  onClick={() => {
+                    setEditId(c.id); setAberto(true);
+                    setForm({ name: c.name, kind: c.kind, institution: c.institution ?? "", openingBalance: String(c.openingBalance ?? 0).replace(".", ",") });
+                  }}
+                  className="rounded-lg p-1.5 text-muted hover:text-ink" title="Editar"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => { if (window.confirm(`Excluir a conta "${c.name}"? Os lançamentos ficam, só perdem o vínculo.`)) acao({ action: "delete", id: c.id }, c.id); }}
+                  disabled={busy === c.id}
+                  className="rounded-lg p-1.5 text-muted hover:text-rose-500 disabled:opacity-50" title="Excluir"
+                >
+                  {busy === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            <p className={cn("mt-3 text-2xl font-bold", (c.balance ?? 0) >= 0 ? "text-ink" : "text-rose-500")}>
+              {formatBRL(c.balance ?? 0)}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted">
+              <span>inicial {formatBRL(c.openingBalance)}</span>
+              <span className="text-emerald-500">+{formatBRL(c.received ?? 0)}</span>
+              <span className="text-rose-500">−{formatBRL(c.paid ?? 0)}</span>
+            </div>
+            {!c.isDefault && (
+              <button
+                onClick={() => acao({ action: "update", id: c.id, isDefault: true }, c.id)}
+                className="mt-2 text-[11px] font-medium text-muted hover:text-brand-600"
+              >
+                Tornar padrão
+              </button>
+            )}
+          </Card>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted">
+        O saldo é <strong>inicial + recebido − pago</strong>, contando só o que já foi liquidado. Lançamentos em aberto não entram.
+      </p>
+    </div>
+  );
 }
 
 /* -------------------------------- Inadimplência ---------------------------- */

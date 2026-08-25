@@ -47,6 +47,7 @@ import {
   type CriticalDelinquent,
   type Expense,
   type ExpenseCategory,
+  type FinancialAccount,
 } from "./gerfinance";
 
 import type {
@@ -1008,7 +1009,10 @@ export async function sbGetFinance(clientId: string): Promise<FinanceOverview> {
 
 // --- financeiro gerencial (agrega payments de todos os clientes) -------------
 type GerPaymentRow = {
-  asaas_payment_id: string;
+  id?: string;
+  source?: string | null;
+  account_id?: string | null;
+  asaas_payment_id: string | null;
   client_id: string | null;
   status: string | null;
   billing_type: string | null;
@@ -1035,15 +1039,29 @@ function ddmm(iso: string): string {
 export async function sbGetGerFinance(): Promise<GerFinance> {
   const base = gerFinanceMock();
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("payments")
-    .select(
-      "asaas_payment_id, client_id, status, billing_type, value, due_date, payment_date, description, clients(name, segment)",
-    )
-    .order("due_date", { ascending: false })
-    .limit(400);
+  // Tolerante: id/source/account_id só existem após a migração 0131.
+  const PAY_BASE =
+    "asaas_payment_id, client_id, status, billing_type, value, due_date, payment_date, description, clients(name, segment)";
+  const PAY_V2 = `id, source, account_id, ${PAY_BASE}`;
+  const payV2 = await supabase.from("payments").select(PAY_V2).order("due_date", { ascending: false }).limit(400);
+  const payRes = payV2.error
+    ? await supabase.from("payments").select(PAY_BASE).order("due_date", { ascending: false }).limit(400)
+    : payV2;
+  const data = payRes.data;
 
   const rows = (data ?? []) as unknown as GerPaymentRow[];
+
+  // Contas financeiras (Asaas, BTG, Inter…). Tolerante: tabela só existe após a 0131.
+  const contasRes = await supabase
+    .from("financial_accounts")
+    .select("id, name, kind, institution, opening_balance, active, is_default")
+    .order("position")
+    .order("name");
+  const contasRaw = (contasRes.error ? [] : (contasRes.data ?? [])) as {
+    id: string; name: string; kind: string; institution: string | null;
+    opening_balance: number; active: boolean; is_default: boolean;
+  }[];
+  const contaNome = new Map(contasRaw.map((c) => [String(c.id), c.name]));
 
   // MRR real = soma das assinaturas ativas (valor contratado, normalizado p/ mês).
   const { data: subsData } = await supabase
@@ -1151,8 +1169,12 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
         : ddmm(due)
       : "—";
 
+    const ehManual = String(r.source ?? "asaas") === "manual";
     return {
-      id: r.asaas_payment_id || `rec-${i}`,
+      source: ehManual ? ("manual" as const) : ("asaas" as const),
+      rowId: ehManual ? (r.id ?? null) : null,
+      accountName: r.account_id ? (contaNome.get(String(r.account_id)) ?? null) : null,
+      id: r.asaas_payment_id || r.id || `rec-${i}`,
       client: name,
       segment,
       description: r.description ?? (competence ? `Fee mensal ${competence}` : "Cobrança"),
@@ -1276,8 +1298,39 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     ? `${activeSubs.length} assinatura${activeSubs.length === 1 ? "" : "s"} ativa${activeSubs.length === 1 ? "" : "s"}`
     : mrrDelta;
 
+  // Saldo por conta: inicial + recebido − pago (só lançamentos liquidados).
+  const recebidoPorConta = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.account_id || !PAID_STATUS.has(r.status ?? "")) continue;
+    const k = String(r.account_id);
+    recebidoPorConta.set(k, (recebidoPorConta.get(k) ?? 0) + Number(r.value ?? 0));
+  }
+  const pagoPorConta = new Map<string, number>();
+  for (const e of (expData ?? []) as Record<string, unknown>[]) {
+    const k = e.account_id ? String(e.account_id) : "";
+    if (!k || e.status !== "paid") continue;
+    pagoPorConta.set(k, (pagoPorConta.get(k) ?? 0) + Number(e.amount ?? 0));
+  }
+  const accounts: FinancialAccount[] = contasRaw.map((c) => {
+    const recebido = recebidoPorConta.get(String(c.id)) ?? 0;
+    const pago = pagoPorConta.get(String(c.id)) ?? 0;
+    return {
+      id: String(c.id),
+      name: c.name,
+      kind: (["banco", "gateway", "caixa"].includes(c.kind) ? c.kind : "banco") as FinancialAccount["kind"],
+      institution: c.institution ?? null,
+      openingBalance: Number(c.opening_balance ?? 0),
+      active: Boolean(c.active),
+      isDefault: Boolean(c.is_default),
+      received: Math.round(recebido),
+      paid: Math.round(pago),
+      balance: Math.round(Number(c.opening_balance ?? 0) + recebido - pago),
+    };
+  });
+
   return {
     ...base,
+    accounts,
     periodLabel: periodLabel(now),
     kpis: {
       ...base.kpis,
