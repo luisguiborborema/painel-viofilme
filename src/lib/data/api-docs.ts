@@ -82,7 +82,10 @@ export const API_INTERNAL: { area: string; routes: InternalRoute[] }[] = [
   {
     area: "Financeiro e gestão",
     routes: [
-      { path: "/api/gerencial/expenses", purpose: "Despesas" },
+      { path: "/api/gerencial/expenses", purpose: "Contas a pagar, com recorrência em parcelas reais", actions: "create, update, delete, pay, unpay" },
+      { path: "/api/gerencial/receivables", purpose: "Recebíveis manuais (fora do Asaas)", actions: "create, update, delete, receive, unreceive" },
+      { path: "/api/gerencial/accounts", purpose: "Contas financeiras (Asaas, BTG, Inter, caixa…)", actions: "create, update, delete" },
+      { path: "/api/gerencial/dre", purpose: "DRE por período com comparativo (GET, ?periodo=mes|trimestre|ano&offset=) e meta de margem (POST)" },
       { path: "/api/gerencial/asaas/subscription", purpose: "Assinatura do cliente no Asaas" },
       { path: "/api/gerencial/team", purpose: "Equipe e permissões" },
       { path: "/api/gerencial/service-catalog", purpose: "Catálogo de serviços e planos", actions: "add-service, update-service, delete-service, add-plan, update-plan, delete-plan" },

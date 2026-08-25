@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -30,6 +30,7 @@ import {
   type Receivable,
 } from "@/lib/data/gerfinance";
 import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
+import { variacao, type DreLinha, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
@@ -96,7 +97,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "pagar" && <ContasPagar data={data} />}
       {tab === "contas" && <ContasFinanceiras data={data} />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
-      {tab === "dre" && <Dre data={data} />}
+      {tab === "dre" && <Dre />}
     </div>
   );
 }
@@ -1407,127 +1408,265 @@ function Inadimplencia({ data }: { data: GerFinance }) {
 
 /* ----------------------------------- DRE ----------------------------------- */
 
-function DreRow({
-  label,
-  value,
-  negative = false,
-  strong = false,
-}: {
-  label: string;
-  value: number;
-  negative?: boolean;
-  strong?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className={strong ? "font-medium text-ink" : "text-muted"}>
-        {label}
-      </span>
-      <span
-        className={cn(
-          "tabular-nums",
-          negative ? "text-rose-400" : strong ? "font-semibold text-ink" : "text-ink",
-        )}
-      >
-        {negative ? "− " : ""}
-        {formatBRL(value)}
-      </span>
-    </div>
-  );
-}
+function Dre() {
+  const [periodo, setPeriodo] = useState<DrePeriodo>("mes");
+  const [offset, setOffset] = useState(0);
+  const [d, setD] = useState<DreResultado | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [metaInput, setMetaInput] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
 
-function Dre({ data }: { data: GerFinance }) {
-  const d = data.dre;
-  const maxExp = Math.max(...data.topExpenses.map((e) => e.value), 1);
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Card className="p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">
-            DRE gerencial — {data.periodLabel}
-          </h2>
-          <button className="text-xs font-medium text-brand-300 hover:text-brand-200">
-            detalhar
-          </button>
-        </div>
-        <div className="space-y-2">
-          <DreRow label="Receita bruta (MRR + projetos)" value={d.grossRevenue} />
-          <DreRow label={`Impostos e deduções (-${d.taxPct}%)`} value={d.taxes} negative />
-          <DreRow label="Receita líquida" value={d.netRevenue} strong />
-          <div className="my-1 h-px bg-line" />
-          <DreRow label="Salários & pró-labore" value={d.salaries} negative />
-          <DreRow label="Ferramentas & infraestrutura" value={d.tools} negative />
-          <DreRow label="Comissões comerciais" value={d.commissions} negative />
-          <DreRow label="Custos operacionais variáveis" value={d.variableCosts} negative />
-          <div className="my-1 h-px bg-line" />
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-ink">Lucro líquido</span>
-            <span className="text-lg font-bold tabular-nums text-emerald-400">
-              {formatBRL(d.netProfit)}
-            </span>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-muted">
-          Margem:{" "}
-          <span className="font-semibold text-emerald-400">
-            {d.margin.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}%
-          </span>{" "}
-          · vs. meta {d.metaMargin}% ·{" "}
-          <span className="text-emerald-400">Acima da meta</span>
-        </p>
-      </Card>
+  useEffect(() => {
+    let vivo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recarrega ao trocar período
+    setCarregando(true);
+    fetch(`/api/gerencial/dre?periodo=${periodo}&offset=${offset}`)
+      .then((r) => r.json())
+      .then((j: DreResultado) => { if (vivo) { setD(j); setCarregando(false); } })
+      .catch(() => { if (vivo) setCarregando(false); });
+    return () => { vivo = false; };
+  }, [periodo, offset]);
 
-      <div className="space-y-4">
-        <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">
-            Principais despesas
-          </h2>
-          <ul className="space-y-2.5">
-            {data.topExpenses.map((e) => (
-              <li key={e.label}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="text-muted">{e.label}</span>
-                  <span className="font-medium text-ink">{brl0(e.value)}</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-subtle-strong">
-                  <div
-                    className="h-full rounded-full bg-brand-400"
-                    style={{ width: `${(e.value / maxExp) * 100}%` }}
-                  />
-                </div>
-              </li>
+  async function salvarMeta() {
+    const v = Number(metaInput.replace(",", "."));
+    if (!Number.isFinite(v) || v < 0 || v > 100) { setErro("Meta entre 0 e 100."); return; }
+    const res = await fetch("/api/gerencial/dre", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metaMargin: v }),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    if (res?.ok) { setEditandoMeta(false); setErro(null); setD((old) => (old ? { ...old, metaMargin: v } : old)); }
+    else setErro(j?.error ?? "Não foi possível salvar a meta.");
+  }
+
+  function exportarCsv() {
+    if (!d) return;
+    const linhas: (string | number)[][] = [
+      ["DRE gerencial", d.label],
+      ["Período", `${d.from} a ${d.to}`],
+      ["Regime", "competência (por vencimento)"],
+      [],
+      ["Linha", d.label, d.labelAnterior, "Variação %"],
+      ...DRE_LINHAS.map((l) => {
+        const a = l.get(d.atual);
+        const b = l.get(d.anterior);
+        const v = variacao(a, b);
+        return [l.label, a, b, v === null ? "—" : v];
+      }),
+    ];
+    const csv = linhas.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dre-${d.label.replace(/[^\w]+/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (carregando && !d) {
+    return <Card className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted" /></Card>;
+  }
+  if (!d) return <Card className="p-10 text-center text-sm text-muted">Não foi possível carregar o DRE.</Card>;
+
+  const maxExp = Math.max(...d.topExpenses.map((e) => e.value), 1);
+  const maxSerie = Math.max(...d.serie.map((x) => Math.max(x.receita, x.custos)), 1);
+  const atingiuMeta = d.atual.margin >= d.metaMargin;
+
+  return (
+    <div className="space-y-4">
+      {/* Período + ações */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex overflow-hidden rounded-lg border border-line text-sm">
+            {([["mes","Mês"],["trimestre","Trimestre"],["ano","Ano"]] as const).map(([k, lbl]) => (
+              <button
+                key={k}
+                onClick={() => { setPeriodo(k); setOffset(0); }}
+                className={cn("px-3 py-1.5 font-medium", periodo === k ? "bg-ink text-white" : "bg-surface text-muted hover:text-ink")}
+              >
+                {lbl}
+              </button>
             ))}
-          </ul>
+          </div>
+          <div className="inline-flex items-center gap-1">
+            <button onClick={() => setOffset((o) => o - 1)} className="rounded-lg border border-line px-2 py-1.5 text-sm text-muted hover:text-ink" title="Período anterior">←</button>
+            <span className="min-w-[7rem] text-center text-sm font-semibold text-ink">{d.label}</span>
+            <button onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} className="rounded-lg border border-line px-2 py-1.5 text-sm text-muted hover:text-ink disabled:opacity-40" title="Próximo período">→</button>
+          </div>
+          {carregando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />}
+        </div>
+        <button onClick={exportarCsv} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle-strong">
+          <Download className="h-3.5 w-3.5" /> Exportar CSV
+        </button>
+      </div>
+
+      {d.semDados && (
+        <p className="rounded-xl bg-subtle px-3 py-2 text-xs text-muted">
+          Nenhum lançamento com vencimento em {d.label}. Os valores abaixo estão zerados.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Demonstrativo com comparativo */}
+        <Card className="p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink">DRE — {d.label}</h2>
+            <span className="text-[11px] text-muted">vs. {d.labelAnterior} · competência</span>
+          </div>
+
+          <div className="mb-1.5 grid grid-cols-[1fr_auto_auto] gap-x-3 border-b border-line pb-1 text-[10px] uppercase tracking-wide text-muted">
+            <span>Linha</span>
+            <span className="text-right">{d.label}</span>
+            <span className="w-16 text-right">vs. ant.</span>
+          </div>
+
+          <div className="space-y-1.5">
+            {DRE_LINHAS.map((l) => {
+              const a = l.get(d.atual);
+              const b = l.get(d.anterior);
+              const v = variacao(a, b);
+              // Em custo, subir é ruim; em receita/lucro, subir é bom.
+              const bom = v === null ? null : l.negativo ? v <= 0 : v >= 0;
+              return (
+                <div key={l.label} className={cn("grid grid-cols-[1fr_auto_auto] items-center gap-x-3", l.divisor && "border-t border-line pt-1.5")}>
+                  <span className={l.forte ? "text-sm font-medium text-ink" : "text-sm text-muted"}>
+                    {l.label === "Impostos e deduções" ? `${l.label} (−${d.atual.taxPct}%)` : l.label}
+                  </span>
+                  <span className={cn("text-right text-sm tabular-nums", l.negativo ? "text-rose-500" : l.forte ? "font-semibold text-ink" : "text-ink")}>
+                    {l.negativo ? "− " : ""}{formatBRL(a)}
+                  </span>
+                  <span className={cn("w-16 text-right text-[11px] tabular-nums", bom === null ? "text-muted" : bom ? "text-emerald-500" : "text-rose-500")}>
+                    {v === null ? "—" : `${v > 0 ? "+" : ""}${v}%`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Margem e meta */}
+          <div className="mt-4 rounded-xl bg-subtle p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-muted">Margem líquida</span>
+              <span className={cn("text-xl font-bold", atingiuMeta ? "text-emerald-500" : "text-amber-500")}>
+                {d.atual.margin}%
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
+              <div
+                className={cn("h-full rounded-full", atingiuMeta ? "bg-emerald-500" : "bg-amber-500")}
+                style={{ width: `${Math.max(0, Math.min(100, (d.atual.margin / Math.max(d.metaMargin, 1)) * 100))}%` }}
+              />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[11px]">
+              {editandoMeta ? (
+                <span className="flex items-center gap-1.5">
+                  <input
+                    value={metaInput}
+                    onChange={(e) => setMetaInput(e.target.value)}
+                    inputMode="decimal"
+                    className="h-7 w-16 rounded-lg border border-line bg-surface px-2 text-center text-xs text-ink outline-none focus:border-brand-400"
+                  />
+                  <span className="text-muted">%</span>
+                  <button onClick={salvarMeta} className="rounded-lg bg-brand-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-brand-700">Salvar</button>
+                  <button onClick={() => { setEditandoMeta(false); setErro(null); }} className="text-muted hover:text-ink">cancelar</button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setEditandoMeta(true); setMetaInput(String(d.metaMargin)); }}
+                  className="text-muted hover:text-brand-600"
+                >
+                  meta {d.metaMargin}% · <span className="underline">editar</span>
+                </button>
+              )}
+              <span className={atingiuMeta ? "text-emerald-500" : "text-amber-500"}>
+                {atingiuMeta ? "meta atingida" : `faltam ${Math.max(0, Math.round((d.metaMargin - d.atual.margin) * 10) / 10)} p.p.`}
+              </span>
+            </div>
+            {erro && <p className="mt-1 text-[11px] text-rose-500">{erro}</p>}
+          </div>
         </Card>
 
-        <Card className="p-5">
-          <h2 className="mb-1 text-sm font-semibold text-ink">Receita por cliente</h2>
-          <p className="mb-3 text-xs text-muted">Faturamento do mês por cliente (Asaas).</p>
-          {data.revenueByClient.length === 0 ? (
-            <p className="rounded-lg bg-subtle px-3 py-3 text-sm text-muted">Sem cobranças no mês ainda.</p>
-          ) : (
-            <ul className="space-y-2.5">
-              {data.revenueByClient.map((m, i) => {
-                const max = data.revenueByClient[0]?.value || 1;
-                return (
-                  <li key={m.name} className="flex items-center gap-3">
-                    <span className="w-36 truncate text-sm text-ink">{m.name}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle-strong">
-                      <div
-                        className={cn("h-full rounded-full", i === 0 ? "bg-brand-500" : "bg-brand-400/70")}
-                        style={{ width: `${Math.round((m.value / max) * 100)}%` }}
-                      />
+        {/* Evolução + composição */}
+        <div className="space-y-4">
+          {d.serie.length > 1 && (
+            <Card className="p-5">
+              <h2 className="mb-3 text-sm font-semibold text-ink">Receita × custos no período</h2>
+              <div className="flex h-36 items-end gap-2">
+                {d.serie.map((x) => (
+                  <div key={x.mes} className="flex flex-1 flex-col items-center gap-1" title={`${x.mes}: receita ${formatBRL(x.receita)} · custos ${formatBRL(x.custos)} · lucro ${formatBRL(x.lucro)}`}>
+                    <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
+                      <div className="w-1/2 rounded-t bg-emerald-500" style={{ height: `${Math.max(2, (x.receita / maxSerie) * 100)}%` }} />
+                      <div className="w-1/2 rounded-t bg-rose-400" style={{ height: `${Math.max(2, (x.custos / maxSerie) * 100)}%` }} />
                     </div>
-                    <span className="w-20 text-right text-sm font-semibold text-ink">
-                      {formatBRL(m.value)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+                    <span className="text-[9px] text-muted">{x.mes}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-3 text-[11px] text-muted">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Receita</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-400" /> Custos</span>
+              </div>
+            </Card>
           )}
-        </Card>
+
+          <Card className="p-5">
+            <h2 className="mb-3 text-sm font-semibold text-ink">Maiores despesas — {d.label}</h2>
+            {d.topExpenses.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">Nenhuma despesa no período.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {d.topExpenses.map((e) => (
+                  <div key={e.label}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="truncate text-muted">{e.label}</span>
+                      <span className="shrink-0 tabular-nums text-ink">{formatBRL(e.value)}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-subtle">
+                      <div className="h-full rounded-full bg-rose-400" style={{ width: `${(e.value / maxExp) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {d.revenueByClient.length > 0 && (
+            <Card className="p-5">
+              <h2 className="mb-3 text-sm font-semibold text-ink">Receita por cliente</h2>
+              <div className="space-y-1.5">
+                {d.revenueByClient.map((c) => (
+                  <div key={c.name} className="flex items-center justify-between text-sm">
+                    <span className="truncate text-muted">{c.name}</span>
+                    <span className="shrink-0 tabular-nums text-ink">{formatBRL(c.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+/** Linhas do demonstrativo, na ordem contábil. */
+const DRE_LINHAS: {
+  label: string;
+  get: (l: DreLinha) => number;
+  negativo?: boolean;
+  forte?: boolean;
+  divisor?: boolean;
+}[] = [
+  { label: "Receita bruta", get: (l) => l.grossRevenue, forte: true },
+  { label: "Impostos e deduções", get: (l) => l.taxes, negativo: true },
+  { label: "Receita líquida", get: (l) => l.netRevenue, forte: true },
+  { label: "Salários & pró-labore", get: (l) => l.salaries, negativo: true, divisor: true },
+  { label: "Ferramentas & infraestrutura", get: (l) => l.tools, negativo: true },
+  { label: "Comissões comerciais", get: (l) => l.commissions, negativo: true },
+  { label: "Custos variáveis", get: (l) => l.variableCosts, negativo: true },
+  { label: "Total de custos", get: (l) => l.totalCosts, negativo: true, forte: true },
+  { label: "Lucro líquido", get: (l) => l.netProfit, forte: true, divisor: true },
+];
