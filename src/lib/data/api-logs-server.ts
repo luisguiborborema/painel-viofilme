@@ -12,7 +12,6 @@ export type ApiLogRow = {
   durationMs: number;
   ip: string | null;
   userAgent: string | null;
-  actor: string | null;
   error: string | null;
 };
 
@@ -38,7 +37,9 @@ const VAZIO: ApiLogsData = {
   semTabela: false,
 };
 
-const COLS = "id, created_at, method, path, source, status, ok, duration_ms, ip, user_agent, actor, error";
+// `actor` existe na tabela para uso futuro, mas hoje só as rotas externas
+// (sem sessão) são registradas — então nunca é preenchido e não é exibido.
+const COLS = "id, created_at, method, path, source, status, ok, duration_ms, ip, user_agent, error";
 
 /** Logs de API com filtros. `days` 0 = tudo. */
 export async function getApiLogs(opts: { days?: number; source?: string; onlyErrors?: boolean; limit?: number } = {}): Promise<ApiLogsData> {
@@ -97,7 +98,6 @@ export async function getApiLogs(opts: { days?: number; source?: string; onlyErr
         durationMs: Number(r.duration_ms ?? 0),
         ip: r.ip ? String(r.ip) : null,
         userAgent: r.user_agent ? String(r.user_agent) : null,
-        actor: r.actor ? String(r.actor) : null,
         error: r.error ? String(r.error) : null,
       })),
       sources: [...porFonteMap.keys()].sort(),

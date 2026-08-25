@@ -100,3 +100,29 @@ export function withApiLog<Req extends Request, C>(source: string, handler: Hand
     }
   };
 }
+
+/**
+ * Retenção: apaga chamadas com sucesso após 30 dias e erros após 90 (erro tem
+ * mais valor para investigar depois). Best-effort; chamado pelo cron diário.
+ */
+export async function purgeOldApiLogs(): Promise<{ ok: number; errors: number }> {
+  if (!isSupabaseConfigured() || !hasServiceRole()) return { ok: 0, errors: 0 };
+  const admin = createAdminClient();
+  const d30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const d90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  let okCount = 0;
+  let errCount = 0;
+  try {
+    const { count } = await admin.from("api_logs").delete({ count: "exact" }).eq("ok", true).lt("created_at", d30);
+    okCount = count ?? 0;
+  } catch {
+    /* tabela pode não existir ainda */
+  }
+  try {
+    const { count } = await admin.from("api_logs").delete({ count: "exact" }).lt("created_at", d90);
+    errCount = count ?? 0;
+  } catch {
+    /* ignore */
+  }
+  return { ok: okCount, errors: errCount };
+}

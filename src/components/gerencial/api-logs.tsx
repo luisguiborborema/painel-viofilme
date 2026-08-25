@@ -30,7 +30,7 @@ function fmtHora(iso: string) {
 
 function LinhaLog({ log }: { log: ApiLogRow }) {
   const [aberto, setAberto] = useState(false);
-  const temDetalhe = Boolean(log.error || log.userAgent || log.ip || log.actor);
+  const temDetalhe = Boolean(log.error || log.userAgent || log.ip);
   return (
     <li className={cn(!log.ok && "bg-rose-500/[0.03]")}>
       <button
@@ -59,7 +59,6 @@ function LinhaLog({ log }: { log: ApiLogRow }) {
               <span className="font-semibold">Erro:</span> {log.error}
             </p>
           )}
-          {log.actor && <p className="text-muted"><span className="font-semibold text-ink">Usuário:</span> {log.actor}</p>}
           {log.ip && <p className="text-muted"><span className="font-semibold text-ink">IP:</span> {log.ip}</p>}
           {log.userAgent && <p className="break-all text-muted"><span className="font-semibold text-ink">User-Agent:</span> {log.userAgent}</p>}
         </div>

@@ -7,6 +7,7 @@ import { sendWhatsappText } from "@/lib/whatsapp/send";
 import { isWhatsappConfigured, WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import { isDue, type UpdateMetric } from "@/lib/data/recurring";
 import { purgeOldAuditEvents } from "@/lib/audit/log";
+import { purgeOldApiLogs } from "@/lib/audit/api-log";
 import { formatCompact, formatNumber } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -191,6 +192,9 @@ export async function GET(request: NextRequest) {
     const purged = await purgeOldAuditEvents();
     result.auditPageviewsPurged = purged.pageviews;
     result.auditEventsPurged = purged.events;
+    // Logs de API: sucesso 30 dias, erro 90 dias.
+    const api = await purgeOldApiLogs();
+    result.apiLogsPurged = api.ok + api.errors;
   }
 
   // 1) Lembretes de reunião (dados reais) --------------------------------
