@@ -1,4 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+// SheetJS: a dependência aponta para o tarball oficial (cdn.sheetjs.com), não
+// para o npm — o pacote `xlsx` do registro parou na 0.18.5, que tem prototype
+// pollution sem correção publicada lá. A 0.20.3 do CDN é a versão mantida.
 import * as XLSX from "xlsx";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
