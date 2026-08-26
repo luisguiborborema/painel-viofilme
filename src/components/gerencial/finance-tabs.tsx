@@ -31,13 +31,14 @@ import {
 import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
 import { variacao, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
 import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
+import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from "@/lib/data/finance-settings";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
   type FinancialAccount,
 } from "@/lib/data/gerfinance";
 
-type TabKey = "visao" | "receber" | "pagar" | "contas" | "inadimplencia" | "dre";
+type TabKey = "visao" | "receber" | "pagar" | "contas" | "config" | "inadimplencia" | "dre";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -45,6 +46,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "receber", label: "Contas a receber" },
   { key: "pagar", label: "Contas a pagar" },
   { key: "contas", label: "Contas & categorias" },
+  { key: "config", label: "Configurações" },
   { key: "inadimplencia", label: "Inadimplência" },
   { key: "dre", label: "DRE gerencial" },
 ];
@@ -96,6 +98,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "receber" && <ContasReceber data={data} />}
       {tab === "pagar" && <ContasPagar data={data} />}
       {tab === "contas" && <ContasFinanceiras data={data} />}
+      {tab === "config" && <ConfiguracoesFinanceiro />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
       {tab === "dre" && <Dre />}
     </div>
@@ -1338,6 +1341,197 @@ function ContasFinanceiras({ data }: { data: GerFinance }) {
       </p>
 
       <CategoriasDespesa categorias={data.categories ?? []} />
+    </div>
+  );
+}
+
+/* ---------------------- Configurações do Financeiro ------------------------ */
+
+/** Régua de cobrança, formas de recebimento e alertas. */
+function ConfiguracoesFinanceiro() {
+  const [cfg, setCfg] = useState<FinanceSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/gerencial/finance-settings")
+      .then((r) => r.json())
+      .then((j: FinanceSettings) => setCfg(j))
+      .catch(() => {});
+  }, []);
+
+  async function salvar(patch: Partial<FinanceSettings>) {
+    setBusy(true); setErro(null); setMsg(null);
+    const res = await fetch("/api/gerencial/finance-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setBusy(false);
+    if (!res?.ok) { setErro(j?.error ?? "Não foi possível salvar."); return; }
+    setMsg("Salvo.");
+    setTimeout(() => setMsg(null), 2000);
+  }
+
+  if (!cfg) return <Card className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-muted" /></Card>;
+
+  const inputCls = "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <div className="space-y-4">
+      {/* Régua de cobrança */}
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Régua de cobrança</h2>
+        <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+          O que fazer conforme o atraso cresce. A fatura vencida mostra o degrau alcançado na aba
+          Contas a receber; o mais avançado vence.
+        </p>
+        <div className="space-y-1.5">
+          {cfg.collectionRules.map((r, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-line px-2.5 py-2">
+              <span className="text-xs text-muted">a partir de</span>
+              <input
+                value={r.days}
+                onChange={(e) => {
+                  const v = [...cfg.collectionRules];
+                  v[i] = { ...r, days: Math.max(0, Number(e.target.value) || 0) };
+                  setCfg({ ...cfg, collectionRules: v });
+                }}
+                inputMode="numeric"
+                className={inputCls + " w-14 text-center"}
+              />
+              <span className="text-xs text-muted">dias</span>
+              <input
+                value={r.label}
+                onChange={(e) => {
+                  const v = [...cfg.collectionRules];
+                  v[i] = { ...r, label: e.target.value };
+                  setCfg({ ...cfg, collectionRules: v });
+                }}
+                placeholder="O que acontece"
+                className={inputCls + " min-w-0 flex-1"}
+              />
+              <select
+                value={r.action}
+                onChange={(e) => {
+                  const v = [...cfg.collectionRules];
+                  v[i] = { ...r, action: e.target.value as CollectionAction };
+                  setCfg({ ...cfg, collectionRules: v });
+                }}
+                className={inputCls + " text-xs"}
+              >
+                {COLLECTION_ACTIONS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+              </select>
+              <button
+                onClick={() => setCfg({ ...cfg, collectionRules: cfg.collectionRules.filter((_, k) => k !== i) })}
+                className="rounded-lg p-1.5 text-muted hover:text-rose-500"
+                aria-label="Remover degrau"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => setCfg({ ...cfg, collectionRules: [...cfg.collectionRules, { days: 30, label: "Novo passo", action: "whatsapp" }] })}
+            className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <Plus className="h-3.5 w-3.5" /> Degrau
+          </button>
+          <button
+            onClick={() => salvar({ collectionRules: cfg.collectionRules })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar régua
+          </button>
+        </div>
+      </Card>
+
+      {/* Formas de recebimento */}
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Formas de recebimento</h2>
+        <p className="mb-3 mt-1 text-[11px] text-muted">Opções do lançamento manual em Contas a receber.</p>
+        <div className="flex flex-wrap gap-1.5">
+          {cfg.paymentMethods.map((m, i) => (
+            <span key={m.key} className="inline-flex items-center gap-1 rounded-full bg-subtle px-2.5 py-1 text-xs text-ink">
+              {m.label}
+              <button
+                onClick={() => setCfg({ ...cfg, paymentMethods: cfg.paymentMethods.filter((_, k) => k !== i) })}
+                className="text-muted hover:text-rose-500"
+                aria-label={`Remover ${m.label}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            id="nova-forma"
+            placeholder="Ex.: Boleto à vista"
+            className={inputCls + " min-w-0 flex-1"}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const el = e.currentTarget;
+              const label = el.value.trim();
+              if (!label) return;
+              setCfg({ ...cfg, paymentMethods: [...cfg.paymentMethods, { key: label.toUpperCase(), label }] });
+              el.value = "";
+            }}
+          />
+          <button
+            onClick={() => salvar({ paymentMethods: cfg.paymentMethods })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar formas
+          </button>
+        </div>
+        <p className="mt-1 text-[11px] text-muted">Digite e pressione Enter para adicionar.</p>
+      </Card>
+
+      {/* Alertas */}
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Alertas no WhatsApp</h2>
+        <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+          Enviados uma vez por dia, na rotina da manhã, para os números internos configurados
+          (<code className="rounded bg-subtle px-1">UAZAPI_NOTIFY_NUMBERS</code>).
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={cfg.alertMargin}
+            onChange={(e) => { const v = e.target.checked; setCfg({ ...cfg, alertMargin: v }); salvar({ alertMargin: v }); }}
+            className="h-4 w-4 rounded border-line"
+          />
+          Avisar quando a margem do mês ficar abaixo da meta ({cfg.metaMargin}%)
+        </label>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-ink">
+          <span>Avisar quando a inadimplência passar de</span>
+          <input
+            value={cfg.alertOverdue || ""}
+            onChange={(e) => setCfg({ ...cfg, alertOverdue: Number(e.target.value.replace(",", ".")) || 0 })}
+            inputMode="decimal"
+            placeholder="0"
+            className={inputCls + " w-28"}
+          />
+          <span className="text-muted">R$ (0 = desligado)</span>
+          <button
+            onClick={() => salvar({ alertOverdue: cfg.alertOverdue })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+          </button>
+        </div>
+      </Card>
+
+      {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+      {erro && <p className="text-xs text-rose-500">{erro}</p>}
     </div>
   );
 }

@@ -50,6 +50,7 @@ import {
   type FinancialAccount,
 } from "./gerfinance";
 import { CATEGORIAS_PADRAO, type ExpenseCategoryDef } from "./expense-categories";
+import { REGUA_PADRAO, degrauDaRegua, parseRegua } from "./finance-settings";
 
 import type {
   Announcement,
@@ -1064,6 +1065,12 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   }[];
   const contaNome = new Map(contasRaw.map((c) => [String(c.id), c.name]));
 
+  // Régua de cobrança configurável; sem a migração 0134, usa o padrão.
+  const cfgRes = await supabase.from("finance_settings").select("collection_rules").eq("id", 1).maybeSingle();
+  const regua = cfgRes.error
+    ? REGUA_PADRAO
+    : parseRegua((cfgRes.data as { collection_rules?: unknown } | null)?.collection_rules);
+
   // Categorias personalizadas; sem a migração 0133, usa as padrão do código.
   const catsRes = await supabase
     .from("expense_categories")
@@ -1169,9 +1176,10 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     } else if (overdueDays > 0) {
       statusKey = "vencida";
       status = { label: `Vencida ${overdueDays}d`, tone: "danger" };
-      action = overdueDays >= 10 ? "cs" : "whatsapp";
-      ruler =
-        overdueDays >= 20 ? "D+20 · CS" : overdueDays >= 10 ? "D+10 enviado" : overdueDays >= 3 ? "D+3 enviado" : "D+0";
+      // Régua configurável (Financeiro → Configurações), com o padrão como fallback.
+      const degrau = degrauDaRegua(regua, overdueDays);
+      action = degrau?.action === "cs" ? "cs" : "whatsapp";
+      ruler = degrau ? `D+${degrau.days} · ${degrau.label}` : "D+0";
     } else {
       statusKey = "avencer";
       status = daysDelta <= 7 ? { label: `Vence em ${daysDelta}d`, tone: "warn" } : { label: "A vencer", tone: "info" };
