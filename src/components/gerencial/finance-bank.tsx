@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Ban, Check, FileUp, Landmark,
-  Link2, Loader2, RefreshCw, Undo2,
+  Link2, Loader2, RefreshCw, Trash2, Undo2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn, formatBRL } from "@/lib/utils";
@@ -128,11 +128,28 @@ export function ConciliacaoBancaria({ contas }: { contas: FinancialAccount[] }) 
           financeiro&quot; ou Money/Quicken) ou em CSV. Importar o mesmo período duas vezes não duplica nada.
         </p>
 
-        {d?.ultimaImportacao && (
-          <p className="mt-2 text-[11px] text-muted">
-            Última importação: {d.ultimaImportacao.fileName ?? "arquivo"} ·{" "}
-            {fmtDia(d.ultimaImportacao.from ?? "")} a {fmtDia(d.ultimaImportacao.to ?? "")}
-          </p>
+        {(d?.importacoes ?? []).length > 0 && (
+          <ul className="mt-3 divide-y divide-line border-t border-line pt-1">
+            {d!.importacoes.map((imp) => (
+              <li key={imp.id} className="flex flex-wrap items-center gap-2 py-1.5 text-[11px] text-muted">
+                <span className="min-w-0 flex-1 truncate">
+                  {imp.fileName ?? "arquivo"} · {fmtDia(imp.from ?? "")} a {fmtDia(imp.to ?? "")} · {imp.total} linha(s)
+                </span>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Desfazer a importação de "${imp.fileName ?? "arquivo"}"? As linhas dela e os casamentos feitos serão apagados.`)) {
+                      acao({ action: "excluirImportacao", statementId: imp.id }, imp.id);
+                    }
+                  }}
+                  disabled={busy === imp.id}
+                  className={btn}
+                  title="Desfazer esta importação"
+                >
+                  {busy === imp.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
         {msg && <p className="mt-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">{msg}</p>}
         {erro && <p className="mt-2 flex items-center gap-1.5 text-xs text-rose-500"><AlertTriangle className="h-3.5 w-3.5" /> {erro}</p>}
@@ -150,7 +167,8 @@ export function ConciliacaoBancaria({ contas }: { contas: FinancialAccount[] }) 
             <div className={cn("h-full rounded-full", d.resumo.fechado ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${d.resumo.pct}%` }} />
           </div>
           <p className="mt-2 text-[11px] text-muted">
-            {d.resumo.casados} casada(s) · {d.resumo.pendentes} pendente(s) · {d.resumo.ignorados} dispensada(s)
+            {d.resumo.casados} casada(s) · {d.resumo.ignorados} dispensada(s) · {d.resumo.pendentes} sem conferir
+            {d.resumo.fechado && " — extrato inteiro explicado"}
           </p>
         </Card>
       )}

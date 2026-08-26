@@ -109,15 +109,23 @@ export function conciliar(
   return { sugestoes, semCandidato };
 }
 
-/** Resumo para a tela: quanto do extrato foi explicado. */
+/**
+ * Resumo para a tela: quanto do extrato está EXPLICADO.
+ *
+ * Uma linha dispensada de propósito (tarifa, rendimento) conta como explicada
+ * tanto quanto uma casada — alguém olhou e decidiu. O que falta conferir é só
+ * o que ninguém tocou. Contar só as casadas mostraria 67% ao lado de um "tudo
+ * conferido", que é contraditório.
+ */
 export function resumoConciliacao(total: number, casados: number, ignorados: number) {
   const pendentes = Math.max(0, total - casados - ignorados);
+  const explicados = total - pendentes;
   return {
     total,
     casados,
     ignorados,
     pendentes,
-    pct: total > 0 ? Math.round((casados / total) * 100) : 0,
+    pct: total > 0 ? Math.round((explicados / total) * 100) : 0,
     fechado: pendentes === 0 && total > 0,
   };
 }

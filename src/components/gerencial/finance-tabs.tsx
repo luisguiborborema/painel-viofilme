@@ -661,6 +661,7 @@ function ContasPagar({ data, tier }: { data: GerFinance; tier?: string | null })
           editar={editando}
           categorias={data.categories ?? []}
           clientes={data.clients ?? []}
+          contas={data.accounts ?? []}
           onClose={() => { setShowForm(false); setEditando(null); }}
           onSaved={() => {
             setShowForm(false);
@@ -818,6 +819,7 @@ function ContasPagar({ data, tier }: { data: GerFinance; tier?: string | null })
 
 const NEW_EXPENSE = {
   clientId: "",
+  accountId: "",
   description: "",
   category: "outros" as Expense["category"],
   amount: "",
@@ -836,6 +838,7 @@ function ExpenseForm({
   editar,
   categorias,
   clientes,
+  contas,
 }: {
   onClose: () => void;
   onSaved: () => void;
@@ -843,6 +846,7 @@ function ExpenseForm({
   editar?: Expense | null;
   categorias: ExpenseCategoryDef[];
   clientes: { id: string; name: string }[];
+  contas: FinancialAccount[];
 }) {
   const emSerie = Boolean(editar?.seriesId);
   const [f, setF] = useState(() =>
@@ -850,6 +854,7 @@ function ExpenseForm({
       ? {
           ...NEW_EXPENSE,
           clientId: editar.clientId ?? "",
+          accountId: editar.accountId ?? "",
           description: editar.description,
           category: editar.category,
           amount: String(editar.amount).replace(".", ","),
@@ -888,6 +893,7 @@ function ExpenseForm({
           dueDate: f.dueDate || undefined,
           vendor: f.vendor.trim() || undefined,
           clientId: f.clientId || null,
+          accountId: f.accountId || null,
         })
       : await postExpense({
           action: "create",
@@ -897,6 +903,7 @@ function ExpenseForm({
           dueDate: f.dueDate || undefined,
           vendor: f.vendor.trim() || undefined,
           clientId: f.clientId || null,
+          accountId: f.accountId || null,
           status: f.status,
           ...(f.repeticao === "unica"
             ? {}
@@ -976,7 +983,15 @@ function ExpenseForm({
             className={inputCls}
           />
         </label>
-        <label className="block sm:col-span-2">
+        <label className="block">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Conta de pagamento</span>
+          <select value={f.accountId} onChange={(e) => setF({ ...f, accountId: e.target.value })} className={inputCls}>
+            <option value="">— não definida —</option>
+            {contas.filter((c) => c.active !== false).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <span className="mt-0.5 block text-[10px] text-muted">Define de onde sai o dinheiro e permite conciliar com o extrato.</span>
+        </label>
+        <label className="block">
           <span className="mb-0.5 block text-[11px] font-medium text-muted">Cliente (custo direto)</span>
           <select value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} className={inputCls}>
             <option value="">— custo de estrutura (sem cliente) —</option>

@@ -44,23 +44,29 @@ export type PainelConciliacao = {
   semExtrato: { id: string; date: string; value: number; description: string; kind: string }[];
   resumo: ReturnType<typeof resumoConciliacao>;
   ultimaImportacao: { fileName: string | null; createdAt: string; from: string | null; to: string | null } | null;
+  /** Histórico de importações, para poder desfazer a errada. */
+  importacoes: { id: string; fileName: string | null; createdAt: string; from: string | null; to: string | null; total: number }[];
   semTabelas: boolean;
 };
 
 const VAZIO: PainelConciliacao = {
   accountId: null, entradas: [], semExtrato: [],
-  resumo: resumoConciliacao(0, 0, 0), ultimaImportacao: null, semTabelas: true,
+  resumo: resumoConciliacao(0, 0, 0), ultimaImportacao: null, importacoes: [], semTabelas: true,
 };
 
 /** Lançamentos liquidados da conta, no período — os candidatos ao casamento. */
 async function candidatos(
   db: SupabaseClient, accountId: string, from: string, to: string,
 ): Promise<CandidatoMov[]> {
+  // Inclui também o que está SEM conta definida: lançamento antigo (ou lançado
+  // sem escolher a conta) precisa poder casar, senão a conciliação nunca fecha
+  // para quem já tinha histórico. O que está preso a OUTRA conta fica de fora.
+  const daConta = `account_id.eq.${accountId},account_id.is.null`;
   const [rec, desp] = await Promise.all([
     db.from("payments").select("id, description, value, payment_date, due_date, status, account_id")
-      .eq("account_id", accountId).gte("due_date", from).lte("due_date", to).limit(2000),
+      .or(daConta).gte("due_date", from).lte("due_date", to).limit(2000),
     db.from("expenses").select("id, description, amount, paid_date, due_date, status, account_id")
-      .eq("account_id", accountId).gte("due_date", from).lte("due_date", to).limit(2000),
+      .or(daConta).gte("due_date", from).lte("due_date", to).limit(2000),
   ]);
 
   const out: CandidatoMov[] = [];
@@ -204,6 +210,34 @@ export async function casarPendentes(db: SupabaseClient, accountId: string): Pro
   return { casadas: automaticas.length, ambiguas: sugestoes.length - automaticas.length };
 }
 
+/**
+ * Apaga uma importação inteira e as linhas que vieram nela.
+ *
+ * Existe porque importar o arquivo errado (conta trocada, período errado) é o
+ * engano mais provável aqui, e sem isso a única saída seria mexer no banco.
+ */
+export async function excluirImportacao(db: SupabaseClient, statementId: string): Promise<number> {
+  const { count } = await db
+    .from("bank_entries")
+    .delete({ count: "exact" })
+    .eq("statement_id", statementId);
+  const { error } = await db.from("bank_statements").delete().eq("id", statementId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Importações da conta, da mais recente para a mais antiga. */
+export async function listarImportacoes(db: SupabaseClient, accountId: string) {
+  const { data, error } = await db
+    .from("bank_statements")
+    .select("id, file_name, from_date, to_date, entries_total, imported_by, created_at")
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) return [];
+  return (data ?? []) as Record<string, unknown>[];
+}
+
 /** Painel da conta: o que casou, o que sobrou dos dois lados. */
 export async function getConciliacao(accountId: string | null, from?: string, to?: string): Promise<PainelConciliacao> {
   if (!isSupabaseConfigured() || !accountId) return VAZIO;
@@ -246,10 +280,8 @@ export async function getConciliacao(accountId: string | null, from?: string, to
       .slice(0, 100)
       .map((m) => ({ id: m.id, date: m.date, value: m.value, description: m.description, kind: m.kind }));
 
-    const { data: st } = await db
-      .from("bank_statements").select("file_name, created_at, from_date, to_date")
-      .eq("account_id", accountId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const s = st as Record<string, unknown> | null;
+    const sts = await listarImportacoes(db, accountId);
+    const s = (sts[0] ?? null) as Record<string, unknown> | null;
 
     return {
       accountId,
@@ -263,6 +295,14 @@ export async function getConciliacao(accountId: string | null, from?: string, to
       ultimaImportacao: s
         ? { fileName: (s.file_name as string) ?? null, createdAt: String(s.created_at), from: (s.from_date as string) ?? null, to: (s.to_date as string) ?? null }
         : null,
+      importacoes: sts.map((r) => ({
+        id: String(r.id),
+        fileName: (r.file_name as string) ?? null,
+        createdAt: String(r.created_at),
+        from: (r.from_date as string) ?? null,
+        to: (r.to_date as string) ?? null,
+        total: Number(r.entries_total ?? 0),
+      })),
       semTabelas: false,
     };
   } catch (e) {

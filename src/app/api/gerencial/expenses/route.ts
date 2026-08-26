@@ -32,6 +32,8 @@ type Body = {
   vendor?: string;
   status?: string;
   clientId?: string | null;
+  /** Conta de onde o dinheiro sai — é o que permite conciliar com o banco. */
+  accountId?: string | null;
   attachmentUrl?: string | null;
   invoiceNumber?: string | null;
   /** Motivo da recusa / observação da aprovação. */
@@ -177,6 +179,7 @@ export async function POST(req: Request) {
       if (b.category !== undefined) patch.category = CATS.has(b.category) ? b.category : "outros";
       if (b.vendor !== undefined) patch.vendor = b.vendor.trim() || null;
       if (b.clientId !== undefined) patch.client_id = b.clientId || null;
+      if (b.accountId !== undefined) patch.account_id = b.accountId || null;
       if (b.attachmentUrl !== undefined) patch.attachment_url = b.attachmentUrl || null;
       if (b.invoiceNumber !== undefined) patch.invoice_number = b.invoiceNumber?.trim() || null;
 
@@ -239,6 +242,7 @@ export async function POST(req: Request) {
         recurring: false,
         vendor,
         client_id: b.clientId || null,
+        account_id: b.accountId || null,
         created_by: user.id,
       };
       let r = await supabase.from("expenses").insert(linha).select("id").single();
@@ -264,6 +268,7 @@ export async function POST(req: Request) {
       recurring: true,
       vendor,
       client_id: b.clientId || null,
+      account_id: b.accountId || null,
       created_by: user.id,
       series_id: serieId,
       installment: aberta ? null : p.installment,

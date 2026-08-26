@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { getConciliacao, importarExtrato, casarPendentes, SemMigracao } from "@/lib/data/reconciliation-server";
+import { getConciliacao, importarExtrato, casarPendentes, excluirImportacao, SemMigracao } from "@/lib/data/reconciliation-server";
 import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
 }
 
 type Body = {
-  action?: "importar" | "casar" | "descasar" | "ignorar" | "reconsiderar" | "reprocessar";
+  action?: "importar" | "casar" | "descasar" | "ignorar" | "reconsiderar" | "reprocessar" | "excluirImportacao";
+  statementId?: string;
   accountId?: string;
   fileName?: string;
   /** Conteúdo do arquivo em texto (OFX ou CSV). */
@@ -63,6 +64,13 @@ export async function POST(req: Request) {
     }
 
     const db = await createClient();
+
+    if (b.action === "excluirImportacao") {
+      if (!b.statementId) return NextResponse.json({ error: "Importação ausente." }, { status: 400 });
+      await logFromUser(user, { action: "delete", area: "Financeiro · conciliação", target: b.statementId });
+      const removidas = await excluirImportacao(db, b.statementId);
+      return NextResponse.json({ ok: true, removidas });
+    }
 
     if (b.action === "reprocessar") {
       if (!b.accountId) return NextResponse.json({ error: "Conta ausente." }, { status: 400 });

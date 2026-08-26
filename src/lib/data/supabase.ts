@@ -1233,7 +1233,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   // --- despesas → DRE real ---------------------------------------------------
   // Tolerante: as colunas de série só existem após a migração 0130.
   const EXP_BASE = "id, description, category, amount, due_date, paid_date, status, recurring, vendor";
-  const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended, client_id, attachment_url`;
+  const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended, client_id, attachment_url, account_id`;
   // Alçada e NF só existem após a 0138 — três degraus de tolerância.
   const EXP_FULL = `${EXP_SERIE}, approval_status, approved_by, approval_note, invoice_number`;
   const ordenado = (sel: string) =>
@@ -1261,6 +1261,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       installmentsTotal: e.installments_total == null ? null : Number(e.installments_total),
       recurrence: (e.recurrence as Expense["recurrence"]) ?? null,
       openEnded: Boolean(e.open_ended),
+      accountId: (e.account_id as string) ?? null,
       approvalStatus: (e.approval_status as Expense["approvalStatus"]) ?? null,
       approvedBy: (e.approved_by as string) ?? null,
       approvalNote: (e.approval_note as string) ?? null,

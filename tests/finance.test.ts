@@ -143,8 +143,10 @@ eq("lançamento já casado é ignorado",
             [{ id: "p-1", kind: "entrada", date: "2026-08-05", value: 300, description: "A", jaCasado: true }]).semCandidato,
   ["b1"]);
 
-eq("resumo", resumoConciliacao(10, 7, 1), { total: 10, casados: 7, ignorados: 1, pendentes: 2, pct: 70, fechado: false });
+eq("resumo", resumoConciliacao(10, 7, 1), { total: 10, casados: 7, ignorados: 1, pendentes: 2, pct: 80, fechado: false });
+eq("dispensada conta como conferida", resumoConciliacao(3, 2, 1), { total: 3, casados: 2, ignorados: 1, pendentes: 0, pct: 100, fechado: true });
 eq("resumo fechado", resumoConciliacao(5, 4, 1).fechado, true);
+eq("extrato vazio não é 'fechado'", resumoConciliacao(0, 0, 0).fechado, false);
 
 
 /* ── multa e juros ── */
