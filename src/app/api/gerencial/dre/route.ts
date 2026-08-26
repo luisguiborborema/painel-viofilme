@@ -3,11 +3,13 @@ import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { getDre, type DrePeriodo } from "@/lib/data/dre-server";
+import { type DreRegime } from "@/lib/data/dre";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PERIODOS = new Set(["mes", "trimestre", "ano"]);
+const REGIMES = new Set(["competencia", "caixa"]);
 
 /** DRE do período (GET) e meta de margem (POST). */
 export async function GET(request: NextRequest) {
@@ -26,7 +28,10 @@ export async function GET(request: NextRequest) {
     else ref.setUTCMonth(ref.getUTCMonth() + offset);
   }
 
-  return NextResponse.json(await getDre(periodo, ref));
+  const rg = request.nextUrl.searchParams.get("regime") ?? "competencia";
+  const regime = (REGIMES.has(rg) ? rg : "competencia") as DreRegime;
+
+  return NextResponse.json(await getDre(periodo, ref, regime));
 }
 
 export async function POST(req: Request) {

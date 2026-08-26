@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MANUAL_METHODS } from "@/lib/data/gerfinance";
 import { planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
 import { logFromUser } from "@/lib/audit/log";
+import { bloqueioPorFechamento, periodoFechadoAte } from "@/lib/data/period-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,17 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const action = b.action ?? "create";
   await logFromUser(user, { action, area: "Financeiro · recebíveis", target: b.description ?? b.id ?? null });
+
+  const fechadoAte = await periodoFechadoAte(supabase);
+  if (fechadoAte) {
+    let dataAlvo = b.dueDate ?? null;
+    if (!dataAlvo && b.id) {
+      const { data: atual } = await supabase.from("payments").select("due_date").eq("id", b.id).maybeSingle();
+      dataAlvo = (atual as { due_date?: string | null } | null)?.due_date ?? null;
+    }
+    const bloqueio = bloqueioPorFechamento(dataAlvo, fechadoAte);
+    if (bloqueio) return NextResponse.json({ error: bloqueio }, { status: 409 });
+  }
 
   /** Trava: só lançamento manual pode ser alterado por aqui. */
   async function ehManual(id: string): Promise<boolean> {

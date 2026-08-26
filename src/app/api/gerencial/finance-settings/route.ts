@@ -22,7 +22,11 @@ export async function GET() {
   if (!isSupabaseConfigured()) return NextResponse.json(FINANCE_SETTINGS_PADRAO);
 
   const supabase = await createClient();
-  const { data, error } = await supabase.from("finance_settings").select(COLS).eq("id", 1).maybeSingle();
+  // Tolerante: closed_until só existe depois da migração 0137.
+  const v2 = await supabase.from("finance_settings").select(`${COLS}, closed_until`).eq("id", 1).maybeSingle();
+  const { data, error } = v2.error
+    ? await supabase.from("finance_settings").select(COLS).eq("id", 1).maybeSingle()
+    : v2;
   if (error || !data) return NextResponse.json(FINANCE_SETTINGS_PADRAO);
 
   const r = data as Record<string, unknown>;
@@ -32,6 +36,7 @@ export async function GET() {
     paymentMethods: parseMetodos(r.payment_methods),
     alertMargin: Boolean(r.alert_margin),
     alertOverdue: Number(r.alert_overdue ?? 0),
+    closedUntil: (r.closed_until as string) ?? null,
   };
   return NextResponse.json(out);
 }

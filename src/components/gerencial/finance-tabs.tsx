@@ -29,10 +29,11 @@ import {
   type Receivable,
 } from "@/lib/data/gerfinance";
 import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
-import { variacao, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
+import { DRE_REGIMES, variacao, type DrePeriodo, type DreRegime, type DreResultado } from "@/lib/data/dre";
 import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
 import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from "@/lib/data/finance-settings";
 import { Extrato, FluxoDeCaixa, RentabilidadeClientes } from "./finance-extras";
+import { AgingTab, FechamentoPeriodo, IndicadoresCard, OrcamentoTab } from "./finance-reports";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
@@ -40,7 +41,7 @@ import {
   type FinancialAccount,
 } from "@/lib/data/gerfinance";
 
-type TabKey = "visao" | "fluxo" | "receber" | "pagar" | "extrato" | "contas" | "rentabilidade" | "config" | "inadimplencia" | "dre";
+type TabKey = "visao" | "fluxo" | "receber" | "pagar" | "extrato" | "contas" | "rentabilidade" | "config" | "inadimplencia" | "dre" | "orcamento" | "aging";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -52,7 +53,9 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "contas", label: "Contas & categorias" },
   { key: "config", label: "Configurações" },
   { key: "inadimplencia", label: "Inadimplência" },
+  { key: "aging", label: "Aging" },
   { key: "rentabilidade", label: "Rentabilidade" },
+  { key: "orcamento", label: "Orçamento" },
   { key: "dre", label: "DRE gerencial" },
 ];
 
@@ -109,6 +112,8 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "config" && <ConfiguracoesFinanceiro />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
       {tab === "dre" && <Dre />}
+      {tab === "orcamento" && <OrcamentoTab />}
+      {tab === "aging" && <AgingTab />}
     </div>
   );
 }
@@ -147,6 +152,8 @@ function VisaoGeral({ data }: { data: GerFinance }) {
           deltaDirection="up"
         />
       </div>
+
+      <IndicadoresCard />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
@@ -1687,6 +1694,8 @@ function ConfiguracoesFinanceiro() {
         </div>
       </Card>
 
+      <FechamentoPeriodo closedUntil={cfg.closedUntil ?? null} />
+
       {msg && <p className="text-xs text-emerald-600">{msg}</p>}
       {erro && <p className="text-xs text-rose-500">{erro}</p>}
     </div>
@@ -1887,6 +1896,7 @@ function Inadimplencia({ data }: { data: GerFinance }) {
 
 function Dre() {
   const [periodo, setPeriodo] = useState<DrePeriodo>("mes");
+  const [regime, setRegime] = useState<DreRegime>("competencia");
   const [offset, setOffset] = useState(0);
   const [d, setD] = useState<DreResultado | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -1898,12 +1908,12 @@ function Dre() {
     let vivo = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- recarrega ao trocar período
     setCarregando(true);
-    fetch(`/api/gerencial/dre?periodo=${periodo}&offset=${offset}`)
+    fetch(`/api/gerencial/dre?periodo=${periodo}&offset=${offset}&regime=${regime}`)
       .then((r) => r.json())
       .then((j: DreResultado) => { if (vivo) { setD(j); setCarregando(false); } })
       .catch(() => { if (vivo) setCarregando(false); });
     return () => { vivo = false; };
-  }, [periodo, offset]);
+  }, [periodo, offset, regime]);
 
   async function salvarMeta() {
     const v = Number(metaInput.replace(",", "."));
@@ -1923,7 +1933,7 @@ function Dre() {
     const linhas: (string | number)[][] = [
       ["DRE gerencial", d.label],
       ["Período", `${d.from} a ${d.to}`],
-      ["Regime", "competência (por vencimento)"],
+      ["Regime", d.regime === "caixa" ? "caixa (por pagamento)" : "competência (por vencimento)"],
       [],
       ["Linha", d.label, d.labelAnterior, "Variação %"],
       ...montarLinhasDre(d).map((l) => {
@@ -1971,6 +1981,18 @@ function Dre() {
             <span className="min-w-[7rem] text-center text-sm font-semibold text-ink">{d.label}</span>
             <button onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} className="rounded-lg border border-line px-2 py-1.5 text-sm text-muted hover:text-ink disabled:opacity-40" title="Próximo período">→</button>
           </div>
+          <div className="inline-flex overflow-hidden rounded-lg border border-line text-sm">
+            {DRE_REGIMES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setRegime(r.key)}
+                title={r.hint}
+                className={cn("px-3 py-1.5 font-medium", regime === r.key ? "bg-ink text-white" : "bg-surface text-muted hover:text-ink")}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
           {carregando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />}
         </div>
         <button onClick={exportarCsv} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle-strong">
@@ -1978,9 +2000,15 @@ function Dre() {
         </button>
       </div>
 
+      <p className="text-[11px] text-muted">
+        {d.regime === "caixa"
+          ? "Regime de caixa: conta só o que foi efetivamente pago/recebido na data do pagamento."
+          : "Regime de competência: conta pelo vencimento, pago ou não — é o resultado do período."}
+      </p>
+
       {d.semDados && (
         <p className="rounded-xl bg-subtle px-3 py-2 text-xs text-muted">
-          Nenhum lançamento com vencimento em {d.label}. Os valores abaixo estão zerados.
+          Nenhum lançamento {d.regime === "caixa" ? "liquidado" : "com vencimento"} em {d.label}. Os valores abaixo estão zerados.
         </p>
       )}
 

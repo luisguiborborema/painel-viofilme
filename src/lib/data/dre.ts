@@ -10,6 +10,20 @@ export const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "a
 
 export type DrePeriodo = "mes" | "trimestre" | "ano";
 
+/**
+ * Regime do DRE:
+ *  • competencia — pela data de VENCIMENTO. Mensalidade de agosto paga em
+ *    setembro pertence a agosto. É a leitura contábil do resultado.
+ *  • caixa — pela data de PAGAMENTO, contando só o que foi liquidado. É a
+ *    leitura de quanto dinheiro de fato entrou e saiu.
+ */
+export type DreRegime = "competencia" | "caixa";
+
+export const DRE_REGIMES: { key: DreRegime; label: string; hint: string }[] = [
+  { key: "competencia", label: "Competência", hint: "Pelo vencimento — o resultado do período" },
+  { key: "caixa", label: "Caixa", hint: "Pelo pagamento — o dinheiro que entrou e saiu" },
+];
+
 /** Uma linha de custo/dedução: vem de uma categoria cadastrada. */
 export type DreCategoriaLinha = { key: string; label: string; value: number };
 
@@ -37,6 +51,7 @@ export type DreResultado = {
   anterior: DreLinha;
   labelAnterior: string;
   metaMargin: number;
+  regime: DreRegime;
   /** Receita e lucro mês a mês dentro do período (para o gráfico). */
   serie: { mes: string; receita: number; custos: number; lucro: number }[];
   topExpenses: { label: string; value: number }[];

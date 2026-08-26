@@ -8,13 +8,15 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * (não pela de pagamento). Uma mensalidade de agosto paga em setembro pertence
  * a agosto. As regras puras de período ficam em ./dre.
  */
-export type { DrePeriodo, DreLinha, DreResultado, DreCategoriaLinha } from "./dre";
+export type { DrePeriodo, DreRegime, DreLinha, DreResultado, DreCategoriaLinha } from "./dre";
 export { intervalo, variacao } from "./dre";
-import { MESES_CURTOS, STATUS_IGNORAR, intervalo, type DreCategoriaLinha, type DrePeriodo, type DreLinha, type DreResultado } from "./dre";
+const STATUS_PAGO_DRE = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
+
+import { MESES_CURTOS, STATUS_IGNORAR, intervalo, type DreCategoriaLinha, type DrePeriodo, type DreRegime, type DreLinha, type DreResultado } from "./dre";
 import { CATEGORIAS_PADRAO } from "./expense-categories";
 
-type Pgto = { value: number | null; due_date: string | null; status: string | null; clients?: { name?: string } | { name?: string }[] | null };
-type Desp = { amount: number | null; due_date: string | null; category: string | null; description: string | null };
+type Pgto = { value: number | null; due_date: string | null; payment_date?: string | null; status: string | null; clients?: { name?: string } | { name?: string }[] | null };
+type Desp = { amount: number | null; due_date: string | null; paid_date?: string | null; category: string | null; description: string | null; status?: string | null };
 
 type CatDef = { key: string; label: string; dreGroup: string };
 
@@ -22,10 +24,15 @@ type CatDef = { key: string; label: string; dreGroup: string };
  * Monta uma coluna do DRE somando as despesas por CATEGORIA cadastrada.
  * Categoria sem movimento não vira linha — o demonstrativo fica enxuto.
  */
-function montarLinha(pgtos: Pgto[], desps: Desp[], cats: CatDef[]): DreLinha {
-  const grossRevenue = Math.round(
-    pgtos.filter((p) => !STATUS_IGNORAR.has(String(p.status ?? ""))).reduce((s, p) => s + Number(p.value ?? 0), 0),
-  );
+function montarLinha(pgtos: Pgto[], desps: Desp[], cats: CatDef[], regime: DreRegime = "competencia"): DreLinha {
+  // No caixa, só entra o que foi efetivamente recebido/pago.
+  const entra = (p: Pgto) =>
+    !STATUS_IGNORAR.has(String(p.status ?? "")) &&
+    (regime !== "caixa" || (STATUS_PAGO_DRE.has(String(p.status ?? "")) && Boolean(p.payment_date)));
+  const sai = (e: Desp) => regime !== "caixa" || (e.status === "paid" && Boolean(e.paid_date));
+
+  const grossRevenue = Math.round(pgtos.filter(entra).reduce((s, p) => s + Number(p.value ?? 0), 0));
+  desps = desps.filter(sai);
 
   const porChave = new Map<string, number>();
   for (const e of desps) {
@@ -72,22 +79,35 @@ const VAZIA: DreLinha = {
   deducoes: [], custos: [], totalCosts: 0, netProfit: 0, margin: 0,
 };
 
-export async function getDre(periodo: DrePeriodo, ref = new Date()): Promise<DreResultado> {
+export async function getDre(periodo: DrePeriodo, ref = new Date(), regime: DreRegime = "competencia"): Promise<DreResultado> {
   const r = intervalo(periodo, ref);
   const base: DreResultado = {
     periodo, label: r.label, from: r.from, to: r.to,
     atual: VAZIA, anterior: VAZIA, labelAnterior: r.prevLabel,
-    metaMargin: 42, serie: [], topExpenses: [], revenueByClient: [], semDados: true,
+    metaMargin: 42, regime, serie: [], topExpenses: [], revenueByClient: [], semDados: true,
   };
   if (!isSupabaseConfigured()) return base;
 
   try {
     const supabase = await createClient();
     const [pgAtual, pgAnt, dpAtual, dpAnt, cfg, catsRes] = await Promise.all([
-      supabase.from("payments").select("value, due_date, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
-      supabase.from("payments").select("value, due_date, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo).limit(5000),
-      supabase.from("expenses").select("amount, due_date, category, description").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
-      supabase.from("expenses").select("amount, due_date, category, description").gte("due_date", r.prevFrom).lte("due_date", r.prevTo).limit(5000),
+      // No caixa, corta pela data de pagamento; na competência, pelo vencimento.
+      (regime === "caixa"
+        ? supabase.from("payments").select("value, due_date, payment_date, status, clients(name)").gte("payment_date", r.from).lte("payment_date", r.to)
+        : supabase.from("payments").select("value, due_date, payment_date, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to)
+      ).limit(5000),
+      (regime === "caixa"
+        ? supabase.from("payments").select("value, due_date, payment_date, status").gte("payment_date", r.prevFrom).lte("payment_date", r.prevTo)
+        : supabase.from("payments").select("value, due_date, payment_date, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo)
+      ).limit(5000),
+      (regime === "caixa"
+        ? supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("paid_date", r.from).lte("paid_date", r.to)
+        : supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("due_date", r.from).lte("due_date", r.to)
+      ).limit(5000),
+      (regime === "caixa"
+        ? supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("paid_date", r.prevFrom).lte("paid_date", r.prevTo)
+        : supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo)
+      ).limit(5000),
       supabase.from("finance_settings").select("meta_margin").eq("id", 1).maybeSingle(),
       supabase.from("expense_categories").select("key, label, dre_group, position").order("position"),
     ]);
@@ -102,21 +122,21 @@ export async function getDre(periodo: DrePeriodo, ref = new Date()): Promise<Dre
           key: c.key, label: c.label, dreGroup: c.dre_group,
         }));
 
-    const atual = montarLinha(pAtual, dAtual, cats);
-    const anterior = montarLinha((pgAnt.data ?? []) as Pgto[], (dpAnt.data ?? []) as Desp[], cats);
+    const atual = montarLinha(pAtual, dAtual, cats, regime);
+    const anterior = montarLinha((pgAnt.data ?? []) as Pgto[], (dpAnt.data ?? []) as Desp[], cats, regime);
 
     // Série mês a mês dentro do período.
     const porMes = new Map<string, { receita: number; custos: number }>();
     for (const p of pAtual) {
       if (STATUS_IGNORAR.has(String(p.status ?? ""))) continue;
-      const k = String(p.due_date ?? "").slice(0, 7);
+      const k = String((regime === "caixa" ? p.payment_date : p.due_date) ?? "").slice(0, 7);
       if (!k) continue;
       const v = porMes.get(k) ?? { receita: 0, custos: 0 };
       v.receita += Number(p.value ?? 0);
       porMes.set(k, v);
     }
     for (const e of dAtual) {
-      const k = String(e.due_date ?? "").slice(0, 7);
+      const k = String((regime === "caixa" ? e.paid_date : e.due_date) ?? "").slice(0, 7);
       if (!k) continue;
       const v = porMes.get(k) ?? { receita: 0, custos: 0 };
       v.custos += Number(e.amount ?? 0);
@@ -160,6 +180,7 @@ export async function getDre(periodo: DrePeriodo, ref = new Date()): Promise<Dre
       periodo, label: r.label, from: r.from, to: r.to,
       atual, anterior, labelAnterior: r.prevLabel,
       metaMargin: Number.isFinite(metaMargin) ? metaMargin : 42,
+      regime,
       serie, topExpenses, revenueByClient,
       semDados: pAtual.length === 0 && dAtual.length === 0,
     };

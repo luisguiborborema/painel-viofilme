@@ -22,6 +22,8 @@ export type FinanceSettings = {
   paymentMethods: PaymentMethodDef[];
   alertMargin: boolean;
   alertOverdue: number;
+  /** Fechamento contábil: tudo com vencimento até aqui está travado. */
+  closedUntil: string | null;
 };
 
 export const REGUA_PADRAO: CollectionRule[] = [
@@ -45,6 +47,7 @@ export const FINANCE_SETTINGS_PADRAO: FinanceSettings = {
   paymentMethods: METODOS_PADRAO,
   alertMargin: false,
   alertOverdue: 0,
+  closedUntil: null,
 };
 
 /** Normaliza a régua vinda do banco: ordena por dias e descarta lixo. */
