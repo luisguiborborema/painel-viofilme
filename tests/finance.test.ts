@@ -189,3 +189,24 @@ eq("recusada bloqueia pagamento", Boolean(bloqueioDePagamento("rejected")), true
 eq("aprovada libera", bloqueioDePagamento("approved"), null);
 eq("sem status (linha antiga) libera", bloqueioDePagamento(null), null);
 
+
+/* ── paginação: o teto precisa ser visível, não silencioso ── */
+// Reimplementa o laço de `buscarTudo` (o módulo real importa "server-only" e
+// não roda fora do Next). O que se testa aqui é a REGRA: quando parar de pedir
+// páginas e quando admitir que os dados estão incompletos.
+function paginar(total: number, pagina: number, teto: number) {
+  const linhas: number[] = [];
+  for (let de = 0; de < teto; de += pagina) {
+    const lote = Math.max(0, Math.min(pagina, total - de));
+    for (let i = 0; i < lote; i++) linhas.push(de + i);
+    if (lote < pagina) return { lidas: linhas.length, truncado: false };
+  }
+  return { lidas: linhas.length, truncado: true };
+}
+
+eq("lê tudo em uma página", paginar(500, 1000, 50_000), { lidas: 500, truncado: false });
+eq("lê tudo em várias páginas", paginar(2500, 1000, 50_000), { lidas: 2500, truncado: false });
+eq("página cheia exata não engana", paginar(2000, 1000, 50_000), { lidas: 2000, truncado: false });
+eq("vazio", paginar(0, 1000, 50_000), { lidas: 0, truncado: false });
+eq("acima do teto avisa que truncou", paginar(120_000, 1000, 5_000), { lidas: 5_000, truncado: true });
+eq("exatamente no teto avisa", paginar(5_000, 1000, 5_000), { lidas: 5_000, truncado: true });

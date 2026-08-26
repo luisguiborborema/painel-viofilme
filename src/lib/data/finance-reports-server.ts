@@ -5,6 +5,7 @@ import { CATEGORIAS_PADRAO } from "./expense-categories";
 import { calcularEncargos, type EncargosConfig } from "./late-fees";
 import { estimarImposto, type Provisao, type TaxConfig } from "./tax";
 import { getRegrasFinanceiras } from "./finance-guards-server";
+import { buscarTudo } from "./paginate-server";
 
 const PAGO = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -50,7 +51,8 @@ export async function getOrcamento(month?: string): Promise<Orcamento> {
     const [catsRes, budRes, expRes] = await Promise.all([
       supabase.from("expense_categories").select("key, label, position").order("position"),
       supabase.from("budgets").select("category_key, amount").eq("month", primeiro),
-      supabase.from("expenses").select("category, amount").gte("due_date", primeiro).lte("due_date", ultimo).limit(5000),
+      buscarTudo<Record<string, unknown>>((a, b) =>
+        supabase.from("expenses").select("category, amount").gte("due_date", primeiro).lte("due_date", ultimo).range(a, b)),
     ]);
 
     const cats = catsRes.error
@@ -62,7 +64,7 @@ export async function getOrcamento(month?: string): Promise<Orcamento> {
       orcadoPor.set(String(b.category_key), Number(b.amount ?? 0));
     }
     const realPor = new Map<string, number>();
-    for (const e of (expRes.data ?? []) as Record<string, unknown>[]) {
+    for (const e of expRes.linhas) {
       const k = String(e.category ?? "outros");
       realPor.set(k, (realPor.get(k) ?? 0) + Number(e.amount ?? 0));
     }
@@ -131,14 +133,12 @@ export async function getAging(): Promise<Aging> {
   try {
     const supabase = await createClient();
     const hoje = new Date();
-    const { data, error } = await supabase
-      .from("payments")
-      .select("value, due_date, status, clients(name)")
-      .limit(5000);
-    if (error) return AGING_VAZIO;
+    const { linhas, erro } = await buscarTudo<Record<string, unknown>>((a, b) =>
+      supabase.from("payments").select("value, due_date, status, clients(name)").range(a, b));
+    if (erro) return AGING_VAZIO;
 
     const regras = await getRegrasFinanceiras(supabase);
-    const abertos = ((data ?? []) as Record<string, unknown>[]).filter(
+    const abertos = linhas.filter(
       (p) => !PAGO.has(String(p.status ?? "")) && !STATUS_IGNORAR.has(String(p.status ?? "")) && p.due_date,
     );
 
@@ -225,14 +225,12 @@ export async function getIndicadores(periodo: DrePeriodo = "mes", ref = new Date
   try {
     const supabase = await createClient();
     const r = intervalo(periodo, ref);
-    const { data } = await supabase
-      .from("payments")
-      .select("client_id, value, due_date, payment_date, status, billing_type")
-      .gte("due_date", r.from)
-      .lte("due_date", r.to)
-      .limit(5000);
+    const { linhas } = await buscarTudo<Record<string, unknown>>((a, b) =>
+      supabase.from("payments")
+        .select("client_id, value, due_date, payment_date, status, billing_type")
+        .gte("due_date", r.from).lte("due_date", r.to).range(a, b));
 
-    const rows = ((data ?? []) as Record<string, unknown>[]).filter((p) => !STATUS_IGNORAR.has(String(p.status ?? "")));
+    const rows = linhas.filter((p) => !STATUS_IGNORAR.has(String(p.status ?? "")));
     if (rows.length === 0) return { ...vazio, label: r.label };
 
     // DSO: média de dias entre vencimento e pagamento (só o que foi pago).
@@ -307,15 +305,12 @@ export async function getImpostos(meses = 6): Promise<PainelImpostos> {
     const hoje = new Date();
     const inicio = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - (n - 1), 1));
 
-    const { data } = await supabase
-      .from("payments")
-      .select("value, due_date, status")
-      .gte("due_date", iso(inicio))
-      .lte("due_date", iso(hoje))
-      .limit(5000);
+    const { linhas } = await buscarTudo<Record<string, unknown>>((a, b) =>
+      supabase.from("payments").select("value, due_date, status")
+        .gte("due_date", iso(inicio)).lte("due_date", iso(hoje)).range(a, b));
 
     const porMes = new Map<string, number>();
-    for (const p of ((data ?? []) as Record<string, unknown>[])) {
+    for (const p of linhas) {
       if (STATUS_IGNORAR.has(String(p.status ?? ""))) continue;
       const mes = String(p.due_date ?? "").slice(0, 7);
       if (!mes) continue;

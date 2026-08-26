@@ -74,7 +74,11 @@ function normalize(payload: unknown, chat?: Obj): Envelope[] {
 }
 
 function authorized(req: NextRequest, payload: unknown): boolean {
-  if (!UAZAPI_WEBHOOK_SECRET) return true;
+  // Sem segredo configurado, RECUSA. Aceitar seria deixar qualquer um na
+  // internet injetar mensagem no inbox — o endpoint é público por natureza e
+  // grava no banco. Falhar fechado custa uma variável de ambiente; falhar
+  // aberto custa a integridade do histórico de conversas.
+  if (!UAZAPI_WEBHOOK_SECRET) return false;
   const querySecret = req.nextUrl.searchParams.get("secret");
   if (querySecret === UAZAPI_WEBHOOK_SECRET) return true;
   const token = isObj(payload) ? pickString(payload, ["token"]) : undefined;
@@ -101,8 +105,12 @@ async function postHandler(req: NextRequest) {
   }
 
   if (!authorized(req, payload)) {
-    await log(payload, "secret-invalido");
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const motivo = UAZAPI_WEBHOOK_SECRET ? "secret-invalido" : "secret-nao-configurado";
+    await log(payload, motivo);
+    return NextResponse.json(
+      { error: "unauthorized", hint: UAZAPI_WEBHOOK_SECRET ? undefined : "defina UAZAPI_WEBHOOK_SECRET" },
+      { status: 401 },
+    );
   }
 
   const envelopes = normalize(payload);

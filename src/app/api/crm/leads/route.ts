@@ -385,6 +385,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "id/stage ausente" }, { status: 400 });
     }
 
+    // A etapa precisa existir. Sem esta checagem, gravar uma chave inválida faz
+    // o card sumir do funil: ele não pertence a nenhuma coluna e ninguém acha.
+    // Tolerante: se a tabela de etapas ainda não estiver populada, não bloqueia.
+    const { data: etapas } = await supabase.from("crm_stages").select("key").limit(500);
+    const chaves = ((etapas ?? []) as { key: unknown }[]).map((e) => String(e.key));
+    if (chaves.length > 0 && !chaves.includes(String(body.stage))) {
+      return NextResponse.json(
+        { error: `etapa inexistente: ${String(body.stage)}` },
+        { status: 400 },
+      );
+    }
+
     // Estágio atual (para o histórico do funil).
     const { data: curDeal } = await supabase
       .from("crm_leads")
@@ -473,24 +485,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
-  const payload: Record<string, unknown> = {
-    name: body.name,
-    contact_name: body.contactName ?? null,
-    contact_phone: body.contactPhone?.replace(/\D/g, "") || null,
-    contact_email: body.contactEmail ?? null,
-    segment: body.segment ?? null,
-    monthly_value: body.monthlyValue ?? 0,
-    media_budget: body.mediaBudget ?? 0,
-    plan: body.plan ?? null,
-    probability: body.probability ?? 0,
-    priority: ["baixa", "media", "alta", "urgente"].includes(String(body.priority ?? "")) ? body.priority : "media",
-    source: body.source ?? null,
-    owner: body.owner ?? user.name,
-    bant: body.bant ?? {},
-    updated_at: now,
+  const PRIORIDADES = ["baixa", "media", "alta", "urgente"];
+
+  /**
+   * Campos vindos do corpo, SÓ os que foram realmente enviados.
+   *
+   * Antes o payload era montado com `?? null` para tudo, então um update
+   * parcial apagava segmento, plano, origem e zerava valores — sem erro, com
+   * 200 na resposta. Ausente e "quero limpar" não são a mesma coisa: só quem
+   * manda o campo decide o valor dele.
+   */
+  const doCorpo = (): Record<string, unknown> => {
+    const p: Record<string, unknown> = { updated_at: now };
+    if (body.name !== undefined) p.name = body.name;
+    if (body.contactName !== undefined) p.contact_name = body.contactName ?? null;
+    if (body.contactPhone !== undefined) p.contact_phone = body.contactPhone?.replace(/\D/g, "") || null;
+    if (body.contactEmail !== undefined) p.contact_email = body.contactEmail ?? null;
+    if (body.segment !== undefined) p.segment = body.segment ?? null;
+    if (body.monthlyValue !== undefined) p.monthly_value = body.monthlyValue ?? 0;
+    if (body.mediaBudget !== undefined) p.media_budget = body.mediaBudget ?? 0;
+    if (body.plan !== undefined) p.plan = body.plan ?? null;
+    if (body.probability !== undefined) p.probability = body.probability ?? 0;
+    if (body.priority !== undefined) p.priority = PRIORIDADES.includes(String(body.priority)) ? body.priority : "media";
+    if (body.source !== undefined) p.source = body.source ?? null;
+    if (body.owner !== undefined) p.owner = body.owner ?? user.name;
+    if (body.bant !== undefined) p.bant = body.bant ?? {};
+    return p;
   };
 
   if (action === "create") {
+    // Na criação os padrões valem: é uma linha nova, não uma alteração.
+    const payload: Record<string, unknown> = {
+      name: body.name,
+      contact_name: body.contactName ?? null,
+      contact_phone: body.contactPhone?.replace(/\D/g, "") || null,
+      contact_email: body.contactEmail ?? null,
+      segment: body.segment ?? null,
+      monthly_value: body.monthlyValue ?? 0,
+      media_budget: body.mediaBudget ?? 0,
+      plan: body.plan ?? null,
+      probability: body.probability ?? 0,
+      priority: PRIORIDADES.includes(String(body.priority ?? "")) ? body.priority : "media",
+      source: body.source ?? null,
+      owner: body.owner ?? user.name,
+      bant: body.bant ?? {},
+      updated_at: now,
+    };
     if (!body.name) {
       return NextResponse.json({ error: "nome ausente" }, { status: 400 });
     }
@@ -507,7 +547,25 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    payload.stage = body.stage ?? "prospeccao";
+    // Sem etapa informada, cai na PRIMEIRA etapa aberta do funil — não numa
+    // chave fixa. "prospeccao" é o padrão do código, mas quem configurou o
+    // funil pode ter outras etapas; gravar uma chave que não existe faz o card
+    // nascer fora de qualquer coluna e ninguém o encontra.
+    if (body.stage) {
+      payload.stage = body.stage;
+    } else {
+      const { data: etapas } = await supabase
+        .from("crm_stages")
+        .select("id,key,position,kind")
+        .eq("pipeline_id", body.pipelineId ?? null)
+        .order("position", { ascending: true });
+      const lista = (etapas ?? []).length
+        ? (etapas ?? [])
+        : ((await supabase.from("crm_stages").select("id,key,position,kind").order("position", { ascending: true })).data ?? []);
+      const primeira = lista.find((e) => e.kind === "open") ?? lista[0];
+      payload.stage = primeira?.key ?? "prospeccao";
+      if (primeira?.id) payload.stage_id = primeira.id;
+    }
     payload.stage_changed_at = now;
     // Origem define a cadência mais à frente; outbound é o padrão do SDR.
     payload.origin_kind = body.originKind === "inbound" ? "inbound" : "outbound";
@@ -600,9 +658,21 @@ export async function POST(req: Request) {
     });
   }
 
-  // update
+  // A partir daqui só resta a edição. Ação desconhecida NÃO pode cair aqui:
+  // um nome de ação errado (typo, cliente desatualizado) viraria uma escrita
+  // silenciosa no negócio.
+  if (action !== undefined && action !== "update") {
+    return NextResponse.json({ error: `ação desconhecida: ${String(action)}` }, { status: 400 });
+  }
+
   if (!body.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
-  const { error } = await supabase.from("crm_leads").update(payload).eq("id", body.id);
+  const patch = doCorpo();
+  // Só `updated_at` significa que nada foi enviado — não é uma edição.
+  if (Object.keys(patch).length <= 1) {
+    return NextResponse.json({ error: "nenhum campo para atualizar" }, { status: 400 });
+  }
+  const { error } = await supabase.from("crm_leads").update(patch).eq("id", body.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logFromUser(user, { action: "update", area: "Comercial", target: body.id });
   return NextResponse.json({ ok: true, persisted: true });
 }

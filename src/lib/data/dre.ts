@@ -52,6 +52,8 @@ export type DreResultado = {
   labelAnterior: string;
   metaMargin: number;
   regime: DreRegime;
+  /** Bateu no teto de leitura: os totais estão INCOMPLETOS. */
+  truncado?: boolean;
   /** Receita e lucro mês a mês dentro do período (para o gráfico). */
   serie: { mes: string; receita: number; custos: number; lucro: number }[];
   topExpenses: { label: string; value: number }[];

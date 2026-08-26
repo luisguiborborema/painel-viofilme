@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { STATUS_IGNORAR } from "./dre";
+import { buscarTudo } from "./paginate-server";
 
 /**
  * Movimentações consolidadas do Financeiro.
@@ -67,30 +68,26 @@ export async function getMovimentacoes(f: MovimentacoesFiltro = {}): Promise<Mov
 
     // Recebimentos — tolerante às colunas novas.
     const PAY_BASE = "id, description, value, due_date, payment_date, status, clients(name)";
-    const payV2 = await supabase
-      .from("payments")
-      .select(`${PAY_BASE}, account_id, reconciled_at, attachment_url`)
-      .gte("due_date", from).lte("due_date", to).limit(3000);
-    const payRes = payV2.error
-      ? await supabase.from("payments").select(PAY_BASE).gte("due_date", from).lte("due_date", to).limit(3000)
-      : payV2;
+    // Paginado: os TOTAIS do extrato são somados sobre a lista inteira antes do
+    // corte de exibição — truncar aqui daria um saldo menor sem avisar.
+    const paginar = (tabela: string, sel: string) =>
+      buscarTudo<Record<string, unknown>>((a, b) =>
+        supabase.from(tabela).select(sel).gte("due_date", from).lte("due_date", to).range(a, b));
+
+    const payV2 = await paginar("payments", `${PAY_BASE}, account_id, reconciled_at, attachment_url`);
+    const payRes = payV2.erro ? await paginar("payments", PAY_BASE) : payV2;
 
     // Despesas — idem.
     const EXP_BASE = "id, description, amount, due_date, paid_date, status, category";
-    const expV2 = await supabase
-      .from("expenses")
-      .select(`${EXP_BASE}, account_id, reconciled_at, attachment_url, clients(name)`)
-      .gte("due_date", from).lte("due_date", to).limit(3000);
-    const expRes = expV2.error
-      ? await supabase.from("expenses").select(EXP_BASE).gte("due_date", from).lte("due_date", to).limit(3000)
-      : expV2;
+    const expV2 = await paginar("expenses", `${EXP_BASE}, account_id, reconciled_at, attachment_url, clients(name)`);
+    const expRes = expV2.erro ? await paginar("expenses", EXP_BASE) : expV2;
 
     const transfRes = await supabase
       .from("account_transfers")
       .select("id, from_account, to_account, amount, date, note")
       .gte("date", from).lte("date", to).limit(1000);
 
-    const semTabelas = Boolean(payRes.error && expRes.error);
+    const semTabelas = Boolean(payRes.erro && expRes.erro);
 
     const nomeCliente = (r: Record<string, unknown>): string | null => {
       const c = r.clients as { name?: string } | { name?: string }[] | null | undefined;
@@ -100,7 +97,7 @@ export async function getMovimentacoes(f: MovimentacoesFiltro = {}): Promise<Mov
 
     const movimentos: Movement[] = [];
 
-    for (const r of (payRes.data ?? []) as Record<string, unknown>[]) {
+    for (const r of payRes.linhas) {
       if (STATUS_IGNORAR.has(String(r.status ?? ""))) continue;
       const pago = PAGO.has(String(r.status ?? ""));
       movimentos.push({
@@ -121,7 +118,7 @@ export async function getMovimentacoes(f: MovimentacoesFiltro = {}): Promise<Mov
       });
     }
 
-    for (const r of (expRes.data ?? []) as Record<string, unknown>[]) {
+    for (const r of expRes.linhas) {
       movimentos.push({
         id: `e-${String(r.id)}`,
         origem: "expense",

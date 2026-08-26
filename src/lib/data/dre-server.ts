@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { buscarTudo } from "./paginate-server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 /**
@@ -90,30 +91,34 @@ export async function getDre(periodo: DrePeriodo, ref = new Date(), regime: DreR
 
   try {
     const supabase = await createClient();
+    // No caixa, corta pela data de pagamento; na competência, pelo vencimento.
+    const coluna = regime === "caixa" ? "payment_date" : "due_date";
+    const colunaDesp = regime === "caixa" ? "paid_date" : "due_date";
+    const PAY = "value, due_date, payment_date, status, clients(name)";
+    const EXP = "amount, due_date, paid_date, category, description, status";
+
+    // Paginado: com `.limit()` fixo, passar do teto devolveria um DRE menor
+    // sem erro nenhum — o pior tipo de defeito num relatório financeiro.
+    const pagos = (sel: string, de: string, ate: string) =>
+      buscarTudo<Pgto>((a, b) =>
+        supabase.from("payments").select(sel).gte(coluna, de).lte(coluna, ate).range(a, b));
+    const despesas = (de: string, ate: string) =>
+      buscarTudo<Desp>((a, b) =>
+        supabase.from("expenses").select(EXP).gte(colunaDesp, de).lte(colunaDesp, ate).range(a, b));
+
     const [pgAtual, pgAnt, dpAtual, dpAnt, cfg, catsRes] = await Promise.all([
-      // No caixa, corta pela data de pagamento; na competência, pelo vencimento.
-      (regime === "caixa"
-        ? supabase.from("payments").select("value, due_date, payment_date, status, clients(name)").gte("payment_date", r.from).lte("payment_date", r.to)
-        : supabase.from("payments").select("value, due_date, payment_date, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to)
-      ).limit(5000),
-      (regime === "caixa"
-        ? supabase.from("payments").select("value, due_date, payment_date, status").gte("payment_date", r.prevFrom).lte("payment_date", r.prevTo)
-        : supabase.from("payments").select("value, due_date, payment_date, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo)
-      ).limit(5000),
-      (regime === "caixa"
-        ? supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("paid_date", r.from).lte("paid_date", r.to)
-        : supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("due_date", r.from).lte("due_date", r.to)
-      ).limit(5000),
-      (regime === "caixa"
-        ? supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("paid_date", r.prevFrom).lte("paid_date", r.prevTo)
-        : supabase.from("expenses").select("amount, due_date, paid_date, category, description, status").gte("due_date", r.prevFrom).lte("due_date", r.prevTo)
-      ).limit(5000),
+      pagos(PAY, r.from, r.to),
+      pagos("value, due_date, payment_date, status", r.prevFrom, r.prevTo),
+      despesas(r.from, r.to),
+      despesas(r.prevFrom, r.prevTo),
       supabase.from("finance_settings").select("meta_margin").eq("id", 1).maybeSingle(),
       supabase.from("expense_categories").select("key, label, dre_group, position").order("position"),
     ]);
 
-    const pAtual = (pgAtual.data ?? []) as Pgto[];
-    const dAtual = (dpAtual.data ?? []) as Desp[];
+    const pAtual = pgAtual.linhas;
+    const dAtual = dpAtual.linhas;
+    // Se algum bloco bateu no teto, o número está incompleto e a tela avisa.
+    const truncado = pgAtual.truncado || pgAnt.truncado || dpAtual.truncado || dpAnt.truncado;
 
     // Categorias cadastradas; sem a migração 0133, cai nas padrão do código.
     const cats: CatDef[] = catsRes.error
@@ -123,7 +128,7 @@ export async function getDre(periodo: DrePeriodo, ref = new Date(), regime: DreR
         }));
 
     const atual = montarLinha(pAtual, dAtual, cats, regime);
-    const anterior = montarLinha((pgAnt.data ?? []) as Pgto[], (dpAnt.data ?? []) as Desp[], cats, regime);
+    const anterior = montarLinha(pgAnt.linhas, dpAnt.linhas, cats, regime);
 
     // Série mês a mês dentro do período.
     const porMes = new Map<string, { receita: number; custos: number }>();
@@ -183,6 +188,7 @@ export async function getDre(periodo: DrePeriodo, ref = new Date(), regime: DreR
       regime,
       serie, topExpenses, revenueByClient,
       semDados: pAtual.length === 0 && dAtual.length === 0,
+      truncado,
     };
   } catch {
     return base;

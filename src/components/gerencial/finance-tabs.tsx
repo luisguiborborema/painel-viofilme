@@ -2096,6 +2096,17 @@ function Dre() {
           : "Regime de competência: conta pelo vencimento, pago ou não — é o resultado do período."}
       </p>
 
+      {d.truncado && (
+        <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-600">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>Números incompletos.</strong> O período tem mais lançamentos do que o sistema
+            consegue ler de uma vez. Reduza o intervalo ou fale comigo para aumentar o teto — não
+            use este DRE para fechar o mês.
+          </span>
+        </p>
+      )}
+
       {d.semDados && (
         <p className="rounded-xl bg-subtle px-3 py-2 text-xs text-muted">
           Nenhum lançamento {d.regime === "caixa" ? "liquidado" : "com vencimento"} em {d.label}. Os valores abaixo estão zerados.

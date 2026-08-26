@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { STATUS_IGNORAR } from "./dre";
+import { buscarTudo } from "./paginate-server";
 
 /**
  * Fluxo de caixa PROJETADO.
@@ -70,17 +71,20 @@ export async function getCashflow(semanas = 12): Promise<Cashflow> {
       saldoHoje = contas.reduce((s, c) => s + Number(c.opening_balance ?? 0), 0);
 
       const [recRes, pagRes, transfRes] = await Promise.all([
-        supabase.from("payments").select("value, status, account_id").in("account_id", ids).limit(5000),
-        supabase.from("expenses").select("amount, status, account_id").in("account_id", ids).limit(5000),
-        supabase.from("account_transfers").select("amount, from_account, to_account").limit(2000),
+        buscarTudo<Record<string, unknown>>((a, b) =>
+          supabase.from("payments").select("value, status, account_id").in("account_id", ids).range(a, b)),
+        buscarTudo<Record<string, unknown>>((a, b) =>
+          supabase.from("expenses").select("amount, status, account_id").in("account_id", ids).range(a, b)),
+        buscarTudo<Record<string, unknown>>((a, b) =>
+          supabase.from("account_transfers").select("amount, from_account, to_account").range(a, b)),
       ]);
-      for (const r of (recRes.error ? [] : (recRes.data ?? [])) as Record<string, unknown>[]) {
+      for (const r of recRes.linhas) {
         if (PAGO.has(String(r.status ?? ""))) saldoHoje += Number(r.value ?? 0);
       }
-      for (const r of (pagRes.error ? [] : (pagRes.data ?? [])) as Record<string, unknown>[]) {
+      for (const r of pagRes.linhas) {
         if (r.status === "paid") saldoHoje -= Number(r.amount ?? 0);
       }
-      for (const t of (transfRes.error ? [] : (transfRes.data ?? [])) as Record<string, unknown>[]) {
+      for (const t of transfRes.linhas) {
         const v = Number(t.amount ?? 0);
         if (ids.includes(String(t.to_account))) saldoHoje += v;
         if (ids.includes(String(t.from_account))) saldoHoje -= v;
@@ -90,15 +94,17 @@ export async function getCashflow(semanas = 12): Promise<Cashflow> {
     // 2) O que ainda vai entrar/sair. Vencidos e não pagos entram na 1ª semana:
     //    são caixa esperado, mas sinalizados como risco.
     const [recRes, pagRes] = await Promise.all([
-      supabase.from("payments").select("value, due_date, status").lte("due_date", fim).limit(5000),
-      supabase.from("expenses").select("amount, due_date, status").lte("due_date", fim).limit(5000),
+      buscarTudo<Record<string, unknown>>((a, b) =>
+        supabase.from("payments").select("value, due_date, status").lte("due_date", fim).range(a, b)),
+      buscarTudo<Record<string, unknown>>((a, b) =>
+        supabase.from("expenses").select("amount, due_date, status").lte("due_date", fim).range(a, b)),
     ]);
 
-    const aReceber = ((recRes.error ? [] : recRes.data ?? []) as Record<string, unknown>[])
+    const aReceber = recRes.linhas
       .filter((r) => !PAGO.has(String(r.status ?? "")) && !STATUS_IGNORAR.has(String(r.status ?? "")))
       .map((r) => ({ date: String(r.due_date ?? ""), value: Number(r.value ?? 0) }))
       .filter((r) => r.date);
-    const aPagar = ((pagRes.error ? [] : pagRes.data ?? []) as Record<string, unknown>[])
+    const aPagar = pagRes.linhas
       .filter((r) => r.status !== "paid")
       .map((r) => ({ date: String(r.due_date ?? ""), value: Number(r.amount ?? 0) }))
       .filter((r) => r.date);
