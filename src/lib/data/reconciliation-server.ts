@@ -147,7 +147,8 @@ export async function importarExtrato(
       if (error) throw error;
     }
 
-    // Casamento automático só do que acabou de entrar.
+    // Roda sobre TODAS as linhas ainda pendentes da conta, não só as novas —
+    // um extrato mais recente costuma resolver pendência de importação anterior.
     const { casadas, ambiguas } = await casarPendentes(db, accountId);
     return { lidas: lido.entries.length, novas: novas.length, repetidas, casadas, ambiguas };
   } catch (e) {
