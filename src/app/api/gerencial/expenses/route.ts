@@ -6,6 +6,8 @@ import { EXPENSE_CATEGORIES } from "@/lib/data/gerfinance";
 import { JANELA_ABERTA_MESES, planejarParcelas, type Recurrence } from "@/lib/data/expense-series";
 import { logFromUser } from "@/lib/audit/log";
 import { bloqueioPorFechamento, periodoFechadoAte } from "@/lib/data/period-lock";
+import { getRegrasFinanceiras } from "@/lib/data/finance-guards-server";
+import { bloqueioDePagamento, podeAprovar, statusInicial } from "@/lib/data/approval";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +22,7 @@ const RECS = new Set<string>(["monthly", "weekly", "yearly"]);
 const today = () => new Date().toISOString().slice(0, 10);
 
 type Body = {
-  action?: "create" | "update" | "delete" | "pay" | "unpay";
+  action?: "create" | "update" | "delete" | "pay" | "unpay" | "approve" | "reject" | "reopen";
   id?: string;
   description?: string;
   category?: string;
@@ -31,6 +33,9 @@ type Body = {
   status?: string;
   clientId?: string | null;
   attachmentUrl?: string | null;
+  invoiceNumber?: string | null;
+  /** Motivo da recusa / observação da aprovação. */
+  approvalNote?: string | null;
   // Recorrência (create): gera parcelas reais.
   recurrence?: string;      // monthly | weekly | yearly
   installments?: number;    // nº de parcelas; ignorado se openEnded
@@ -38,6 +43,21 @@ type Body = {
   // Alcance de update/delete numa série.
   scope?: "one" | "future"; // padrão: one
 };
+
+/** Colunas que só existem depois da 0138 — o insert tem de sobreviver sem elas. */
+const COLS_0138 = ["approval_status", "invoice_number"] as const;
+
+/** Erro do Postgres por coluna inexistente. */
+const colunaFaltando = (msg: string) => /42703|column .* does not exist/i.test(msg);
+
+/** Remove as colunas da 0138 de cada linha, para o retry sem migração. */
+function semColunas0138<T extends Record<string, unknown>>(linhas: T[]): Record<string, unknown>[] {
+  return linhas.map((l) => {
+    const c = { ...l };
+    for (const k of COLS_0138) delete c[k];
+    return c;
+  });
+}
 
 /** Contas a pagar / despesas da agência (gerencial). */
 export async function POST(req: Request) {
@@ -70,8 +90,27 @@ export async function POST(req: Request) {
     if (bloqueio) return NextResponse.json({ error: bloqueio }, { status: 409 });
   }
   await logFromUser(user, { action, area: "Financeiro", target: b.description ?? b.id ?? null });
+  const regras = await getRegrasFinanceiras(supabase);
 
   try {
+    // ── Aprovar / recusar / reabrir (alçada) ───────────────────────────────
+    if (action === "approve" || action === "reject" || action === "reopen") {
+      if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      if (!podeAprovar(user.tier)) {
+        return NextResponse.json({ error: "Apenas gestor e admin aprovam despesas." }, { status: 403 });
+      }
+      const status = action === "approve" ? "approved" : action === "reject" ? "rejected" : "pending";
+      const { error } = await supabase.from("expenses").update({
+        approval_status: status,
+        approved_by: action === "reopen" ? null : (user.name || user.email),
+        approved_at: action === "reopen" ? null : new Date().toISOString(),
+        approval_note: b.approvalNote?.trim() || null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", b.id);
+      if (error) throw error;
+      return NextResponse.json({ ok: true, approvalStatus: status });
+    }
+
     // ── Excluir (uma parcela ou esta e as futuras) ──────────────────────────
     if (action === "delete") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
@@ -103,6 +142,12 @@ export async function POST(req: Request) {
     // ── Baixar / estornar ──────────────────────────────────────────────────
     if (action === "pay" || action === "unpay") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      // Despesa acima da alçada só é paga depois de liberada.
+      if (action === "pay") {
+        const { data: atual } = await supabase.from("expenses").select("approval_status").eq("id", b.id).maybeSingle();
+        const bloqueio = bloqueioDePagamento((atual as { approval_status?: string } | null)?.approval_status);
+        if (bloqueio) return NextResponse.json({ error: bloqueio }, { status: 409 });
+      }
       const patch =
         action === "pay"
           ? { status: "paid", paid_date: b.paidDate || today() }
@@ -133,6 +178,7 @@ export async function POST(req: Request) {
       if (b.vendor !== undefined) patch.vendor = b.vendor.trim() || null;
       if (b.clientId !== undefined) patch.client_id = b.clientId || null;
       if (b.attachmentUrl !== undefined) patch.attachment_url = b.attachmentUrl || null;
+      if (b.invoiceNumber !== undefined) patch.invoice_number = b.invoiceNumber?.trim() || null;
 
       if (b.scope === "future") {
         const { data: alvo } = await supabase
@@ -157,8 +203,12 @@ export async function POST(req: Request) {
       }
       // Só nesta parcela o vencimento pode mudar.
       if (b.dueDate !== undefined) patch.due_date = b.dueDate || null;
-      const { error } = await supabase.from("expenses").update(patch).eq("id", b.id);
-      if (error) throw error;
+      let up = await supabase.from("expenses").update(patch).eq("id", b.id);
+      if (up.error && colunaFaltando(up.error.message)) {
+        delete patch.invoice_number;
+        up = await supabase.from("expenses").update(patch).eq("id", b.id);
+      }
+      if (up.error) throw up.error;
       return NextResponse.json({ ok: true, persisted: true, atualizadas: 1 });
     }
 
@@ -174,24 +224,30 @@ export async function POST(req: Request) {
     const primeiro = b.dueDate || today();
     const recorrencia = b.recurrence && RECS.has(b.recurrence) ? (b.recurrence as Recurrence) : null;
 
+    // Alçada: acima do limite a despesa nasce aguardando liberação.
+    const approvalStatus = statusInicial(amount, regras.approvalThreshold);
+
     // Sem recorrência: uma linha só (comportamento antigo).
     if (!recorrencia) {
-      const { data, error } = await supabase
-        .from("expenses")
-        .insert({
-          description, category, amount,
-          due_date: b.dueDate || null,
-          paid_date: paid ? b.paidDate || today() : null,
-          status: paid ? "paid" : "pending",
-          recurring: false,
-          vendor,
-          client_id: b.clientId || null,
-          created_by: user.id,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return NextResponse.json({ ok: true, persisted: true, id: data.id, parcelas: 1 });
+      const linha = {
+        description, category, amount,
+        approval_status: approvalStatus,
+        invoice_number: b.invoiceNumber?.trim() || null,
+        due_date: b.dueDate || null,
+        paid_date: paid ? b.paidDate || today() : null,
+        status: paid ? "paid" : "pending",
+        recurring: false,
+        vendor,
+        client_id: b.clientId || null,
+        created_by: user.id,
+      };
+      let r = await supabase.from("expenses").insert(linha).select("id").single();
+      if (r.error && colunaFaltando(r.error.message)) {
+        // Migração 0138 ainda não rodou: grava sem alçada e sem NF.
+        r = await supabase.from("expenses").insert(semColunas0138([linha])[0]).select("id").single();
+      }
+      if (r.error) throw r.error;
+      return NextResponse.json({ ok: true, persisted: true, id: r.data.id, parcelas: 1, approvalStatus });
     }
 
     // Com recorrência: gera as parcelas de verdade, agrupadas por series_id.
@@ -214,15 +270,20 @@ export async function POST(req: Request) {
       installments_total: aberta ? null : plano.length,
       recurrence: recorrencia,
       open_ended: aberta,
+      approval_status: approvalStatus,
     }));
 
-    const { error } = await supabase.from("expenses").insert(linhas);
-    if (error) throw error;
-    return NextResponse.json({ ok: true, persisted: true, seriesId: serieId, parcelas: linhas.length });
+    let ins = await supabase.from("expenses").insert(linhas);
+    if (ins.error && colunaFaltando(ins.error.message)) ins = await supabase.from("expenses").insert(semColunas0138(linhas));
+    if (ins.error) throw ins.error;
+    return NextResponse.json({ ok: true, persisted: true, seriesId: serieId, parcelas: linhas.length, approvalStatus });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/client_id|attachment_url/i.test(msg)) {
       return NextResponse.json({ error: "Rode a migração 0136_finance_completo.sql." }, { status: 409 });
+    }
+    if (/approval_status|approved_by|invoice_number/i.test(msg)) {
+      return NextResponse.json({ error: "Rode a migração 0138_conciliacao_nf_encargos_alcada.sql." }, { status: 409 });
     }
     if (/series_id|installment|recurrence|open_ended|42703/i.test(msg)) {
       return NextResponse.json({ error: "Rode a migração 0130_expenses_series.sql." }, { status: 409 });

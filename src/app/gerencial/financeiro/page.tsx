@@ -1,5 +1,6 @@
 import { Wallet } from "lucide-react";
 import { getGerFinance } from "@/lib/data/queries";
+import { getSession } from "@/lib/auth/session";
 import { FinanceTabs } from "@/components/gerencial/finance-tabs";
 import { FinanceHeaderActions } from "@/components/gerencial/finance-header-actions";
 
@@ -7,7 +8,7 @@ export const metadata = { title: "Financeiro" };
 
 
 export default async function GerencialFinanceiro() {
-  const data = await getGerFinance();
+  const [data, user] = await Promise.all([getGerFinance(), getSession()]);
 
   return (
     <div className="space-y-4">
@@ -33,7 +34,7 @@ export default async function GerencialFinanceiro() {
         </div>
       </div>
 
-      <FinanceTabs data={data} />
+      <FinanceTabs data={data} tier={user?.tier ?? null} />
     </div>
   );
 }

@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { getAging, getIndicadores, getOrcamento } from "@/lib/data/finance-reports-server";
+import { getAging, getImpostos, getIndicadores, getOrcamento } from "@/lib/data/finance-reports-server";
+import { estimarImposto } from "@/lib/data/tax";
+import { getRegrasFinanceiras } from "@/lib/data/finance-guards-server";
 import { logFromUser } from "@/lib/audit/log";
 import type { DrePeriodo } from "@/lib/data/dre";
 
@@ -19,6 +21,7 @@ export async function GET(request: NextRequest) {
   const view = q.get("view") ?? "orcamento";
 
   if (view === "aging") return NextResponse.json(await getAging());
+  if (view === "impostos") return NextResponse.json(await getImpostos(Number(q.get("meses") ?? 6)));
   if (view === "indicadores") {
     const p = q.get("periodo") ?? "mes";
     return NextResponse.json(await getIndicadores((PERIODOS.has(p) ? p : "mes") as DrePeriodo));
@@ -27,11 +30,14 @@ export async function GET(request: NextRequest) {
 }
 
 type Body = {
-  action?: "budget" | "fechar" | "reabrir";
+  action?: "budget" | "fechar" | "reabrir" | "lancarImposto";
   month?: string;        // YYYY-MM
   categoryKey?: string;
   amount?: number;
   closedUntil?: string;  // YYYY-MM-DD
+  /** Mês de apuração do imposto a lançar (YYYY-MM). */
+  taxMonth?: string;
+  taxAmount?: number;
 };
 
 export async function POST(req: Request) {
@@ -60,6 +66,36 @@ export async function POST(req: Request) {
       );
       if (error) throw error;
       return NextResponse.json({ ok: true, closedUntil: ate });
+    }
+
+    // Lança a guia do mês como despesa a pagar — deixa de ser estimativa.
+    if (b.action === "lancarImposto") {
+      const mes = String(b.taxMonth ?? "");
+      if (!/^\d{4}-\d{2}$/.test(mes)) return NextResponse.json({ error: "Mês inválido." }, { status: 400 });
+      const cfg = (await getRegrasFinanceiras(supabase)).imposto;
+      const valor = Number.isFinite(Number(b.taxAmount)) && Number(b.taxAmount) > 0
+        ? Number(b.taxAmount)
+        : estimarImposto(mes, 0, cfg).valor;
+      if (!valor) return NextResponse.json({ error: "Valor do imposto não informado." }, { status: 400 });
+
+      await logFromUser(user, { action: "create", area: "Financeiro · impostos", target: mes });
+      const { error } = await supabase.from("expenses").insert({
+        description: `Imposto ${mes}`,
+        category: "impostos",
+        amount: valor,
+        due_date: estimarImposto(mes, 0, cfg).vencimento,
+        status: "pending",
+        recurring: false,
+        created_by: user.id,
+      });
+      if (error) {
+        // Categoria "impostos" pode não existir na lista do cliente.
+        if (/category/i.test(error.message)) {
+          return NextResponse.json({ error: 'Crie a categoria "Impostos" em Contas & categorias.' }, { status: 409 });
+        }
+        throw error;
+      }
+      return NextResponse.json({ ok: true, valor });
     }
 
     // Orçamento de uma categoria no mês.

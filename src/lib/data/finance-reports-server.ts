@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { STATUS_IGNORAR, intervalo, type DrePeriodo } from "./dre";
 import { CATEGORIAS_PADRAO } from "./expense-categories";
+import { calcularEncargos, type EncargosConfig } from "./late-fees";
+import { estimarImposto, type Provisao, type TaxConfig } from "./tax";
+import { getRegrasFinanceiras } from "./finance-guards-server";
 
 const PAGO = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -110,12 +113,17 @@ export type Aging = {
   totalVencido: number;
   totalAberto: number;
   /** Clientes com mais valor vencido, para priorizar a régua. */
-  piores: { name: string; valor: number; diasMax: number }[];
+  piores: { name: string; valor: number; diasMax: number; encargos: number }[];
+  /** Multa + juros acumulados sobre tudo que está vencido. */
+  encargosTotal: number;
+  /** Configuração usada, para a tela explicar de onde vem o número. */
+  encargos: EncargosConfig;
 };
 
 const AGING_VAZIO: Aging = {
   aVencer: { faixa: "A vencer", valor: 0, qtd: 0 },
   faixas: [], totalVencido: 0, totalAberto: 0, piores: [],
+  encargosTotal: 0, encargos: { fine: 0, interestMonth: 0, graceDays: 0 },
 };
 
 export async function getAging(): Promise<Aging> {
@@ -129,6 +137,7 @@ export async function getAging(): Promise<Aging> {
       .limit(5000);
     if (error) return AGING_VAZIO;
 
+    const regras = await getRegrasFinanceiras(supabase);
     const abertos = ((data ?? []) as Record<string, unknown>[]).filter(
       (p) => !PAGO.has(String(p.status ?? "")) && !STATUS_IGNORAR.has(String(p.status ?? "")) && p.due_date,
     );
@@ -140,7 +149,8 @@ export async function getAging(): Promise<Aging> {
       { faixa: "+90 dias", valor: 0, qtd: 0 },
     ];
     const aVencer: FaixaAging = { faixa: "A vencer", valor: 0, qtd: 0 };
-    const porCliente = new Map<string, { valor: number; diasMax: number }>();
+    const porCliente = new Map<string, { valor: number; diasMax: number; encargos: number }>();
+    let encargosTotal = 0;
 
     for (const p of abertos) {
       const venc = String(p.due_date);
@@ -155,10 +165,15 @@ export async function getAging(): Promise<Aging> {
       faixas[idx].valor += valor;
       faixas[idx].qtd += 1;
 
+      // Multa e juros do título, pela regra configurada.
+      const enc = calcularEncargos(valor, venc, regras.encargos, hoje).total;
+      encargosTotal += enc;
+
       const c = p.clients as { name?: string } | { name?: string }[] | null;
       const nome = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Sem cliente";
-      const cur = porCliente.get(nome) ?? { valor: 0, diasMax: 0 };
+      const cur = porCliente.get(nome) ?? { valor: 0, diasMax: 0, encargos: 0 };
       cur.valor += valor;
+      cur.encargos += enc;
       cur.diasMax = Math.max(cur.diasMax, dias);
       porCliente.set(nome, cur);
     }
@@ -169,8 +184,10 @@ export async function getAging(): Promise<Aging> {
       faixas: faixas.map((f) => ({ ...f, valor: Math.round(f.valor) })),
       totalVencido: Math.round(totalVencido),
       totalAberto: Math.round(totalVencido + aVencer.valor),
+      encargosTotal: Math.round(encargosTotal * 100) / 100,
+      encargos: regras.encargos,
       piores: [...porCliente.entries()]
-        .map(([name, v]) => ({ name, valor: Math.round(v.valor), diasMax: v.diasMax }))
+        .map(([name, v]) => ({ name, valor: Math.round(v.valor), diasMax: v.diasMax, encargos: Math.round(v.encargos * 100) / 100 }))
         .sort((a, b) => b.valor - a.valor)
         .slice(0, 8),
     };
@@ -257,6 +274,76 @@ export async function getIndicadores(periodo: DrePeriodo = "mes", ref = new Date
       pctRecorrente: total > 0 ? Math.round((recorrente / total) * 100) : null,
       clientesFaturados: clientes.size,
       inadimplenciaPct: total > 0 ? Math.round((vencidoNaoPago / total) * 1000) / 10 : null,
+    };
+  } catch {
+    return vazio;
+  }
+}
+
+/* ------------------------- Provisão de impostos ---------------------------- */
+
+/**
+ * Quanto do faturamento do mês é imposto.
+ *
+ * O painel não apura nada — só provisiona, para que o saldo em conta não seja
+ * confundido com lucro. A base é a receita reconhecida por competência, a mesma
+ * do DRE, para não existirem dois números concorrentes.
+ */
+export type PainelImpostos = {
+  config: TaxConfig;
+  meses: (Provisao & { jaLancado: boolean })[];
+  totalProvisionado: number;
+};
+
+export async function getImpostos(meses = 6): Promise<PainelImpostos> {
+  const vazio: PainelImpostos = { config: { regime: "simples", rate: 0, dueDay: 20 }, meses: [], totalProvisionado: 0 };
+  if (!isSupabaseConfigured()) return vazio;
+
+  try {
+    const supabase = await createClient();
+    const cfg = (await getRegrasFinanceiras(supabase)).imposto;
+
+    const n = Math.max(1, Math.min(Math.round(meses) || 6, 24));
+    const hoje = new Date();
+    const inicio = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - (n - 1), 1));
+
+    const { data } = await supabase
+      .from("payments")
+      .select("value, due_date, status")
+      .gte("due_date", iso(inicio))
+      .lte("due_date", iso(hoje))
+      .limit(5000);
+
+    const porMes = new Map<string, number>();
+    for (const p of ((data ?? []) as Record<string, unknown>[])) {
+      if (STATUS_IGNORAR.has(String(p.status ?? ""))) continue;
+      const mes = String(p.due_date ?? "").slice(0, 7);
+      if (!mes) continue;
+      porMes.set(mes, (porMes.get(mes) ?? 0) + Number(p.value ?? 0));
+    }
+
+    // Guias já lançadas como despesa — evita provisionar duas vezes.
+    const { data: desp } = await supabase
+      .from("expenses")
+      .select("description, due_date")
+      .ilike("description", "Imposto %")
+      .limit(200);
+    const lancados = new Set(
+      ((desp ?? []) as Record<string, unknown>[]).map((d) => String(d.description ?? "").replace(/^Imposto\s+/i, "").trim()),
+    );
+
+    const lista: (Provisao & { jaLancado: boolean })[] = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - i, 1));
+      const mes = iso(d).slice(0, 7);
+      const prov = estimarImposto(mes, Math.round(porMes.get(mes) ?? 0), cfg);
+      lista.push({ ...prov, jaLancado: lancados.has(mes) });
+    }
+
+    return {
+      config: cfg,
+      meses: lista,
+      totalProvisionado: Math.round(lista.filter((m) => !m.jaLancado).reduce((s, m) => s + m.valor, 0) * 100) / 100,
     };
   } catch {
     return vazio;

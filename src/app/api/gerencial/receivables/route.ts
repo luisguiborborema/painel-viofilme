@@ -16,7 +16,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const clean = (v?: string) => (v && v.trim() ? v.trim() : null);
 
 type Body = {
-  action?: "create" | "update" | "delete" | "receive" | "unreceive";
+  action?: "create" | "update" | "delete" | "receive" | "unreceive" | "nota";
   id?: string;
   clientId?: string;
   description?: string;
@@ -27,6 +27,10 @@ type Body = {
   accountId?: string;
   note?: string;
   status?: string;
+  // nota fiscal
+  invoiceNumber?: string | null;
+  invoiceUrl?: string | null;
+  invoiceIssuedAt?: string | null;
   // parcelamento
   installments?: number;
   recurrence?: string;
@@ -67,6 +71,9 @@ export async function POST(req: Request) {
     if (bloqueio) return NextResponse.json({ error: bloqueio }, { status: 409 });
   }
 
+  /** Colunas de NF só existem depois da 0138. */
+  const colunaFaltando = (msg: string) => /42703|column .* does not exist/i.test(msg);
+
   /** Trava: só lançamento manual pode ser alterado por aqui. */
   async function ehManual(id: string): Promise<boolean> {
     const { data } = await supabase.from("payments").select("source").eq("id", id).maybeSingle();
@@ -74,6 +81,25 @@ export async function POST(req: Request) {
   }
 
   try {
+    // ── Nota fiscal ────────────────────────────────────────────────────────
+    // Vale para qualquer cobrança, inclusive as do Asaas: o número da NF é
+    // informação nossa, não do gateway.
+    if (action === "nota") {
+      if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      const { error } = await supabase.from("payments").update({
+        invoice_number: clean(b.invoiceNumber ?? undefined),
+        invoice_url: clean(b.invoiceUrl ?? undefined),
+        invoice_issued_at: b.invoiceIssuedAt || null,
+      }).eq("id", b.id);
+      if (error) {
+        if (colunaFaltando(error.message)) {
+          return NextResponse.json({ error: "Rode a migração 0138_conciliacao_nf_encargos_alcada.sql." }, { status: 409 });
+        }
+        throw error;
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "delete" || action === "update" || action === "receive" || action === "unreceive") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
       if (!(await ehManual(b.id))) {

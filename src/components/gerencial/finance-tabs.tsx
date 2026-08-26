@@ -16,6 +16,7 @@ import {
   Repeat,
   RotateCcw,
   Trash2,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -33,7 +34,9 @@ import { DRE_REGIMES, variacao, type DrePeriodo, type DreRegime, type DreResulta
 import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
 import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from "@/lib/data/finance-settings";
 import { Extrato, FluxoDeCaixa, RentabilidadeClientes } from "./finance-extras";
-import { AgingTab, FechamentoPeriodo, IndicadoresCard, OrcamentoTab } from "./finance-reports";
+import { AgingTab, FechamentoPeriodo, IndicadoresCard, OrcamentoTab, RegrasFinanceirasCard } from "./finance-reports";
+import { ConciliacaoBancaria, Impostos } from "./finance-bank";
+import { APPROVAL_LABEL, podeAprovar } from "@/lib/data/approval";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
@@ -41,7 +44,7 @@ import {
   type FinancialAccount,
 } from "@/lib/data/gerfinance";
 
-type TabKey = "visao" | "fluxo" | "receber" | "pagar" | "extrato" | "contas" | "rentabilidade" | "config" | "inadimplencia" | "dre" | "orcamento" | "aging";
+type TabKey = "visao" | "fluxo" | "receber" | "pagar" | "extrato" | "contas" | "rentabilidade" | "config" | "inadimplencia" | "dre" | "orcamento" | "aging" | "conciliacao" | "impostos";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -50,12 +53,14 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "receber", label: "Contas a receber" },
   { key: "pagar", label: "Contas a pagar" },
   { key: "extrato", label: "Extrato" },
+  { key: "conciliacao", label: "Conciliação" },
   { key: "contas", label: "Contas & categorias" },
   { key: "config", label: "Configurações" },
   { key: "inadimplencia", label: "Inadimplência" },
   { key: "aging", label: "Aging" },
   { key: "rentabilidade", label: "Rentabilidade" },
   { key: "orcamento", label: "Orçamento" },
+  { key: "impostos", label: "Impostos" },
   { key: "dre", label: "DRE gerencial" },
 ];
 
@@ -80,7 +85,7 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export function FinanceTabs({ data }: { data: GerFinance }) {
+export function FinanceTabs({ data, tier }: { data: GerFinance; tier?: string | null }) {
   const [tab, setTab] = useState<TabKey>("visao");
 
   return (
@@ -104,7 +109,7 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
 
       {tab === "visao" && <VisaoGeral data={data} />}
       {tab === "receber" && <ContasReceber data={data} />}
-      {tab === "pagar" && <ContasPagar data={data} />}
+      {tab === "pagar" && <ContasPagar data={data} tier={tier} />}
       {tab === "fluxo" && <FluxoDeCaixa />}
       {tab === "extrato" && <Extrato contas={data.accounts ?? []} />}
       {tab === "rentabilidade" && <RentabilidadeClientes />}
@@ -114,6 +119,8 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "dre" && <Dre />}
       {tab === "orcamento" && <OrcamentoTab />}
       {tab === "aging" && <AgingTab />}
+      {tab === "conciliacao" && <ConciliacaoBancaria contas={data.accounts ?? []} />}
+      {tab === "impostos" && <Impostos />}
     </div>
   );
 }
@@ -574,7 +581,7 @@ function rotuloCategoria(cats: ExpenseCategoryDef[] | undefined, key: string): s
   return (cats ?? []).find((c) => c.key === key)?.label ?? EXPENSE_CATEGORY_LABEL[key as Expense["category"]] ?? key;
 }
 
-function ContasPagar({ data }: { data: GerFinance }) {
+function ContasPagar({ data, tier }: { data: GerFinance; tier?: string | null }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState<Expense | null>(null);
@@ -584,10 +591,18 @@ function ContasPagar({ data }: { data: GerFinance }) {
   const totalPending = expenses.filter((e) => e.status === "pending").reduce((s, e) => s + e.amount, 0);
   const totalPaid = expenses.filter((e) => e.status === "paid").reduce((s, e) => s + e.amount, 0);
 
-  async function act(body: { action: "pay" | "unpay" | "delete"; id: string; scope?: "one" | "future" }) {
-    setBusyId(body.id);
-    await postExpense(body);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
+  const aprovador = podeAprovar(tier);
+  const aguardando = expenses.filter((e) => e.approvalStatus === "pending");
+
+  async function act(body: {
+    action: "pay" | "unpay" | "delete" | "approve" | "reject" | "reopen";
+    id: string; scope?: "one" | "future"; approvalNote?: string;
+  }) {
+    setBusyId(body.id); setErroAcao(null);
+    const r = await postExpense(body);
     setBusyId(null);
+    if (r && typeof r === "object" && "error" in r && r.error) { setErroAcao(String(r.error)); return; }
     router.refresh();
   }
 
@@ -625,6 +640,20 @@ function ContasPagar({ data }: { data: GerFinance }) {
           <Plus className="h-4 w-4" /> Lançar despesa
         </button>
       </div>
+
+      {erroAcao && (
+        <p className="flex items-center gap-1.5 rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-600">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {erroAcao}
+        </p>
+      )}
+
+      {aguardando.length > 0 && (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          <strong>{aguardando.length}</strong> despesa(s) aguardando aprovação —{" "}
+          {formatBRL(aguardando.reduce((s, e) => s + e.amount, 0))} travados.
+          {aprovador ? " Libere abaixo para poder pagar." : " Só gestor ou admin pode liberar."}
+        </p>
+      )}
 
       {(showForm || editando) && (
         <ExpenseForm
@@ -692,6 +721,14 @@ function ContasPagar({ data }: { data: GerFinance }) {
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
                           Paga{e.paidDate ? ` · ${fmtDay(e.paidDate)}` : ""}
                         </span>
+                      ) : e.approvalStatus === "pending" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-medium text-sky-400" title="Precisa de liberação de um gestor antes do pagamento">
+                          {APPROVAL_LABEL.pending}
+                        </span>
+                      ) : e.approvalStatus === "rejected" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-medium text-rose-400" title={e.approvalNote ?? undefined}>
+                          {APPROVAL_LABEL.rejected}
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
                           A pagar
@@ -700,6 +737,37 @@ function ContasPagar({ data }: { data: GerFinance }) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
+                        {e.status === "pending" && e.approvalStatus === "pending" && aprovador && (
+                          <>
+                            <button
+                              onClick={() => act({ action: "approve", id: e.id })}
+                              disabled={busyId === e.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-sky-500/30 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-400 hover:bg-sky-500/25 disabled:opacity-60"
+                            >
+                              {busyId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />} Aprovar
+                            </button>
+                            <button
+                              onClick={() => {
+                                const motivo = window.prompt(`Recusar "${e.description}"? Informe o motivo (opcional):`);
+                                if (motivo !== null) act({ action: "reject", id: e.id, approvalNote: motivo });
+                              }}
+                              disabled={busyId === e.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:text-rose-500 disabled:opacity-60"
+                              title="Recusar"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                        {e.status === "pending" && e.approvalStatus === "rejected" && aprovador && (
+                          <button
+                            onClick={() => act({ action: "reopen", id: e.id })}
+                            disabled={busyId === e.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:text-ink disabled:opacity-60"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Reabrir
+                          </button>
+                        )}
                         {e.status === "pending" ? (
                           <button
                             onClick={() => act({ action: "pay", id: e.id })}
@@ -1693,6 +1761,13 @@ function ConfiguracoesFinanceiro() {
           </button>
         </div>
       </Card>
+
+      <RegrasFinanceirasCard
+        cfg={cfg}
+        onChange={(patch) => setCfg({ ...cfg, ...patch })}
+        onSave={salvar}
+        busy={busy}
+      />
 
       <FechamentoPeriodo closedUntil={cfg.closedUntil ?? null} />
 

@@ -119,6 +119,11 @@ export type Expense = {
   openEnded?: boolean;
   accountId?: string | null;
   accountName?: string | null;
+  /** Alçada de aprovação (0138). Ausente = tratada como aprovada. */
+  approvalStatus?: "pending" | "approved" | "rejected" | null;
+  approvedBy?: string | null;
+  approvalNote?: string | null;
+  invoiceNumber?: string | null;
 };
 
 export type GerFinance = {

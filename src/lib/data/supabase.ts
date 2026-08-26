@@ -1234,14 +1234,13 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   // Tolerante: as colunas de série só existem após a migração 0130.
   const EXP_BASE = "id, description, category, amount, due_date, paid_date, status, recurring, vendor";
   const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended, client_id, attachment_url`;
-  const expComSerie = await supabase
-    .from("expenses")
-    .select(EXP_SERIE)
-    .order("due_date", { ascending: false })
-    .limit(400);
-  const expRes = expComSerie.error
-    ? await supabase.from("expenses").select(EXP_BASE).order("due_date", { ascending: false }).limit(400)
-    : expComSerie;
+  // Alçada e NF só existem após a 0138 — três degraus de tolerância.
+  const EXP_FULL = `${EXP_SERIE}, approval_status, approved_by, approval_note, invoice_number`;
+  const ordenado = (sel: string) =>
+    supabase.from("expenses").select(sel).order("due_date", { ascending: false }).limit(400);
+  const expFull = await ordenado(EXP_FULL);
+  const expComSerie = expFull.error ? await ordenado(EXP_SERIE) : expFull;
+  const expRes = expComSerie.error ? await ordenado(EXP_BASE) : expComSerie;
   const expData = expRes.data as Record<string, unknown>[] | null;
   const expenses: Expense[] = (expData ?? []).map((e) => {
     const cat = (e.category as string) ?? "outros";
@@ -1262,6 +1261,10 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       installmentsTotal: e.installments_total == null ? null : Number(e.installments_total),
       recurrence: (e.recurrence as Expense["recurrence"]) ?? null,
       openEnded: Boolean(e.open_ended),
+      approvalStatus: (e.approval_status as Expense["approvalStatus"]) ?? null,
+      approvedBy: (e.approved_by as string) ?? null,
+      approvalNote: (e.approval_note as string) ?? null,
+      invoiceNumber: (e.invoice_number as string) ?? null,
     } satisfies Expense;
   });
 

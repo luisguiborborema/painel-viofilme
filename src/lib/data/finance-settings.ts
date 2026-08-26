@@ -24,6 +24,16 @@ export type FinanceSettings = {
   alertOverdue: number;
   /** Fechamento contábil: tudo com vencimento até aqui está travado. */
   closedUntil: string | null;
+  /** Multa e juros por atraso. 0 desliga. */
+  lateFine: number;
+  lateInterestMonth: number;
+  lateGraceDays: number;
+  /** Provisão de imposto sobre o faturamento. */
+  taxRegime: string;
+  taxRate: number;
+  taxDueDay: number;
+  /** Despesa a partir deste valor precisa de aprovação. 0 desliga. */
+  approvalThreshold: number;
 };
 
 export const REGUA_PADRAO: CollectionRule[] = [
@@ -48,6 +58,13 @@ export const FINANCE_SETTINGS_PADRAO: FinanceSettings = {
   alertMargin: false,
   alertOverdue: 0,
   closedUntil: null,
+  lateFine: 0,
+  lateInterestMonth: 0,
+  lateGraceDays: 0,
+  taxRegime: "simples",
+  taxRate: 0,
+  taxDueDay: 20,
+  approvalThreshold: 0,
 };
 
 /** Normaliza a régua vinda do banco: ordena por dias e descarta lixo. */

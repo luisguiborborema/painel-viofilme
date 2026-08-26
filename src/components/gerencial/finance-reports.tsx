@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { cn, formatBRL } from "@/lib/utils";
 import type { Aging, Indicadores, Orcamento } from "@/lib/data/finance-reports-server";
 import type { DrePeriodo } from "@/lib/data/dre";
+import type { FinanceSettings } from "@/lib/data/finance-settings";
+import { TAX_REGIMES } from "@/lib/data/tax";
 
 const brl0 = (v: number) => formatBRL(v).replace(/,\d{2}$/, "");
 const inputCls = "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
@@ -168,6 +170,18 @@ export function AgingTab() {
         <Card className="p-4"><p className="text-xs uppercase tracking-wide text-muted">A vencer</p><p className="mt-1 text-2xl font-bold text-emerald-500">{brl0(d.aVencer.valor)}</p></Card>
       </div>
 
+      {d.encargosTotal > 0 && (
+        <Card className="p-4">
+          <p className="text-xs uppercase tracking-wide text-muted">Multa e juros acumulados</p>
+          <p className="mt-1 text-2xl font-bold text-amber-600">{formatBRL(d.encargosTotal)}</p>
+          <p className="mt-0.5 text-[11px] text-muted">
+            {d.encargos.fine}% de multa + {d.encargos.interestMonth}% a.m.
+            {d.encargos.graceDays > 0 ? ` · ${d.encargos.graceDays} dia(s) de carência` : ""} ·
+            valor a cobrar se você aplicar o contrato: <strong className="text-ink">{brl0(d.totalVencido + d.encargosTotal)}</strong>
+          </p>
+        </Card>
+      )}
+
       <Card className="p-5">
         <h2 className="mb-1 text-sm font-semibold text-ink">Idade do vencido</h2>
         <p className="mb-3 text-[11px] text-muted">Quanto mais antigo, menor a chance de receber — priorize de baixo para cima.</p>
@@ -203,7 +217,9 @@ export function AgingTab() {
               <li key={c.name} className="flex items-center justify-between py-2 text-sm">
                 <span className="truncate text-ink">{c.name}</span>
                 <span className="flex shrink-0 items-center gap-3">
-                  <span className="text-[11px] text-muted">{c.diasMax}d de atraso</span>
+                  <span className="text-[11px] text-muted">
+                    {c.diasMax}d de atraso{c.encargos > 0 ? ` · +${formatBRL(c.encargos)} de encargos` : ""}
+                  </span>
                   <span className="tabular-nums font-semibold text-rose-500">{brl0(c.valor)}</span>
                 </span>
               </li>
@@ -319,5 +335,121 @@ export function FechamentoPeriodo({ closedUntil }: { closedUntil: string | null 
       )}
       {erro && <p className="mt-2 flex items-center gap-1 text-xs text-rose-500"><AlertTriangle className="h-3 w-3" /> {erro}</p>}
     </Card>
+  );
+}
+
+/* ------------------- Encargos, impostos e alçada (config) ------------------- */
+
+/**
+ * Três regras que mudam o comportamento do sistema, não só a exibição:
+ * o que se cobra de quem atrasa, quanto do faturamento é imposto e a partir
+ * de que valor uma despesa precisa de segunda assinatura.
+ */
+export function RegrasFinanceirasCard({
+  cfg, onChange, onSave, busy,
+}: {
+  cfg: FinanceSettings;
+  onChange: (patch: Partial<FinanceSettings>) => void;
+  onSave: (patch: Partial<FinanceSettings>) => void;
+  busy: boolean;
+}) {
+  const num = (v: string) => Number(v.replace(",", ".")) || 0;
+
+  return (
+    <>
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Multa e juros por atraso</h2>
+        <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+          Padrão de contrato no Brasil: multa de <strong>2%</strong> e juros de <strong>1% ao mês</strong>,
+          proporcionais aos dias. Deixe em 0 para não cobrar. O valor calculado aparece na aba
+          Aging — ele não é lançado sozinho como cobrança.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-muted">
+            Multa (%)
+            <input value={cfg.lateFine} onChange={(e) => onChange({ lateFine: num(e.target.value) })} inputMode="decimal" className={inputCls + " mt-1 block w-20"} />
+          </label>
+          <label className="text-xs text-muted">
+            Juros (% ao mês)
+            <input value={cfg.lateInterestMonth} onChange={(e) => onChange({ lateInterestMonth: num(e.target.value) })} inputMode="decimal" className={inputCls + " mt-1 block w-24"} />
+          </label>
+          <label className="text-xs text-muted">
+            Carência (dias)
+            <input value={cfg.lateGraceDays} onChange={(e) => onChange({ lateGraceDays: Math.round(num(e.target.value)) })} inputMode="numeric" className={inputCls + " mt-1 block w-24"} />
+          </label>
+          <button
+            onClick={() => onSave({ lateFine: cfg.lateFine, lateInterestMonth: cfg.lateInterestMonth, lateGraceDays: cfg.lateGraceDays })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          Exemplo: R$ 1.000 vencidos há 30 dias com 2% + 1% a.m. = R$ 20 de multa + R$ 10 de juros.
+        </p>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Impostos sobre o faturamento</h2>
+        <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+          Usado só para <strong>provisionar</strong> — separar da margem o dinheiro que é da guia.
+          A apuração continua sendo da contabilidade. Informe a alíquota efetiva que você paga hoje.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-muted">
+            Regime
+            <select value={cfg.taxRegime} onChange={(e) => onChange({ taxRegime: e.target.value })} className={inputCls + " mt-1 block"}>
+              {TAX_REGIMES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-muted">
+            Alíquota (%)
+            <input value={cfg.taxRate} onChange={(e) => onChange({ taxRate: num(e.target.value) })} inputMode="decimal" className={inputCls + " mt-1 block w-24"} />
+          </label>
+          <label className="text-xs text-muted">
+            Vence dia
+            <input value={cfg.taxDueDay} onChange={(e) => onChange({ taxDueDay: Math.round(num(e.target.value)) })} inputMode="numeric" className={inputCls + " mt-1 block w-20"} />
+          </label>
+          <button
+            onClick={() => onSave({ taxRegime: cfg.taxRegime, taxRate: cfg.taxRate, taxDueDay: cfg.taxDueDay })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          {TAX_REGIMES.find((r) => r.key === cfg.taxRegime)?.hint}
+        </p>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Alçada de aprovação</h2>
+        <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+          Despesa a partir deste valor nasce <strong>aguardando aprovação</strong> e não pode ser paga
+          até que um gestor libere. Ela continua no fluxo de caixa e no DRE — o que trava é só a
+          baixa. Deixe 0 para desligar.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-muted">
+            A partir de (R$)
+            <input value={cfg.approvalThreshold} onChange={(e) => onChange({ approvalThreshold: num(e.target.value) })} inputMode="decimal" className={inputCls + " mt-1 block w-28"} />
+          </label>
+          <button
+            onClick={() => onSave({ approvalThreshold: cfg.approvalThreshold })}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          {cfg.approvalThreshold > 0
+            ? `Hoje: despesas de ${formatBRL(cfg.approvalThreshold)} ou mais precisam de gestor ou admin.`
+            : "Hoje: qualquer pessoa com acesso ao financeiro pode lançar e pagar."}
+        </p>
+      </Card>
+    </>
   );
 }
