@@ -88,6 +88,8 @@ export const API_INTERNAL: { area: string; routes: InternalRoute[] }[] = [
       { path: "/api/gerencial/expense-categories", purpose: "Categorias de despesa personalizáveis (definem as linhas do DRE)", actions: "create, update, delete, reorder" },
       { path: "/api/gerencial/finance-settings", purpose: "Régua de cobrança, formas de recebimento, meta e alertas (GET lê, POST salva)" },
       { path: "/api/gerencial/transfers", purpose: "Transferência de saldo entre contas (não entra no DRE)", actions: "create, delete" },
+      { path: "/api/gerencial/finance-movements", purpose: "Extrato, fluxo de caixa projetado e rentabilidade (GET ?view=extrato|fluxo|rentabilidade); POST concilia", actions: "reconciliar, desreconciliar" },
+      { path: "/api/gerencial/finance-upload", purpose: "Anexa comprovante/nota a um lançamento (multipart)" },
       { path: "/api/gerencial/dre", purpose: "DRE por período com comparativo (GET, ?periodo=mes|trimestre|ano&offset=) e meta de margem (POST)" },
       { path: "/api/gerencial/asaas/subscription", purpose: "Assinatura do cliente no Asaas" },
       { path: "/api/gerencial/team", purpose: "Equipe e permissões" },

@@ -111,6 +111,7 @@ export type Expense = {
   recurring: boolean;
   vendor: string | null;
   /** Série de recorrência: agrupa as parcelas geradas juntas. */
+  clientId?: string | null;
   seriesId?: string | null;
   installment?: number | null;
   installmentsTotal?: number | null;
@@ -161,6 +162,8 @@ export type GerFinance = {
   /** Categorias cadastradas (personalizáveis). */
   categories: ExpenseCategoryDef[];
   transfers: AccountTransfer[];
+  /** Clientes, para vincular custo direto. */
+  clients: { id: string; name: string }[];
 };
 
 export function getGerFinance(): GerFinance {
@@ -240,5 +243,6 @@ export function getGerFinance(): GerFinance {
     accounts: [],
     categories: CATEGORIAS_PADRAO,
     transfers: [],
+    clients: [],
   };
 }

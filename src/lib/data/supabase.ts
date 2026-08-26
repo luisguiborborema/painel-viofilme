@@ -40,7 +40,6 @@ import type { OrganicResults, OrganicScopeView } from "./queries";
 import type { PlaybookSector, PlaybookFormat } from "./playbooks";
 import {
   getGerFinance as gerFinanceMock,
-  EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,
   type GerFinance,
   type Receivable,
@@ -176,7 +175,6 @@ function financialStatus(overdueDays: number): CSStatus {
   return { label: "Em dia", tone: "ok" };
 }
 
-const EXPENSE_CATS = new Set(EXPENSE_CATEGORIES.map((c) => c.key));
 const DELIVERY_TYPES = new Set<string>(["Arte", "Vídeo", "Copy", "Tráfego"]);
 const DELIVERY_ORIGINS = new Set<string>(["Linha editorial", "Projeto", "Tarefa avulsa", "Performance"]);
 const DELIVERY_STAGES = new Set<string>(["todo", "doing", "review", "approval", "done"]);
@@ -1235,7 +1233,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   // --- despesas → DRE real ---------------------------------------------------
   // Tolerante: as colunas de série só existem após a migração 0130.
   const EXP_BASE = "id, description, category, amount, due_date, paid_date, status, recurring, vendor";
-  const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended`;
+  const EXP_SERIE = `${EXP_BASE}, series_id, installment, installments_total, recurrence, open_ended, client_id, attachment_url`;
   const expComSerie = await supabase
     .from("expenses")
     .select(EXP_SERIE)
@@ -1258,6 +1256,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       status: e.status === "paid" ? "paid" : "pending",
       recurring: Boolean(e.recurring),
       vendor: (e.vendor as string) ?? null,
+      clientId: (e.client_id as string) ?? null,
       seriesId: (e.series_id as string) ?? null,
       installment: e.installment == null ? null : Number(e.installment),
       installmentsTotal: e.installments_total == null ? null : Number(e.installments_total),
@@ -1391,11 +1390,17 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     };
   });
 
+  const clientesRes = await supabase.from("clients").select("id, name").order("name");
+  const clientsLista = ((clientesRes.data ?? []) as { id: string; name: string }[]).map((c) => ({
+    id: String(c.id), name: String(c.name),
+  }));
+
   return {
     ...base,
     accounts,
     categories,
     transfers,
+    clients: clientsLista,
     periodLabel: periodLabel(now),
     kpis: {
       ...base.kpis,

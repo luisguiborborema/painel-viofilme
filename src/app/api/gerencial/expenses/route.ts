@@ -28,6 +28,8 @@ type Body = {
   paidDate?: string;
   vendor?: string;
   status?: string;
+  clientId?: string | null;
+  attachmentUrl?: string | null;
   // Recorrência (create): gera parcelas reais.
   recurrence?: string;      // monthly | weekly | yearly
   installments?: number;    // nº de parcelas; ignorado se openEnded
@@ -116,6 +118,8 @@ export async function POST(req: Request) {
       }
       if (b.category !== undefined) patch.category = CATS.has(b.category) ? b.category : "outros";
       if (b.vendor !== undefined) patch.vendor = b.vendor.trim() || null;
+      if (b.clientId !== undefined) patch.client_id = b.clientId || null;
+      if (b.attachmentUrl !== undefined) patch.attachment_url = b.attachmentUrl || null;
 
       if (b.scope === "future") {
         const { data: alvo } = await supabase
@@ -168,6 +172,7 @@ export async function POST(req: Request) {
           status: paid ? "paid" : "pending",
           recurring: false,
           vendor,
+          client_id: b.clientId || null,
           created_by: user.id,
         })
         .select("id")
@@ -189,6 +194,7 @@ export async function POST(req: Request) {
       status: "pending",
       recurring: true,
       vendor,
+      client_id: b.clientId || null,
       created_by: user.id,
       series_id: serieId,
       installment: aberta ? null : p.installment,
@@ -202,6 +208,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true, seriesId: serieId, parcelas: linhas.length });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
+    if (/client_id|attachment_url/i.test(msg)) {
+      return NextResponse.json({ error: "Rode a migração 0136_finance_completo.sql." }, { status: 409 });
+    }
     if (/series_id|installment|recurrence|open_ended|42703/i.test(msg)) {
       return NextResponse.json({ error: "Rode a migração 0130_expenses_series.sql." }, { status: 409 });
     }

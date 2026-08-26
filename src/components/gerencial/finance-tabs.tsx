@@ -32,6 +32,7 @@ import { RECURRENCES, planejarParcelas, type Recurrence } from "@/lib/data/expen
 import { variacao, type DrePeriodo, type DreResultado } from "@/lib/data/dre";
 import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
 import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from "@/lib/data/finance-settings";
+import { Extrato, FluxoDeCaixa, RentabilidadeClientes } from "./finance-extras";
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
@@ -39,16 +40,19 @@ import {
   type FinancialAccount,
 } from "@/lib/data/gerfinance";
 
-type TabKey = "visao" | "receber" | "pagar" | "contas" | "config" | "inadimplencia" | "dre";
+type TabKey = "visao" | "fluxo" | "receber" | "pagar" | "extrato" | "contas" | "rentabilidade" | "config" | "inadimplencia" | "dre";
 type RecFilter = "todas" | "avencer" | "vencida" | "pago";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "visao", label: "Visão geral" },
+  { key: "fluxo", label: "Fluxo de caixa" },
   { key: "receber", label: "Contas a receber" },
   { key: "pagar", label: "Contas a pagar" },
+  { key: "extrato", label: "Extrato" },
   { key: "contas", label: "Contas & categorias" },
   { key: "config", label: "Configurações" },
   { key: "inadimplencia", label: "Inadimplência" },
+  { key: "rentabilidade", label: "Rentabilidade" },
   { key: "dre", label: "DRE gerencial" },
 ];
 
@@ -98,6 +102,9 @@ export function FinanceTabs({ data }: { data: GerFinance }) {
       {tab === "visao" && <VisaoGeral data={data} />}
       {tab === "receber" && <ContasReceber data={data} />}
       {tab === "pagar" && <ContasPagar data={data} />}
+      {tab === "fluxo" && <FluxoDeCaixa />}
+      {tab === "extrato" && <Extrato contas={data.accounts ?? []} />}
+      {tab === "rentabilidade" && <RentabilidadeClientes />}
       {tab === "contas" && <ContasFinanceiras data={data} />}
       {tab === "config" && <ConfiguracoesFinanceiro />}
       {tab === "inadimplencia" && <Inadimplencia data={data} />}
@@ -617,6 +624,7 @@ function ContasPagar({ data }: { data: GerFinance }) {
           key={editando?.id ?? "novo"}
           editar={editando}
           categorias={data.categories ?? []}
+          clientes={data.clients ?? []}
           onClose={() => { setShowForm(false); setEditando(null); }}
           onSaved={() => {
             setShowForm(false);
@@ -734,6 +742,7 @@ function ContasPagar({ data }: { data: GerFinance }) {
 }
 
 const NEW_EXPENSE = {
+  clientId: "",
   description: "",
   category: "outros" as Expense["category"],
   amount: "",
@@ -751,18 +760,21 @@ function ExpenseForm({
   onSaved,
   editar,
   categorias,
+  clientes,
 }: {
   onClose: () => void;
   onSaved: () => void;
   /** Quando presente, o formulário edita esta despesa em vez de criar. */
   editar?: Expense | null;
   categorias: ExpenseCategoryDef[];
+  clientes: { id: string; name: string }[];
 }) {
   const emSerie = Boolean(editar?.seriesId);
   const [f, setF] = useState(() =>
     editar
       ? {
           ...NEW_EXPENSE,
+          clientId: editar.clientId ?? "",
           description: editar.description,
           category: editar.category,
           amount: String(editar.amount).replace(".", ","),
@@ -800,6 +812,7 @@ function ExpenseForm({
           amount: amountNum,
           dueDate: f.dueDate || undefined,
           vendor: f.vendor.trim() || undefined,
+          clientId: f.clientId || null,
         })
       : await postExpense({
           action: "create",
@@ -808,6 +821,7 @@ function ExpenseForm({
           amount: amountNum,
           dueDate: f.dueDate || undefined,
           vendor: f.vendor.trim() || undefined,
+          clientId: f.clientId || null,
           status: f.status,
           ...(f.repeticao === "unica"
             ? {}
@@ -886,6 +900,16 @@ function ExpenseForm({
             placeholder="Opcional"
             className={inputCls}
           />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-0.5 block text-[11px] font-medium text-muted">Cliente (custo direto)</span>
+          <select value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })} className={inputCls}>
+            <option value="">— custo de estrutura (sem cliente) —</option>
+            {clientes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <span className="mt-0.5 block text-[10px] text-muted">
+            Vincular faz esta despesa entrar na rentabilidade daquele cliente.
+          </span>
         </label>
 
         {/* Recorrência — só na criação; editar série usa o seletor de escopo. */}
