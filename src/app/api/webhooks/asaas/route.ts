@@ -6,32 +6,18 @@ import {
   isAsaasWebhookConfigured,
   safeEqual,
 } from "@/lib/asaas/config";
+import {
+  avisoDoEvento,
+  chaveDoEvento,
+  linhaDePagamento,
+  valorParaAviso,
+  type AsaasWebhook,
+} from "@/lib/asaas/webhook";
 import { trigger } from "@/lib/push/triggers";
 import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type AsaasPayment = {
-  id: string;
-  customer?: string;
-  status?: string;
-  billingType?: string;
-  value?: number;
-  netValue?: number;
-  dueDate?: string;
-  paymentDate?: string;
-  clientPaymentDate?: string;
-  description?: string;
-  invoiceUrl?: string;
-  externalReference?: string;
-};
-
-type AsaasWebhook = {
-  id?: string;
-  event?: string;
-  payment?: AsaasPayment;
-};
 
 async function postHandler(req: Request) {
   // 1. Autenticação: token que o Asaas envia no header.
@@ -49,7 +35,7 @@ async function postHandler(req: Request) {
   }
   const event = body.event;
   const payment = body.payment;
-  const eventId = body.id ?? (payment ? `${payment.id}:${event}` : null);
+  const eventId = chaveDoEvento(body);
   if (!event) return NextResponse.json({ ok: true, ignored: true });
 
   // 3. Precisa do banco (service-role). Se indisponível, 503 → Asaas reenvia.
@@ -92,41 +78,21 @@ async function postHandler(req: Request) {
       clientId = data?.id ?? null;
     }
 
-    const { error } = await admin.from("payments").upsert(
-      {
-        asaas_payment_id: payment.id,
-        client_id: clientId,
-        asaas_customer_id: payment.customer ?? null,
-        status: payment.status ?? null,
-        billing_type: payment.billingType ?? null,
-        value: payment.value ?? null,
-        net_value: payment.netValue ?? null,
-        due_date: payment.dueDate ?? null,
-        payment_date: payment.paymentDate ?? payment.clientPaymentDate ?? null,
-        description: payment.description ?? null,
-        invoice_url: payment.invoiceUrl ?? null,
-        external_reference: payment.externalReference ?? null,
-        raw: payment,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "asaas_payment_id" },
-    );
+    const { error } = await admin
+      .from("payments")
+      .upsert(linhaDePagamento(payment, clientId), { onConflict: "asaas_payment_id" });
     if (error) {
       // Falha real de gravação → 500 para o Asaas reenviar.
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     // Notifica o cliente (não deve derrubar o webhook em caso de falha).
-    if (clientId) {
-      const amount = payment.value
-        ? `R$ ${payment.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-        : "sua fatura";
+    const aviso = avisoDoEvento(event);
+    if (clientId && aviso) {
+      const amount = valorParaAviso(payment.value);
       try {
-        if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED_IN_CASH"].includes(event)) {
-          await trigger.paymentReceived(clientId, amount);
-        } else if (event === "PAYMENT_OVERDUE") {
-          await trigger.paymentOverdue(clientId, amount);
-        }
+        if (aviso === "recebido") await trigger.paymentReceived(clientId, amount);
+        else await trigger.paymentOverdue(clientId, amount);
       } catch {
         // silencioso
       }

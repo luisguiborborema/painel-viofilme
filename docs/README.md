@@ -55,6 +55,7 @@ O sistema opera em **dois modos automáticos**: sem variáveis de ambiente confi
 | [BACKEND.md](BACKEND.md) | Guia para sair do modo demo (Supabase + Meta + IA) |
 | [PWA-TEMA.md](PWA-TEMA.md) | Service worker, instalação PWA, push, tema claro/escuro |
 | [DEPLOY.md](DEPLOY.md) | Deploy no Vercel, variáveis de ambiente, cron jobs |
+- [RESTAURACAO.md](RESTAURACAO.md) — como trazer o backup de volta, e o ensaio que prova que funciona
 
 ---
 

@@ -29,9 +29,18 @@ const REDIGIR: Record<string, string[]> = {
   meta_connections: ["access_token"],
 };
 
-/** Tabelas de dados. Fora: logs (têm purga própria) e filas efêmeras. */
+/**
+ * Tabelas de dados. Fora: logs com purga própria (`api_logs`, `wa_webhook_log`)
+ * e filas efêmeras.
+ *
+ * Esta lista é verificada contra as migrações pelo teste `backup.test.ts` —
+ * criar tabela nova sem incluí-la aqui quebra o teste de propósito. Faltavam
+ * dez, entre elas TODA a configuração financeira (contas, categorias, régua,
+ * orçamentos): restaurar sem elas devolveria um DRE errado sem avisar.
+ */
 export const TABELAS_BACKUP = [
-  "account_metrics", "asaas_subscriptions", "broadcast_recipients", "broadcasts", "calendar_events", "campaign_metrics",
+  "account_metrics", "account_transfers", "asaas_subscriptions", "asaas_webhook_events", "audit_events", "bank_entries",
+  "bank_statements", "broadcast_recipients", "broadcasts", "budgets", "calendar_events", "campaign_metrics",
   "campaigns", "client_accesses", "client_contacts", "client_deliverables", "client_documents", "client_goals",
   "client_services", "clients", "collaborators", "commercial_board", "content_posts", "content_requests",
   "crm_capture_forms", "crm_card_layout", "crm_comments", "crm_companies", "crm_contacts", "crm_deal_contacts",
@@ -40,11 +49,12 @@ export const TABELAS_BACKUP = [
   "crm_sales_materials", "crm_scripts", "crm_settings", "crm_stage_history", "crm_stages", "crm_tags",
   "crm_task_flow_steps", "crm_task_flows", "crm_tasks", "crm_workflow_action_logs", "crm_workflow_actions", "crm_workflow_enrollments",
   "crm_workflows", "delivery_form_fields", "delivery_settings", "delivery_task_status_history", "delivery_tasks", "diagnostic_config",
-  "diagnostic_templates", "diagnostics", "editorial_lines", "editorial_posts", "expenses", "google_connections",
+  "diagnostic_templates", "diagnostics", "editorial_lines", "editorial_posts", "expense_categories", "expenses",
+  "finance_settings", "financial_accounts", "google_connections",
   "hour_entries", "inspiration_quotes", "knowledge_attachments", "knowledge_categories", "knowledge_pages", "mediaday_items",
   "mediaday_sessions", "meeting_requests", "meeting_survey_config", "meeting_surveys", "meetings", "meta_connections",
   "notification_preferences", "nps_config", "nps_surveys", "package_items", "packages", "payments",
-  "playbook_sectors", "playbooks", "profiles", "recurring_update_logs", "recurring_updates", "report_sends",
+  "playbook_sectors", "playbooks", "profiles", "push_subscriptions", "recurring_update_logs", "recurring_updates", "report_sends",
   "rh_announcements", "rh_documents", "rh_pdis", "rh_reviews", "roadmap_blocks", "routine_blocks",
   "routine_templates", "saved_views", "scheduling_links", "service_plans", "services", "squads",
   "suggestions", "task_types", "vioflux_posts", "violaunch_gates", "violaunch_projects", "violaunch_steps",
