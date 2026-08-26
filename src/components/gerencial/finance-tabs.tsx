@@ -35,6 +35,7 @@ import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from 
 import {
   ACCOUNT_KINDS,
   MANUAL_METHODS,
+  type AccountTransfer,
   type FinancialAccount,
 } from "@/lib/data/gerfinance";
 
@@ -1324,6 +1325,8 @@ function ContasFinanceiras({ data }: { data: GerFinance }) {
               <span>inicial {formatBRL(c.openingBalance)}</span>
               <span className="text-emerald-500">+{formatBRL(c.received ?? 0)}</span>
               <span className="text-rose-500">−{formatBRL(c.paid ?? 0)}</span>
+              {(c.transferIn ?? 0) > 0 && <span className="text-sky-500">↓{formatBRL(c.transferIn ?? 0)}</span>}
+              {(c.transferOut ?? 0) > 0 && <span className="text-sky-500">↑{formatBRL(c.transferOut ?? 0)}</span>}
             </div>
             {!c.isDefault && (
               <button
@@ -1340,8 +1343,138 @@ function ContasFinanceiras({ data }: { data: GerFinance }) {
         O saldo é <strong>inicial + recebido − pago</strong>, contando só o que já foi liquidado. Lançamentos em aberto não entram.
       </p>
 
+      <Transferencias contas={contas} transfers={data.transfers ?? []} />
+
       <CategoriasDespesa categorias={data.categories ?? []} />
     </div>
+  );
+}
+
+/* --------------------------- Transferências --------------------------------- */
+
+/** Move saldo entre contas sem virar receita nem despesa (não entra no DRE). */
+function Transferencias({ contas, transfers }: { contas: FinancialAccount[]; transfers: AccountTransfer[] }) {
+  const router = useRouter();
+  const [aberto, setAberto] = useState(false);
+  const ativas = contas.filter((c) => c.active);
+  const [f, setF] = useState({ from: "", to: "", amount: "", date: "", note: "" });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const valorNum = Number(f.amount.replace(",", "."));
+  const valid = f.from && f.to && f.from !== f.to && Number.isFinite(valorNum) && valorNum > 0;
+  const origem = ativas.find((c) => c.id === f.from);
+  const saldoInsuficiente = origem && valorNum > (origem.balance ?? 0);
+
+  async function enviar(body: Record<string, unknown>, chave: string) {
+    setBusy(chave); setErro(null);
+    const res = await fetch("/api/gerencial/transfers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setBusy(null);
+    if (!res?.ok) { setErro(j?.error ?? "Não foi possível salvar."); return false; }
+    router.refresh();
+    return true;
+  }
+
+  const inputCls = "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand-400";
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">Transferências entre contas</h2>
+          <p className="text-[11px] text-muted">Move saldo de uma conta para outra. Não é receita nem despesa — não entra no DRE.</p>
+        </div>
+        <button
+          onClick={() => setAberto((v) => !v)}
+          disabled={ativas.length < 2}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          title={ativas.length < 2 ? "Cadastre pelo menos duas contas" : undefined}
+        >
+          {aberto ? <X className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />} Transferir
+        </button>
+      </div>
+
+      {ativas.length < 2 && (
+        <p className="mt-2 rounded-lg bg-subtle px-3 py-2 text-[11px] text-muted">
+          É preciso ter ao menos duas contas ativas para transferir.
+        </p>
+      )}
+
+      {aberto && ativas.length >= 2 && (
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-brand-400/40 bg-brand-50/40 p-3 sm:grid-cols-5">
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] font-medium text-muted">De</span>
+            <select value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} className={inputCls + " w-full"}>
+              <option value="">—</option>
+              {ativas.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] font-medium text-muted">Para</span>
+            <select value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} className={inputCls + " w-full"}>
+              <option value="">—</option>
+              {ativas.filter((c) => c.id !== f.from).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] font-medium text-muted">Valor (R$)</span>
+            <input value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} inputMode="decimal" placeholder="0,00" className={inputCls + " w-full"} />
+          </label>
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] font-medium text-muted">Data</span>
+            <input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={inputCls + " w-full"} />
+          </label>
+          <div className="flex items-end">
+            <button
+              onClick={async () => {
+                if (await enviar({ action: "create", fromAccount: f.from, toAccount: f.to, amount: valorNum, date: f.date || undefined, note: f.note || undefined }, "novo")) {
+                  setF({ from: "", to: "", amount: "", date: "", note: "" });
+                  setAberto(false);
+                }
+              }}
+              disabled={!valid || busy === "novo"}
+              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {busy === "novo" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Transferir
+            </button>
+          </div>
+          {saldoInsuficiente && (
+            <p className="text-[11px] text-amber-600 sm:col-span-5">
+              Atenção: {origem?.name} tem {formatBRL(origem?.balance ?? 0)} — a transferência deixará o saldo negativo.
+            </p>
+          )}
+          {erro && <p className="text-[11px] text-rose-500 sm:col-span-5">{erro}</p>}
+        </div>
+      )}
+
+      {transfers.length > 0 && (
+        <ul className="mt-3 divide-y divide-line">
+          {transfers.slice(0, 8).map((t) => (
+            <li key={t.id} className="flex items-center gap-2 py-2 text-sm">
+              <span className="min-w-0 flex-1 truncate text-ink">
+                {t.fromName} <span className="text-muted">→</span> {t.toName}
+                {t.note && <span className="ml-1 text-[11px] text-muted">· {t.note}</span>}
+              </span>
+              <span className="shrink-0 tabular-nums text-ink">{formatBRL(t.amount)}</span>
+              <span className="w-20 shrink-0 text-right text-[11px] text-muted">{fmtDay(t.date)}</span>
+              <button
+                onClick={() => { if (window.confirm("Excluir esta transferência? Os saldos voltam ao que eram.")) enviar({ action: "delete", id: t.id }, t.id); }}
+                disabled={busy === t.id}
+                className="shrink-0 rounded-lg p-1 text-muted hover:text-rose-500 disabled:opacity-50"
+                aria-label="Excluir transferência"
+              >
+                {busy === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

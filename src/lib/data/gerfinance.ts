@@ -50,10 +50,23 @@ export type FinancialAccount = {
   openingBalance: number;
   active: boolean;
   isDefault: boolean;
-  /** Saldo calculado: inicial + recebido − pago. */
+  /** Saldo: inicial + recebido − pago + transferências recebidas − enviadas. */
   balance?: number;
   received?: number;
   paid?: number;
+  transferIn?: number;
+  transferOut?: number;
+};
+
+export type AccountTransfer = {
+  id: string;
+  fromAccount: string;
+  fromName: string;
+  toAccount: string;
+  toName: string;
+  amount: number;
+  date: string;
+  note: string | null;
 };
 
 /** Formas de recebimento manual (fora do Asaas). */
@@ -147,6 +160,7 @@ export type GerFinance = {
   accounts: FinancialAccount[];
   /** Categorias cadastradas (personalizáveis). */
   categories: ExpenseCategoryDef[];
+  transfers: AccountTransfer[];
 };
 
 export function getGerFinance(): GerFinance {
@@ -225,5 +239,6 @@ export function getGerFinance(): GerFinance {
     ],
     accounts: [],
     categories: CATEGORIAS_PADRAO,
+    transfers: [],
   };
 }

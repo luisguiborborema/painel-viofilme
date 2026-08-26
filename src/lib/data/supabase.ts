@@ -47,6 +47,7 @@ import {
   type CriticalDelinquent,
   type Expense,
   type ExpenseCategory,
+  type AccountTransfer,
   type FinancialAccount,
 } from "./gerfinance";
 import { CATEGORIAS_PADRAO, type ExpenseCategoryDef } from "./expense-categories";
@@ -1299,8 +1300,11 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
   const hasExp = expenses.length > 0;
 
   // --- projeção de caixa (3 meses: corrente + 2) -----------------------------
+  // Recorrente LEGADO (criado antes da 0130): é uma linha só, sem série, e
+  // representa um valor que se repete todo mês — por isso é estimado. As séries
+  // novas têm parcela real por mês e entram pela data de vencimento, abaixo.
   const recurringMonthly = expenses
-    .filter((e) => e.recurring)
+    .filter((e) => e.recurring && !e.seriesId)
     .reduce((s, e) => s + e.amount, 0);
   const cashflow = Array.from({ length: 3 }, (_, k) => {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + k, 1));
@@ -1310,10 +1314,11 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       .reduce((s, r) => s + Number(r.value ?? 0), 0);
     // Meses futuros sem cobrança gerada → estima pelo faturamento do mês (MRR).
     const entradas = Math.round(k > 0 && inflow === 0 ? mrr : inflow);
-    const oneOff = expenses
-      .filter((e) => !e.recurring && e.dueDate.startsWith(key))
+    // Tudo que tem vencimento no mês: avulsas + parcelas de série.
+    const doMes = expenses
+      .filter((e) => (!e.recurring || e.seriesId) && e.dueDate.startsWith(key))
       .reduce((s, e) => s + e.amount, 0);
-    const saidas = Math.round(oneOff + recurringMonthly);
+    const saidas = Math.round(doMes + recurringMonthly);
     return { month: MESES[d.getUTCMonth()].slice(0, 3), entradas, saidas, saldo: entradas - saidas };
   });
   const c0 = cashflow[0];
@@ -1338,9 +1343,38 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     if (!k || e.status !== "paid") continue;
     pagoPorConta.set(k, (pagoPorConta.get(k) ?? 0) + Number(e.amount ?? 0));
   }
+  // Transferências entre contas: saem de uma e entram na outra, sem tocar no DRE.
+  const transfRes = await supabase
+    .from("account_transfers")
+    .select("id, from_account, to_account, amount, date, note")
+    .order("date", { ascending: false })
+    .limit(200);
+  const transfRaw = (transfRes.error ? [] : (transfRes.data ?? [])) as {
+    id: string; from_account: string; to_account: string; amount: number; date: string; note: string | null;
+  }[];
+  const entrouPorConta = new Map<string, number>();
+  const saiuPorConta = new Map<string, number>();
+  for (const t of transfRaw) {
+    const v = Number(t.amount ?? 0);
+    saiuPorConta.set(String(t.from_account), (saiuPorConta.get(String(t.from_account)) ?? 0) + v);
+    entrouPorConta.set(String(t.to_account), (entrouPorConta.get(String(t.to_account)) ?? 0) + v);
+  }
+  const transfers: AccountTransfer[] = transfRaw.map((t) => ({
+    id: String(t.id),
+    fromAccount: String(t.from_account),
+    fromName: contaNome.get(String(t.from_account)) ?? "—",
+    toAccount: String(t.to_account),
+    toName: contaNome.get(String(t.to_account)) ?? "—",
+    amount: Number(t.amount ?? 0),
+    date: String(t.date ?? ""),
+    note: t.note ?? null,
+  }));
+
   const accounts: FinancialAccount[] = contasRaw.map((c) => {
     const recebido = recebidoPorConta.get(String(c.id)) ?? 0;
     const pago = pagoPorConta.get(String(c.id)) ?? 0;
+    const entrou = entrouPorConta.get(String(c.id)) ?? 0;
+    const saiu = saiuPorConta.get(String(c.id)) ?? 0;
     return {
       id: String(c.id),
       name: c.name,
@@ -1351,7 +1385,9 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
       isDefault: Boolean(c.is_default),
       received: Math.round(recebido),
       paid: Math.round(pago),
-      balance: Math.round(Number(c.opening_balance ?? 0) + recebido - pago),
+      transferIn: Math.round(entrou),
+      transferOut: Math.round(saiu),
+      balance: Math.round(Number(c.opening_balance ?? 0) + recebido - pago + entrou - saiu),
     };
   });
 
@@ -1359,6 +1395,7 @@ export async function sbGetGerFinance(): Promise<GerFinance> {
     ...base,
     accounts,
     categories,
+    transfers,
     periodLabel: periodLabel(now),
     kpis: {
       ...base.kpis,
