@@ -33,15 +33,32 @@ type RpcRequest = { jsonrpc?: string; id?: RpcId; method?: string; params?: Reco
 const ok = (id: RpcId, result: unknown) => ({ jsonrpc: "2.0", id, result });
 const err = (id: RpcId, code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-/** Compara o token sem vazar tamanho por curto-circuito. */
-function tokenOk(header: string | null): boolean {
-  const expected = process.env.MCP_TOKEN ?? "";
-  if (expected.length < 16) return false; // não configurado → endpoint fechado
-  const got = (header ?? "").replace(/^Bearer\s+/i, "").trim();
+/** Compara em tempo constante — não encurta na primeira diferença. */
+function mesmoToken(got: string, expected: string): boolean {
   if (got.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < expected.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
+}
+
+/**
+ * Autenticação: header `Authorization: Bearer <token>` — ou `?token=` na URL.
+ *
+ * O header é o caminho certo. O parâmetro existe porque nem todo cliente MCP
+ * permite header fixo (conectores gerenciados, principalmente), e sem ele o
+ * endpoint ficaria inutilizável nesses clientes. É menos seguro: URL aparece em
+ * log de servidor e histórico. Os logs do painel guardam só o caminho, sem
+ * query string, mas o do provedor de hospedagem pode guardar tudo.
+ */
+function tokenOk(request: NextRequest): boolean {
+  const expected = process.env.MCP_TOKEN ?? "";
+  if (expected.length < 16) return false; // não configurado → endpoint fechado
+
+  const doHeader = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (doHeader && mesmoToken(doHeader, expected)) return true;
+
+  const daUrl = (request.nextUrl.searchParams.get("token") ?? "").trim();
+  return Boolean(daUrl) && mesmoToken(daUrl, expected);
 }
 
 async function handleRpc(req: RpcRequest): Promise<object | null> {
@@ -107,7 +124,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
 }
 
 async function postHandler(request: NextRequest) {
-  if (!tokenOk(request.headers.get("authorization"))) {
+  if (!tokenOk(request)) {
     return NextResponse.json(
       { jsonrpc: "2.0", id: null, error: { code: -32001, message: "não autorizado" } },
       { status: 401, headers: { ...CORS, "WWW-Authenticate": "Bearer" } },
@@ -143,7 +160,7 @@ async function postHandler(request: NextRequest) {
 async function getHandler(request: NextRequest) {
   const tokenConfigurado = (process.env.MCP_TOKEN ?? "").length >= 16;
   const bancoConfigurado = hasServiceRole();
-  const authed = tokenOk(request.headers.get("authorization"));
+  const authed = tokenOk(request);
 
   const pendencias: string[] = [];
   if (!tokenConfigurado) pendencias.push("Defina MCP_TOKEN (mínimo 16 caracteres) e refaça o deploy.");
@@ -159,7 +176,7 @@ async function getHandler(request: NextRequest) {
       authenticated: authed,
       tools: authed ? TOOLS.map((t) => t.name) : undefined,
       pendencias: pendencias.length ? pendencias : undefined,
-      hint: authed || !tokenConfigurado ? undefined : "Envie o header Authorization: Bearer <MCP_TOKEN>.",
+      hint: authed || !tokenConfigurado ? undefined : "Envie Authorization: Bearer <MCP_TOKEN> — ou ?token=<MCP_TOKEN> na URL, se o seu cliente não permitir header.",
     },
     { status: authed ? 200 : 401, headers: CORS },
   );

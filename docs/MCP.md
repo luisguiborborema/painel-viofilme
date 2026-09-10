@@ -50,17 +50,37 @@ Token ausente ou errado responde **401**.
 
 ## 3. Conectar
 
-### Claude Code
+### Aplicativo do Claude (claude.ai, Mac/Windows) — o caminho mais simples
+
+Não precisa de terminal nem de instalar nada.
+
+**Configurações → Conectores → Adicionar conector personalizado**, e cole a URL:
+
+```
+https://www.viofilme.com.br/api/mcp?token=SEU_TOKEN
+```
+
+O token vai na própria URL porque o formulário de conector personalizado nem
+sempre oferece campo de header. Se a sua versão oferecer **Advanced / Headers**,
+prefira aquilo: informe a URL sem `?token=` e adicione o header
+`Authorization: Bearer SEU_TOKEN`. É a forma mais segura das duas — a URL
+aparece em log de servidor e histórico; o header, não.
+
+Depois de salvar, o conector fica disponível também no Claude Code, porque a
+conta é a mesma.
+
+> Use sempre `www.viofilme.com.br`. Sem o `www`, o domínio responde com um
+> redirecionamento 308, e nem todo cliente MCP segue redirecionamento em POST.
+
+### Claude Code (linha de comando)
+
+Só se você tiver o CLI `claude` instalado — a extensão do VS Code sozinha não o
+instala:
 
 ```bash
 claude mcp add --transport http painel https://www.viofilme.com.br/api/mcp \
   --header "Authorization: Bearer $MCP_TOKEN"
 ```
-
-### claude.ai (conector personalizado)
-
-Configurações → Conectores → Adicionar conector personalizado → URL do endpoint
-e o header `Authorization: Bearer <MCP_TOKEN>`.
 
 ### API / código próprio
 
@@ -126,6 +146,11 @@ dados passaram do teto de leitura. **Se esse campo vier verdadeiro, o total não
 
 - O token é a única credencial — trate como senha. Para revogar, troque
   `MCP_TOKEN` na Vercel e refaça o deploy.
+- O token pode ir no header `Authorization` (preferível) **ou** como `?token=`
+  na URL. O parâmetro existe para clientes que não permitem header fixo, e é
+  menos seguro: URL entra em log de servidor e em histórico. Os logs do próprio
+  painel guardam só o caminho, sem query string, mas os da hospedagem podem
+  guardar tudo. Se puder usar header, use.
 - O endpoint usa a service-role do Supabase, então **ignora RLS**: quem tem o
   token enxerga os dados de todos os clientes. Não compartilhe fora da equipe.
 - Todas as ferramentas são marcadas como `readOnlyHint` no protocolo; não há
