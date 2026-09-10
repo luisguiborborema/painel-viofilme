@@ -42,7 +42,7 @@ Na ordem, no **SQL Editor** do Supabase (ou via CLI `supabase db push`):
 1. Crie um app **Business** em developers.facebook.com/apps.
 2. Adicione os produtos **Facebook Login** e **Instagram Graph API**.
 3. Em Facebook Login → Settings, registre a redirect URI:
-   `https://SEU_DOMINIO/api/meta/callback` (e a de localhost para testes).
+   `https://www.viofilme.com.br/api/meta/callback` (e a de localhost para testes).
 4. **App Review** das permissões (necessário para dados de clientes reais):
    `pages_show_list`, `pages_read_engagement`, `instagram_basic`,
    `instagram_manage_insights`, `read_insights`, `ads_read`.

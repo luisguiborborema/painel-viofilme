@@ -4,7 +4,7 @@ Servidor **MCP remoto** (Streamable HTTP) que expõe os dados do painel para o
 Claude — claude.ai, Claude Code ou via API. **Somente leitura**: nenhuma
 ferramenta cria, altera ou apaga nada.
 
-- **Endpoint:** `https://<seu-app>/api/mcp`
+- **Endpoint:** `https://www.viofilme.com.br/api/mcp`
 - **Autenticação:** header `Authorization: Bearer <MCP_TOKEN>`
 
 ## 1. Configurar o token
@@ -30,7 +30,7 @@ os crons usam). Redeploy depois de salvar.
 Sem token, para saber se as variáveis chegaram no servidor:
 
 ```bash
-curl -s https://<seu-app>/api/mcp
+curl -s https://www.viofilme.com.br/api/mcp
 ```
 
 ```json
@@ -43,7 +43,7 @@ informa apenas **se** as variáveis existem — nunca os valores.
 Com o token, deve listar as ferramentas:
 
 ```bash
-curl -s https://<seu-app>/api/mcp -H "Authorization: Bearer $MCP_TOKEN"
+curl -s https://www.viofilme.com.br/api/mcp -H "Authorization: Bearer $MCP_TOKEN"
 ```
 
 Token ausente ou errado responde **401**.
@@ -53,7 +53,7 @@ Token ausente ou errado responde **401**.
 ### Claude Code
 
 ```bash
-claude mcp add --transport http painel https://<seu-app>/api/mcp \
+claude mcp add --transport http painel https://www.viofilme.com.br/api/mcp \
   --header "Authorization: Bearer $MCP_TOKEN"
 ```
 
@@ -67,7 +67,7 @@ e o header `Authorization: Bearer <MCP_TOKEN>`.
 É JSON-RPC 2.0 por POST:
 
 ```bash
-curl -s https://<seu-app>/api/mcp \
+curl -s https://www.viofilme.com.br/api/mcp \
   -H "Authorization: Bearer $MCP_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
