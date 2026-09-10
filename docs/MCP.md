@@ -163,6 +163,17 @@ dados passaram do teto de leitura. **Se esse campo vier verdadeiro, o total não
   `tools.ts` atrás de `insert`/`update`/`upsert`/`delete`/`rpc` e falha se
   alguma aparecer — a garantia de "somente leitura" não depende de revisão.
 
+## Testar todas as ferramentas de uma vez
+
+```bash
+MCP_TOKEN=seu_token node scripts/testar-mcp.mjs
+```
+
+Chama cada uma das 19 ferramentas e diz qual respondeu com dados, qual veio
+vazia (respondeu certo, mas não há registro no recorte) e qual falhou. Vale
+rodar depois de cada mudança no financeiro ou no CRM: ferramenta quebrada aqui
+quebra também na conversa com o Claude, e lá ele só diz que não conseguiu.
+
 ## O que ainda não foi verificado
 
 O protocolo foi testado de ponta a ponta (autenticação, `initialize`,
