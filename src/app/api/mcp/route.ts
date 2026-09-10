@@ -125,9 +125,21 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
 
 async function postHandler(request: NextRequest) {
   if (!tokenOk(request)) {
+    // Sem `WWW-Authenticate` de propósito. O cabeçalho é o correto para uma API
+    // com token (RFC 6750), mas o formulário de conector personalizado do Claude
+    // lê a presença dele como "este servidor faz OAuth" e pré-seleciona um fluxo
+    // de login que aqui não existe — levando a pessoa a configurar errado. Este
+    // servidor autentica só por chave, então o cabeçalho não ajudaria ninguém.
     return NextResponse.json(
-      { jsonrpc: "2.0", id: null, error: { code: -32001, message: "não autorizado" } },
-      { status: 401, headers: { ...CORS, "WWW-Authenticate": "Bearer" } },
+      {
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32001,
+          message: "não autorizado — envie Authorization: Bearer <MCP_TOKEN> ou ?token=<MCP_TOKEN>",
+        },
+      },
+      { status: 401, headers: CORS },
     );
   }
 

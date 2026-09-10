@@ -72,6 +72,11 @@ conta é a mesma.
 > Use sempre `www.viofilme.com.br`. Sem o `www`, o domínio responde com um
 > redirecionamento 308, e nem todo cliente MCP segue redirecionamento em POST.
 
+Em **Autenticação**, escolha **"Sem login"** — este servidor usa chave de API,
+não OAuth. Se o formulário sugerir "Entrar agora", ignore e troque para "Sem
+login": as opções de OAuth abaixo não se aplicam e levam a um fluxo de login
+que não existe aqui.
+
 ### Claude Code (linha de comando)
 
 Só se você tiver o CLI `claude` instalado — a extensão do VS Code sozinha não o
