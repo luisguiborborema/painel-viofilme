@@ -27,12 +27,26 @@ os crons usam). Redeploy depois de salvar.
 
 ## 2. Conferir se está no ar
 
+Sem token, para saber se as variáveis chegaram no servidor:
+
+```bash
+curl -s https://<seu-app>/api/mcp
+```
+
+```json
+{ "configuracao": { "token": true, "banco": true }, "pronto": true }
+```
+
+`pronto: false` vem com a lista de `pendencias` dizendo o que falta. A resposta
+informa apenas **se** as variáveis existem — nunca os valores.
+
+Com o token, deve listar as ferramentas:
+
 ```bash
 curl -s https://<seu-app>/api/mcp -H "Authorization: Bearer $MCP_TOKEN"
 ```
 
-Deve responder com o nome do servidor, a versão do protocolo e a lista de
-ferramentas. Sem o token (ou com token errado) responde **401**.
+Token ausente ou errado responde **401**.
 
 ## 3. Conectar
 

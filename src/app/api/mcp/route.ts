@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { TOOLS, runTool } from "@/lib/mcp/tools";
+import { hasServiceRole } from "@/lib/supabase/admin";
 import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
@@ -132,17 +133,33 @@ async function postHandler(request: NextRequest) {
   return NextResponse.json(result, { headers: CORS });
 }
 
-/** GET serve só para checar se o endpoint está de pé (o MCP usa POST). */
+/**
+ * GET serve só para diagnóstico (o MCP em si usa POST).
+ *
+ * Mesmo sem token, informa se as DUAS variáveis necessárias estão presentes —
+ * booleanos, nunca os valores. São as duas causas de "conectei e não funciona",
+ * e sem esta resposta a única pista seria um 401 idêntico nos dois casos.
+ */
 async function getHandler(request: NextRequest) {
+  const tokenConfigurado = (process.env.MCP_TOKEN ?? "").length >= 16;
+  const bancoConfigurado = hasServiceRole();
   const authed = tokenOk(request.headers.get("authorization"));
+
+  const pendencias: string[] = [];
+  if (!tokenConfigurado) pendencias.push("Defina MCP_TOKEN (mínimo 16 caracteres) e refaça o deploy.");
+  if (!bancoConfigurado) pendencias.push("Defina SUPABASE_SERVICE_ROLE_KEY — sem ela as ferramentas não leem nada.");
+
   return NextResponse.json(
     {
       server: SERVER_INFO,
       transport: "streamable-http (POST JSON-RPC)",
       protocolVersion: PROTOCOL_VERSION,
+      configuracao: { token: tokenConfigurado, banco: bancoConfigurado },
+      pronto: tokenConfigurado && bancoConfigurado,
       authenticated: authed,
       tools: authed ? TOOLS.map((t) => t.name) : undefined,
-      hint: authed ? undefined : "Envie o header Authorization: Bearer <MCP_TOKEN>.",
+      pendencias: pendencias.length ? pendencias : undefined,
+      hint: authed || !tokenConfigurado ? undefined : "Envie o header Authorization: Bearer <MCP_TOKEN>.",
     },
     { status: authed ? 200 : 401, headers: CORS },
   );
