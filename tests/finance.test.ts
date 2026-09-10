@@ -12,6 +12,7 @@ import { parseValor, parseDataBr, parseDataOfx, parseOfx, parseCsvExtrato, lerEx
 import { conciliar, resumoConciliacao } from "../src/lib/data/reconciliation.ts";
 import { calcularEncargos, diasDeAtraso } from "../src/lib/data/late-fees.ts";
 import { estimarImposto, vencimentoGuia } from "../src/lib/data/tax.ts";
+import { intervalo } from "../src/lib/data/dre.ts";
 import { precisaAprovacao, statusInicial, bloqueioDePagamento } from "../src/lib/data/approval.ts";
 
 /** Compara por valor; a falha mostra os dois lados. */
@@ -210,3 +211,51 @@ eq("página cheia exata não engana", paginar(2000, 1000, 50_000), { lidas: 2000
 eq("vazio", paginar(0, 1000, 50_000), { lidas: 0, truncado: false });
 eq("acima do teto avisa que truncou", paginar(120_000, 1000, 5_000), { lidas: 5_000, truncado: true });
 eq("exatamente no teto avisa", paginar(5_000, 1000, 5_000), { lidas: 5_000, truncado: true });
+
+/* ── recorte do período: define o que entra em cada DRE ── */
+// Um erro de um dia aqui move faturamento de um mês para o outro sem que nada
+// acuse. As bordas (virada de ano, trimestre, fim de mês) são onde isso mora.
+
+eq("mês cheio", intervalo("mes", new Date("2026-09-15T12:00:00Z")),
+  { from: "2026-09-01", to: "2026-09-30", label: "set/26",
+    prevFrom: "2026-08-01", prevTo: "2026-08-31", prevLabel: "ago/26" });
+
+eq("fevereiro comum termina no dia 28", intervalo("mes", new Date("2026-02-10T00:00:00Z")).to, "2026-02-28");
+eq("fevereiro bissexto termina no 29", intervalo("mes", new Date("2028-02-10T00:00:00Z")).to, "2028-02-29");
+
+eq("janeiro compara com dezembro do ano anterior",
+  [intervalo("mes", new Date("2026-01-15T00:00:00Z")).prevFrom,
+   intervalo("mes", new Date("2026-01-15T00:00:00Z")).prevTo,
+   intervalo("mes", new Date("2026-01-15T00:00:00Z")).prevLabel],
+  ["2025-12-01", "2025-12-31", "dez/25"]);
+
+eq("último dia do mês ainda pertence ao mês",
+  intervalo("mes", new Date("2026-08-31T23:00:00Z")).label, "ago/26");
+eq("primeiro dia do mês já é o mês novo",
+  intervalo("mes", new Date("2026-09-01T00:00:00Z")).label, "set/26");
+
+eq("3º trimestre", intervalo("trimestre", new Date("2026-08-15T00:00:00Z")),
+  { from: "2026-07-01", to: "2026-09-30", label: "3º trimestre 2026",
+    prevFrom: "2026-04-01", prevTo: "2026-06-30", prevLabel: "2º trimestre 2026" });
+
+eq("1º trimestre compara com o 4º do ano anterior",
+  [intervalo("trimestre", new Date("2026-02-15T00:00:00Z")).prevFrom,
+   intervalo("trimestre", new Date("2026-02-15T00:00:00Z")).prevTo,
+   intervalo("trimestre", new Date("2026-02-15T00:00:00Z")).prevLabel],
+  ["2025-10-01", "2025-12-31", "4º trimestre 2025"]);
+
+eq("ano fecha em 31/12", intervalo("ano", new Date("2026-06-01T00:00:00Z")),
+  { from: "2026-01-01", to: "2026-12-31", label: "2026",
+    prevFrom: "2025-01-01", prevTo: "2025-12-31", prevLabel: "2025" });
+
+test("os períodos anterior e atual não se sobrepõem nem deixam buraco", () => {
+  for (const data of ["2026-01-15", "2026-03-31", "2026-07-01", "2026-12-31"]) {
+    for (const p of ["mes", "trimestre", "ano"] as const) {
+      const r = intervalo(p, new Date(`${data}T12:00:00Z`));
+      assert.ok(r.prevTo < r.from, `${p} em ${data}: anterior invade o atual`);
+      const diaSeguinte = new Date(new Date(`${r.prevTo}T00:00:00Z`).getTime() + 86_400_000)
+        .toISOString().slice(0, 10);
+      assert.equal(diaSeguinte, r.from, `${p} em ${data}: há um buraco entre os períodos`);
+    }
+  }
+});
