@@ -7,6 +7,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
+import { buscarTudo } from "@/lib/data/paginate-server";
+import { calcularEncargos } from "@/lib/data/late-fees";
+import { DRE_REGIMES } from "@/lib/data/dre";
 
 export type JsonSchema = {
   type: "object";
@@ -34,6 +37,19 @@ const int = (v: unknown, dflt: number, max = 200): number => {
 };
 const money = (v: unknown) => Number(v ?? 0) || 0;
 const sum = (rows: Record<string, unknown>[], key: string) => rows.reduce((a, r) => a + money(r[key]), 0);
+const hojeIso = () => new Date().toISOString().slice(0, 10);
+const PAGO_ASAAS = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
+/** Status que não representam dinheiro (cobrança cancelada/estornada). */
+const IGNORAR = new Set(["DELETED", "REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE"]);
+
+/**
+ * Lê uma tabela inteira, paginando.
+ *
+ * O MCP entrega número para uma IA raciocinar em cima. Um `.limit()` que corta
+ * em silêncio produz uma resposta confiante e errada — pior que um erro.
+ */
+const tudo = (montar: (de: number, ate: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>) =>
+  buscarTudo<Record<string, unknown>>(montar);
 
 /** Resolve um cliente por id, slug ou nome (parcial). */
 async function findClient(db: SupabaseClient, ref: string) {
@@ -302,17 +318,17 @@ export const TOOLS: McpTool[] = [
       const days = int(a.days, 30, 730);
       const sinceDate = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
       const hoje = new Date().toISOString().slice(0, 10);
-      const [{ data: clients }, { data: pays }, { data: exps }] = await Promise.all([
+      const [{ data: clients }, pays, exps] = await Promise.all([
         db.from("clients").select("monthly_fee, status"),
-        db.from("payments").select("status, value, net_value, due_date, payment_date").gte("due_date", sinceDate).limit(5000),
-        db.from("expenses").select("amount, category, status, due_date, paid_date").gte("due_date", sinceDate).limit(5000),
+        tudo((de, ate) => db.from("payments").select("status, value, net_value, due_date, payment_date").gte("due_date", sinceDate).range(de, ate)),
+        tudo((de, ate) => db.from("expenses").select("amount, category, status, due_date, paid_date").gte("due_date", sinceDate).range(de, ate)),
       ]);
       const cli = (clients ?? []) as Record<string, unknown>[];
-      const pagamentos = (pays ?? []) as Record<string, unknown>[];
-      const despesas = (exps ?? []) as Record<string, unknown>[];
-      const PAGO = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
-      const recebidos = pagamentos.filter((p) => PAGO.has(String(p.status)));
-      const emAberto = pagamentos.filter((p) => !PAGO.has(String(p.status)));
+      // Cobrança cancelada/estornada não é dinheiro: fica fora de todas as somas.
+      const pagamentos = pays.linhas.filter((p) => !IGNORAR.has(String(p.status ?? "")));
+      const despesas = exps.linhas;
+      const recebidos = pagamentos.filter((p) => PAGO_ASAAS.has(String(p.status)));
+      const emAberto = pagamentos.filter((p) => !PAGO_ASAAS.has(String(p.status)));
       const vencidos = emAberto.filter((p) => String(p.due_date ?? "") < hoje);
 
       const porCategoria: Record<string, number> = {};
@@ -329,6 +345,9 @@ export const TOOLS: McpTool[] = [
           qtdVencidos: vencidos.length,
         },
         despesas: { total: sum(despesas, "amount"), porCategoria },
+        // Verdade sobre a própria resposta: sem isto a IA somaria em cima de
+        // um recorte parcial achando que é o total.
+        incompleto: pays.truncado || exps.truncado,
       };
     },
   },
@@ -368,6 +387,191 @@ export const TOOLS: McpTool[] = [
   },
 
   // ---------- Resultados e pesquisas ----------
+  {
+    name: "dre",
+    title: "DRE gerencial",
+    description:
+      "Demonstrativo do resultado do período: receita bruta, deduções, custos por categoria, lucro e margem — com o comparativo do período anterior. Escolha o regime: 'competencia' conta pelo vencimento (o resultado do período) e 'caixa' pelo pagamento (o dinheiro que circulou).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        periodo: { type: "string", enum: ["mes", "trimestre", "ano"], description: "Padrão: mes." },
+        regime: { type: "string", enum: ["competencia", "caixa"], description: "Padrão: competencia." },
+        offset: { type: "number", description: "0 = período atual, -1 = anterior, e assim por diante." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a) {
+      const periodo = (["mes", "trimestre", "ano"] as const).includes(a.periodo as never)
+        ? (a.periodo as "mes" | "trimestre" | "ano") : "mes";
+      const regime = a.regime === "caixa" ? "caixa" : "competencia";
+      const offset = Math.max(-36, Math.min(Math.round(Number(a.offset) || 0), 0));
+      const ref = new Date();
+      if (offset !== 0) {
+        if (periodo === "ano") ref.setUTCFullYear(ref.getUTCFullYear() + offset);
+        else if (periodo === "trimestre") ref.setUTCMonth(ref.getUTCMonth() + offset * 3);
+        else ref.setUTCMonth(ref.getUTCMonth() + offset);
+      }
+      const { getDre } = await import("@/lib/data/dre-server");
+      const d = await getDre(periodo, ref, regime);
+      return {
+        ...d,
+        regimeExplicacao: DRE_REGIMES.find((r) => r.key === d.regime)?.hint,
+      };
+    },
+  },
+  {
+    name: "aging_receivables",
+    title: "Aging de recebíveis",
+    description:
+      "O que está vencido e há quanto tempo, em faixas (1–30, 31–60, 61–90, +90 dias), com os maiores devedores. Use para priorizar cobrança: quanto mais antigo, menor a chance de receber.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    async handler() {
+      const { getAging } = await import("@/lib/data/finance-reports-server");
+      return getAging();
+    },
+  },
+  {
+    name: "financial_indicators",
+    title: "Indicadores financeiros",
+    description:
+      "Prazo médio de recebimento (DSO), ticket médio, percentual de receita recorrente e inadimplência do período.",
+    inputSchema: {
+      type: "object",
+      properties: { periodo: { type: "string", enum: ["mes", "trimestre", "ano"], description: "Padrão: mes." } },
+      additionalProperties: false,
+    },
+    async handler(a) {
+      const periodo = (["mes", "trimestre", "ano"] as const).includes(a.periodo as never)
+        ? (a.periodo as "mes" | "trimestre" | "ano") : "mes";
+      const { getIndicadores } = await import("@/lib/data/finance-reports-server");
+      return getIndicadores(periodo);
+    },
+  },
+  {
+    name: "budget_vs_actual",
+    title: "Orçado x realizado",
+    description:
+      "Comparação entre o que foi planejado gastar e o que foi gasto, por categoria, no mês. Desvio positivo significa gasto acima do previsto. Categoria com gasto e sem orçamento também aparece.",
+    inputSchema: {
+      type: "object",
+      properties: { mes: { type: "string", description: "AAAA-MM. Padrão: mês corrente." } },
+      additionalProperties: false,
+    },
+    async handler(a) {
+      const { getOrcamento } = await import("@/lib/data/finance-reports-server");
+      return getOrcamento(str(a.mes));
+    },
+  },
+  {
+    name: "cashflow_forecast",
+    title: "Fluxo de caixa projetado",
+    description:
+      "Projeção semanal a partir do saldo real das contas: quanto entra, quanto sai e o saldo previsto. Indica a primeira semana em que o caixa fica negativo, se houver.",
+    inputSchema: {
+      type: "object",
+      properties: { semanas: { type: "number", description: "Quantas semanas à frente (4 a 26, padrão 12)." } },
+      additionalProperties: false,
+    },
+    async handler(a) {
+      const { getCashflow } = await import("@/lib/data/cashflow-server");
+      return getCashflow(int(a.semanas, 12, 26));
+    },
+  },
+  {
+    name: "overdue_details",
+    title: "Vencidos em detalhe",
+    description:
+      "Cobranças vencidas e não pagas, uma a uma, com dias de atraso e os encargos (multa e juros) pela regra configurada. Use quando precisar do detalhe por título, não do agregado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limite: { type: "number", description: "Máximo de títulos (padrão 50)." },
+        clientId: { type: "string", description: "Filtrar por cliente." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const limite = int(a.limite, 50, 500);
+      const hoje = hojeIso();
+      const cliente = str(a.clientId);
+      const { linhas } = await tudo((de, ate) => {
+        const q = db
+          .from("payments")
+          .select("id, description, value, due_date, status, client_id, clients(name)")
+          .lt("due_date", hoje);
+        return (cliente ? q.eq("client_id", cliente) : q).range(de, ate);
+      });
+
+      const { data: cfg } = await db
+        .from("finance_settings")
+        .select("late_fine, late_interest_month, late_grace_days")
+        .eq("id", 1)
+        .maybeSingle();
+      const c = (cfg ?? {}) as Record<string, unknown>;
+      const regra = {
+        fine: Number(c.late_fine ?? 0),
+        interestMonth: Number(c.late_interest_month ?? 0),
+        graceDays: Number(c.late_grace_days ?? 0),
+      };
+
+      const abertos = linhas
+        .filter((p) => !PAGO_ASAAS.has(String(p.status ?? "")) && !IGNORAR.has(String(p.status ?? "")) && p.due_date)
+        .map((p) => {
+          const valor = money(p.value);
+          const e = calcularEncargos(valor, String(p.due_date));
+          const comRegra = calcularEncargos(valor, String(p.due_date), regra);
+          const nome = p.clients as { name?: string } | { name?: string }[] | null;
+          return {
+            id: String(p.id),
+            descricao: String(p.description ?? "Cobrança"),
+            cliente: (Array.isArray(nome) ? nome[0]?.name : nome?.name) ?? null,
+            valor,
+            vencimento: String(p.due_date),
+            diasAtraso: e.diasAtraso,
+            multa: comRegra.multa,
+            juros: comRegra.juros,
+            valorAtualizado: comRegra.atualizado,
+          };
+        })
+        .sort((x, y) => y.diasAtraso - x.diasAtraso);
+
+      return {
+        regraDeEncargos: regra,
+        total: abertos.length,
+        somaValor: abertos.reduce((s2, x) => s2 + x.valor, 0),
+        somaAtualizada: abertos.reduce((s2, x) => s2 + x.valorAtualizado, 0),
+        titulos: abertos.slice(0, limite),
+      };
+    },
+  },
+  {
+    name: "reconciliation_status",
+    title: "Situação da conciliação",
+    description:
+      "Quanto do extrato bancário já foi conferido, por conta: linhas casadas, dispensadas e pendentes. Responde se o saldo do painel bate com o do banco.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    async handler(_a, db) {
+      const { data: contas } = await db.from("financial_accounts").select("id, name, active");
+      const lista = ((contas ?? []) as Record<string, unknown>[]).filter((c) => c.active !== false);
+      const { getConciliacao } = await import("@/lib/data/reconciliation-server");
+      const out = [];
+      for (const c of lista) {
+        const p = await getConciliacao(String(c.id));
+        out.push({
+          conta: String(c.name),
+          conferidoPct: p.resumo.pct,
+          casadas: p.resumo.casados,
+          dispensadas: p.resumo.ignorados,
+          pendentes: p.resumo.pendentes,
+          fechado: p.resumo.fechado,
+          liquidadoSemExtrato: p.semExtrato.length,
+          ultimaImportacao: p.ultimaImportacao,
+        });
+      }
+      return { contas: out };
+    },
+  },
   {
     name: "campaign_results",
     title: "Resultados de campanhas",
