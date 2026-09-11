@@ -72,6 +72,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
+  // Ação desconhecida não pode cair na criação: um nome errado criaria um
+  // registro duplicado com 200 na resposta.
+  if (b.action !== undefined && b.action !== "create") {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
   const label = (b.label ?? "").trim();
   const fieldType = b.fieldType && TYPES.has(b.fieldType) ? b.fieldType : "text";
   if (!label) return NextResponse.json({ error: "label obrigatório" }, { status: 400 });

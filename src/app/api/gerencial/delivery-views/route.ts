@@ -53,6 +53,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Ação desconhecida não pode cair na criação: um nome errado criaria um
+  // registro duplicado com 200 na resposta.
+  if (b.action !== undefined && b.action !== "create") {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
   const name = b.name?.trim();
   if (!name) return NextResponse.json({ error: "nome ausente" }, { status: 400 });
   const { data, error } = await supabase

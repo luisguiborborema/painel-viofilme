@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { estimativaValida, somarHoras } from "@/lib/data/delivery-hours";
 import { logEvent, logFromUser } from "@/lib/audit/log";
 import { createNotifications } from "@/lib/notifications";
 
@@ -249,22 +250,22 @@ export async function POST(req: Request) {
   }
 
   if (action === "log-hours") {
-    const hours = Number(b.hours);
-    if (!b.id || !Number.isFinite(hours)) {
-      return NextResponse.json({ error: "id/horas inválido" }, { status: 400 });
-    }
+    if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
     const { data: cur } = await supabase
       .from("delivery_tasks")
       .select("logged_h")
       .eq("id", b.id)
       .maybeSingle();
-    const next = Math.max(0, Number(cur?.logged_h ?? 0) + hours);
+    // Valida ANTES de gravar: passar do teto da coluna vira "numeric field
+    // overflow", que chega na tela como 500 sem explicação nenhuma.
+    const r = somarHoras(cur?.logged_h, b.hours);
+    if (!r.ok) return NextResponse.json({ error: r.erro }, { status: 400 });
     const { error } = await supabase
       .from("delivery_tasks")
-      .update({ logged_h: next, updated_at: now })
+      .update({ logged_h: r.total, updated_at: now })
       .eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, persisted: true, loggedH: next });
+    return NextResponse.json({ ok: true, persisted: true, loggedH: r.total });
   }
 
   if (action === "set-custom") {
@@ -380,9 +381,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, persisted: true });
   }
 
-  // create
+  // A partir daqui só resta a criação. Ação desconhecida NÃO pode cair aqui:
+  // um nome errado (typo, cliente desatualizado) criaria uma tarefa fantasma no
+  // quadro, com 200 na resposta — ninguém saberia de onde veio.
+  if (action !== undefined && action !== "create") {
+    return NextResponse.json({ error: `ação desconhecida: ${String(action)}` }, { status: 400 });
+  }
+
   const title = (b.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "título obrigatório" }, { status: 400 });
+  const est = estimativaValida(b.estimateH);
+  if (!est.ok) return NextResponse.json({ error: est.erro }, { status: 400 });
   const { data, error } = await supabase
     .from("delivery_tasks")
     .insert({
@@ -393,7 +402,7 @@ export async function POST(req: Request) {
       assignee: b.assignee?.trim() || null,
       stage: b.stage && STAGES.has(b.stage) ? b.stage : "todo",
       due_date: b.dueDate || null,
-      estimate_h: Number.isFinite(Number(b.estimateH)) ? Number(b.estimateH) : 0,
+      estimate_h: est.valor,
       urgent: Boolean(b.urgent) || b.priority === "urgente",
       priority: b.priority && PRIORITIES.has(b.priority) ? b.priority : "media",
       assignees: Array.isArray(b.assignees) && b.assignees.length ? b.assignees.map((a) => String(a).trim()).filter(Boolean) : b.assignee?.trim() ? [b.assignee.trim()] : [],
