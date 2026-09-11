@@ -74,7 +74,16 @@ export async function POST(req: Request) {
     .eq("pipeline_id", pipelineId)
     .eq("key", stageKey)
     .maybeSingle();
-  const stageId = stage?.id ?? null;
+  // Etapa inexistente gravaria uma chave que nenhuma coluna do funil reconhece:
+  // os cards entram e não aparecem em lugar nenhum. Numa importação em lote,
+  // isso significa dezenas de negócios invisíveis de uma vez.
+  if (!stage?.id) {
+    return NextResponse.json(
+      { error: `Etapa "${stageKey}" não existe no funil escolhido — os negócios importados não teriam onde aparecer.` },
+      { status: 409 },
+    );
+  }
+  const stageId = String(stage.id);
 
   // Mapa de tags por nome (para casar a coluna "tags" do CSV).
   const { data: tagRows } = await supabase.from("crm_tags").select("id,name");

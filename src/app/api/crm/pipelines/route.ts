@@ -43,6 +43,14 @@ export async function POST(req: Request) {
   }
   const supabase = await createClient();
 
+  // Ação desconhecida não pode cair na criação: um nome errado (typo, cliente
+  // desatualizado) criaria um registro com 200 na resposta.
+  const ACOES = new Set(["create", "rename", "delete", "set-default"]);
+  if (b.action !== undefined && !ACOES.has(String(b.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
+
   if (b.action === "rename") {
     if (!b.id || !b.name?.trim()) return NextResponse.json({ error: "id/nome ausente" }, { status: 400 });
     const { error } = await supabase.from("crm_pipelines").update({ name: b.name.trim() }).eq("id", b.id);

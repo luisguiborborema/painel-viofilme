@@ -65,6 +65,14 @@ export async function POST(req: Request) {
   }
   const supabase = await createClient();
 
+  // Ação desconhecida não pode cair na criação: um nome errado (typo, cliente
+  // desatualizado) criaria um registro com 200 na resposta.
+  const ACOES = new Set(["create", "update", "delete", "reorder"]);
+  if (body.action !== undefined && !ACOES.has(String(body.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(body.action)}` }, { status: 400 });
+  }
+
+
   if (action === "reorder") {
     if (!Array.isArray(body.orders)) {
       return NextResponse.json({ error: "orders ausente" }, { status: 400 });

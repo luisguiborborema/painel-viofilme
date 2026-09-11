@@ -2,9 +2,22 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { parseValor } from "@/lib/data/money";
+import { buscarTudo } from "@/lib/data/paginate-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+/**
+ * Teto de linhas por importação.
+ *
+ * Cada linha faz até três idas ao banco, em sequência. Sem teto, um CSV grande
+ * estoura o tempo da função no meio do caminho: metade importada, resposta
+ * nenhuma, e quem enviou não sabe o que entrou. Recusar antes é melhor do que
+ * falhar no meio.
+ */
+const MAX_LINHAS = 500;
 
 type Row = {
   empresa?: string;
@@ -37,6 +50,12 @@ export async function POST(req: Request) {
   }
   const rows = (body.rows ?? []).filter((r) => (r.empresa ?? "").trim() || (r.titulo ?? "").trim());
   if (!rows.length) return NextResponse.json({ error: "nenhuma linha válida" }, { status: 400 });
+  if (rows.length > MAX_LINHAS) {
+    return NextResponse.json(
+      { error: `São ${rows.length} linhas. Importe em blocos de até ${MAX_LINHAS} — acima disso a importação estoura o tempo limite no meio e você não sabe o que entrou.` },
+      { status: 413 },
+    );
+  }
 
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: true, persisted: false, created: rows.length, errors: [] });
@@ -59,6 +78,12 @@ export async function POST(req: Request) {
     .order("position", { ascending: true });
   const openStages = (stageRows ?? []).filter((s) => s.kind === "open");
   const firstStage = openStages[0];
+  if (!firstStage) {
+    return NextResponse.json(
+      { error: "Nenhuma etapa aberta configurada no funil padrão — os negócios importados não teriam onde aparecer." },
+      { status: 409 },
+    );
+  }
   function resolveStage(label?: string) {
     if (!label) return firstStage;
     const t = label.trim().toLowerCase();
@@ -69,12 +94,20 @@ export async function POST(req: Request) {
   }
 
   // Cache de empresas por nome (evita duplicar dentro do mesmo import).
-  const { data: existingCos } = await supabase.from("crm_companies").select("id,name");
+  // Paginado: o padrão do PostgREST devolve 1000 linhas. Com mais empresas que
+  // isso, o cache ficava incompleto e a importação criava duplicatas das que
+  // não couberam — em silêncio.
+  const { linhas: existingCos } = await buscarTudo<{ id: string; name: string }>((de, ate) =>
+    supabase.from("crm_companies").select("id,name").range(de, ate),
+  );
   const coByName = new Map<string, string>(
-    (existingCos ?? []).map((c) => [String(c.name).toLowerCase(), String(c.id)]),
+    existingCos.map((c) => [String(c.name).toLowerCase(), String(c.id)]),
   );
 
   const now = new Date().toISOString();
+  // Mesmo contato repetido no arquivo (várias linhas da mesma empresa) vira um
+  // contato só, não um por linha.
+  const contatosDoImport = new Map<string, string>();
   const errors: string[] = [];
   let created = 0;
 
@@ -101,7 +134,10 @@ export async function POST(req: Request) {
 
       let contactId: string | null = null;
       const ctName = (r.contato ?? "").trim();
-      if (ctName) {
+      const chaveContato = `${companyId}|${ctName.toLowerCase()}`;
+      if (ctName && contatosDoImport.has(chaveContato)) {
+        contactId = contatosDoImport.get(chaveContato)!;
+      } else if (ctName) {
         const { data: ct, error } = await supabase
           .from("crm_contacts")
           .insert({
@@ -116,9 +152,11 @@ export async function POST(req: Request) {
           .single();
         if (error) throw new Error(error.message);
         contactId = ct.id as string;
+        contatosDoImport.set(chaveContato, contactId);
       }
 
-      const stage = resolveStage(r.estagio);
+      // resolveStage sempre devolve algo: firstStage é garantido acima.
+      const stage = resolveStage(r.estagio)!;
       const { data: deal, error: dErr } = await supabase
         .from("crm_leads")
         .insert({
@@ -127,8 +165,10 @@ export async function POST(req: Request) {
           primary_contact_id: contactId,
           pipeline_id: pipelineId ?? null,
           stage_id: stage?.id ?? null,
-          stage: stage?.key ?? "prospeccao",
-          monthly_value: Number((r.valor_mensal ?? "").replace(/[^\d.]/g, "")) || 0,
+          stage: stage.key,
+          // Formato brasileiro: "R$ 1.500,00" virava 1,5 e "1500,00" virava
+          // 150000 com o parsing anterior. O valor alimenta MRR e funil.
+          monthly_value: Math.max(0, parseValor(r.valor_mensal ?? "") ?? 0),
           plan: r.plano?.trim() || null,
           source: r.origem?.trim() || "Importação CSV",
           owner: r.responsavel?.trim() || user.name,
