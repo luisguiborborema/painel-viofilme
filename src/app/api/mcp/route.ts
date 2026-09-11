@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { TOOLS, runTool } from "@/lib/mcp/tools";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { validarToken } from "@/lib/data/api-keys-server";
+import { ferramentasPermitidas, rotuloEscopos } from "@/lib/data/api-keys";
 import { anotarChamada, withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
@@ -64,28 +65,35 @@ function tokenApresentado(request: NextRequest): string {
  *  2. `MCP_TOKEN` do ambiente — a chave única original. Mantida para não
  *     derrubar quem já conectou; some no dia em que a variável for removida.
  */
-async function tokenOk(request: NextRequest): Promise<boolean> {
+/** Identidade de quem chamou. `scopes` vazio = sem restrição. */
+type Identidade = { nome: string; scopes: string[] };
+
+async function autenticar(request: NextRequest): Promise<Identidade | null> {
   const token = tokenApresentado(request);
-  if (!token) return false;
+  if (!token) return null;
 
   const chave = await validarToken(token);
   if (chave) {
     // Sem isto o log fica anônimo: com várias chaves ativas, não haveria como
     // saber qual delas fez a chamada — que é metade do motivo de existirem
     // chaves nomeadas.
-    anotarChamada({ actor: `chave: ${chave.name}`, meta: { keyId: chave.id } });
-    return true;
+    anotarChamada({
+      actor: `chave: ${chave.name}`,
+      meta: { keyId: chave.id, escopo: rotuloEscopos(chave.scopes) },
+    });
+    return { nome: chave.name, scopes: chave.scopes };
   }
 
   const doAmbiente = process.env.MCP_TOKEN ?? "";
   if (doAmbiente.length >= 16 && mesmoToken(token, doAmbiente)) {
+    // A chave única do ambiente não tem escopo — lê tudo, como sempre leu.
     anotarChamada({ actor: "MCP_TOKEN (ambiente)" });
-    return true;
+    return { nome: "MCP_TOKEN", scopes: [] };
   }
-  return false;
+  return null;
 }
 
-async function handleRpc(req: RpcRequest): Promise<object | null> {
+async function handleRpc(req: RpcRequest, scopes: readonly string[]): Promise<object | null> {
   const id = req.id ?? null;
   const method = String(req.method ?? "");
 
@@ -107,9 +115,12 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
     case "ping":
       return ok(id, {});
 
-    case "tools/list":
+    case "tools/list": {
+      // Só o que a chave alcança. Ferramenta fora do escopo não aparece — e,
+      // se for chamada assim mesmo, `runTool` recusa.
+      const visiveis = new Set(ferramentasPermitidas(TOOLS.map((t) => t.name), scopes));
       return ok(id, {
-        tools: TOOLS.map((t) => ({
+        tools: TOOLS.filter((t) => visiveis.has(t.name)).map((t) => ({
           name: t.name,
           title: t.title,
           description: t.description,
@@ -117,6 +128,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
           annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         })),
       });
+    }
 
     case "tools/call": {
       const name = String(req.params?.name ?? "");
@@ -126,7 +138,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
       // igual para as 19, e não dá para ver o que está sendo consultado.
       anotarChamada({ meta: { tool: name } });
       try {
-        const data = await runTool(name, args);
+        const data = await runTool(name, args, scopes);
         return ok(id, {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
           structuredContent: data,
@@ -151,7 +163,8 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
 }
 
 async function postHandler(request: NextRequest) {
-  if (!(await tokenOk(request))) {
+  const identidade = await autenticar(request);
+  if (!identidade) {
     // Sem `WWW-Authenticate` de propósito. O cabeçalho é o correto para uma API
     // com token (RFC 6750), mas o formulário de conector personalizado do Claude
     // lê a presença dele como "este servidor faz OAuth" e pré-seleciona um fluxo
@@ -179,12 +192,12 @@ async function postHandler(request: NextRequest) {
 
   // Lote (array) ou requisição única.
   if (Array.isArray(body)) {
-    const results = (await Promise.all(body.map((r) => handleRpc(r as RpcRequest)))).filter(Boolean);
+    const results = (await Promise.all(body.map((r) => handleRpc(r as RpcRequest, identidade.scopes)))).filter(Boolean);
     if (results.length === 0) return new NextResponse(null, { status: 202, headers: CORS });
     return NextResponse.json(results, { headers: CORS });
   }
 
-  const result = await handleRpc(body as RpcRequest);
+  const result = await handleRpc(body as RpcRequest, identidade.scopes);
   if (result === null) return new NextResponse(null, { status: 202, headers: CORS });
   return NextResponse.json(result, { headers: CORS });
 }
@@ -202,7 +215,8 @@ async function getHandler(request: NextRequest) {
   // Com o banco de pé, as chaves criadas no painel já bastam — MCP_TOKEN vira
   // opcional. Sem banco, não há como validar chave nenhuma.
   const tokenConfigurado = doAmbiente || bancoConfigurado;
-  const authed = await tokenOk(request);
+  const identidade = await autenticar(request);
+  const authed = Boolean(identidade);
 
   const pendencias: string[] = [];
   if (!bancoConfigurado) {
@@ -220,7 +234,8 @@ async function getHandler(request: NextRequest) {
       configuracao: { token: tokenConfigurado, banco: bancoConfigurado, chavesDoPainel: bancoConfigurado },
       pronto: tokenConfigurado && bancoConfigurado,
       authenticated: authed,
-      tools: authed ? TOOLS.map((t) => t.name) : undefined,
+      escopo: identidade ? rotuloEscopos(identidade.scopes) : undefined,
+      tools: identidade ? ferramentasPermitidas(TOOLS.map((t) => t.name), identidade.scopes) : undefined,
       pendencias: pendencias.length ? pendencias : undefined,
       hint: authed || !tokenConfigurado ? undefined : "Envie Authorization: Bearer <MCP_TOKEN> — ou ?token=<MCP_TOKEN> na URL, se o seu cliente não permitir header.",
     },

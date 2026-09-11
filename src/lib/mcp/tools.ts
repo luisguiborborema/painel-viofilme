@@ -10,6 +10,7 @@ import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { buscarTudo } from "@/lib/data/paginate-server";
 import { calcularEncargos } from "@/lib/data/late-fees";
 import { DRE_REGIMES } from "@/lib/data/dre";
+import { liberaTudo, podeUsarFerramenta } from "@/lib/data/api-keys";
 
 export type JsonSchema = {
   type: "object";
@@ -23,7 +24,8 @@ export type McpTool = {
   title: string;
   description: string;
   inputSchema: JsonSchema;
-  handler: (args: Record<string, unknown>, db: SupabaseClient) => Promise<unknown>;
+  /** `scopes` chega vazio quando a chave não tem restrição. */
+  handler: (args: Record<string, unknown>, db: SupabaseClient, scopes: readonly string[]) => Promise<unknown>;
 };
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -703,15 +705,29 @@ export const TOOLS: McpTool[] = [
       required: ["query"],
       additionalProperties: false,
     },
-    async handler(a, db) {
+    async handler(a, db, scopes) {
       const term = str(a.query);
       if (!term) throw new Error("Informe o termo de busca.");
       const like = `%${term}%`;
+      // A busca cruza áreas: precisa respeitar o escopo da chave, senão uma
+      // chave só de marketing leria a mensalidade dos clientes por aqui.
+      const tudo = liberaTudo(scopes);
+      const podeClientes = tudo || scopes.includes("clientes");
+      const podeComercial = tudo || scopes.includes("comercial");
+
       const [clients, deals, companies, contacts] = await Promise.all([
-        db.from("clients").select("id, name, slug, status, monthly_fee").ilike("name", like).limit(10),
-        db.from("crm_leads").select("id, name, owner, monthly_value, stage, won_at, lost_at").ilike("name", like).limit(10),
-        db.from("crm_companies").select("id, name, segment").ilike("name", like).limit(10),
-        db.from("crm_contacts").select("id, name, email, phone").ilike("name", like).limit(10),
+        podeClientes
+          ? db.from("clients").select("id, name, slug, status, monthly_fee").ilike("name", like).limit(10)
+          : Promise.resolve({ data: [] }),
+        podeComercial
+          ? db.from("crm_leads").select("id, name, owner, monthly_value, stage, won_at, lost_at").ilike("name", like).limit(10)
+          : Promise.resolve({ data: [] }),
+        podeComercial
+          ? db.from("crm_companies").select("id, name, segment").ilike("name", like).limit(10)
+          : Promise.resolve({ data: [] }),
+        podeComercial
+          ? db.from("crm_contacts").select("id, name, email, phone").ilike("name", like).limit(10)
+          : Promise.resolve({ data: [] }),
       ]);
       return {
         termo: term,
@@ -727,9 +743,18 @@ export const TOOLS: McpTool[] = [
 export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 
 /** Executa uma ferramenta pelo nome. Lança Error com mensagem amigável. */
-export async function runTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+export async function runTool(
+  name: string,
+  args: Record<string, unknown>,
+  scopes: readonly string[] = [],
+): Promise<unknown> {
   const tool = TOOLS_BY_NAME.get(name);
   if (!tool) throw new Error(`Ferramenta desconhecida: ${name}`);
+  // Checagem no ponto de execução, não só na listagem: um cliente pode chamar
+  // uma ferramenta que não apareceu em `tools/list`.
+  if (!podeUsarFerramenta(name, scopes)) {
+    throw new Error(`Esta chave não tem acesso a ${name}. Ajuste o escopo em Conta → Chaves de API.`);
+  }
   if (!hasServiceRole()) throw new Error("Servidor sem SUPABASE_SERVICE_ROLE_KEY — o MCP não consegue ler os dados.");
-  return tool.handler(args ?? {}, createAdminClient());
+  return tool.handler(args ?? {}, createAdminClient(), scopes);
 }

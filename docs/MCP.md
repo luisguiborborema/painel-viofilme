@@ -18,6 +18,22 @@ Uma chave por pessoa. É o que permite cortar o acesso de quem saiu sem derrubar
 o de todo mundo — e a tela mostra o último uso de cada uma, o que revela chave
 esquecida ativa e chave criada que nunca foi usada.
 
+**Escolha o que ela pode ler.** Quatro áreas, marcadas na criação:
+
+| Área | O que libera |
+|---|---|
+| Clientes e entregas | Carteira, ficha com valores contratados, tarefas |
+| Comercial | Funil, negócios, interações, conversão |
+| Financeiro | DRE, faturamento, inadimplência, caixa, orçamento |
+| Marketing | Campanhas, NPS, disparos |
+
+Ferramenta fora do escopo **não aparece** no `tools/list` da chave, e é recusada
+se chamada mesmo assim. A busca geral (`search`) só é liberada para chaves que
+leem clientes ou comercial, e limita o que procura ao que a chave alcança —
+senão seria um caminho lateral para a mensalidade dos clientes.
+
+Chaves criadas antes desta mudança continuam lendo tudo.
+
 Revogar tem efeito imediato, sem deploy.
 
 ### Alternativa: token único no ambiente

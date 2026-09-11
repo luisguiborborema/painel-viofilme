@@ -17,6 +17,8 @@ export type ApiKey = {
   name: string;
   prefix: string;
   scope: string;
+  /** Áreas que a chave lê. Vazio = todas. */
+  scopes: string[];
   createdBy: string | null;
   createdAt: string;
   lastUsedAt: string | null;
@@ -57,4 +59,96 @@ export function desde(iso: string | null, agora = new Date()): string {
   if (d < 30) return `há ${d} dia${d > 1 ? "s" : ""}`;
   const meses = Math.floor(d / 30);
   return `há ${meses} ${meses > 1 ? "meses" : "mês"}`;
+}
+
+/* ------------------------------- Escopos ----------------------------------- */
+
+/**
+ * O que cada chave pode ler.
+ *
+ * Agrupado por área, não por ferramenta: quem cria a chave pensa "esta pessoa
+ * acompanha campanhas", não "esta pessoa precisa de campaign_results e
+ * nps_summary". A lista de ferramentas aparece na tela como consequência.
+ */
+export type Dominio = "clientes" | "comercial" | "financeiro" | "marketing";
+
+export const DOMINIOS: {
+  key: Dominio;
+  label: string;
+  hint: string;
+  /** Ferramentas do MCP liberadas por este domínio. */
+  tools: string[];
+}[] = [
+  {
+    key: "clientes",
+    label: "Clientes e entregas",
+    hint: "Carteira, ficha do cliente com valores contratados, tarefas de entrega",
+    tools: ["list_clients", "get_client", "list_deliveries"],
+  },
+  {
+    key: "comercial",
+    label: "Comercial",
+    hint: "Funil, negócios, interações e conversão",
+    tools: ["list_deals", "get_deal", "pipeline_summary"],
+  },
+  {
+    key: "financeiro",
+    label: "Financeiro",
+    hint: "DRE, faturamento, inadimplência, fluxo de caixa, orçamento — a área mais sensível",
+    tools: [
+      "financial_summary", "list_payments", "dre", "aging_receivables",
+      "financial_indicators", "budget_vs_actual", "cashflow_forecast",
+      "overdue_details", "reconciliation_status",
+    ],
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    hint: "Campanhas e resultados, NPS, disparos de WhatsApp",
+    tools: ["campaign_results", "nps_summary", "list_broadcasts"],
+  },
+];
+
+/**
+ * `search` cruza clientes, negócios, empresas e contatos. Fica disponível se a
+ * chave puder ler ao menos uma dessas áreas — e a própria ferramenta limita o
+ * que procura ao que a chave alcança.
+ */
+export const TOOL_BUSCA = "search";
+const DOMINIOS_DA_BUSCA: Dominio[] = ["clientes", "comercial"];
+
+const TODOS = DOMINIOS.map((d) => d.key);
+
+/** Normaliza o que veio do banco ou do formulário. Vazio = acesso total. */
+export function normalizarEscopos(raw: unknown): Dominio[] {
+  if (!Array.isArray(raw)) return [];
+  const validos = new Set<string>(TODOS);
+  const out = [...new Set(raw.map(String).filter((k) => validos.has(k)))] as Dominio[];
+  // Selecionar tudo é o mesmo que não restringir: guarda vazio para que a
+  // chave siga valendo se um domínio novo for criado depois.
+  return out.length === TODOS.length ? [] : out;
+}
+
+/** Um array vazio libera tudo — inclusive domínios criados no futuro. */
+export function liberaTudo(scopes: readonly string[] | null | undefined): boolean {
+  return !scopes || scopes.length === 0;
+}
+
+export function podeUsarFerramenta(tool: string, scopes: readonly string[] | null | undefined): boolean {
+  if (liberaTudo(scopes)) return true;
+  const permitidos = new Set(scopes as string[]);
+  if (tool === TOOL_BUSCA) return DOMINIOS_DA_BUSCA.some((d) => permitidos.has(d));
+  return DOMINIOS.some((d) => permitidos.has(d.key) && d.tools.includes(tool));
+}
+
+/** Ferramentas visíveis para a chave — é o que o `tools/list` devolve. */
+export function ferramentasPermitidas(nomes: readonly string[], scopes: readonly string[] | null | undefined): string[] {
+  return nomes.filter((n) => podeUsarFerramenta(n, scopes));
+}
+
+/** Rótulo curto das áreas, para a lista de chaves. */
+export function rotuloEscopos(scopes: readonly string[] | null | undefined): string {
+  if (liberaTudo(scopes)) return "tudo";
+  const labels = DOMINIOS.filter((d) => (scopes as string[]).includes(d.key)).map((d) => d.label);
+  return labels.length ? labels.join(", ") : "nada";
 }

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { desde, situacao, type ApiKey } from "@/lib/data/api-keys";
+import { DOMINIOS, desde, rotuloEscopos, situacao, type ApiKey, type Dominio } from "@/lib/data/api-keys";
 
 const btn = "inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-medium text-muted hover:text-ink disabled:opacity-60";
 
@@ -21,6 +21,9 @@ const btn = "inline-flex items-center gap-1.5 rounded-lg border border-line bg-s
 export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semMigracao: boolean }) {
   const router = useRouter();
   const [nome, setNome] = useState("");
+  // Começa com tudo marcado: o padrão é o comportamento de antes, e quem quer
+  // restringir desmarca conscientemente.
+  const [areas, setAreas] = useState<Dominio[]>(() => DOMINIOS.map((d) => d.key));
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [novo, setNovo] = useState<{ token: string; nome: string } | null>(null);
@@ -41,7 +44,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
   }
 
   async function criar() {
-    const j = await acao({ action: "create", name: nome }, "criar");
+    const j = await acao({ action: "create", name: nome, scopes: areas }, "criar");
     if (j?.token) { setNovo({ token: j.token, nome: nome.trim() }); setNome(""); setCopiado(false); }
   }
 
@@ -110,17 +113,57 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
           Uma chave por pessoa ou por uso. Assim dá para revogar o acesso de quem saiu sem
           derrubar o de todo mundo — que é o que acontece quando existe uma chave só.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && nome.trim().length >= 3) criar(); }}
-            placeholder="Ex.: Claude do Guilherme"
-            className="min-w-[14rem] flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
-          />
+        <input
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && nome.trim().length >= 3 && areas.length) criar(); }}
+          placeholder="Ex.: Claude do Guilherme"
+          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400"
+        />
+
+        <p className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted">
+          O que esta chave pode ler
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {DOMINIOS.map((d) => {
+            const marcado = areas.includes(d.key);
+            return (
+              <label
+                key={d.key}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
+                  marcado ? "border-brand-400/60 bg-brand-50/40" : "border-line hover:bg-subtle",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={marcado}
+                  onChange={() =>
+                    setAreas((v) => (marcado ? v.filter((k) => k !== d.key) : [...v, d.key]))
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-current text-brand-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-ink">{d.label}</span>
+                  <span className="block text-[11px] leading-snug text-muted">{d.hint}</span>
+                  <span className="mt-1 block text-[10px] text-muted">{d.tools.length} ferramenta(s)</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px] text-muted">
+            {areas.length === DOMINIOS.length
+              ? "Acesso total — inclusive DRE e inadimplência."
+              : areas.length === 0
+                ? "Nenhuma área marcada: a chave não leria nada."
+                : `Lê apenas: ${rotuloEscopos(areas)}.`}
+          </span>
           <button
             onClick={criar}
-            disabled={nome.trim().length < 3 || busy === "criar"}
+            disabled={nome.trim().length < 3 || areas.length === 0 || busy === "criar"}
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {busy === "criar" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Criar
@@ -143,7 +186,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">{k.name}</span>
                   <span className="block text-[11px] text-muted">
-                    <code>{k.prefix}…</code> · criada por {k.createdBy ?? "—"} · último uso {desde(k.lastUsedAt)}
+                    <code>{k.prefix}…</code> · lê {rotuloEscopos(k.scopes)} · criada por {k.createdBy ?? "—"} · último uso {desde(k.lastUsedAt)}
                   </span>
                 </span>
                 <span className={cn(

@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { PREFIXO, prefixoDe, type ApiKey } from "./api-keys";
+import { PREFIXO, normalizarEscopos, prefixoDe, type ApiKey, type Dominio } from "./api-keys";
 
 /**
  * Chaves de API — acesso ao banco.
@@ -24,6 +24,7 @@ function mapear(r: Record<string, unknown>): ApiKey {
     name: String(r.name ?? ""),
     prefix: String(r.prefix ?? ""),
     scope: String(r.scope ?? "mcp"),
+    scopes: Array.isArray(r.scopes) ? (r.scopes as string[]) : [],
     createdBy: (r.created_by as string) ?? null,
     createdAt: String(r.created_at),
     lastUsedAt: (r.last_used_at as string) ?? null,
@@ -35,31 +36,42 @@ function mapear(r: Record<string, unknown>): ApiKey {
 /** Tabela ainda não criada — a migração 0139 não rodou. */
 const semTabela = (msg: string) => /api_keys|42P01|42703/i.test(msg);
 
+const COLS = "id, name, prefix, scope, scopes, created_by, created_at, last_used_at, revoked_at, revoked_by";
+/** Sem a migração 0140 a coluna `scopes` não existe — cai para o conjunto base. */
+const COLS_SEM_ESCOPO = "id, name, prefix, scope, created_by, created_at, last_used_at, revoked_at, revoked_by";
+
 export async function listarChaves(): Promise<{ chaves: ApiKey[]; semMigracao: boolean }> {
   if (!isSupabaseConfigured() || !hasServiceRole()) return { chaves: [], semMigracao: false };
   try {
-    const { data, error } = await createAdminClient()
-      .from("api_keys")
-      .select("id, name, prefix, scope, created_by, created_at, last_used_at, revoked_at, revoked_by")
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const db = createAdminClient();
+    const lista = (cols: string) =>
+      db.from("api_keys").select(cols).order("created_at", { ascending: false }).limit(100);
+    const v2 = await lista(COLS);
+    const { data, error } = v2.error ? await lista(COLS_SEM_ESCOPO) : v2;
     if (error) return { chaves: [], semMigracao: semTabela(error.message) };
-    return { chaves: ((data ?? []) as Record<string, unknown>[]).map(mapear), semMigracao: false };
+    return { chaves: ((data ?? []) as unknown as Record<string, unknown>[]).map(mapear), semMigracao: false };
   } catch {
     return { chaves: [], semMigracao: false };
   }
 }
 
 /** Cria a chave e devolve o token em claro — a ÚNICA vez que ele existe. */
-export async function criarChave(nome: string, autor: string): Promise<{ token: string; chave: ApiKey }> {
+export async function criarChave(
+  nome: string,
+  autor: string,
+  escopos: Dominio[] = [],
+): Promise<{ token: string; chave: ApiKey }> {
   const token = gerarToken();
-  const { data, error } = await createAdminClient()
-    .from("api_keys")
-    .insert({ name: nome, token_hash: hash(token), prefix: prefixoDe(token), created_by: autor })
-    .select("id, name, prefix, scope, created_by, created_at, last_used_at, revoked_at, revoked_by")
-    .single();
-  if (error) throw new Error(semTabela(error.message) ? "Rode a migração 0139_api_keys.sql." : error.message);
-  return { token, chave: mapear(data as Record<string, unknown>) };
+  const db = createAdminClient();
+  const base = { name: nome, token_hash: hash(token), prefix: prefixoDe(token), created_by: autor };
+
+  let r = await db.from("api_keys").insert({ ...base, scopes: normalizarEscopos(escopos) }).select(COLS).single();
+  if (r.error && /scopes|42703/i.test(r.error.message)) {
+    // Migração 0140 ainda não rodou: grava sem escopo (a chave lê tudo).
+    r = await db.from("api_keys").insert(base).select(COLS_SEM_ESCOPO).single();
+  }
+  if (r.error) throw new Error(semTabela(r.error.message) ? "Rode a migração 0139_api_keys.sql." : r.error.message);
+  return { token, chave: mapear(r.data as Record<string, unknown>) };
 }
 
 export async function revogarChave(id: string, autor: string): Promise<void> {
@@ -78,7 +90,7 @@ export async function apagarChave(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export type ChaveValida = { id: string; name: string; scope: string };
+export type ChaveValida = { id: string; name: string; scope: string; scopes: string[] };
 
 /**
  * Valida um token apresentado. Devolve a chave quando confere, null quando não.
@@ -93,7 +105,7 @@ export async function validarToken(token: string): Promise<ChaveValida | null> {
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("api_keys")
-      .select("id, name, scope, token_hash, last_used_at")
+      .select("id, name, scope, scopes, token_hash, last_used_at")
       .eq("token_hash", hash(token))
       .is("revoked_at", null)
       .maybeSingle();
@@ -118,7 +130,12 @@ export async function validarToken(token: string): Promise<ChaveValida | null> {
     }
 
     const d = data as Record<string, unknown>;
-    return { id: String(d.id), name: String(d.name ?? ""), scope: String(d.scope ?? "mcp") };
+    return {
+      id: String(d.id),
+      name: String(d.name ?? ""),
+      scope: String(d.scope ?? "mcp"),
+      scopes: Array.isArray(d.scopes) ? (d.scopes as string[]) : [],
+    };
   } catch {
     return null;
   }

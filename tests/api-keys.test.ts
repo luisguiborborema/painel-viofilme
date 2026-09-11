@@ -7,6 +7,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { desde, nomeValido, prefixoDe, situacao, PREFIXO } from "../src/lib/data/api-keys.ts";
 
 const eq = (nome: string, a: unknown, b: unknown) =>
@@ -52,3 +54,69 @@ eq("um dia", desde("2026-09-10T06:00:00Z", agora), "há 1 dia");
 eq("dias no plural", desde("2026-09-05T12:00:00Z", agora), "há 6 dias");
 eq("meses", desde("2026-06-11T12:00:00Z", agora), "há 3 meses");
 eq("um mês no singular", desde("2026-08-05T12:00:00Z", agora), "há 1 mês");
+
+/* ── escopos: o que cada chave alcança ── */
+import {
+  DOMINIOS, ferramentasPermitidas, liberaTudo, normalizarEscopos,
+  podeUsarFerramenta, rotuloEscopos, TOOL_BUSCA,
+} from "../src/lib/data/api-keys.ts";
+
+const TODAS = DOMINIOS.flatMap((d) => d.tools).concat(TOOL_BUSCA);
+
+// Chave antiga (array vazio) tem de continuar lendo tudo — foi assim que ela
+// foi criada, e restringir retroativamente quebraria integrações em uso.
+eq("vazio libera tudo", liberaTudo([]), true);
+eq("nulo libera tudo", liberaTudo(null), true);
+eq("com área definida não libera tudo", liberaTudo(["financeiro"]), false);
+eq("sem escopo, todas as ferramentas aparecem", ferramentasPermitidas(TODAS, []).length, TODAS.length);
+
+test("chave só de marketing não alcança o financeiro", () => {
+  const s = ["marketing"];
+  assert.equal(podeUsarFerramenta("campaign_results", s), true);
+  assert.equal(podeUsarFerramenta("nps_summary", s), true);
+  for (const t of DOMINIOS.find((d) => d.key === "financeiro")!.tools) {
+    assert.equal(podeUsarFerramenta(t, s), false, `${t} não deveria ser alcançável`);
+  }
+});
+
+test("financeiro não dá acesso ao funil nem à carteira", () => {
+  const s = ["financeiro"];
+  assert.equal(podeUsarFerramenta("dre", s), true);
+  assert.equal(podeUsarFerramenta("pipeline_summary", s), false);
+  assert.equal(podeUsarFerramenta("list_clients", s), false);
+});
+
+test("busca só aparece para quem lê clientes ou comercial", () => {
+  // A busca cruza áreas: liberá-la para uma chave de marketing exporia a
+  // mensalidade dos clientes por outro caminho.
+  assert.equal(podeUsarFerramenta(TOOL_BUSCA, ["marketing"]), false);
+  assert.equal(podeUsarFerramenta(TOOL_BUSCA, ["financeiro"]), false);
+  assert.equal(podeUsarFerramenta(TOOL_BUSCA, ["clientes"]), true);
+  assert.equal(podeUsarFerramenta(TOOL_BUSCA, ["comercial"]), true);
+});
+
+eq("ferramenta inexistente nunca é liberada", podeUsarFerramenta("apagar_tudo", ["financeiro"]), false);
+
+test("toda ferramenta do MCP pertence a algum domínio", () => {
+  // Ferramenta órfã ficaria invisível para qualquer chave com escopo — some da
+  // lista sem ninguém perceber.
+  const src = readFileSync(join(import.meta.dirname, "..", "src", "lib", "mcp", "tools.ts"), "utf8");
+  const nomes = [...src.matchAll(/^\s{4}name: "([a-z0-9_]+)",$/gm)].map((m) => m[1]);
+  assert.ok(nomes.length >= 15, `li ${nomes.length} ferramentas — padrão de leitura pode ter quebrado`);
+  const cobertas = new Set(TODAS);
+  const orfas = nomes.filter((n) => !cobertas.has(n));
+  assert.deepStrictEqual(orfas, [], `ferramentas sem domínio: ${orfas.join(", ")}`);
+});
+
+/* ── normalização ── */
+
+eq("descarta área inventada", normalizarEscopos(["financeiro", "inventada"]), ["financeiro"]);
+eq("remove repetidas", normalizarEscopos(["financeiro", "financeiro"]), ["financeiro"]);
+eq("não é array", normalizarEscopos("financeiro"), []);
+// Marcar tudo é o mesmo que não restringir: guardar vazio faz a chave valer
+// também para uma área criada depois.
+eq("todas as áreas viram vazio", normalizarEscopos(DOMINIOS.map((d) => d.key)), []);
+
+eq("rótulo de acesso total", rotuloEscopos([]), "tudo");
+eq("rótulo de uma área", rotuloEscopos(["financeiro"]), "Financeiro");
+eq("rótulo de nenhuma válida", rotuloEscopos(["inventada"]), "nada");
