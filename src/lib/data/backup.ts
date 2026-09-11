@@ -27,6 +27,10 @@ const LOTE = 8;
 const REDIGIR: Record<string, string[]> = {
   google_connections: ["access_token", "refresh_token"],
   meta_connections: ["access_token"],
+  // O hash não é reversível, mas restaurá-lo devolveria acesso funcional a
+  // chaves antigas. Depois de uma restauração, chave se emite de novo — como
+  // se reconecta Google e Meta.
+  api_keys: ["token_hash"],
 };
 
 /**
@@ -39,7 +43,7 @@ const REDIGIR: Record<string, string[]> = {
  * orçamentos): restaurar sem elas devolveria um DRE errado sem avisar.
  */
 export const TABELAS_BACKUP = [
-  "account_metrics", "account_transfers", "asaas_subscriptions", "asaas_webhook_events", "audit_events", "bank_entries",
+  "account_metrics", "account_transfers", "api_keys", "asaas_subscriptions", "asaas_webhook_events", "audit_events", "bank_entries",
   "bank_statements", "broadcast_recipients", "broadcasts", "budgets", "calendar_events", "campaign_metrics",
   "campaigns", "client_accesses", "client_contacts", "client_deliverables", "client_documents", "client_goals",
   "client_services", "clients", "collaborators", "commercial_board", "content_posts", "content_requests",

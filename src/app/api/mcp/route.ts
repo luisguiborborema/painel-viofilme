@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { TOOLS, runTool } from "@/lib/mcp/tools";
 import { hasServiceRole } from "@/lib/supabase/admin";
+import { validarToken } from "@/lib/data/api-keys-server";
 import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
@@ -50,15 +51,27 @@ function mesmoToken(got: string, expected: string): boolean {
  * log de servidor e histórico. Os logs do painel guardam só o caminho, sem
  * query string, mas o do provedor de hospedagem pode guardar tudo.
  */
-function tokenOk(request: NextRequest): boolean {
-  const expected = process.env.MCP_TOKEN ?? "";
-  if (expected.length < 16) return false; // não configurado → endpoint fechado
-
+function tokenApresentado(request: NextRequest): string {
   const doHeader = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (doHeader && mesmoToken(doHeader, expected)) return true;
+  return doHeader || (request.nextUrl.searchParams.get("token") ?? "").trim();
+}
 
-  const daUrl = (request.nextUrl.searchParams.get("token") ?? "").trim();
-  return Boolean(daUrl) && mesmoToken(daUrl, expected);
+/**
+ * Duas origens de credencial, nesta ordem:
+ *
+ *  1. Chaves criadas no painel (tabela `api_keys`) — nomeadas, revogáveis uma a
+ *     uma, com registro de último uso. É o caminho a usar.
+ *  2. `MCP_TOKEN` do ambiente — a chave única original. Mantida para não
+ *     derrubar quem já conectou; some no dia em que a variável for removida.
+ */
+async function tokenOk(request: NextRequest): Promise<boolean> {
+  const token = tokenApresentado(request);
+  if (!token) return false;
+
+  if (await validarToken(token)) return true;
+
+  const doAmbiente = process.env.MCP_TOKEN ?? "";
+  return doAmbiente.length >= 16 && mesmoToken(token, doAmbiente);
 }
 
 async function handleRpc(req: RpcRequest): Promise<object | null> {
@@ -124,7 +137,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
 }
 
 async function postHandler(request: NextRequest) {
-  if (!tokenOk(request)) {
+  if (!(await tokenOk(request))) {
     // Sem `WWW-Authenticate` de propósito. O cabeçalho é o correto para uma API
     // com token (RFC 6750), mas o formulário de conector personalizado do Claude
     // lê a presença dele como "este servidor faz OAuth" e pré-seleciona um fluxo
@@ -170,20 +183,27 @@ async function postHandler(request: NextRequest) {
  * e sem esta resposta a única pista seria um 401 idêntico nos dois casos.
  */
 async function getHandler(request: NextRequest) {
-  const tokenConfigurado = (process.env.MCP_TOKEN ?? "").length >= 16;
   const bancoConfigurado = hasServiceRole();
-  const authed = tokenOk(request);
+  const doAmbiente = (process.env.MCP_TOKEN ?? "").length >= 16;
+  // Com o banco de pé, as chaves criadas no painel já bastam — MCP_TOKEN vira
+  // opcional. Sem banco, não há como validar chave nenhuma.
+  const tokenConfigurado = doAmbiente || bancoConfigurado;
+  const authed = await tokenOk(request);
 
   const pendencias: string[] = [];
-  if (!tokenConfigurado) pendencias.push("Defina MCP_TOKEN (mínimo 16 caracteres) e refaça o deploy.");
-  if (!bancoConfigurado) pendencias.push("Defina SUPABASE_SERVICE_ROLE_KEY — sem ela as ferramentas não leem nada.");
+  if (!bancoConfigurado) {
+    pendencias.push("Defina SUPABASE_SERVICE_ROLE_KEY — sem ela não há leitura de dados nem validação de chave.");
+    if (!doAmbiente) pendencias.push("Sem banco, só MCP_TOKEN autentica — defina-o e refaça o deploy.");
+  } else if (!authed) {
+    pendencias.push("Crie uma chave em Conta → Chaves de API e use-a como Bearer.");
+  }
 
   return NextResponse.json(
     {
       server: SERVER_INFO,
       transport: "streamable-http (POST JSON-RPC)",
       protocolVersion: PROTOCOL_VERSION,
-      configuracao: { token: tokenConfigurado, banco: bancoConfigurado },
+      configuracao: { token: tokenConfigurado, banco: bancoConfigurado, chavesDoPainel: bancoConfigurado },
       pronto: tokenConfigurado && bancoConfigurado,
       authenticated: authed,
       tools: authed ? TOOLS.map((t) => t.name) : undefined,

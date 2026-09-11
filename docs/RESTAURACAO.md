@@ -19,6 +19,8 @@ propósito:
 - `api_logs` e `wa_webhook_log` — diagnóstico, com purga própria;
 - `notifications` — avisos efêmeros da sineta;
 - **tokens de Google e Meta** — vêm redigidos. Reconectar é um clique cada.
+- **hash das chaves de API** — vem redigido. Depois de restaurar, emita chaves
+  novas em Conta → Chaves de API; as antigas não voltam a funcionar.
 
 O que também **não** está no arquivo: os **usuários** (ficam em `auth.users`,
 área gerenciada pelo Supabase) e os **arquivos** enviados ao Storage.

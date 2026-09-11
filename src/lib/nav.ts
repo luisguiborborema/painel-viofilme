@@ -127,6 +127,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     items: [
       { label: "Sugestões", href: "/gerencial/sugestoes", icon: Lightbulb },
       { label: "Documentação", href: "/gerencial/documentacao", icon: BookOpen },
+      { label: "Chaves de API", href: "/gerencial/chaves-api", icon: KeyRound, adminOnly: true },
       { label: "Configurações", href: "/configuracoes", icon: Settings },
     ],
   },

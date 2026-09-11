@@ -7,10 +7,24 @@ ferramenta cria, altera ou apaga nada.
 - **Endpoint:** `https://www.viofilme.com.br/api/mcp`
 - **Autenticação:** header `Authorization: Bearer <MCP_TOKEN>`
 
-## 1. Configurar o token
+## 1. Criar a chave
 
-Gere um token forte (mínimo 16 caracteres — abaixo disso o endpoint fica
-fechado por segurança):
+No painel: **Conta → Chaves de API** (visível só para admin). Dê um nome que
+diga de quem ou para que é — "Claude do Guilherme", "Claude do time" — e copie
+o token na hora. Ele aparece **uma vez**: só o hash fica guardado, então nem o
+sistema consegue mostrá-lo de novo. Perdeu, crie outra e revogue a anterior.
+
+Uma chave por pessoa. É o que permite cortar o acesso de quem saiu sem derrubar
+o de todo mundo — e a tela mostra o último uso de cada uma, o que revela chave
+esquecida ativa e chave criada que nunca foi usada.
+
+Revogar tem efeito imediato, sem deploy.
+
+### Alternativa: token único no ambiente
+
+Continua funcionando para quem já configurou assim, mas não permite revogar
+uma pessoa só nem saber quem usou. Gere um token forte (mínimo 16 caracteres —
+abaixo disso o endpoint recusa):
 
 ```bash
 openssl rand -hex 32
