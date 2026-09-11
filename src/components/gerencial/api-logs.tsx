@@ -30,7 +30,8 @@ function fmtHora(iso: string) {
 
 function LinhaLog({ log }: { log: ApiLogRow }) {
   const [aberto, setAberto] = useState(false);
-  const temDetalhe = Boolean(log.error || log.userAgent || log.ip);
+  const ferramenta = typeof log.meta?.tool === "string" ? log.meta.tool : null;
+  const temDetalhe = Boolean(log.error || log.userAgent || log.ip || log.actor);
   return (
     <li className={cn(!log.ok && "bg-rose-500/[0.03]")}>
       <button
@@ -44,7 +45,15 @@ function LinhaLog({ log }: { log: ApiLogRow }) {
           {log.status || "—"}
         </span>
         <span className="w-14 shrink-0 font-mono text-[11px] font-semibold text-muted">{log.method}</span>
-        <code className="min-w-0 flex-1 truncate text-xs text-ink">{log.path}</code>
+        <code className="min-w-0 flex-1 truncate text-xs text-ink">
+          {log.path}
+          {ferramenta && <span className="ml-1.5 text-muted">· {ferramenta}</span>}
+        </code>
+        {log.actor && (
+          <span className="hidden max-w-[12rem] shrink-0 truncate text-[11px] text-muted lg:block" title={log.actor}>
+            {log.actor}
+          </span>
+        )}
         <span className="hidden shrink-0 rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-muted sm:block">
           {log.source}
         </span>
@@ -58,6 +67,10 @@ function LinhaLog({ log }: { log: ApiLogRow }) {
             <p className="text-rose-600">
               <span className="font-semibold">Erro:</span> {log.error}
             </p>
+          )}
+          {log.actor && <p className="text-muted"><span className="font-semibold text-ink">Quem chamou:</span> {log.actor}</p>}
+          {log.meta && Object.keys(log.meta).length > 0 && (
+            <p className="break-all text-muted"><span className="font-semibold text-ink">Detalhes:</span> {JSON.stringify(log.meta)}</p>
           )}
           {log.ip && <p className="text-muted"><span className="font-semibold text-ink">IP:</span> {log.ip}</p>}
           {log.userAgent && <p className="break-all text-muted"><span className="font-semibold text-ink">User-Agent:</span> {log.userAgent}</p>}

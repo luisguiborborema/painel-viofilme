@@ -1,4 +1,5 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -54,6 +55,25 @@ function clientIp(req: Request): string | null {
 type Handler<Req extends Request, C> = (req: Req, ctx: C) => Promise<Response> | Response;
 
 /**
+ * Contexto da chamada em curso.
+ *
+ * Existe porque quem sabe QUEM chamou é o handler (ele valida a credencial),
+ * mas quem grava o log é o invólucro. Sem isto, ou o log fica anônimo, ou o
+ * invólucro revalidaria a credencial só para descobrir o nome — uma consulta
+ * a mais em cada requisição.
+ */
+type Registro = { actor?: string; meta?: Record<string, unknown> };
+const contexto = new AsyncLocalStorage<Registro>();
+
+/** Chamado de dentro do handler para identificar quem chamou e o que pediu. */
+export function anotarChamada(dados: Registro): void {
+  const atual = contexto.getStore();
+  if (!atual) return; // fora de withApiLog: nada a anotar
+  if (dados.actor) atual.actor = dados.actor;
+  if (dados.meta) atual.meta = { ...atual.meta, ...dados.meta };
+}
+
+/**
  * Envolve um route handler para registrar método, status, duração e erro.
  *
  * Uso:
@@ -73,31 +93,38 @@ export function withApiLog<Req extends Request, C>(source: string, handler: Hand
       }
     })();
 
-    try {
-      const res = await handler(req, ctx);
-      void logApiCall({
-        method: req.method,
-        path,
-        source,
-        status: res.status,
-        durationMs: Date.now() - started,
-        ip: clientIp(req),
-        userAgent: req.headers.get("user-agent"),
-      });
-      return res;
-    } catch (err) {
-      void logApiCall({
-        method: req.method,
-        path,
-        source,
-        status: 500,
-        durationMs: Date.now() - started,
-        ip: clientIp(req),
-        userAgent: req.headers.get("user-agent"),
-        error: err instanceof Error ? err.message : "erro desconhecido",
-      });
-      throw err;
-    }
+    const registro: Registro = {};
+    return contexto.run(registro, async () => {
+      try {
+        const res = await handler(req, ctx);
+        void logApiCall({
+          method: req.method,
+          path,
+          source,
+          status: res.status,
+          durationMs: Date.now() - started,
+          ip: clientIp(req),
+          userAgent: req.headers.get("user-agent"),
+          actor: registro.actor ?? null,
+          meta: registro.meta,
+        });
+        return res;
+      } catch (err) {
+        void logApiCall({
+          method: req.method,
+          path,
+          source,
+          status: 500,
+          durationMs: Date.now() - started,
+          ip: clientIp(req),
+          userAgent: req.headers.get("user-agent"),
+          actor: registro.actor ?? null,
+          meta: registro.meta,
+          error: err instanceof Error ? err.message : "erro desconhecido",
+        });
+        throw err;
+      }
+    });
   };
 }
 

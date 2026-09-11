@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { TOOLS, runTool } from "@/lib/mcp/tools";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { validarToken } from "@/lib/data/api-keys-server";
-import { withApiLog } from "@/lib/audit/api-log";
+import { anotarChamada, withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,10 +68,21 @@ async function tokenOk(request: NextRequest): Promise<boolean> {
   const token = tokenApresentado(request);
   if (!token) return false;
 
-  if (await validarToken(token)) return true;
+  const chave = await validarToken(token);
+  if (chave) {
+    // Sem isto o log fica anônimo: com várias chaves ativas, não haveria como
+    // saber qual delas fez a chamada — que é metade do motivo de existirem
+    // chaves nomeadas.
+    anotarChamada({ actor: `chave: ${chave.name}`, meta: { keyId: chave.id } });
+    return true;
+  }
 
   const doAmbiente = process.env.MCP_TOKEN ?? "";
-  return doAmbiente.length >= 16 && mesmoToken(token, doAmbiente);
+  if (doAmbiente.length >= 16 && mesmoToken(token, doAmbiente)) {
+    anotarChamada({ actor: "MCP_TOKEN (ambiente)" });
+    return true;
+  }
+  return false;
 }
 
 async function handleRpc(req: RpcRequest): Promise<object | null> {
@@ -111,6 +122,9 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
       const name = String(req.params?.name ?? "");
       const args = (req.params?.arguments ?? {}) as Record<string, unknown>;
       if (!name) return err(id, -32602, "Parâmetro 'name' ausente.");
+      // Qual ferramenta foi pedida — sem isso o log mostra só "POST /api/mcp",
+      // igual para as 19, e não dá para ver o que está sendo consultado.
+      anotarChamada({ meta: { tool: name } });
       try {
         const data = await runTool(name, args);
         return ok(id, {

@@ -13,6 +13,10 @@ export type ApiLogRow = {
   ip: string | null;
   userAgent: string | null;
   error: string | null;
+  /** Quem chamou, quando a rota sabe dizer (ex.: nome da chave de API). */
+  actor: string | null;
+  /** Detalhe da chamada — no MCP, a ferramenta pedida. */
+  meta: Record<string, unknown> | null;
 };
 
 export type ApiLogsData = {
@@ -37,9 +41,9 @@ const VAZIO: ApiLogsData = {
   semTabela: false,
 };
 
-// `actor` existe na tabela para uso futuro, mas hoje só as rotas externas
-// (sem sessão) são registradas — então nunca é preenchido e não é exibido.
-const COLS = "id, created_at, method, path, source, status, ok, duration_ms, ip, user_agent, error";
+// `actor` identifica quem chamou quando a rota sabe dizer — no MCP, o nome da
+// chave de API usada. `meta` guarda o detalhe (no MCP, a ferramenta pedida).
+const COLS = "id, created_at, method, path, source, status, ok, duration_ms, ip, user_agent, error, actor, meta";
 
 /** Logs de API com filtros. `days` 0 = tudo. */
 export async function getApiLogs(opts: { days?: number; source?: string; onlyErrors?: boolean; limit?: number } = {}): Promise<ApiLogsData> {
@@ -99,6 +103,8 @@ export async function getApiLogs(opts: { days?: number; source?: string; onlyErr
         ip: r.ip ? String(r.ip) : null,
         userAgent: r.user_agent ? String(r.user_agent) : null,
         error: r.error ? String(r.error) : null,
+        actor: r.actor ? String(r.actor) : null,
+        meta: r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>) : null,
       })),
       sources: [...porFonteMap.keys()].sort(),
       resumo: {
