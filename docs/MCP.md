@@ -32,6 +32,11 @@ se chamada mesmo assim. A busca geral (`search`) só é liberada para chaves que
 leem clientes ou comercial, e limita o que procura ao que a chave alcança —
 senão seria um caminho lateral para a mensalidade dos clientes.
 
+O escopo pode ser ajustado depois, pelo botão **Escopo** na lista — o token
+continua o mesmo, então quem já configurou o conector não precisa mexer em nada.
+Sem isso, apertar um escopo largo demais exigiria revogar e recriar a chave, o
+que é caro o bastante para ninguém fazer.
+
 Chaves criadas antes desta mudança continuam lendo tudo.
 
 Revogar tem efeito imediato, sem deploy.

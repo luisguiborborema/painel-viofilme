@@ -3,13 +3,51 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Check, Copy, KeyRound, Loader2, Plus, Trash2, X,
+  AlertTriangle, Check, Copy, KeyRound, Loader2, Pencil, Plus, Trash2, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { DOMINIOS, desde, rotuloEscopos, situacao, type ApiKey, type Dominio } from "@/lib/data/api-keys";
 
 const btn = "inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-medium text-muted hover:text-ink disabled:opacity-60";
+
+/** Seleção das áreas — usada ao criar e ao ajustar uma chave existente. */
+function SeletorDeAreas({
+  areas, onChange, compacto = false,
+}: {
+  areas: Dominio[];
+  onChange: (v: Dominio[]) => void;
+  compacto?: boolean;
+}) {
+  return (
+    <div className={cn("grid gap-2", compacto ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1 sm:grid-cols-2")}>
+      {DOMINIOS.map((d) => {
+        const marcado = areas.includes(d.key);
+        return (
+          <label
+            key={d.key}
+            className={cn(
+              "flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
+              marcado ? "border-brand-400/60 bg-brand-50/40" : "border-line hover:bg-subtle",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={marcado}
+              onChange={() => onChange(marcado ? areas.filter((k) => k !== d.key) : [...areas, d.key])}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-current text-brand-600"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink">{d.label}</span>
+              {!compacto && <span className="block text-[11px] leading-snug text-muted">{d.hint}</span>}
+              <span className="mt-1 block text-[10px] text-muted">{d.tools.length} ferramenta(s)</span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Criação e revogação das chaves de API.
@@ -56,6 +94,14 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
     } catch {
       setErro("Não consegui copiar — selecione o texto e copie manualmente.");
     }
+  }
+
+  const [editando, setEditando] = useState<string | null>(null);
+  const [areasEdit, setAreasEdit] = useState<Dominio[]>([]);
+
+  async function salvarEscopo(k: ApiKey) {
+    const j = await acao({ action: "scopes", id: k.id, scopes: areasEdit }, k.id);
+    if (j) setEditando(null);
   }
 
   const ativas = chaves.filter((k) => !k.revokedAt);
@@ -124,34 +170,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
         <p className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted">
           O que esta chave pode ler
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {DOMINIOS.map((d) => {
-            const marcado = areas.includes(d.key);
-            return (
-              <label
-                key={d.key}
-                className={cn(
-                  "flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
-                  marcado ? "border-brand-400/60 bg-brand-50/40" : "border-line hover:bg-subtle",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={marcado}
-                  onChange={() =>
-                    setAreas((v) => (marcado ? v.filter((k) => k !== d.key) : [...v, d.key]))
-                  }
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-current text-brand-600"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-ink">{d.label}</span>
-                  <span className="block text-[11px] leading-snug text-muted">{d.hint}</span>
-                  <span className="mt-1 block text-[10px] text-muted">{d.tools.length} ferramenta(s)</span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
+        <SeletorDeAreas areas={areas} onChange={setAreas} />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-muted">
@@ -182,7 +201,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
         ) : (
           <ul className="divide-y divide-line">
             {ativas.map((k) => (
-              <li key={k.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <li key={k.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">{k.name}</span>
                   <span className="block text-[11px] text-muted">
@@ -197,6 +216,17 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                 </span>
                 <button
                   onClick={() => {
+                    // Começa do escopo atual; "tudo" (vazio) abre com todas marcadas.
+                    setAreasEdit(k.scopes.length ? (k.scopes as Dominio[]) : DOMINIOS.map((d) => d.key));
+                    setEditando(editando === k.id ? null : k.id);
+                  }}
+                  className={btn + " shrink-0"}
+                  title="Mudar o que esta chave pode ler"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Escopo
+                </button>
+                <button
+                  onClick={() => {
                     if (window.confirm(`Revogar "${k.name}"? Quem estiver usando esta chave perde o acesso imediatamente.`)) {
                       acao({ action: "revoke", id: k.id }, k.id);
                     }
@@ -206,6 +236,34 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                 >
                   {busy === k.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Revogar
                 </button>
+
+                {editando === k.id && (
+                  <div className="w-full border-t border-line pt-3">
+                    <p className="mb-2 text-[11px] text-muted">
+                      O token continua o mesmo — quem já configurou não precisa mexer em nada.
+                    </p>
+                    <SeletorDeAreas areas={areasEdit} onChange={setAreasEdit} compacto />
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted">
+                        {areasEdit.length === DOMINIOS.length
+                          ? "Acesso total — inclusive DRE e inadimplência."
+                          : areasEdit.length === 0
+                            ? "Nenhuma área marcada: a chave não leria nada."
+                            : `Passará a ler apenas: ${rotuloEscopos(areasEdit)}.`}
+                      </span>
+                      <span className="flex gap-2">
+                        <button onClick={() => setEditando(null)} className={btn}>Cancelar</button>
+                        <button
+                          onClick={() => salvarEscopo(k)}
+                          disabled={areasEdit.length === 0 || busy === k.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                        >
+                          {busy === k.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isAdminTier } from "@/lib/access";
-import { nomeValido, normalizarEscopos, type Dominio } from "@/lib/data/api-keys";
-import { apagarChave, criarChave, listarChaves, revogarChave } from "@/lib/data/api-keys-server";
+import { nomeValido, normalizarEscopos, rotuloEscopos, type Dominio } from "@/lib/data/api-keys";
+import { apagarChave, atualizarEscopos, criarChave, listarChaves, revogarChave } from "@/lib/data/api-keys-server";
 import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Apenas admin cria ou revoga chaves de API." }, { status: 403 });
   }
 
-  let b: { action?: "create" | "revoke" | "delete"; name?: string; id?: string; scopes?: string[] };
+  let b: { action?: "create" | "revoke" | "delete" | "scopes"; name?: string; id?: string; scopes?: string[] };
   try {
     b = await req.json();
   } catch {
@@ -42,6 +42,17 @@ export async function POST(req: Request) {
       if (b.action === "revoke") await revogarChave(b.id, autor);
       else await apagarChave(b.id);
       return NextResponse.json({ ok: true });
+    }
+
+    if (b.action === "scopes") {
+      if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+      if (!Array.isArray(b.scopes) || b.scopes.length === 0) {
+        return NextResponse.json({ error: "Escolha ao menos uma área que a chave pode ler." }, { status: 400 });
+      }
+      const novos = normalizarEscopos(b.scopes) as Dominio[];
+      await logFromUser(user!, { action: "update", area: "Chaves de API", target: b.id, detail: rotuloEscopos(novos) });
+      await atualizarEscopos(b.id, novos);
+      return NextResponse.json({ ok: true, scopes: novos });
     }
 
     if (b.action !== undefined && b.action !== "create") {

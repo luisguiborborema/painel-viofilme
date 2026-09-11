@@ -74,6 +74,25 @@ export async function criarChave(
   return { token, chave: mapear(r.data as Record<string, unknown>) };
 }
 
+/**
+ * Troca as áreas que a chave pode ler, sem trocar o token.
+ *
+ * Sem isto, ajustar o escopo exigiria revogar e criar outra — e reconfigurar o
+ * conector de quem usa. Corrigir um escopo largo demais ficaria caro o
+ * bastante para ninguém corrigir.
+ */
+export async function atualizarEscopos(id: string, escopos: Dominio[]): Promise<void> {
+  const { error, count } = await createAdminClient()
+    .from("api_keys")
+    .update({ scopes: normalizarEscopos(escopos) }, { count: "exact" })
+    .eq("id", id)
+    .is("revoked_at", null);
+  if (error) {
+    throw new Error(/scopes|42703/i.test(error.message) ? "Rode a migração 0140_api_key_scopes.sql." : error.message);
+  }
+  if (!count) throw new Error("Chave não encontrada ou já revogada.");
+}
+
 export async function revogarChave(id: string, autor: string): Promise<void> {
   const { error, count } = await createAdminClient()
     .from("api_keys")
