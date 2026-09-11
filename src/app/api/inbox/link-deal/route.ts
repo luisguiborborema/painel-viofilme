@@ -24,6 +24,17 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
 
   const supabase = await createClient();
+
+  // Confere os dois lados ANTES de gravar. Sem isto, um id inexistente estoura
+  // na chave estrangeira e devolve a mensagem crua do Postgres num 500 — quem
+  // vê na tela não faz ideia do que deu errado.
+  const [{ data: conv }, { data: lead }] = await Promise.all([
+    supabase.from("wa_conversations").select("id").eq("id", body.conversationId).maybeSingle(),
+    supabase.from("crm_leads").select("id").eq("id", body.leadId).maybeSingle(),
+  ]);
+  if (!conv) return NextResponse.json({ error: "conversa não encontrada" }, { status: 404 });
+  if (!lead) return NextResponse.json({ error: "negócio não encontrado" }, { status: 404 });
+
   const { error } = await supabase.from("wa_conversations").update({ lead_id: body.leadId }).eq("id", body.conversationId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await supabase.from("crm_interactions").insert({
