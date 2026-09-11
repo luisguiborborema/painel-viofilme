@@ -29,10 +29,37 @@ O teste `tests/backup.test.ts` compara a lista de tabelas com as migrações e
 falha se alguém criar tabela nova sem incluí-la — foi assim que se descobriu
 que dez tabelas estavam faltando, entre elas toda a configuração financeira.
 
-## Ensaio (faça uma vez, sem pressa)
+## Antes de qualquer coisa: o arquivo presta?
+
+Metade do ensaio não precisa de banco nenhum. Baixe o backup mais recente do
+Drive e rode:
+
+```bash
+node scripts/verificar-backup.mjs painel-2026-09-11.json.gz
+```
+
+Em segundos ele responde: as tabelas esperadas estão lá? Os tokens saíram
+redigidos? Toda linha tem `id` (sem isso o restore a ignora)? O arquivo é
+recente — ou o backup diário parou de rodar sem ninguém notar? Alguma tabela
+bateu no teto de 50.000 linhas e foi cortada?
+
+Vale rodar de vez em quando, não só antes do ensaio. É o único jeito de
+descobrir que o backup parou **antes** de precisar dele.
+
+## Ensaio completo (faça uma vez, sem pressa)
 
 1. Crie um projeto Supabase novo, vazio — o plano gratuito serve.
-2. Rode todas as migrações de `supabase/migrations/` nele, em ordem.
+2. Gere o pacote de migrações e cole no SQL Editor do projeto novo:
+
+   ```bash
+   node scripts/gerar-bundle-migracoes.mjs
+   # ou, se o editor engasgar com o arquivo inteiro:
+   node scripts/gerar-bundle-migracoes.mjs --partes
+   ```
+
+   São 140 arquivos juntados na ordem certa. Aplicar um a um é o passo que faz
+   este ensaio nunca acontecer.
+
 3. Baixe o backup mais recente do Drive.
 4. Crie um `.env.restore` apontando para o projeto NOVO:
 

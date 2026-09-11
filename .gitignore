@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Referência local de estrutura de pastas (não versionar)
 CLIENTE.zip
+
+# Gerado por scripts/gerar-bundle-migracoes.mjs — não versionar
+bundle-migracoes*.sql
