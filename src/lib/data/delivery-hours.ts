@@ -48,3 +48,24 @@ export function estimativaValida(v: unknown): { ok: true; valor: number } | { ok
   if (n > MAX_HORAS) return { ok: false, erro: `Estimativa acima do limite (máximo ${MAX_HORAS}h).` };
   return { ok: true, valor: Math.round(n * 10) / 10 };
 }
+
+/** Teto da coluna `hour_entries.hours`, que é numeric(6,2). */
+export const MAX_BANCO_HORAS = 9999.99;
+
+/**
+ * Valida um lançamento no banco de horas.
+ *
+ * Mesma razão do apontamento nas entregas: passar do teto da coluna vira
+ * "numeric field overflow" — um 500 que não diz nada a quem digitou errado.
+ * Aqui o limite prático é bem menor que o da coluna: ninguém trabalha mais de
+ * 24h num dia, e um número maior é quase sempre engano de digitação.
+ */
+export function lancamentoDeHorasValido(v: unknown): { ok: true; horas: number } | { ok: false; erro: string } {
+  const h = Number(v);
+  if (!Number.isFinite(h)) return { ok: false, erro: "Informe um número de horas válido." };
+  if (h === 0) return { ok: false, erro: "Informe um valor diferente de zero." };
+  if (Math.abs(h) > 24) {
+    return { ok: false, erro: `Lançamento de ${h}h num único dia — confirme o número (máximo 24h por lançamento).` };
+  }
+  return { ok: true, horas: Math.round(h * 100) / 100 };
+}

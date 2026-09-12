@@ -89,3 +89,23 @@ test("hojeIso usa o fuso local, não UTC", () => {
 });
 
 eq("formata com dois dígitos", hojeIso(new Date(2026, 0, 5, 12)), "2026-01-05");
+
+/* ── banco de horas do RH: mesma armadilha, outra tabela ── */
+import { lancamentoDeHorasValido } from "../src/lib/data/delivery-hours.ts";
+
+eq("lançamento normal", lancamentoDeHorasValido(8), { ok: true, horas: 8 });
+eq("compensação é permitida", lancamentoDeHorasValido(-2), { ok: true, horas: -2 });
+eq("fração vale", lancamentoDeHorasValido(1.5), { ok: true, horas: 1.5 });
+eq("zero não é lançamento", lancamentoDeHorasValido(0).ok, false);
+eq("texto não é hora", lancamentoDeHorasValido("oito").ok, false);
+
+test("acima de 24h num dia é recusado com explicação, não com 500", () => {
+  // 99999 devolvia "numeric field overflow" — a coluna é numeric(6,2).
+  const r = lancamentoDeHorasValido(99999);
+  assert.equal(r.ok, false);
+  assert.match((r as { erro: string }).erro, /máximo 24h/);
+});
+
+eq("exatamente 24h passa", lancamentoDeHorasValido(24), { ok: true, horas: 24 });
+eq("24h negativas passam", lancamentoDeHorasValido(-24), { ok: true, horas: -24 });
+eq("arredonda em centésimos", lancamentoDeHorasValido(1.239), { ok: true, horas: 1.24 });

@@ -47,6 +47,14 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
 
+  // Ação desconhecida não pode cair na criação: um nome errado criaria um
+  // registro novo com 200 na resposta.
+  const ACOES = new Set(["add", "delete"]);
+  if (b.action !== undefined && !ACOES.has(String(b.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
+
   try {
     if (b.action === "delete") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });

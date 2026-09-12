@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { lancamentoDeHorasValido } from "@/lib/data/delivery-hours";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -31,6 +32,14 @@ export async function POST(req: Request) {
 
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
+
+  // Ação desconhecida não pode cair na criação: um nome errado criaria um
+  // registro novo com 200 na resposta.
+  const ACOES = new Set(["create", "delete"]);
+  if (b.action !== undefined && !ACOES.has(String(b.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
   const action = b.action ?? "create";
 
   if (action === "delete") {
@@ -42,13 +51,14 @@ export async function POST(req: Request) {
 
   // create
   const employee = (b.employee ?? "").trim();
-  const hours = Number(b.hours);
-  if (!employee || !Number.isFinite(hours) || hours === 0) {
-    return NextResponse.json(
-      { error: "colaborador e horas (diferente de zero) são obrigatórios" },
-      { status: 400 },
-    );
+  if (!employee) {
+    return NextResponse.json({ error: "colaborador é obrigatório" }, { status: 400 });
   }
+  // Valida a faixa antes de gravar: acima do teto da coluna o Postgres devolve
+  // "numeric field overflow" num 500, e quem digitou errado não entende nada.
+  const val = lancamentoDeHorasValido(b.hours);
+  if (!val.ok) return NextResponse.json({ error: val.erro }, { status: 400 });
+  const hours = val.horas;
   const { data, error } = await supabase
     .from("hour_entries")
     .insert({

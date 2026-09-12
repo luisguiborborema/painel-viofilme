@@ -101,6 +101,19 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
   const supabase = await createClient();
 
+  /**
+   * Ação desconhecida NÃO pode cair na criação.
+   *
+   * Aqui isso seria pior do que em qualquer outra rota: criar com `mode: "now"`
+   * dispara WhatsApp na hora para todo o público. Um erro de digitação em
+   * `action` — "sendd", "pausar" — mandaria mensagem em massa para clientes
+   * reais, e não há como voltar atrás depois de enviada.
+   */
+  const ACOES = new Set(["create", "update", "delete", "send", "schedule", "pause", "resume", "retry-failed", "cancel"]);
+  if (b.action !== undefined && !ACOES.has(String(b.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(b.action)}` }, { status: 400 });
+  }
+
   try {
     if (b.action === "delete") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
@@ -169,6 +182,16 @@ export async function POST(req: Request) {
     if (recipients.length === 0) return NextResponse.json({ error: "Nenhum destinatário válido nos públicos escolhidos." }, { status: 400 });
 
     const mode = b.mode ?? "draft";
+    // Disparo sem conteúdo mandaria mensagem vazia para todo o público. Vale
+    // para envio imediato e agendado; rascunho pode ficar incompleto.
+    const temTexto = Boolean(b.message?.trim());
+    const temMidia = b.msgType && b.msgType !== "text" && Boolean(clean(b.mediaUrl));
+    if (mode !== "draft" && !temTexto && !temMidia) {
+      return NextResponse.json(
+        { error: "Disparo sem mensagem nem mídia — escreva o conteúdo antes de enviar." },
+        { status: 400 },
+      );
+    }
     const scheduledFor = mode === "scheduled" ? clean(b.scheduledFor) : null;
     const status = mode === "now" ? "sending" : mode === "scheduled" ? "scheduled" : "draft";
     const msgType: BroadcastMsgType = (b.msgType && MSG_TYPES.has(b.msgType) ? b.msgType : "text") as BroadcastMsgType;
