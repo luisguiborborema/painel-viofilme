@@ -64,10 +64,32 @@ test("todo schema declara type: object", () => {
   assert.deepStrictEqual(fora, []);
 });
 
-test("nenhuma ferramenta escreve no banco", () => {
-  // O MCP é somente leitura: o token dá acesso a tudo, sem sessão de usuário.
-  const escritas = [...src.matchAll(/\.(insert|update|upsert|delete|rpc)\s*\(/g)].map((m) => m[1]);
-  assert.deepStrictEqual([...new Set(escritas)], [], `operação de escrita encontrada em tools.ts: ${escritas.join(", ")}`);
+test("nenhuma ferramenta apaga nada", () => {
+  // Escrita foi permitida; destruição não. Uma ação irreversível pedida por
+  // engano numa conversa não teria como ser desfeita.
+  const destrutivas = [...src.matchAll(/\.(delete|rpc)\s*\(/g)].map((m) => m[1]);
+  assert.deepStrictEqual([...new Set(destrutivas)], [], `operação destrutiva em tools.ts: ${destrutivas.join(", ")}`);
+});
+
+test("toda ferramenta que grava está marcada como escrita", () => {
+  // Sem a marcação, a ferramenta passaria pela checagem de permissão e
+  // gravaria com uma chave somente leitura.
+  const blocos = src.split(/\n  \{\n    name: "/).slice(1);
+  const semMarca = blocos
+    .filter((b) => /\.(insert|update|upsert)\s*\(/.test(b) && !/escreve:\s*true/.test(b))
+    .map((b) => b.slice(0, b.indexOf('"')));
+  assert.deepStrictEqual(semMarca, [], `gravam sem marcar \`escreve: true\`: ${semMarca.join(", ")}`);
+});
+
+test("as ferramentas de escrita são exatamente as previstas", () => {
+  // Por bloco, não por varredura do arquivo: um regex atravessando blocos
+  // casaria o nome da primeira ferramenta com o `escreve` de outra.
+  const marcadas = src
+    .split(/\n  \{\n    name: "/)
+    .slice(1)
+    .filter((b) => /escreve:\s*true/.test(b))
+    .map((b) => b.slice(0, b.indexOf('"')));
+  assert.deepStrictEqual(marcadas.sort(), ["add_crm_note", "create_task", "log_hours"]);
 });
 
 test("as ferramentas do financeiro novo estão publicadas", () => {

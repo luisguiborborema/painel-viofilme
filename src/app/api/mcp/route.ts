@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { TOOLS, runTool } from "@/lib/mcp/tools";
+import { TOOLS, TOOLS_BY_NAME, runTool } from "@/lib/mcp/tools";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { validarToken } from "@/lib/data/api-keys-server";
 import { ferramentasPermitidas, rotuloEscopos } from "@/lib/data/api-keys";
@@ -74,7 +74,7 @@ function tokenApresentado(request: NextRequest): string {
  *     derrubar quem já conectou; some no dia em que a variável for removida.
  */
 /** Identidade de quem chamou. `scopes` vazio = sem restrição. */
-type Identidade = { nome: string; scopes: string[] };
+type Identidade = { nome: string; scopes: string[]; podeEscrever: boolean };
 
 async function autenticar(request: NextRequest): Promise<Identidade | null> {
   const token = tokenApresentado(request);
@@ -89,19 +89,21 @@ async function autenticar(request: NextRequest): Promise<Identidade | null> {
       actor: `chave: ${chave.name}`,
       meta: { keyId: chave.id, escopo: rotuloEscopos(chave.scopes) },
     });
-    return { nome: chave.name, scopes: chave.scopes };
+    return { nome: chave.name, scopes: chave.scopes, podeEscrever: chave.canWrite === true };
   }
 
   const doAmbiente = process.env.MCP_TOKEN ?? "";
   if (doAmbiente.length >= 16 && mesmoToken(token, doAmbiente)) {
     // A chave única do ambiente não tem escopo — lê tudo, como sempre leu.
     anotarChamada({ actor: "MCP_TOKEN (ambiente)" });
-    return { nome: "MCP_TOKEN", scopes: [] };
+    // A chave única do ambiente lê tudo, mas NÃO escreve: escrita se concede
+    // nomeadamente, para haver a quem perguntar depois.
+    return { nome: "MCP_TOKEN", scopes: [], podeEscrever: false };
   }
   return null;
 }
 
-async function handleRpc(req: RpcRequest, scopes: readonly string[]): Promise<object | null> {
+async function handleRpc(req: RpcRequest, identidade: Identidade): Promise<object | null> {
   const id = req.id ?? null;
   const method = String(req.method ?? "");
 
@@ -126,7 +128,12 @@ async function handleRpc(req: RpcRequest, scopes: readonly string[]): Promise<ob
     case "tools/list": {
       // Só o que a chave alcança. Ferramenta fora do escopo não aparece — e,
       // se for chamada assim mesmo, `runTool` recusa.
-      const visiveis = new Set(ferramentasPermitidas(TOOLS.map((t) => t.name), scopes));
+      // Ferramenta de escrita só aparece para chave que pode escrever — não
+      // adianta listar o que a chave não consegue usar.
+      const visiveis = new Set(
+        ferramentasPermitidas(TOOLS.map((t) => t.name), identidade.scopes),
+      );
+      for (const t of TOOLS) if (t.escreve && !identidade.podeEscrever) visiveis.delete(t.name);
       return ok(id, {
         tools: TOOLS.filter((t) => visiveis.has(t.name)).map((t) => ({
           name: t.name,
@@ -144,9 +151,10 @@ async function handleRpc(req: RpcRequest, scopes: readonly string[]): Promise<ob
       if (!name) return err(id, -32602, "Parâmetro 'name' ausente.");
       // Qual ferramenta foi pedida — sem isso o log mostra só "POST /api/mcp",
       // igual para as 19, e não dá para ver o que está sendo consultado.
-      anotarChamada({ meta: { tool: name } });
+      const ferramenta = TOOLS_BY_NAME.get(name);
+      anotarChamada({ meta: { tool: name, ...(ferramenta?.escreve ? { escrita: true } : {}) } });
       try {
-        const data = await runTool(name, args, scopes);
+        const data = await runTool(name, args, identidade.scopes, identidade.podeEscrever);
         return ok(id, {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
           structuredContent: data,
@@ -220,12 +228,12 @@ async function postHandler(request: NextRequest) {
 
   // Lote (array) ou requisição única.
   if (Array.isArray(body)) {
-    const results = (await Promise.all(body.map((r) => handleRpc(r as RpcRequest, identidade.scopes)))).filter(Boolean);
+    const results = (await Promise.all(body.map((r) => handleRpc(r as RpcRequest, identidade)))).filter(Boolean);
     if (results.length === 0) return new NextResponse(null, { status: 202, headers: CORS });
     return NextResponse.json(results, { headers: CORS });
   }
 
-  const result = await handleRpc(body as RpcRequest, identidade.scopes);
+  const result = await handleRpc(body as RpcRequest, identidade);
   if (result === null) return new NextResponse(null, { status: 202, headers: CORS });
   return NextResponse.json(result, { headers: CORS });
 }
@@ -263,7 +271,11 @@ async function getHandler(request: NextRequest) {
       pronto: tokenConfigurado && bancoConfigurado,
       authenticated: authed,
       escopo: identidade ? rotuloEscopos(identidade.scopes) : undefined,
-      tools: identidade ? ferramentasPermitidas(TOOLS.map((t) => t.name), identidade.scopes) : undefined,
+      podeEscrever: identidade ? identidade.podeEscrever : undefined,
+      tools: identidade
+        ? ferramentasPermitidas(TOOLS.map((t) => t.name), identidade.scopes)
+            .filter((n) => identidade.podeEscrever || !TOOLS_BY_NAME.get(n)?.escreve)
+        : undefined,
       pendencias: pendencias.length ? pendencias : undefined,
       hint: authed || !tokenConfigurado ? undefined : "Envie Authorization: Bearer <MCP_TOKEN> — ou ?token=<MCP_TOKEN> na URL, se o seu cliente não permitir header.",
     },

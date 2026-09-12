@@ -58,10 +58,11 @@ eq("um mês no singular", desde("2026-08-05T12:00:00Z", agora), "há 1 mês");
 /* ── escopos: o que cada chave alcança ── */
 import {
   DOMINIOS, ferramentasPermitidas, liberaTudo, normalizarEscopos,
-  podeUsarFerramenta, rotuloEscopos, TOOL_BUSCA,
+  podeEscrever, podeUsarFerramenta, rotuloEscopos, TOOL_BUSCA, TOOLS_ESCRITA,
 } from "../src/lib/data/api-keys.ts";
 
-const TODAS = DOMINIOS.flatMap((d) => d.tools).concat(TOOL_BUSCA);
+// Escrita não pertence a área de leitura: quem libera é a permissão da chave.
+const TODAS = DOMINIOS.flatMap((d) => d.tools).concat(TOOL_BUSCA, TOOLS_ESCRITA);
 
 // Chave antiga (array vazio) tem de continuar lendo tudo — foi assim que ela
 // foi criada, e restringir retroativamente quebraria integrações em uso.
@@ -125,6 +126,20 @@ test("toda ferramenta do MCP pertence a algum domínio", () => {
   const cobertas = new Set(TODAS);
   const orfas = nomes.filter((n) => !cobertas.has(n));
   assert.deepStrictEqual(orfas, [], `ferramentas sem domínio: ${orfas.join(", ")}`);
+});
+
+test("escrita nunca vem junto com 'lê tudo'", () => {
+  // O risco: escopo vazio significa "todas as áreas". Se escrita fosse escopo,
+  // toda chave existente passaria a escrever no dia do deploy.
+  assert.equal(podeEscrever({}), false);
+  assert.equal(podeEscrever({ canWrite: false }), false);
+  assert.equal(podeEscrever(null), false);
+  assert.equal(podeEscrever(undefined), false);
+  assert.equal(podeEscrever({ canWrite: true }), true);
+});
+
+test("toda ferramenta de escrita pertence à lista prevista", () => {
+  for (const t of TOOLS_ESCRITA) assert.ok(podeUsarFerramenta(t, ["conteudo"]), `${t} deveria passar pelo escopo`);
 });
 
 /* ── normalização ── */

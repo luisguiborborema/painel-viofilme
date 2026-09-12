@@ -1,8 +1,10 @@
 # MCP do Painel Viofilme
 
 Servidor **MCP remoto** (Streamable HTTP) que expõe os dados do painel para o
-Claude — claude.ai, Claude Code ou via API. **Somente leitura**: nenhuma
-ferramenta cria, altera ou apaga nada.
+Claude — claude.ai, Claude Code ou via API.
+
+**Leitura por padrão.** Escrita existe, mas só em chave com a permissão marcada
+explicitamente — e mesmo assim nenhuma ferramenta apaga nada.
 
 - **Endpoint:** `https://www.viofilme.com.br/api/mcp`
 - **Autenticação:** header `Authorization: Bearer <MCP_TOKEN>`
@@ -40,6 +42,30 @@ Sem isso, apertar um escopo largo demais exigiria revogar e recriar a chave, o
 que é caro o bastante para ninguém fazer.
 
 Chaves criadas antes desta mudança continuam lendo tudo.
+
+### Pode escrever
+
+Uma caixa à parte, desligada por padrão. Marcada, libera três ferramentas:
+
+| Ferramenta | O que faz |
+|---|---|
+| `create_task` | Cria tarefa no Painel de Entregas |
+| `log_hours` | Lança horas no banco de horas |
+| `add_crm_note` | Registra uma interação num negócio |
+
+As três são **aditivas**: criam registro, nunca apagam nem sobrescrevem, e tudo
+pode ser desfeito pela interface. Um teste varre `tools.ts` e falha se aparecer
+qualquer `delete`, e também se uma ferramenta gravar sem estar marcada como
+escrita — sem a marcação ela passaria pela checagem de permissão.
+
+Escrita é permissão separada, e não mais uma área, por um motivo concreto: área
+vazia significa "lê tudo". Se escrita fosse área, toda chave já existente
+passaria a escrever no dia do deploy, sem ninguém decidir.
+
+O `MCP_TOKEN` do ambiente **nunca escreve** — escrita se concede nomeadamente,
+para haver a quem perguntar depois.
+
+Nos Logs de API, chamada de escrita vem marcada com `escrita: true`.
 
 Revogar tem efeito imediato, sem deploy.
 

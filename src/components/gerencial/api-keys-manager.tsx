@@ -62,6 +62,8 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
   // Começa com tudo marcado: o padrão é o comportamento de antes, e quem quer
   // restringir desmarca conscientemente.
   const [areas, setAreas] = useState<Dominio[]>(() => DOMINIOS.map((d) => d.key));
+  // Escrita começa desligada sempre: é permissão, não configuração.
+  const [podeEscrever, setPodeEscrever] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [novo, setNovo] = useState<{ token: string; nome: string } | null>(null);
@@ -82,7 +84,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
   }
 
   async function criar() {
-    const j = await acao({ action: "create", name: nome, scopes: areas }, "criar");
+    const j = await acao({ action: "create", name: nome, scopes: areas, canWrite: podeEscrever }, "criar");
     if (j?.token) { setNovo({ token: j.token, nome: nome.trim() }); setNome(""); setCopiado(false); }
   }
 
@@ -98,9 +100,10 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
 
   const [editando, setEditando] = useState<string | null>(null);
   const [areasEdit, setAreasEdit] = useState<Dominio[]>([]);
+  const [escritaEdit, setEscritaEdit] = useState(false);
 
   async function salvarEscopo(k: ApiKey) {
-    const j = await acao({ action: "scopes", id: k.id, scopes: areasEdit }, k.id);
+    const j = await acao({ action: "scopes", id: k.id, scopes: areasEdit, canWrite: escritaEdit }, k.id);
     if (j) setEditando(null);
   }
 
@@ -172,6 +175,25 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
         </p>
         <SeletorDeAreas areas={areas} onChange={setAreas} />
 
+        <label className={cn(
+          "mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
+          podeEscrever ? "border-amber-400/60 bg-amber-500/[0.08]" : "border-line hover:bg-subtle",
+        )}>
+          <input
+            type="checkbox"
+            checked={podeEscrever}
+            onChange={() => setPodeEscrever((v) => !v)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-current text-amber-600"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-ink">Pode escrever</span>
+            <span className="block text-[11px] leading-snug text-muted">
+              Criar tarefa, lançar horas e registrar interação no CRM. Nunca apaga nada.
+              Sem isto, a chave é somente leitura — que é o padrão e cobre quase todo uso.
+            </span>
+          </span>
+        </label>
+
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-[11px] text-muted">
             {areas.length === DOMINIOS.length
@@ -205,7 +227,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">{k.name}</span>
                   <span className="block text-[11px] text-muted">
-                    <code>{k.prefix}…</code> · lê {rotuloEscopos(k.scopes)} · criada por {k.createdBy ?? "—"} · último uso {desde(k.lastUsedAt)}
+                    <code>{k.prefix}…</code> · {k.canWrite ? "lê e escreve" : "lê"} {rotuloEscopos(k.scopes)} · criada por {k.createdBy ?? "—"} · último uso {desde(k.lastUsedAt)}
                   </span>
                 </span>
                 <span className={cn(
@@ -218,6 +240,7 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                   onClick={() => {
                     // Começa do escopo atual; "tudo" (vazio) abre com todas marcadas.
                     setAreasEdit(k.scopes.length ? (k.scopes as Dominio[]) : DOMINIOS.map((d) => d.key));
+                    setEscritaEdit(k.canWrite === true);
                     setEditando(editando === k.id ? null : k.id);
                   }}
                   className={btn + " shrink-0"}
@@ -243,6 +266,15 @@ export function ApiKeysManager({ chaves, semMigracao }: { chaves: ApiKey[]; semM
                       O token continua o mesmo — quem já configurou não precisa mexer em nada.
                     </p>
                     <SeletorDeAreas areas={areasEdit} onChange={setAreasEdit} compacto />
+                    <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={escritaEdit}
+                        onChange={() => setEscritaEdit((v) => !v)}
+                        className="h-4 w-4 accent-current text-amber-600"
+                      />
+                      Pode escrever <span className="text-muted">(criar tarefa, lançar horas, registrar interação)</span>
+                    </label>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <span className="text-[11px] text-muted">
                         {areasEdit.length === DOMINIOS.length

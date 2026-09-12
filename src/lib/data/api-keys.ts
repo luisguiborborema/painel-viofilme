@@ -19,6 +19,8 @@ export type ApiKey = {
   scope: string;
   /** Áreas que a chave lê. Vazio = todas. */
   scopes: string[];
+  /** Permite as ferramentas de escrita. Nunca implícito — ver `podeEscrever`. */
+  canWrite: boolean;
   createdBy: string | null;
   createdAt: string;
   lastUsedAt: string | null;
@@ -122,10 +124,28 @@ export const DOMINIOS: {
 ];
 
 /**
+ * Escrita nunca é implícita.
+ *
+ * `scopes` vazio quer dizer "lê tudo" — se escrita fosse um escopo, toda chave
+ * já criada passaria a escrever no dia do deploy, sem ninguém decidir. Por isso
+ * a permissão é um campo à parte, dado chave a chave.
+ */
+export function podeEscrever(chave: { canWrite?: boolean } | null | undefined): boolean {
+  return chave?.canWrite === true;
+}
+
+/**
  * `search` cruza clientes, negócios, empresas e contatos. Fica disponível se a
  * chave puder ler ao menos uma dessas áreas — e a própria ferramenta limita o
  * que procura ao que a chave alcança.
  */
+/**
+ * Ferramentas de escrita. Não pertencem a nenhuma área de leitura: quem libera
+ * é a permissão da chave, não o escopo. Ficam listadas aqui para o teste poder
+ * cobrar que nenhuma ferramenta fique órfã.
+ */
+export const TOOLS_ESCRITA = ["create_task", "log_hours", "add_crm_note"];
+
 export const TOOL_BUSCA = "search";
 const DOMINIOS_DA_BUSCA: Dominio[] = ["clientes", "comercial"];
 
@@ -147,6 +167,8 @@ export function liberaTudo(scopes: readonly string[] | null | undefined): boolea
 }
 
 export function podeUsarFerramenta(tool: string, scopes: readonly string[] | null | undefined): boolean {
+  // Escrita não é liberada por escopo — `runTool` checa a permissão da chave.
+  if (TOOLS_ESCRITA.includes(tool)) return true;
   if (liberaTudo(scopes)) return true;
   const permitidos = new Set(scopes as string[]);
   if (tool === TOOL_BUSCA) return DOMINIOS_DA_BUSCA.some((d) => permitidos.has(d));

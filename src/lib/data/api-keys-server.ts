@@ -25,6 +25,7 @@ function mapear(r: Record<string, unknown>): ApiKey {
     prefix: String(r.prefix ?? ""),
     scope: String(r.scope ?? "mcp"),
     scopes: Array.isArray(r.scopes) ? (r.scopes as string[]) : [],
+    canWrite: r.can_write === true,
     createdBy: (r.created_by as string) ?? null,
     createdAt: String(r.created_at),
     lastUsedAt: (r.last_used_at as string) ?? null,
@@ -36,8 +37,10 @@ function mapear(r: Record<string, unknown>): ApiKey {
 /** Tabela ainda não criada — a migração 0139 não rodou. */
 const semTabela = (msg: string) => /api_keys|42P01|42703/i.test(msg);
 
-const COLS = "id, name, prefix, scope, scopes, created_by, created_at, last_used_at, revoked_at, revoked_by";
-/** Sem a migração 0140 a coluna `scopes` não existe — cai para o conjunto base. */
+const COLS = "id, name, prefix, scope, scopes, can_write, created_by, created_at, last_used_at, revoked_at, revoked_by";
+/** Sem a 0142, `can_write` não existe. */
+const COLS_SEM_ESCRITA = "id, name, prefix, scope, scopes, created_by, created_at, last_used_at, revoked_at, revoked_by";
+/** Sem a 0140, `scopes` também não. */
 const COLS_SEM_ESCOPO = "id, name, prefix, scope, created_by, created_at, last_used_at, revoked_at, revoked_by";
 
 export async function listarChaves(): Promise<{ chaves: ApiKey[]; semMigracao: boolean }> {
@@ -46,7 +49,8 @@ export async function listarChaves(): Promise<{ chaves: ApiKey[]; semMigracao: b
     const db = createAdminClient();
     const lista = (cols: string) =>
       db.from("api_keys").select(cols).order("created_at", { ascending: false }).limit(100);
-    const v2 = await lista(COLS);
+    const v3 = await lista(COLS);
+    const v2 = v3.error ? await lista(COLS_SEM_ESCRITA) : v3;
     const { data, error } = v2.error ? await lista(COLS_SEM_ESCOPO) : v2;
     if (error) return { chaves: [], semMigracao: semTabela(error.message) };
     return { chaves: ((data ?? []) as unknown as Record<string, unknown>[]).map(mapear), semMigracao: false };
@@ -60,12 +64,20 @@ export async function criarChave(
   nome: string,
   autor: string,
   escopos: Dominio[] = [],
+  podeEscreverAgora = false,
 ): Promise<{ token: string; chave: ApiKey }> {
   const token = gerarToken();
   const db = createAdminClient();
   const base = { name: nome, token_hash: hash(token), prefix: prefixoDe(token), created_by: autor };
 
-  let r = await db.from("api_keys").insert({ ...base, scopes: normalizarEscopos(escopos) }).select(COLS).single();
+  let r = await db
+    .from("api_keys")
+    .insert({ ...base, scopes: normalizarEscopos(escopos), can_write: podeEscreverAgora === true })
+    .select(COLS)
+    .single();
+  if (r.error && /can_write|42703/i.test(r.error.message)) {
+    r = await db.from("api_keys").insert({ ...base, scopes: normalizarEscopos(escopos) }).select(COLS_SEM_ESCRITA).single();
+  }
   if (r.error && /scopes|42703/i.test(r.error.message)) {
     // Migração 0140 ainda não rodou: grava sem escopo (a chave lê tudo).
     r = await db.from("api_keys").insert(base).select(COLS_SEM_ESCOPO).single();
@@ -81,10 +93,12 @@ export async function criarChave(
  * conector de quem usa. Corrigir um escopo largo demais ficaria caro o
  * bastante para ninguém corrigir.
  */
-export async function atualizarEscopos(id: string, escopos: Dominio[]): Promise<void> {
+export async function atualizarEscopos(id: string, escopos: Dominio[], podeEscreverAgora?: boolean): Promise<void> {
+  const patch: Record<string, unknown> = { scopes: normalizarEscopos(escopos) };
+  if (podeEscreverAgora !== undefined) patch.can_write = podeEscreverAgora === true;
   const { error, count } = await createAdminClient()
     .from("api_keys")
-    .update({ scopes: normalizarEscopos(escopos) }, { count: "exact" })
+    .update(patch, { count: "exact" })
     .eq("id", id)
     .is("revoked_at", null);
   if (error) {
@@ -109,7 +123,7 @@ export async function apagarChave(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export type ChaveValida = { id: string; name: string; scope: string; scopes: string[] };
+export type ChaveValida = { id: string; name: string; scope: string; scopes: string[]; canWrite: boolean };
 
 /**
  * Valida um token apresentado. Devolve a chave quando confere, null quando não.
@@ -124,7 +138,7 @@ export async function validarToken(token: string): Promise<ChaveValida | null> {
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("api_keys")
-      .select("id, name, scope, scopes, token_hash, last_used_at")
+      .select("id, name, scope, scopes, can_write, token_hash, last_used_at")
       .eq("token_hash", hash(token))
       .is("revoked_at", null)
       .maybeSingle();
@@ -154,6 +168,7 @@ export async function validarToken(token: string): Promise<ChaveValida | null> {
       name: String(d.name ?? ""),
       scope: String(d.scope ?? "mcp"),
       scopes: Array.isArray(d.scopes) ? (d.scopes as string[]) : [],
+      canWrite: d.can_write === true,
     };
   } catch {
     return null;

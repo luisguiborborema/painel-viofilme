@@ -26,6 +26,14 @@ export type McpTool = {
   title: string;
   description: string;
   inputSchema: JsonSchema;
+  /**
+   * Marca a ferramenta como de ESCRITA.
+   *
+   * Só roda em chave com permissão explícita, e a marcação é obrigatória: o
+   * teste varre este arquivo e falha se alguma ferramenta gravar no banco sem
+   * estar marcada aqui.
+   */
+  escreve?: true;
   /** `scopes` chega vazio quando a chave não tem restrição. */
   handler: (args: Record<string, unknown>, db: SupabaseClient, scopes: readonly string[]) => Promise<unknown>;
 };
@@ -1154,6 +1162,135 @@ export const TOOLS: McpTool[] = [
       };
     },
   },
+  // ---------- ESCRITA (só com permissão explícita na chave) ----------
+  // Nenhuma apaga nada. Todas são aditivas e reversíveis pela interface.
+  {
+    name: "create_task",
+    title: "Criar tarefa",
+    description:
+      "Cria uma tarefa no Painel de Entregas. Use quando a conversa concluir que algo precisa ser feito. A tarefa nasce em 'A fazer' e aparece para a equipe imediatamente — confirme com a pessoa antes de criar.",
+    escreve: true,
+    inputSchema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "O que precisa ser feito." },
+        cliente: { type: "string", description: "Id, slug ou nome do cliente (opcional)." },
+        responsavel: { type: "string", description: "Nome de quem vai executar (opcional)." },
+        tipo: { type: "string", description: "Arte, Vídeo, Copy, Tráfego… (padrão Arte)." },
+        vencimento: { type: "string", description: "AAAA-MM-DD (opcional)." },
+      },
+      required: ["titulo"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const titulo = str(a.titulo);
+      if (!titulo) throw new Error("Informe o título da tarefa.");
+
+      let clientId: string | null = null;
+      const ref = str(a.cliente);
+      if (ref) {
+        const cli = await findClient(db, ref);
+        if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+        clientId = (cli as { id: string }).id;
+      }
+
+      const { data, error } = await db
+        .from("delivery_tasks")
+        .insert({
+          title: titulo.slice(0, 300),
+          client_id: clientId,
+          type: str(a.tipo) ?? "Arte",
+          origin: "MCP",
+          assignee: str(a.responsavel) ?? null,
+          stage: "todo",
+          due_date: str(a.vencimento) ?? null,
+          priority: "media",
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      return { criada: true, id: String(data.id), titulo, aviso: "A tarefa já está visível para a equipe." };
+    },
+  },
+  {
+    name: "log_hours",
+    title: "Lançar horas",
+    description:
+      "Lança horas no banco de horas de um colaborador. Valor negativo é compensação. Confirme a pessoa, a data e o número antes de lançar — o registro entra no banco de horas real.",
+    escreve: true,
+    inputSchema: {
+      type: "object",
+      properties: {
+        pessoa: { type: "string", description: "Nome do colaborador." },
+        horas: { type: "number", description: "Positivo lança, negativo compensa." },
+        data: { type: "string", description: "AAAA-MM-DD (padrão: hoje)." },
+        observacao: { type: "string", description: "Por que foi lançado." },
+      },
+      required: ["pessoa", "horas"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const pessoa = str(a.pessoa);
+      const horas = Number(a.horas);
+      if (!pessoa) throw new Error("Informe a pessoa.");
+      if (!Number.isFinite(horas) || horas === 0) throw new Error("Informe um número de horas diferente de zero.");
+      // Teto igual ao da tela: acima disso é quase certo erro de digitação.
+      if (Math.abs(horas) > 24) throw new Error("Lançamento acima de 24h — confirme o número antes de insistir.");
+
+      const { error } = await db.from("hour_entries").insert({
+        employee: pessoa,
+        hours: horas,
+        work_date: str(a.data) ?? hojeIso(),
+        note: str(a.observacao) ?? "Lançado via MCP",
+      });
+      if (error) throw new Error(error.message);
+      return {
+        lancado: true,
+        pessoa,
+        horas,
+        tipo: horas < 0 ? "compensação" : "lançamento",
+        data: str(a.data) ?? hojeIso(),
+      };
+    },
+  },
+  {
+    name: "add_crm_note",
+    title: "Registrar interação no CRM",
+    description:
+      "Adiciona uma interação na linha do tempo de um negócio — o que foi conversado, combinado ou decidido. Não muda etapa nem valor: só registra.",
+    escreve: true,
+    inputSchema: {
+      type: "object",
+      properties: {
+        negocio: { type: "string", description: "Id do negócio ou parte do nome." },
+        texto: { type: "string", description: "O que registrar." },
+        canal: { type: "string", description: "whatsapp, call, email, meeting (padrão: nota)." },
+      },
+      required: ["negocio", "texto"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const ref = str(a.negocio);
+      const texto = str(a.texto);
+      if (!ref || !texto) throw new Error("Informe o negócio e o texto.");
+
+      const isUuid = /^[0-9a-f-]{32,36}$/i.test(ref);
+      const { data: deal } = isUuid
+        ? await db.from("crm_leads").select("id, name").eq("id", ref).maybeSingle()
+        : await db.from("crm_leads").select("id, name").ilike("name", `%${ref}%`).limit(1).maybeSingle();
+      if (!deal) throw new Error(`Negócio não encontrado: ${ref}`);
+
+      const { error } = await db.from("crm_interactions").insert({
+        lead_id: (deal as { id: string }).id,
+        channel: str(a.canal) ?? "nota",
+        author: "MCP",
+        body: texto.slice(0, 4000),
+      });
+      if (error) throw new Error(error.message);
+      return { registrado: true, negocio: (deal as { name: string }).name };
+    },
+  },
+
   {
     name: "search",
     title: "Busca geral",
@@ -1207,9 +1344,16 @@ export async function runTool(
   name: string,
   args: Record<string, unknown>,
   scopes: readonly string[] = [],
+  podeEscreverAgora = false,
 ): Promise<unknown> {
   const tool = TOOLS_BY_NAME.get(name);
   if (!tool) throw new Error(`Ferramenta desconhecida: ${name}`);
+  // Escrita exige permissão explícita na chave — nunca vem junto com "lê tudo".
+  if (tool.escreve && !podeEscreverAgora) {
+    throw new Error(
+      `${name} altera dados e esta chave é somente leitura. Habilite "pode escrever" em Conta → Chaves de API.`,
+    );
+  }
   // Checagem no ponto de execução, não só na listagem: um cliente pode chamar
   // uma ferramenta que não apareceu em `tools/list`.
   if (!podeUsarFerramenta(name, scopes)) {
