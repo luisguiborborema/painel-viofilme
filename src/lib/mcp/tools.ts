@@ -11,6 +11,8 @@ import { buscarTudo } from "@/lib/data/paginate-server";
 import { calcularEncargos } from "@/lib/data/late-fees";
 import { DRE_REGIMES } from "@/lib/data/dre";
 import { liberaTudo, podeUsarFerramenta } from "@/lib/data/api-keys";
+import { camposFaltando } from "@/lib/data/editorial-kanban";
+import { hojeIso } from "@/lib/data/hoje";
 
 export type JsonSchema = {
   type: "object";
@@ -39,7 +41,6 @@ const int = (v: unknown, dflt: number, max = 200): number => {
 };
 const money = (v: unknown) => Number(v ?? 0) || 0;
 const sum = (rows: Record<string, unknown>[], key: string) => rows.reduce((a, r) => a + money(r[key]), 0);
-const hojeIso = () => new Date().toISOString().slice(0, 10);
 const PAGO_ASAAS = new Set(["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "DUNNING_RECEIVED"]);
 /** Status que não representam dinheiro (cobrança cancelada/estornada). */
 const IGNORAR = new Set(["DELETED", "REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE"]);
@@ -52,6 +53,44 @@ const IGNORAR = new Set(["DELETED", "REFUNDED", "REFUND_REQUESTED", "CHARGEBACK_
  */
 const tudo = (montar: (de: number, ate: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>) =>
   buscarTudo<Record<string, unknown>>(montar);
+
+/** Próximo mês de "AAAA-MM". */
+function proximoMes(mes: string): string {
+  const a = Number(mes.slice(0, 4));
+  const m = Number(mes.slice(5, 7));
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/** Formato do card de postagem nas respostas do MCP. */
+function descreverPost(p: Record<string, unknown>) {
+  const faltam = camposFaltando(paraValidacao(p));
+  return {
+    n: Number(p.n ?? 0),
+    titulo: String(p.title ?? "") || "(sem título)",
+    tipo: String(p.format ?? ""),
+    roteiro: (p.description as string) ?? null,
+    legenda: (p.legenda as string) ?? null,
+    dataEntrega: (p.delivery_date as string) ?? null,
+    dataPostagem: (p.post_date_iso as string) ?? null,
+    responsavel: (p.assignee as string) ?? null,
+    referencia: (p.reference_url as string) ?? null,
+    aprovacaoDoCliente: (p.client_status as string) ?? null,
+    pronta: faltam.length === 0,
+    falta: faltam,
+  };
+}
+
+/** Traduz a linha do banco para o formato que a validação do card espera. */
+function paraValidacao(p: Record<string, unknown>) {
+  return {
+    title: p.title,
+    description: p.description,
+    legenda: p.legenda,
+    deliveryDate: p.delivery_date,
+    postDateIso: p.post_date_iso,
+    assignee: p.assignee,
+  };
+}
 
 /** Resolve um cliente por id, slug ou nome (parcial). */
 async function findClient(db: SupabaseClient, ref: string) {
@@ -574,6 +613,256 @@ export const TOOLS: McpTool[] = [
       return { contas: out };
     },
   },
+  // ---------- Conteúdo / linha editorial ----------
+  {
+    name: "list_editorial_lines",
+    title: "Linhas editoriais do cliente",
+    description:
+      "Meses de linha editorial de um cliente, com a etapa em que cada uma está, quantas postagens tem e quantas já foram aprovadas pelo cliente.",
+    inputSchema: {
+      type: "object",
+      properties: { client: { type: "string", description: "Id, slug ou parte do nome do cliente." } },
+      required: ["client"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const ref = str(a.client);
+      if (!ref) throw new Error("Informe o cliente.");
+      const cli = await findClient(db, ref);
+      if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+
+      const { data } = await db
+        .from("editorial_lines")
+        .select("id, month, reference_month, stage, objetivo, built_by, updated_at")
+        .eq("client_id", (cli as { id: string }).id)
+        .order("reference_month", { ascending: false })
+        .limit(24);
+
+      const linhas = ((data ?? []) as Record<string, unknown>[]);
+      const ids = linhas.map((l) => String(l.id));
+      const contagem = new Map<string, number>();
+      if (ids.length) {
+        const { data: posts } = await db.from("editorial_posts").select("line_id").in("line_id", ids).limit(3000);
+        for (const p of ((posts ?? []) as Record<string, unknown>[])) {
+          const k = String(p.line_id);
+          contagem.set(k, (contagem.get(k) ?? 0) + 1);
+        }
+      }
+
+      return {
+        cliente: (cli as { name: string }).name,
+        linhas: linhas.map((l) => ({
+          id: String(l.id),
+          mes: String(l.month ?? ""),
+          mesReferencia: (l.reference_month as string) ?? null,
+          etapa: String(l.stage ?? ""),
+          objetivo: (l.objetivo as string) ?? null,
+          montadaPor: (l.built_by as string) ?? null,
+          postagens: contagem.get(String(l.id)) ?? 0,
+          atualizadaEm: (l.updated_at as string) ?? null,
+        })),
+      };
+    },
+  },
+  {
+    name: "get_editorial_line",
+    title: "Linha editorial completa",
+    description:
+      "Uma linha editorial com o cabeçalho estratégico (objetivo, pilares, datas comemorativas) e todas as postagens planejadas — título, roteiro, legenda, datas de entrega e de postagem, responsável e o que ainda falta preencher.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client: { type: "string", description: "Id, slug ou parte do nome do cliente." },
+        mes: { type: "string", description: "AAAA-MM. Padrão: a linha mais recente." },
+      },
+      required: ["client"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const ref = str(a.client);
+      if (!ref) throw new Error("Informe o cliente.");
+      const cli = await findClient(db, ref);
+      if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+      const clientId = (cli as { id: string }).id;
+
+      let q = db
+        .from("editorial_lines")
+        .select("id, month, reference_month, stage, objetivo, narrativa_central, datas_comemorativas, pillars, built_by")
+        .eq("client_id", clientId);
+      const mes = str(a.mes);
+      if (mes) q = q.eq("reference_month", mes);
+      const { data: linha } = await q.order("reference_month", { ascending: false }).limit(1).maybeSingle();
+      if (!linha) throw new Error(mes ? `Sem linha editorial para ${mes}.` : "Este cliente não tem linha editorial.");
+
+      const l = linha as Record<string, unknown>;
+      const { data: posts } = await db
+        .from("editorial_posts")
+        .select("id, n, title, format, description, legenda, post_date_iso, delivery_date, assignee, reference_url, client_status")
+        .eq("line_id", String(l.id))
+        .order("n")
+        .limit(500);
+
+      return {
+        cliente: (cli as { name: string }).name,
+        mes: String(l.month ?? ""),
+        mesReferencia: (l.reference_month as string) ?? null,
+        etapa: String(l.stage ?? ""),
+        objetivo: (l.objetivo as string) ?? null,
+        narrativa: (l.narrativa_central as string) ?? null,
+        datasComemorativas: (l.datas_comemorativas as string) ?? null,
+        pilares: Array.isArray(l.pillars) ? l.pillars : [],
+        postagens: ((posts ?? []) as Record<string, unknown>[]).map(descreverPost),
+      };
+    },
+  },
+  {
+    name: "editorial_pending",
+    title: "O que falta na linha editorial",
+    description:
+      "Postagens que ainda não estão prontas para produzir — faltando título, roteiro, legenda, data de entrega, data de postagem ou responsável. Use para saber o que trava o mês antes de cobrar a equipe.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client: { type: "string", description: "Filtrar por cliente. Sem isso, varre a carteira." },
+        mes: { type: "string", description: "AAAA-MM. Padrão: o mês corrente e o seguinte." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const hoje = hojeIso();
+      const mesRef = str(a.mes);
+      const meses = mesRef
+        ? [mesRef]
+        : [hoje.slice(0, 7), proximoMes(hoje.slice(0, 7))];
+
+      let ql = db
+        .from("editorial_lines")
+        .select("id, month, reference_month, stage, client_id, clients(name)")
+        .in("reference_month", meses);
+      const ref = str(a.client);
+      if (ref) {
+        const cli = await findClient(db, ref);
+        if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+        ql = ql.eq("client_id", (cli as { id: string }).id);
+      }
+      const { data: linhas } = await ql.limit(200);
+      const lista = (linhas ?? []) as Record<string, unknown>[];
+      if (lista.length === 0) return { meses, linhas: [], totalPendentes: 0 };
+
+      const { data: posts } = await db
+        .from("editorial_posts")
+        .select("id, n, line_id, title, format, description, legenda, post_date_iso, delivery_date, assignee")
+        .in("line_id", lista.map((l) => String(l.id)))
+        .limit(3000);
+
+      const porLinha = new Map<string, Record<string, unknown>[]>();
+      for (const p of ((posts ?? []) as Record<string, unknown>[])) {
+        const k = String(p.line_id);
+        if (!porLinha.has(k)) porLinha.set(k, []);
+        porLinha.get(k)!.push(p);
+      }
+
+      let total = 0;
+      const out = lista.map((l) => {
+        const todos = porLinha.get(String(l.id)) ?? [];
+        const pendentes = todos
+          .map((p) => ({ post: p, faltam: camposFaltando(paraValidacao(p)) }))
+          .filter((x) => x.faltam.length > 0);
+        total += pendentes.length;
+        const c = l.clients as { name?: string } | { name?: string }[] | null;
+        return {
+          cliente: (Array.isArray(c) ? c[0]?.name : c?.name) ?? "—",
+          mes: String(l.month ?? ""),
+          etapa: String(l.stage ?? ""),
+          postagens: todos.length,
+          prontas: todos.length - pendentes.length,
+          pendentes: pendentes.map((x) => ({
+            n: Number(x.post.n ?? 0),
+            titulo: String(x.post.title ?? "") || "(sem título)",
+            tipo: String(x.post.format ?? ""),
+            falta: x.faltam,
+          })),
+        };
+      }).filter((l) => l.pendentes.length > 0);
+
+      return { meses, totalPendentes: total, linhas: out };
+    },
+  },
+  {
+    name: "content_calendar",
+    title: "Calendário de conteúdo",
+    description:
+      "Postagens planejadas num período, por data. Traz o que vai ao ar e — separadamente — o que precisa estar PRONTO, já que entrega e postagem têm datas diferentes. Use para ver semana sobrecarregada antes que ela chegue.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "AAAA-MM-DD. Padrão: hoje." },
+        to: { type: "string", description: "AAAA-MM-DD. Padrão: 30 dias à frente." },
+        client: { type: "string", description: "Filtrar por cliente." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const hoje = hojeIso();
+      const de = str(a.from) ?? hoje;
+      const ate = str(a.to) ?? new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+
+      let clienteId: string | null = null;
+      const ref = str(a.client);
+      if (ref) {
+        const cli = await findClient(db, ref);
+        if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+        clienteId = (cli as { id: string }).id;
+      }
+
+      // Postagem e entrega são datas distintas: a janela precisa pegar as duas.
+      const { linhas: posts } = await tudo((x, y) =>
+        db.from("editorial_posts")
+          .select("id, n, title, format, post_date_iso, delivery_date, assignee, line_id, editorial_lines(client_id, month, clients(name))")
+          .or(`and(post_date_iso.gte.${de},post_date_iso.lte.${ate}),and(delivery_date.gte.${de},delivery_date.lte.${ate})`)
+          .range(x, y));
+
+      const nomeDoCliente = (p: Record<string, unknown>): string => {
+        const le = p.editorial_lines as Record<string, unknown> | null;
+        const c = le?.clients as { name?: string } | { name?: string }[] | null | undefined;
+        return (Array.isArray(c) ? c[0]?.name : c?.name) ?? "—";
+      };
+      const idDoCliente = (p: Record<string, unknown>): string => {
+        const le = p.editorial_lines as Record<string, unknown> | null;
+        return String(le?.client_id ?? "");
+      };
+
+      const filtrados = clienteId ? posts.filter((p) => idDoCliente(p) === clienteId) : posts;
+
+      const vaiAoAr = filtrados
+        .filter((p) => p.post_date_iso && String(p.post_date_iso) >= de && String(p.post_date_iso) <= ate)
+        .map((p) => ({ ...descreverPost(p), cliente: nomeDoCliente(p) }))
+        .sort((x, y) => String(x.dataPostagem).localeCompare(String(y.dataPostagem)));
+
+      const precisaFicarPronto = filtrados
+        .filter((p) => p.delivery_date && String(p.delivery_date) >= de && String(p.delivery_date) <= ate)
+        .map((p) => ({ ...descreverPost(p), cliente: nomeDoCliente(p) }))
+        .sort((x, y) => String(x.dataEntrega).localeCompare(String(y.dataEntrega)));
+
+      // Entregas por semana: é o número que revela sobrecarga antes dela chegar.
+      const porSemana = new Map<string, number>();
+      for (const p of precisaFicarPronto) {
+        const d = new Date(`${p.dataEntrega}T00:00:00Z`);
+        const segunda = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+        porSemana.set(segunda, (porSemana.get(segunda) ?? 0) + 1);
+      }
+
+      return {
+        periodo: { de, ate },
+        vaiAoAr,
+        precisaFicarPronto,
+        entregasPorSemana: [...porSemana.entries()]
+          .sort((x, y) => x[0].localeCompare(y[0]))
+          .map(([semana, entregas]) => ({ semana, entregas })),
+      };
+    },
+  },
+
   {
     name: "campaign_results",
     title: "Resultados de campanhas",

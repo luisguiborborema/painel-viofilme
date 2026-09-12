@@ -70,7 +70,7 @@ export function desde(iso: string | null, agora = new Date()): string {
  * acompanha campanhas", não "esta pessoa precisa de campaign_results e
  * nps_summary". A lista de ferramentas aparece na tela como consequência.
  */
-export type Dominio = "clientes" | "comercial" | "financeiro" | "marketing";
+export type Dominio = "clientes" | "comercial" | "financeiro" | "conteudo" | "marketing";
 
 export const DOMINIOS: {
   key: Dominio;
@@ -100,6 +100,12 @@ export const DOMINIOS: {
       "financial_indicators", "budget_vs_actual", "cashflow_forecast",
       "overdue_details", "reconciliation_status",
     ],
+  },
+  {
+    key: "conteudo",
+    label: "Conteúdo",
+    hint: "Linhas editoriais, postagens planejadas, o que falta preencher e entregar",
+    tools: ["list_editorial_lines", "get_editorial_line", "editorial_pending", "content_calendar"],
   },
   {
     key: "marketing",

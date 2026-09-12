@@ -70,6 +70,16 @@ eq("nulo libera tudo", liberaTudo(null), true);
 eq("com área definida não libera tudo", liberaTudo(["financeiro"]), false);
 eq("sem escopo, todas as ferramentas aparecem", ferramentasPermitidas(TODAS, []).length, TODAS.length);
 
+test("chave de conteúdo não alcança o financeiro nem o funil", () => {
+  const s = ["conteudo"];
+  assert.equal(podeUsarFerramenta("editorial_pending", s), true);
+  assert.equal(podeUsarFerramenta("content_calendar", s), true);
+  assert.equal(podeUsarFerramenta("dre", s), false);
+  assert.equal(podeUsarFerramenta("pipeline_summary", s), false);
+  // A busca cruza clientes e negócios — conteúdo sozinho não abre essa porta.
+  assert.equal(podeUsarFerramenta(TOOL_BUSCA, s), false);
+});
+
 test("chave só de marketing não alcança o financeiro", () => {
   const s = ["marketing"];
   assert.equal(podeUsarFerramenta("campaign_results", s), true);

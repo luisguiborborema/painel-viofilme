@@ -25,6 +25,7 @@ esquecida ativa e chave criada que nunca foi usada.
 | Clientes e entregas | Carteira, ficha com valores contratados, tarefas |
 | Comercial | Funil, negócios, interações, conversão |
 | Financeiro | DRE, faturamento, inadimplência, caixa, orçamento |
+| Conteúdo | Linhas editoriais, postagens, o que falta preencher e entregar |
 | Marketing | Campanhas, NPS, disparos |
 
 Ferramenta fora do escopo **não aparece** no `tools/list` da chave, e é recusada
@@ -149,6 +150,15 @@ curl -s https://www.viofilme.com.br/api/mcp \
 | `nps_summary` | NPS (promotores/neutros/detratores) e comentários recentes |
 | `list_broadcasts` | Disparos de WhatsApp com taxa de entrega |
 
+### Conteúdo
+
+| Ferramenta | O que traz |
+|---|---|
+| `list_editorial_lines` | Meses de linha editorial do cliente, etapa e nº de postagens |
+| `get_editorial_line` | A linha completa: cabeçalho estratégico e todas as postagens |
+| `editorial_pending` | Postagens que ainda não estão prontas, e o que falta em cada uma |
+| `content_calendar` | O que vai ao ar e o que precisa ficar pronto, com entregas por semana |
+
 ### Financeiro
 
 | Ferramenta | O que traz |
@@ -181,6 +191,9 @@ dados passaram do teto de leitura. **Se esse campo vier verdadeiro, o total não
 - "Em que semana meu caixa fica negativo?"
 - "Onde estourei o orçamento este mês?"
 - "O extrato do banco já está todo conferido?"
+- "O que falta preencher na linha editorial de outubro?"
+- "Quais postagens vão ao ar esta semana e quem é o responsável?"
+- "Alguma semana está sobrecarregada de entregas?"
 
 ## Segurança
 
