@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   ChevronLeft,
-  Clapperboard,
   FileDown,
   History,
   ImageIcon,
@@ -25,6 +24,12 @@ import {
   Clock,
   X,
 } from "lucide-react";
+import {
+  COLUNAS, normalizarQuantidade, quantidadesSugeridas, totalDeCards,
+  type Quantidades, type TipoPostagem,
+} from "@/lib/data/editorial-kanban";
+import { AlternadorDeVisao, EditorialKanban, type Visao } from "./editorial-kanban";
+import { EditorialTimeline } from "./editorial-timeline";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
@@ -51,13 +56,6 @@ import {
   type ClientDeliverable,
 } from "@/lib/data/operacao";
 
-const FORMAT_FILTERS: ("Todos" | EditorialFormat)[] = ["Todos", "Feed", "Reels", "Stories", "Carrossel"];
-const FORMAT_COLOR: Record<EditorialFormat, string> = {
-  Feed: "bg-sky-500/15 text-sky-500",
-  Reels: "bg-rose-500/15 text-rose-500",
-  Stories: "bg-violet-500/15 text-violet-500",
-  Carrossel: "bg-emerald-500/15 text-emerald-600",
-};
 const FORMATS: EditorialFormat[] = ["Feed", "Reels", "Stories", "Carrossel"];
 
 
@@ -200,68 +198,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 /** Card resumido (B1): denso e de altura uniforme — o roteiro vive só na ficha. */
-function PostCard({ post, onOpen, taskStage, pillarColor }: { post: EditorialPost; onOpen: () => void; taskStage?: string; pillarColor?: string }) {
-  const responsavel = post.assignee ? (OPS_TEAM.find((m) => m.id === post.assignee)?.name ?? post.assignee) : null;
-  return (
-    <button onClick={onOpen} className="flex h-full flex-col rounded-2xl border border-line bg-surface p-3.5 text-left transition-shadow hover:shadow-md">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-subtle text-[11px] font-bold text-ink">
-          {String(post.n).padStart(2, "0")}
-        </span>
-        <span className="text-[11px] text-muted">{post.date}{post.weekday && post.weekday !== "—" ? ` (${post.weekday})` : ""}</span>
-      </div>
-      <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-ink">{post.title?.trim() || post.tema?.trim() || "Sem título"}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", FORMAT_COLOR[post.format])}>{post.format}</span>
-        {post.pillar && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle-strong px-2 py-0.5 text-[11px] font-medium text-muted">
-            {pillarColor && <span className="h-2 w-2 rounded-full" style={{ background: pillarColor }} />} {post.pillar}
-          </span>
-        )}
-        {post.commemorativeDate && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-500">🎉 {post.commemorativeDate}</span>
-        )}
-        {post.artDirection === "Media Day" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-            <Clapperboard className="h-3 w-3" /> VioDay
-          </span>
-        )}
-        {post.clientStatus === "approved" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-            <Check className="h-3 w-3" /> Cliente aprovou
-          </span>
-        )}
-        {post.clientStatus === "changes" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-            <MessageSquare className="h-3 w-3" /> Ajuste pedido
-          </span>
-        )}
-      </div>
-      {post.clientStatus === "changes" && post.clientFeedback && (
-        <p className="mt-1.5 line-clamp-2 rounded-lg bg-amber-500/5 px-2 py-1 text-[11px] italic text-amber-700">
-          “{post.clientFeedback}”
-        </p>
-      )}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-2.5">
-        {taskStage ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
-            <Rocket className="h-3 w-3" /> {TASK_STAGE_LABEL[taskStage] ?? "Em produção"}
-          </span>
-        ) : (
-          <span className="text-[10px] text-muted">Rascunho</span>
-        )}
-        <span className="flex items-center gap-2 truncate text-[11px] text-muted">
-          {post.commentsCount ? (
-            <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" /> {post.commentsCount}</span>
-          ) : null}
-          {responsavel ?? "—"}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-// Mapeia o estágio da delivery task para a fase da trilha da LE.
+// Checklist padrão da ficha completa do post.
 const DEFAULT_CHECKLIST = ["Briefing lido", "Rascunho / 1ª versão", "Revisão interna", "Aprovado pelo cliente"];
 
 // Pastas do Google Drive por cliente (mesma ordem do drive-store).
@@ -1283,6 +1220,7 @@ function NovaLEModal({
   data,
   clientId,
   drafts = [],
+  deliverables = [],
   onResume,
   onClose,
   onDone,
@@ -1290,6 +1228,7 @@ function NovaLEModal({
   data: EditorialLine;
   clientId: string;
   drafts?: EditorialDraft[];
+  deliverables?: ClientDeliverable[];
   onResume: (draftId: string) => void;
   onClose: () => void;
   onDone: (newLineId?: string) => void;
@@ -1298,6 +1237,11 @@ function NovaLEModal({
   const [monthNum, setMonthNum] = useState("");
   const [yearNum, setYearNum] = useState("");
   const [objetivo, setObjetivo] = useState("");
+  // Etapa 1 do fluxo novo: quantas postagens de cada tipo já nascem no kanban.
+  // Pré-preenchido com o que o contrato ainda comporta.
+  const [quantidades, setQuantidades] = useState<Quantidades>(() =>
+    quantidadesSugeridas(deliverables as { format: string; monthlyQty: number }[]),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1329,7 +1273,17 @@ function NovaLEModal({
         setError(j?.error ?? "Falha ao criar a LE.");
         return;
       }
-      onDone(j?.id ? String(j.id) : undefined);
+      // Etapa 1 → etapa 2: os cards já nascem na quantidade escolhida, para o
+      // social media cair direto no kanban preenchível.
+      const novaId = j?.id ? String(j.id) : undefined;
+      if (novaId && totalDeCards(quantidades) > 0) {
+        await fetch("/api/gerencial/editorial", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create-posts", lineId: novaId, quantidades }),
+        }).catch(() => null);
+      }
+      onDone(novaId);
     } catch {
       setError("Falha de rede ao criar a LE.");
     } finally {
@@ -1398,12 +1352,51 @@ function NovaLEModal({
             <span className="mb-1 block text-xs font-medium text-muted">Objetivo / foco do mês</span>
             <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={2} placeholder="Ex.: encher reservas de ter–qui" className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-400" />
           </label>
+          <div className="rounded-xl border border-dashed border-brand-400/50 bg-brand-500/[0.06] p-3">
+            <p className="text-xs font-semibold text-ink">Quantidade de postagens por tipo</p>
+            <p className="mb-2.5 text-[11px] leading-snug text-muted">
+              Acompanha os slots do contrato — os cards já nascem no kanban, prontos para preencher.
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {COLUNAS.map((c) => (
+                <div key={c.tipo} className="rounded-lg border border-line bg-surface px-2 py-1.5 text-center">
+                  <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-ink">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.cor }} />
+                    {c.label}
+                  </p>
+                  <div className="mt-1 flex items-center justify-center gap-1.5">
+                    <button
+                      onClick={() => setQuantidades((q) => ({ ...q, [c.tipo]: normalizarQuantidade((q[c.tipo] ?? 0) - 1) }))}
+                      className="h-6 w-6 rounded-md border border-line text-sm text-muted hover:text-ink"
+                      aria-label={`Menos um ${c.label}`}
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-sm font-bold tabular-nums text-ink">{quantidades[c.tipo] ?? 0}</span>
+                    <button
+                      onClick={() => setQuantidades((q) => ({ ...q, [c.tipo]: normalizarQuantidade((q[c.tipo] ?? 0) + 1) }))}
+                      className="h-6 w-6 rounded-md border border-line text-sm text-muted hover:text-ink"
+                      aria-label={`Mais um ${c.label}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted">
+              {totalDeCards(quantidades) === 0
+                ? "Nenhum card será criado — dá para adicionar depois, no kanban."
+                : `${totalDeCards(quantidades)} card(s) serão criados.`}
+            </p>
+          </div>
+
           {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
           <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-subtle">Cancelar</button>
           <button onClick={create} disabled={saving} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-            <Plus className="h-4 w-4" /> {saving ? "Criando…" : "Criar LE"}
+            <Plus className="h-4 w-4" /> {saving ? "Criando…" : totalDeCards(quantidades) > 0 ? "Continuar para o kanban →" : "Criar LE"}
           </button>
         </div>
       </div>
@@ -1810,15 +1803,63 @@ export function LinhaEditorial({
   const router = useRouter();
   const searchParams = useSearchParams();
   const lineId = data.id;
-  const [filter, setFilter] = useState<"Todos" | EditorialFormat>("Todos");
   const [showHistory, setShowHistory] = useState(false);
   const [stage, setStage] = useState<EditorialStage>(data.stage);
   const [posts, setPosts] = useState<EditorialPost[]>(data.posts);
   const [ficha, setFicha] = useState<{ post: EditorialPost; mode: "view" | "new" } | null>(null);
   const [novaLE, setNovaLE] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [taskByPost, setTaskByPost] = useState<Record<number, string>>({});
+  // Mantido: a ficha completa ainda cria delivery task e avisa por aqui.
+  const [, setTaskByPost] = useState<Record<number, string>>({});
   const [copiedApproval, setCopiedApproval] = useState(false);
+  const [visao, setVisao] = useState<Visao>("kanban");
+  const [team, setTeam] = useState<string[]>(() => OPS_TEAM.map((m) => m.name));
+
+  useEffect(() => {
+    fetch("/api/gerencial/team", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (Array.isArray(j?.team) && j.team.length) setTeam(j.team as string[]); })
+      .catch(() => {});
+  }, []);
+
+  /** Salva um card do kanban. Devolve se deu certo, para o card avisar. */
+  const salvarPost = useCallback(async (post: EditorialPost): Promise<boolean> => {
+    setPosts((prev) => prev.map((x) => ((x.id ?? x.n) === (post.id ?? post.n) ? post : x)));
+    if (!lineId) return false;
+    const res = await fetch("/api/gerencial/editorial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "upsert-post", lineId, post }),
+    }).catch(() => null);
+    if (!res?.ok) return false;
+    const j = await res.json().catch(() => null);
+    // Card recém-criado ganha id na primeira gravação.
+    if (j?.id && !post.id) {
+      setPosts((prev) => prev.map((x) => (x.n === post.n ? { ...x, id: String(j.id) } : x)));
+    }
+    return true;
+  }, [lineId]);
+
+  async function excluirPost(post: EditorialPost) {
+    if (!window.confirm(`Excluir "${post.title || "postagem sem título"}"?`)) return;
+    setPosts((prev) => prev.filter((x) => (x.id ?? x.n) !== (post.id ?? post.n)));
+    if (post.id && lineId) {
+      await fetch("/api/gerencial/editorial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-post", id: post.id }),
+      }).catch(() => null);
+    }
+  }
+
+  /** "+ Nova postagem" — card vazio na coluna, salvo na primeira digitação. */
+  function novaPostagem(tipo: TipoPostagem) {
+    const proximoN = posts.reduce((max, p) => Math.max(max, p.n), 0) + 1;
+    setPosts((prev) => [
+      ...prev,
+      { ...emptyPost(), n: proximoN, format: tipo as EditorialPost["format"], title: "" },
+    ]);
+  }
 
   // Fluxo unificado: ao criar uma LE (navegação com ?edit=1), abre o editor do
   // cabeçalho automaticamente (uma vez), sem exigir o clique em "Editar".
@@ -1842,7 +1883,6 @@ export function LinhaEditorial({
   }
 
   const currentStageIdx = EDITORIAL_STAGES.findIndex((s) => s.key === stage);
-  const shown = filter === "Todos" ? posts : posts.filter((p) => p.format === filter);
 
   return (
     <div className="space-y-4 pb-20">
@@ -1977,28 +2017,24 @@ export function LinhaEditorial({
       {/* ── Nível 1.5: Slots do contrato ── */}
       <ContractSlots clientId={clientId} deliverables={deliverables} posts={posts} />
 
-      {/* ── Nível 2: Posts individuais (micro) ── */}
+      {/* ── Nível 2: Postagens — kanban por tipo ou linha do tempo ── */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">Posts individuais (micro) — {posts.length}</h3>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {FORMAT_FILTERS.map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", filter === f ? "bg-ink text-surface" : "bg-surface text-muted hover:text-ink")}>{f}</button>
-            ))}
-            <button onClick={() => setFicha({ post: emptyPost(), mode: "new" })} className="inline-flex items-center gap-1 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700"><Plus className="h-3 w-3" /> Post</button>
-          </div>
+        <div className="mb-3 flex justify-end">
+          <AlternadorDeVisao visao={visao} onChange={setVisao} />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((p) => (
-            <PostCard
-              key={p.n}
-              post={p}
-              taskStage={p.taskStage ?? (taskByPost[p.n] ? "todo" : undefined)}
-              pillarColor={data.pillars.find((pl) => pl.name === p.pillar)?.color}
-              onOpen={() => setFicha({ post: p, mode: "view" })}
-            />
-          ))}
-        </div>
+
+        {visao === "kanban" ? (
+          <EditorialKanban
+            posts={posts}
+            team={team}
+            onSalvar={salvarPost}
+            onExcluir={excluirPost}
+            onNovo={novaPostagem}
+            onAbrirFicha={(p) => setFicha({ post: p, mode: "view" })}
+          />
+        ) : (
+          <EditorialTimeline posts={posts} onAbrir={(p) => setFicha({ post: p, mode: "view" })} />
+        )}
       </div>
 
       {ficha && (
@@ -2023,6 +2059,7 @@ export function LinhaEditorial({
           data={data}
           clientId={clientId}
           drafts={drafts}
+          deliverables={deliverables}
           onResume={(draftId) => { setNovaLE(false); router.push(`/gerencial/clientes/${clientId}/editorial?le=${draftId}`); }}
           onClose={() => setNovaLE(false)}
           onDone={(newId) => {

@@ -434,6 +434,8 @@ export type EditorialPost = {
   references: EditorialRef[];
   /** Decupagem (shotlist) do vídeo — alimenta a tabela da apresentação. */
   shotlist?: EditorialShot[];
+  /** Link de referência do card do kanban — único campo opcional (0141). */
+  referenceUrl?: string;
   /** Estágio real da delivery task gerada (live-sync do Kanban), se houver. */
   taskStage?: TaskStage;
   /** Campos da ficha (Task universal). */

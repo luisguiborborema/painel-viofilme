@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { deliveryDateFor } from "@/lib/data/operacao";
+import { planejarCards, type Quantidades } from "@/lib/data/editorial-kanban";
+import { logFromUser } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ const STAGES = new Set([
   "concluida",
   "ativa",
 ]);
-const FORMATS = new Set(["Feed", "Reels", "Stories", "Carrossel"]);
+// "Extra" (0141): pedidos fora do escopo contratado, coluna própria no kanban.
+const FORMATS = new Set(["Feed", "Reels", "Stories", "Carrossel", "Extra"]);
 
 type PostInput = {
   id?: string;
@@ -42,11 +44,15 @@ type PostInput = {
   deliveryDate?: string;
   deliveryOverridden?: boolean;
   commemorativeDate?: string;
+  /** Link de referência visual — único campo opcional do card (0141). */
+  referenceUrl?: string;
   shotlist?: { tempo?: string; imagem?: string; legenda?: string }[];
 };
 
 type Body = {
-  action?: "create-line" | "set-stage" | "set-header" | "internal-approve" | "upsert-post" | "delete-post" | "clear-commemorative";
+  quantidades?: Record<string, number>;
+  nInicial?: number;
+  action?: "create-line" | "set-stage" | "set-header" | "internal-approve" | "upsert-post" | "delete-post" | "clear-commemorative" | "create-posts";
   id?: string;
   lineId?: string;
   label?: string;
@@ -231,10 +237,13 @@ export async function POST(req: Request) {
       priority: p.priority === "urgente" ? "urgente" : "normal",
       notes: p.notes ?? null,
       post_date_iso: p.postDateIso || null,
-      // Em "auto" (não sobrescrito), recalcula o prazo pela data de postagem.
-      delivery_date: p.deliveryOverridden ? (p.deliveryDate || null) : (p.postDateIso ? deliveryDateFor(p.postDateIso) : null),
-      delivery_overridden: !!p.deliveryOverridden,
+      // Definida à mão pelo social media (0141). Antes era calculada como a
+      // quarta da semana anterior à postagem — mas a cadência real é semanal e
+      // varia, então o cálculo dava um prazo errado com cara de certo.
+      delivery_date: p.deliveryDate || null,
+      delivery_overridden: true,
       commemorative_date: p.commemorativeDate?.trim() || null,
+      reference_url: p.referenceUrl?.trim() || null,
       updated_at: now,
     };
     // Decupagem (shotlist) — sanitizada; coluna tolerante (0108).
@@ -249,19 +258,52 @@ export async function POST(req: Request) {
           .filter((s) => s.tempo || s.imagem || s.legenda)
       : [];
     const rowShot = { ...row, shotlist };
+    // Sem a 0141 a coluna reference_url não existe — o retry já cobre, porque
+    // `row` também a contém; então preparamos uma versão base sem ela.
+    const rowBase = { ...row };
+    delete (rowBase as Record<string, unknown>).reference_url;
     const undefinedColumn = (e: { code?: string } | null) => e?.code === "42703";
 
     if (p.id) {
       let error = (await supabase.from("editorial_posts").update(rowShot).eq("id", p.id)).error;
       if (undefinedColumn(error)) error = (await supabase.from("editorial_posts").update(row).eq("id", p.id)).error;
+      if (undefinedColumn(error)) error = (await supabase.from("editorial_posts").update(rowBase).eq("id", p.id)).error;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ ok: true, persisted: true, id: p.id });
     }
     let ins = await supabase.from("editorial_posts").insert(rowShot).select("id").single();
     if (undefinedColumn(ins.error)) ins = await supabase.from("editorial_posts").insert(row).select("id").single();
+    if (undefinedColumn(ins.error)) ins = await supabase.from("editorial_posts").insert(rowBase).select("id").single();
     if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
     return NextResponse.json({ ok: true, persisted: true, id: ins.data.id });
   }
 
-  return NextResponse.json({ error: "ação desconhecida" }, { status: 400 });
+  // ── Etapa 1 do fluxo novo: cria os cards vazios de cada tipo ────────────
+  if (action === "create-posts") {
+    if (!b.lineId) return NextResponse.json({ error: "lineId ausente" }, { status: 400 });
+    const plano = planejarCards(
+      (b.quantidades ?? {}) as Quantidades,
+      Number.isFinite(Number(b.nInicial)) ? Number(b.nInicial) : 1,
+    );
+    if (plano.length === 0) {
+      return NextResponse.json({ error: "Escolha ao menos uma postagem para criar." }, { status: 400 });
+    }
+
+    const linhas = plano.map((c) => ({
+      line_id: b.lineId,
+      n: c.n,
+      title: "",
+      format: c.format,
+      description: null,
+      art_direction: "Banco do cliente",
+      refs: [],
+      updated_at: now,
+    }));
+    const { data, error } = await supabase.from("editorial_posts").insert(linhas).select("id, n, format");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await logFromUser(user, { action: "create", area: "Linha editorial", target: b.lineId, detail: `${plano.length} postagem(ns)` });
+    return NextResponse.json({ ok: true, persisted: true, criados: data?.length ?? 0, posts: data ?? [] });
+  }
+
+  return NextResponse.json({ error: `ação desconhecida: ${String(action)}` }, { status: 400 });
 }
