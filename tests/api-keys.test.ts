@@ -70,6 +70,15 @@ eq("nulo libera tudo", liberaTudo(null), true);
 eq("com área definida não libera tudo", liberaTudo(["financeiro"]), false);
 eq("sem escopo, todas as ferramentas aparecem", ferramentasPermitidas(TODAS, []).length, TODAS.length);
 
+test("chave de equipe vê horas, não vê dinheiro nem carteira", () => {
+  const s = ["equipe"];
+  assert.equal(podeUsarFerramenta("hours_summary", s), true);
+  assert.equal(podeUsarFerramenta("agenda", s), true);
+  // Horas cruzadas com faturamento revelariam margem por pessoa — outro escopo.
+  assert.equal(podeUsarFerramenta("financial_summary", s), false);
+  assert.equal(podeUsarFerramenta("list_clients", s), false);
+});
+
 test("chave de conteúdo não alcança o financeiro nem o funil", () => {
   const s = ["conteudo"];
   assert.equal(podeUsarFerramenta("editorial_pending", s), true);

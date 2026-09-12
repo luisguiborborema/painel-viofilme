@@ -863,6 +863,177 @@ export const TOOLS: McpTool[] = [
     },
   },
 
+  // ---------- Equipe e agenda ----------
+  {
+    name: "hours_summary",
+    title: "Horas da equipe",
+    description:
+      "Horas lançadas no período, com o total por pessoa e o saldo do banco de horas. Lançamento negativo é compensação — o saldo já considera isso.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "Janela em dias (padrão 30)." },
+        pessoa: { type: "string", description: "Filtrar por colaborador (nome)." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const days = int(a.days, 30, 730);
+      const desde = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+      const pessoa = str(a.pessoa);
+
+      const { linhas } = await tudo((de, ate) => {
+        const q = db.from("hour_entries").select("employee, work_date, hours, note").gte("work_date", desde);
+        return (pessoa ? q.ilike("employee", `%${pessoa}%`) : q).range(de, ate);
+      });
+
+      const porPessoa = new Map<string, { lancadas: number; compensadas: number; saldo: number; registros: number }>();
+      for (const l of linhas) {
+        const nome = String(l.employee ?? "—");
+        const h = money(l.hours);
+        const cur = porPessoa.get(nome) ?? { lancadas: 0, compensadas: 0, saldo: 0, registros: 0 };
+        if (h >= 0) cur.lancadas += h; else cur.compensadas += Math.abs(h);
+        cur.saldo += h;
+        cur.registros += 1;
+        porPessoa.set(nome, cur);
+      }
+
+      const pessoas = [...porPessoa.entries()]
+        .map(([nome, v]) => ({
+          pessoa: nome,
+          horasLancadas: Math.round(v.lancadas * 10) / 10,
+          horasCompensadas: Math.round(v.compensadas * 10) / 10,
+          saldoBanco: Math.round(v.saldo * 10) / 10,
+          registros: v.registros,
+        }))
+        .sort((x, y) => y.saldoBanco - x.saldoBanco);
+
+      return {
+        periodoDias: days,
+        desde,
+        totalLancado: Math.round(pessoas.reduce((s2, p) => s2 + p.horasLancadas, 0) * 10) / 10,
+        saldoTotal: Math.round(pessoas.reduce((s2, p) => s2 + p.saldoBanco, 0) * 10) / 10,
+        pessoas,
+      };
+    },
+  },
+  {
+    name: "hours_by_person",
+    title: "Lançamentos de horas de uma pessoa",
+    description:
+      "Cada lançamento de horas de um colaborador, com data e observação. Use quando o resumo levantar uma dúvida e for preciso ver o detalhe.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pessoa: { type: "string", description: "Nome do colaborador (parcial serve)." },
+        days: { type: "number", description: "Janela em dias (padrão 60)." },
+      },
+      required: ["pessoa"],
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const pessoa = str(a.pessoa);
+      if (!pessoa) throw new Error("Informe a pessoa.");
+      const days = int(a.days, 60, 730);
+      const desde = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+
+      const { data } = await db
+        .from("hour_entries")
+        .select("employee, work_date, hours, note")
+        .ilike("employee", `%${pessoa}%`)
+        .gte("work_date", desde)
+        .order("work_date", { ascending: false })
+        .limit(500);
+
+      const linhas = (data ?? []) as Record<string, unknown>[];
+      if (linhas.length === 0) return { pessoa, desde, lancamentos: [], saldo: 0 };
+
+      return {
+        pessoa: String(linhas[0].employee ?? pessoa),
+        desde,
+        saldo: Math.round(linhas.reduce((s2, l) => s2 + money(l.hours), 0) * 10) / 10,
+        lancamentos: linhas.map((l) => ({
+          data: String(l.work_date ?? ""),
+          horas: money(l.hours),
+          tipo: money(l.hours) < 0 ? "compensação" : "lançamento",
+          observacao: (l.note as string) ?? null,
+        })),
+      };
+    },
+  },
+  {
+    name: "agenda",
+    title: "Agenda e reuniões",
+    description:
+      "Compromissos da equipe e reuniões com cliente num período. Traz os dois: eventos internos da agenda e reuniões marcadas com clientes, com pauta e próximos passos quando houver.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "AAAA-MM-DD. Padrão: hoje." },
+        to: { type: "string", description: "AAAA-MM-DD. Padrão: 14 dias à frente." },
+        client: { type: "string", description: "Filtrar reuniões por cliente." },
+      },
+      additionalProperties: false,
+    },
+    async handler(a, db) {
+      const hoje = hojeIso();
+      const de = str(a.from) ?? hoje;
+      const ate = str(a.to) ?? new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+      const fimDoDia = `${ate}T23:59:59Z`;
+
+      let clienteId: string | null = null;
+      const ref = str(a.client);
+      if (ref) {
+        const cli = await findClient(db, ref);
+        if (!cli) throw new Error(`Cliente não encontrado: ${ref}`);
+        clienteId = (cli as { id: string }).id;
+      }
+
+      // Duas origens distintas: agenda interna e reuniões com cliente.
+      let qm = db
+        .from("meetings")
+        .select("id, title, starts_at, agenda, next_steps, participants, client_id, clients(name)")
+        .gte("starts_at", `${de}T00:00:00Z`)
+        .lte("starts_at", fimDoDia);
+      if (clienteId) qm = qm.eq("client_id", clienteId);
+
+      const [eventos, reunioes] = await Promise.all([
+        clienteId
+          ? Promise.resolve({ data: [] })
+          : db.from("calendar_events")
+              .select("id, title, type, start_at, end_at")
+              .gte("start_at", `${de}T00:00:00Z`)
+              .lte("start_at", fimDoDia)
+              .order("start_at")
+              .limit(300),
+        qm.order("starts_at").limit(300),
+      ]);
+
+      const nomeCli = (r: Record<string, unknown>): string | null => {
+        const c = r.clients as { name?: string } | { name?: string }[] | null;
+        return (Array.isArray(c) ? c[0]?.name : c?.name) ?? null;
+      };
+
+      return {
+        periodo: { de, ate },
+        reunioesComCliente: ((reunioes.data ?? []) as Record<string, unknown>[]).map((m) => ({
+          cliente: nomeCli(m),
+          titulo: String(m.title ?? ""),
+          quando: String(m.starts_at ?? ""),
+          pauta: (m.agenda as string) ?? null,
+          proximosPassos: (m.next_steps as string) ?? null,
+          participantes: Array.isArray(m.participants) ? m.participants : [],
+        })),
+        compromissosInternos: ((eventos.data ?? []) as Record<string, unknown>[]).map((e) => ({
+          titulo: String(e.title ?? ""),
+          tipo: String(e.type ?? "meeting"),
+          inicio: String(e.start_at ?? ""),
+          fim: (e.end_at as string) ?? null,
+        })),
+      };
+    },
+  },
+
   {
     name: "campaign_results",
     title: "Resultados de campanhas",

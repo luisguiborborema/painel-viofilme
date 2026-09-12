@@ -26,6 +26,7 @@ esquecida ativa e chave criada que nunca foi usada.
 | Comercial | Funil, negócios, interações, conversão |
 | Financeiro | DRE, faturamento, inadimplência, caixa, orçamento |
 | Conteúdo | Linhas editoriais, postagens, o que falta preencher e entregar |
+| Equipe e agenda | Horas lançadas, banco de horas, reuniões e compromissos |
 | Marketing | Campanhas, NPS, disparos |
 
 Ferramenta fora do escopo **não aparece** no `tools/list` da chave, e é recusada
@@ -159,6 +160,14 @@ curl -s https://www.viofilme.com.br/api/mcp \
 | `editorial_pending` | Postagens que ainda não estão prontas, e o que falta em cada uma |
 | `content_calendar` | O que vai ao ar e o que precisa ficar pronto, com entregas por semana |
 
+### Equipe e agenda
+
+| Ferramenta | O que traz |
+|---|---|
+| `hours_summary` | Horas lançadas no período e saldo do banco por pessoa |
+| `hours_by_person` | Cada lançamento de uma pessoa, com data e observação |
+| `agenda` | Reuniões com cliente (pauta, próximos passos) e compromissos internos |
+
 ### Financeiro
 
 | Ferramenta | O que traz |
@@ -194,6 +203,8 @@ dados passaram do teto de leitura. **Se esse campo vier verdadeiro, o total não
 - "O que falta preencher na linha editorial de outubro?"
 - "Quais postagens vão ao ar esta semana e quem é o responsável?"
 - "Alguma semana está sobrecarregada de entregas?"
+- "Quem está com saldo alto no banco de horas?"
+- "Que reuniões tenho com cliente nos próximos 15 dias?"
 
 ## Segurança
 
