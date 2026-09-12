@@ -38,6 +38,14 @@ export async function POST(req: Request) {
   }
   const supabase = await createClient();
 
+  // Ação desconhecida não pode cair na criação: um nome errado (typo, cliente
+  // desatualizado) criaria um registro novo com 200 na resposta.
+  const ACOES = new Set(["add", "remove"]);
+  if (body.action !== undefined && !ACOES.has(String(body.action))) {
+    return NextResponse.json({ error: `ação desconhecida: ${String(body.action)}` }, { status: 400 });
+  }
+
+
   if (action === "remove") {
     const { error } = await supabase
       .from("crm_deal_contacts")

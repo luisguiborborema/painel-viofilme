@@ -195,6 +195,14 @@ async function runWorkflowAction(
     case "set_stage": {
       const stageKey = String(config.stageKey || "");
       if (!stageKey) return { status: "skipped", detail: "sem etapa" };
+      // A etapa precisa existir. Um workflow com a chave errada moveria o
+      // negócio para uma coluna que não há — e, por ser automático, faria isso
+      // com todos os negócios que passarem pelo gatilho, sem ninguém ver.
+      const { data: etapas } = await admin.from("crm_stages").select("key").limit(500);
+      const chaves = ((etapas ?? []) as { key: unknown }[]).map((e) => String(e.key));
+      if (chaves.length > 0 && !chaves.includes(stageKey)) {
+        return { status: "error", detail: `etapa inexistente: ${stageKey}` };
+      }
       // Update cru da etapa — NÃO reengata gatilhos stage_enter (evita loop).
       const nowIso = new Date().toISOString();
       const patch: Record<string, unknown> = { stage: stageKey, stage_changed_at: nowIso };
