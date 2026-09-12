@@ -5,7 +5,7 @@ import {
   getClientHomeMetrics,
   getOrganicResults,
 } from "@/lib/data/queries";
-import { REFERENCE_DATE } from "@/lib/data/mock";
+import { refIsoAtual } from "@/lib/data/ref-date-server";
 import { meetingLabel, relativePostLabel } from "@/lib/datetime";
 import { HomeHeader } from "@/components/cliente/home-header";
 import { HomeMetrics } from "@/components/cliente/home-metrics";
@@ -38,7 +38,7 @@ export default async function ClienteHome() {
   const { pool, defaultKeys, hasPaidTraffic } = await getClientHomeMetrics(
     user.clientId,
   );
-  const refIso = REFERENCE_DATE.toISOString();
+  const refIso = refIsoAtual();
 
   const upcoming: UpcomingPostItem[] = home.upcomingPosts.slice(0, 4).map((p) => ({
     id: p.id,

@@ -3,8 +3,7 @@ import { Card } from "@/components/ui/card";
 import { FilterTabs } from "@/components/dashboard/filter-tabs";
 import { getSession } from "@/lib/auth/session";
 import { getFinance } from "@/lib/data/queries";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { REFERENCE_DATE } from "@/lib/data/mock";
+import { refIsoAtual } from "@/lib/data/ref-date-server";
 import { fullDate } from "@/lib/datetime";
 import { formatBRL } from "@/lib/utils";
 import { FinanceHeader } from "@/components/cliente/finance-header";
@@ -38,10 +37,7 @@ export default async function ClienteFinanceiro({
 
   const { fatura } = await searchParams;
   const fin = await getFinance(user.clientId);
-  // Em produção o "hoje" é real; no modo demo, ancora na data de referência.
-  const refIso = isSupabaseConfigured()
-    ? new Date().toISOString().slice(0, 10)
-    : REFERENCE_DATE.toISOString().slice(0, 10);
+  const refIso = refIsoAtual().slice(0, 10);
 
   const invoices =
     fatura === "aberto"

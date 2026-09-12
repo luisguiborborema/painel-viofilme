@@ -24,7 +24,6 @@ import { getCalendarEvents } from "@/lib/data/agenda-server";
 import { getGoogleStatus } from "@/lib/google/client";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { buildTaskItems } from "@/lib/data/crm";
-import { OPS_TEAM } from "@/lib/data/operacao";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Meu dia" };
@@ -91,11 +90,11 @@ export default async function MeuDia() {
     getUserMentions(user?.id ?? ""),
   ]);
 
-  // Identidade do usuário nas tarefas de entrega (assignee pode ser id OU nome).
-  const meMember = OPS_TEAM.find(
-    (m) => me && me.toLowerCase().includes(m.name.split(" ")[0].toLowerCase()),
-  );
-  const meKeys = new Set([me, meMember?.id, meMember?.name].filter(Boolean) as string[]);
+  // Identidade do usuário nas tarefas de entrega. O responsável é gravado pelo
+  // nome; o primeiro nome entra também porque parte do histórico foi gravada
+  // assim. Antes isso passava por uma lista fictícia de cinco pessoas, então só
+  // funcionava para quem se chamasse como elas.
+  const meKeys = new Set([me, me?.split(" ")[0]].filter(Boolean) as string[]);
 
   // Agenda de hoje: eventos próprios (calendar_events) + Google, ordenados.
   const events = [

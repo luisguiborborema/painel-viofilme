@@ -3,7 +3,6 @@
 // nenhum campo é imposto — o usuário/equipe escolhe quais aparecem no card.
 import {
   DELIVERY_PRIORITIES,
-  OPS_TEAM,
   TASK_STAGES,
   ddmmFromIso,
   type DeliveryTask,
@@ -14,7 +13,8 @@ export type CardFieldDef = { key: string; label: string; get: (t: DeliveryTask) 
 const stageLabel = (k: string) => TASK_STAGES.find((s) => s.key === k)?.label ?? k;
 const prioLabel = (k?: string) =>
   k ? DELIVERY_PRIORITIES.find((p) => p.key === k)?.label ?? "" : "";
-const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
+/** O responsável é gravado pelo nome — não há lista fictícia para traduzir. */
+const memberName = (id: string) => id;
 
 export const DELIVERY_CARD_FIELDS: CardFieldDef[] = [
   { key: "client", label: "Cliente", get: (t) => t.client ?? "" },

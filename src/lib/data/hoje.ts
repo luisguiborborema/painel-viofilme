@@ -28,3 +28,13 @@ export function diaUtilPadrao(base = new Date()): number {
   const idx = hojeIdxSemana(base);
   return idx >= 0 ? idx : 0;
 }
+
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** "Setembro 2026" — rótulo do mês corrente. */
+export function mesCorrente(base = new Date()): string {
+  return `${MESES[base.getMonth()]} ${base.getFullYear()}`;
+}

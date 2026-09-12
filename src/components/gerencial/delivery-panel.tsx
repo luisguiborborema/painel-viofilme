@@ -43,7 +43,6 @@ import {
   diaUtilPadrao,
   hojeIdxSemana,
   hojeIso,
-  OPS_TEAM,
   TASK_STAGES,
   DELIVERY_PRIORITIES,
   WEEKDAYS,
@@ -78,11 +77,26 @@ const TYPE_COLOR = new Map<string, string>([
 const ORIGINS: TaskOrigin[] = ["Linha editorial", "Projeto", "Tarefa avulsa"];
 const CLIENT_PALETTE = ["#2a63c9", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0284c7", "#be185d", "#0f766e"];
 
-const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
+/**
+ * Pessoas a listar nas visões por responsável.
+ *
+ * Antes vinha de OPS_TEAM — cinco nomes fictícios dos dados de demonstração —
+ * então as telas de carga e agenda mostravam cinco pessoas que não existem,
+ * todas com zero tarefa, e escondiam quem de fato estava sobrecarregado.
+ *
+ * Agora sai da equipe real, somada a quem já tem tarefa atribuída (caso alguém
+ * tenha saído do time sem que as tarefas fossem repassadas).
+ */
+function pessoasDasTarefas(tasks: DeliveryTask[], team: string[]): { id: string; name: string }[] {
+  const nomes = new Set<string>(team.filter(Boolean));
+  for (const t of tasks) if (t.assignee) nomes.add(t.assignee);
+  return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR")).map((n) => ({ id: n, name: n }));
+}
+
+/** O responsável é gravado pelo nome — não há lista fictícia para traduzir. */
+const memberName = (id: string) => id;
 const memberInitials = (id: string) => {
-  const m = OPS_TEAM.find((x) => x.id === id);
-  if (m) return m.initials;
-  // Responsável real: iniciais a partir do próprio nome.
+  // Iniciais a partir do próprio nome do responsável.
   return (
     id
       .split(" ")
@@ -245,7 +259,7 @@ function DeliveryConfigModal({
                     className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand-400"
                   >
                     <option value="">— (usa o dono do formulário)</option>
-                    {(team.length ? team : OPS_TEAM.map((m) => m.name)).map((n) => (
+                    {team.map((n) => (
                       <option key={n} value={n}>{n}</option>
                     ))}
                   </select>
@@ -634,7 +648,7 @@ export function DeliveryPanel({
           className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand-400"
         >
           <option value="">Todos responsáveis</option>
-          {(team.length ? team : OPS_TEAM.map((m) => m.name)).map((n) => (
+          {team.map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
         </select>
@@ -840,11 +854,11 @@ export function DeliveryPanel({
         />
       )}
 
-      {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} {...shared} />}
+      {view === "geral" && <Geral tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} team={team} {...shared} />}
       {view === "kanban" && <Kanban tasks={filtered} onStage={setStage} groupBy={groupBy} {...shared} />}
       {view === "calendario" && <Calendario tasks={filtered} {...shared} />}
-      {view === "timeline" && <Timeline tasks={filtered} durations={config.typeDurations} {...shared} />}
-      {view === "workload" && <Workload tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} />}
+      {view === "timeline" && <Timeline tasks={filtered} durations={config.typeDurations} team={team} {...shared} />}
+      {view === "workload" && <Workload tasks={filtered} onDrill={setDrill} cap={config.capacityPerDay} team={team} />}
       {view === "cliente" && <PorCliente tasks={filtered} {...shared} />}
 
       {selected && (
@@ -1230,11 +1244,13 @@ function Stat({ label, value, tone, onClick }: { label: string; value: number; t
   );
 }
 
-function Geral({ tasks, onDrill, cap }: {
+function Geral({ tasks, onDrill, cap, team }: {
   tasks: DeliveryTask[];
   onDrill: (d: { title: string; list: DeliveryTask[] }) => void;
   cap: number;
+  team: string[];
 } & Shared) {
+  const pessoas = pessoasDasTarefas(tasks, team);
   const open = tasks.filter((t) => t.stage !== "done");
   const doing = tasks.filter((t) => t.stage === "doing").length;
   const approval = tasks.filter((t) => t.stage === "approval").length;
@@ -1283,11 +1299,11 @@ function Geral({ tasks, onDrill, cap }: {
           <h3 className="mb-1 text-sm font-semibold text-ink">Carga da equipe</h3>
           <p className="mb-3 text-xs text-muted">Em nº de tasks. Alerta pela capacidade ({cap}/dia).</p>
           <div className="space-y-2.5">
-            {OPS_TEAM.map((m) => {
+            {pessoas.map((m) => {
               const mine = tasks.filter((t) => t.assignee === m.id && t.stage !== "done");
               const peak = Math.max(0, ...WEEKDAYS.map((_, d) => mine.filter((t) => t.day === d).length));
               const tone = capTone(peak, cap);
-              const maxCount = Math.max(1, ...OPS_TEAM.map((mm) => tasks.filter((t) => t.assignee === mm.id && t.stage !== "done").length));
+              const maxCount = Math.max(1, ...pessoas.map((mm) => tasks.filter((t) => t.assignee === mm.id && t.stage !== "done").length));
               return (
                 <button
                   key={m.id}
@@ -1526,14 +1542,14 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
 }
 
 // --- Linha do tempo (ENT10-11) — agenda por membro, blocos por duração -------
-function Timeline({ tasks, openTask, clientColor, durations }: { tasks: DeliveryTask[]; durations: Record<string, number> } & Shared) {
+function Timeline({ tasks, openTask, clientColor, durations, team }: { tasks: DeliveryTask[]; durations: Record<string, number>; team: string[] } & Shared) {
   const hoje = useHoje();
   const [dayIdx, setDayIdx] = useState<number | null>(null);
   // Enquanto não montou, cai no dia útil padrão — no fim de semana, segunda.
   const diaAtivo = dayIdx ?? diaUtilPadrao();
   const START = 9, END = 19; // 9h–19h
   const totalMin = (END - START) * 60;
-  const members = OPS_TEAM.filter((m) => tasks.some((t) => t.assignee === m.id));
+  const members = pessoasDasTarefas(tasks, team).filter((m) => tasks.some((t) => t.assignee === m.id));
 
   return (
     <div>
@@ -1594,7 +1610,8 @@ function Timeline({ tasks, openTask, clientColor, durations }: { tasks: Delivery
 }
 
 // --- Workload (ENT12-13) — nº de tasks, capacidade compartilhada -------------
-function Workload({ tasks, onDrill, cap }: { tasks: DeliveryTask[]; onDrill: (d: { title: string; list: DeliveryTask[] }) => void; cap: number }) {
+function Workload({ tasks, onDrill, cap, team }: { tasks: DeliveryTask[]; onDrill: (d: { title: string; list: DeliveryTask[] }) => void; cap: number; team: string[] }) {
+  const pessoas = pessoasDasTarefas(tasks, team);
   return (
     <Card className="overflow-x-auto p-4">
       <div className="min-w-[640px]">
@@ -1603,13 +1620,12 @@ function Workload({ tasks, onDrill, cap }: { tasks: DeliveryTask[]; onDrill: (d:
           {WEEKDAYS.map((wd) => <span key={wd}>{wd}</span>)}
         </div>
         <div className="space-y-1.5">
-          {OPS_TEAM.map((m) => (
+          {pessoas.map((m) => (
             <div key={m.id} className="grid grid-cols-[160px_repeat(5,1fr)] items-center gap-1">
               <div className="flex items-center gap-2 pr-2">
                 <Avatar id={m.id} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{m.name}</p>
-                  <p className="text-[10px] text-muted">{m.role}</p>
                 </div>
               </div>
               {WEEKDAYS.map((_, d) => {

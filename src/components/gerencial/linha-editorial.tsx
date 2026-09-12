@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils";
 import {
   ART_DIRECTIONS,
   EDITORIAL_STAGES,
-  OPS_TEAM,
   TASK_STAGES,
   TASK_TYPE_DURATIONS,
   deliveryDateFor,
@@ -307,8 +306,9 @@ export function PostFicha({
   const [art, setArt] = useState<ArtDirection>(post.artDirection);
   const [assignee, setAssignee] = useState(post.assignee ?? "");
   const [secondary, setSecondary] = useState(post.assigneeSecondary ?? "");
-  // Equipe real (profiles) para os seletores de responsável; OPS_TEAM é fallback.
-  const [team, setTeam] = useState<string[]>(() => OPS_TEAM.map((m) => m.name));
+  // Equipe real (profiles). Começa vazio de propósito: seletor sem opção por um
+  // instante é melhor que seletor com nomes que não existem.
+  const [team, setTeam] = useState<string[]>([]);
   // Membros com id (para @menção que notifica o usuário certo).
   const [members, setMembers] = useState<{ id: string; name: string; avatarUrl: string | null }[]>([]);
   useEffect(() => {
@@ -1813,7 +1813,7 @@ export function LinhaEditorial({
   const [, setTaskByPost] = useState<Record<number, string>>({});
   const [copiedApproval, setCopiedApproval] = useState(false);
   const [visao, setVisao] = useState<Visao>("kanban");
-  const [team, setTeam] = useState<string[]>(() => OPS_TEAM.map((m) => m.name));
+  const [team, setTeam] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/gerencial/team", { cache: "no-store" })

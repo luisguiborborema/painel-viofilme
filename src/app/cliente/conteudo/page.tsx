@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { getClientById, getContent, getVioFluxForClient } from "@/lib/data/queries";
-import { REFERENCE_DATE } from "@/lib/data/mock";
+import { refIsoAtual, rotuloDoPeriodo } from "@/lib/data/ref-date-server";
 import { ContentApprovalModule } from "@/components/cliente/content-approval-module";
 import { VioFluxApproval } from "@/components/cliente/vioflux-approval";
 
@@ -34,8 +34,8 @@ export default async function ClienteConteudo({
       <VioFluxApproval posts={fluxPosts} />
       <ContentApprovalModule
         posts={posts}
-        periodLabel="Junho 2026"
-        refIso={REFERENCE_DATE.toISOString()}
+        periodLabel={rotuloDoPeriodo()}
+        refIso={refIsoAtual()}
         handle={client?.instagramUsername ?? "cliente"}
         initialPostId={post}
       />

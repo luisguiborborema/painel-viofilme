@@ -598,6 +598,14 @@ export type OpsMember = {
   capacityH: number; // por dia
 };
 
+/**
+ * Equipe dos dados de DEMONSTRAÇÃO. Nenhuma tela deve listar isto.
+ *
+ * Durante muito tempo estes cinco nomes apareciam nos seletores de responsável
+ * do painel real: quem escolhesse ali gravava numa tarefa de verdade uma pessoa
+ * que não existe. A equipe real vem de `/api/gerencial/team` — use o hook
+ * `useEquipe()`.
+ */
 export const OPS_TEAM: OpsMember[] = [
   { id: "robert", name: "Robert", initials: "RB", role: "Design", capacityH: 8 },
   { id: "ana", name: "Ana Lima", initials: "AL", role: "Social Media", capacityH: 8 },

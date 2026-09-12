@@ -5,10 +5,10 @@ import { Clapperboard, ImagePlus, Link2, Megaphone, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useEquipe } from "@/lib/hooks/use-equipe";
 import {
   ART_DIRECTIONS,
   hojeIso,
-  OPS_TEAM,
   type ArtDirection,
   type CampaignGoal,
   type DeliveryTask,
@@ -42,7 +42,8 @@ const STAGE_CHIP: Record<string, string> = {
   done: "bg-emerald-500/15 text-emerald-600",
 };
 
-const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
+/** O responsável é gravado pelo nome; sem lista fictícia para traduzir. */
+const memberName = (id: string) => id;
 let seq = 5000;
 
 export function CriativosTab({
@@ -60,7 +61,8 @@ export function CriativosTab({
   const [roteiro, setRoteiro] = useState("");
   const [art, setArt] = useState<ArtDirection>("Banco do cliente");
   const [refUrl, setRefUrl] = useState("");
-  const [assignee, setAssignee] = useState(OPS_TEAM[0]?.id ?? "");
+  const { nomes: equipe } = useEquipe();
+  const [assignee, setAssignee] = useState("");
   const [secondary, setSecondary] = useState("");
   const [due, setDue] = useState("");
   const [tasks, setTasks] = useState<DeliveryTask[]>(existing);
@@ -80,7 +82,7 @@ export function CriativosTab({
   })();
 
   function briefingText() {
-    const secName = OPS_TEAM.find((m) => m.id === secondary)?.name;
+    const secName = secondary || undefined;
     return [
       "**Briefing de criativo (performance)**",
       goal && `Objetivo de campanha: ${GOAL_META[goal]?.label}`,
@@ -229,14 +231,14 @@ export function CriativosTab({
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Responsável principal</label>
             <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field}>
-              {OPS_TEAM.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {equipe.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Secundário</label>
             <select value={secondary} onChange={(e) => setSecondary(e.target.value)} className={field}>
               <option value="">—</option>
-              {OPS_TEAM.filter((m) => m.id !== assignee).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {equipe.filter((n) => n !== assignee).map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div>

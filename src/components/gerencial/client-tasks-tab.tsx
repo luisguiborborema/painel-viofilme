@@ -6,10 +6,12 @@ import { AlertTriangle, CheckCircle2, Clock3, ListChecks, Plus, User, X } from "
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
-import { hojeIso, OPS_TEAM, type DeliveryTask } from "@/lib/data/operacao";
+import { hojeIso, type DeliveryTask } from "@/lib/data/operacao";
+import { useEquipe } from "@/lib/hooks/use-equipe";
 import { TaskFicha } from "./linha-editorial";
 
-const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
+/** O responsável é gravado pelo nome; sem lista fictícia para traduzir. */
+const memberName = (id: string) => id;
 let taskSeq = 7000;
 
 // Rótulos canônicos (display) — mesmos nomes usados na spec do Hub.
@@ -40,7 +42,8 @@ export function ClientTasksTab({
   const [showDone, setShowDone] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newAssignee, setNewAssignee] = useState(OPS_TEAM[0]?.id ?? "");
+  const { nomes: equipe } = useEquipe();
+  const [newAssignee, setNewAssignee] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Resincroniza com o servidor quando os dados mudam (após router.refresh()).
@@ -145,7 +148,7 @@ export function ClientTasksTab({
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted">Responsável</span>
             <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)} className="h-10 w-full rounded-xl border border-line bg-surface px-2 text-sm text-ink outline-none focus:border-brand-400">
-              {OPS_TEAM.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {equipe.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
         </div>
