@@ -233,6 +233,21 @@ vazia (respondeu certo, mas não há registro no recorte) e qual falhou. Vale
 rodar depois de cada mudança no financeiro ou no CRM: ferramenta quebrada aqui
 quebra também na conversa com o Claude, e lá ele só diz que não conseguiu.
 
+## Limite de chamadas
+
+Cada chave pode fazer **60 chamadas por minuto**. Ao passar, o endpoint
+responde `429` com `Retry-After` e o Claude avisa que precisa esperar.
+
+O teto existe porque cada chamada dispara várias consultas ao banco: uma chave
+vazada ou um cliente em laço consumiria a cota do Supabase antes de aparecer em
+qualquer outro lugar. Uso normal não chega perto — uma conversa inteira costuma
+fazer menos de dez chamadas.
+
+A contagem vive na memória da instância, não no banco: contar no banco custaria
+uma escrita por requisição, e o remédio viraria parte da doença. Em consequência
+o teto é **por instância**, o que cobre o caso provável (cliente repetindo a
+mesma chamada) e não cobre ataque distribuído.
+
 ## O que ainda não foi verificado
 
 O protocolo foi testado de ponta a ponta (autenticação, `initialize`,

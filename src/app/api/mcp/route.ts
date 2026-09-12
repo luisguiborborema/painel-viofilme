@@ -4,6 +4,7 @@ import { hasServiceRole } from "@/lib/supabase/admin";
 import { validarToken } from "@/lib/data/api-keys-server";
 import { ferramentasPermitidas, rotuloEscopos } from "@/lib/data/api-keys";
 import { anotarChamada, withApiLog } from "@/lib/audit/api-log";
+import { LIMITE_POR_MINUTO, novoEstado, registrarChamada } from "@/lib/mcp/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,13 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Protocol-Version, Mcp-Session-Id",
   "Access-Control-Max-Age": "86400",
 };
+
+/**
+ * Contagem de chamadas por chave. Vive na instância: em serverless o teto é por
+ * instância, o que basta para o caso provável (cliente em laço caindo sempre na
+ * instância quente) e não pretende cobrir ataque distribuído.
+ */
+const chamadas = novoEstado();
 
 type RpcId = string | number | null;
 type RpcRequest = { jsonrpc?: string; id?: RpcId; method?: string; params?: Record<string, unknown> };
@@ -164,6 +172,26 @@ async function handleRpc(req: RpcRequest, scopes: readonly string[]): Promise<ob
 
 async function postHandler(request: NextRequest) {
   const identidade = await autenticar(request);
+  if (identidade) {
+    const veredito = registrarChamada(chamadas, identidade.nome, Date.now());
+    if (!veredito.permitido) {
+      anotarChamada({ meta: { limite: "excedido" } });
+      return NextResponse.json(
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: {
+            code: -32029,
+            message: `Limite de ${LIMITE_POR_MINUTO} chamadas por minuto atingido nesta chave. Tente de novo em ${veredito.esperarSegundos}s.`,
+          },
+        },
+        {
+          status: 429,
+          headers: { ...CORS, "Retry-After": String(veredito.esperarSegundos) },
+        },
+      );
+    }
+  }
   if (!identidade) {
     // Sem `WWW-Authenticate` de propósito. O cabeçalho é o correto para uma API
     // com token (RFC 6750), mas o formulário de conector personalizado do Claude
