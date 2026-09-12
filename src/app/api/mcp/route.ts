@@ -277,7 +277,12 @@ async function getHandler(request: NextRequest) {
             .filter((n) => identidade.podeEscrever || !TOOLS_BY_NAME.get(n)?.escreve)
         : undefined,
       pendencias: pendencias.length ? pendencias : undefined,
-      hint: authed || !tokenConfigurado ? undefined : "Envie Authorization: Bearer <MCP_TOKEN> — ou ?token=<MCP_TOKEN> na URL, se o seu cliente não permitir header.",
+      hint:
+        authed || !tokenConfigurado
+          ? undefined
+          : bancoConfigurado
+            ? "Envie Authorization: Bearer <sua chave> — ou ?token=<sua chave> na URL, se o seu cliente não permitir header. Crie a chave em Conta → Chaves de API."
+            : "Envie Authorization: Bearer <MCP_TOKEN>.",
     },
     { status: authed ? 200 : 401, headers: CORS },
   );

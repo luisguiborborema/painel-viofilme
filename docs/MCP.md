@@ -7,7 +7,7 @@ Claude — claude.ai, Claude Code ou via API.
 explicitamente — e mesmo assim nenhuma ferramenta apaga nada.
 
 - **Endpoint:** `https://www.viofilme.com.br/api/mcp`
-- **Autenticação:** header `Authorization: Bearer <MCP_TOKEN>`
+- **Autenticação:** header `Authorization: Bearer <chave criada no painel>`
 
 ## 1. Criar a chave
 
@@ -71,8 +71,9 @@ Revogar tem efeito imediato, sem deploy.
 
 ### Alternativa: token único no ambiente
 
-Continua funcionando para quem já configurou assim, mas não permite revogar
-uma pessoa só nem saber quem usou. Gere um token forte (mínimo 16 caracteres —
+Existe por compatibilidade e **não é mais usada aqui** — a variável foi removida
+da Vercel. Não permite revogar uma pessoa só, não registra quem usou e nunca
+escreve. Se um dia for reativada: Gere um token forte (mínimo 16 caracteres —
 abaixo disso o endpoint recusa):
 
 ```bash
@@ -106,7 +107,7 @@ informa apenas **se** as variáveis existem — nunca os valores.
 Com o token, deve listar as ferramentas:
 
 ```bash
-curl -s https://www.viofilme.com.br/api/mcp -H "Authorization: Bearer $MCP_TOKEN"
+curl -s https://www.viofilme.com.br/api/mcp -H "Authorization: Bearer $CHAVE"
 ```
 
 Token ausente ou errado responde **401**.
@@ -147,7 +148,7 @@ instala:
 
 ```bash
 claude mcp add --transport http painel https://www.viofilme.com.br/api/mcp \
-  --header "Authorization: Bearer $MCP_TOKEN"
+  --header "Authorization: Bearer $CHAVE"
 ```
 
 ### API / código próprio
@@ -156,7 +157,7 @@ claude mcp add --transport http painel https://www.viofilme.com.br/api/mcp \
 
 ```bash
 curl -s https://www.viofilme.com.br/api/mcp \
-  -H "Authorization: Bearer $MCP_TOKEN" \
+  -H "Authorization: Bearer $CHAVE" \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
        "params":{"name":"pipeline_summary","arguments":{"days":30}}}'
