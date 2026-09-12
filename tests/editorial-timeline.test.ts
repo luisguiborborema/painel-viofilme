@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   agruparBarras, barraDoPost, cargaPorSemana, ddmm, diasEntre,
-  janelaDaTimeline, semData, somarDias,
+  isoDaDataLegada, janelaDaTimeline, semData, somarDias,
 } from "../src/lib/data/editorial-timeline.ts";
 
 const eq = (nome: string, a: unknown, b: unknown) =>
@@ -160,3 +160,23 @@ test("carga por semana revela o dia sobrecarregado", () => {
 
 eq("posts sem data ficam listados à parte",
   semData([post(), post({ id: "x", entrega: null, postagem: null })]).map((p) => p.id), ["x"]);
+
+/* ── data legada: o motivo de a timeline nascer vazia em LE antiga ── */
+// Post anterior à migração 0066 guarda só "01/07", com o ISO nulo. Ele aparece
+// no kanban e sumia da linha do tempo, que só entende ISO.
+
+eq("converte usando o mês da LE", isoDaDataLegada("01/07", "2026-07"), "2026-07-01");
+eq("dia com um dígito", isoDaDataLegada("5/7", "2026-07"), "2026-07-05");
+eq("post de outro mês da mesma LE", isoDaDataLegada("28/06", "2026-07"), "2026-06-28");
+
+// Uma LE de janeiro pode conter post de dezembro — do ano anterior.
+eq("dezembro em LE de janeiro volta um ano", isoDaDataLegada("28/12", "2027-01"), "2026-12-28");
+eq("janeiro em LE de dezembro avança um ano", isoDaDataLegada("05/01", "2026-12"), "2027-01-05");
+
+eq("sem mês de referência não adivinha", isoDaDataLegada("01/07", null), null);
+eq("texto que não é data", isoDaDataLegada("a combinar", "2026-07"), null);
+eq("vazio", isoDaDataLegada("", "2026-07"), null);
+eq("já em ISO não é tratado aqui", isoDaDataLegada("2026-07-01", "2026-07"), null);
+// 31/02 escrito à mão viraria 03/03 se a gente confiasse no Date.
+eq("data inexistente é recusada", isoDaDataLegada("31/02", "2026-02"), null);
+eq("mês inválido", isoDaDataLegada("01/13", "2026-07"), null);

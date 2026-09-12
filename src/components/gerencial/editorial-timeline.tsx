@@ -51,12 +51,30 @@ export function EditorialTimeline({
   const picoSemanal = Math.max(0, ...carga.map((c) => c.entregas));
 
   if (!janela) {
+    // Diagnóstico em vez de "está vazio": a diferença entre não haver post e
+    // haver post sem data muda completamente o que a pessoa precisa fazer.
+    const semNenhumaData = paraTimeline.filter((p) => !p.entrega && !p.postagem).length;
     return (
-      <div className="rounded-2xl border border-dashed border-line p-10 text-center">
-        <p className="text-sm text-muted">
-          Nenhuma postagem tem data ainda. Preencha entrega e postagem no kanban
-          para a linha do tempo aparecer.
-        </p>
+      <div className="rounded-2xl border border-dashed border-line p-8 text-center">
+        {posts.length === 0 ? (
+          <p className="text-sm text-muted">
+            Esta linha editorial ainda não tem postagens. Crie no kanban — cada
+            coluna tem um <strong className="text-ink">+ Nova postagem</strong>.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-ink">
+              {semNenhumaData === 1
+                ? "A única postagem ainda não tem datas."
+                : `As ${semNenhumaData} postagens ainda não têm datas.`}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              A barra da linha do tempo vai da <strong>data de entrega</strong> à{" "}
+              <strong>data de postagem</strong> — sem elas não há o que desenhar.
+              Preencha no kanban e volte aqui.
+            </p>
+          </>
+        )}
       </div>
     );
   }

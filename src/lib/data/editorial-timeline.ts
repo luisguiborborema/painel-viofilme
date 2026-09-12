@@ -193,3 +193,36 @@ export function cargaPorSemana(posts: PostNaTimeline[]): { semana: string; entre
   }
   return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([semana, entregas]) => ({ semana, entregas }));
 }
+
+/**
+ * Converte a data legada do post ("01/07") para ISO, usando o mês de
+ * referência da linha editorial.
+ *
+ * Posts anteriores à migração 0066 guardam só esse texto, com `post_date_iso`
+ * nulo. Eles aparecem no kanban (com o campo de data vazio) e sumiam da linha
+ * do tempo — que só olha ISO. Para quem já tinha linhas editoriais, a timeline
+ * nascia vazia mesmo com tudo planejado.
+ *
+ * `referenciaMes` vem como "AAAA-MM". A virada de ano é tratada: um post de
+ * dezembro numa LE de janeiro pertence ao ano anterior.
+ */
+export function isoDaDataLegada(ddmmTexto: string | null | undefined, referenciaMes: string | null | undefined): string | null {
+  const m = /^(\d{1,2})\/(\d{1,2})$/.exec(String(ddmmTexto ?? "").trim());
+  if (!m || !/^\d{4}-\d{2}$/.test(String(referenciaMes ?? ""))) return null;
+
+  const dia = Number(m[1]);
+  const mes = Number(m[2]);
+  if (dia < 1 || dia > 31 || mes < 1 || mes > 12) return null;
+
+  const anoRef = Number(referenciaMes!.slice(0, 4));
+  const mesRef = Number(referenciaMes!.slice(5, 7));
+  // Diferença grande entre o mês do post e o da LE = virada de ano.
+  let ano = anoRef;
+  if (mesRef - mes > 6) ano = anoRef + 1;
+  else if (mes - mesRef > 6) ano = anoRef - 1;
+
+  const iso = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+  // Rejeita data que não existe (31/02 escrito à mão).
+  const d = new Date(`${iso}T00:00:00Z`);
+  return d.getUTCDate() === dia && d.getUTCMonth() + 1 === mes ? iso : null;
+}

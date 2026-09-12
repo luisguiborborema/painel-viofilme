@@ -12,6 +12,7 @@
  * neutros até ganharem origem própria.
  */
 import { cache } from "react";
+import { isoDaDataLegada } from "./editorial-timeline";
 import { createClient } from "@/lib/supabase/server";
 import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
 import type { ClientRequests, RequestStatus } from "./requests";
@@ -3438,6 +3439,8 @@ export async function sbGetClientRequests(): Promise<ClientRequests> {
 type EditorialLineRow = {
   id: string;
   month: string | null;
+  /** "AAAA-MM" — usado para datar os posts legados (que só têm "DD/MM"). */
+  reference_month: string | null;
   stage: string | null;
   objetivo: string | null;
   narrativa_central: string | null;
@@ -3471,6 +3474,7 @@ type EditorialPostRow = {
   delivery_date: string | null;
   delivery_overridden: boolean | null;
   commemorative_date: string | null;
+  reference_url: string | null;
   client_status: string | null;
   client_feedback: string | null;
   client_reviewed_at: string | null;
@@ -3484,7 +3488,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   let linesQuery = supabase
     .from("editorial_lines")
-    .select("id, month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by, public_approval_token")
+    .select("id, month, reference_month, stage, objetivo, narrativa_central, tensao_narrativa, datas_comemorativas, pillars, moodboard, built_by, internally_approved_by, public_approval_token")
     .eq("client_id", clientId);
   // Retomar rascunho: quando um lineId é pedido, carrega aquela LE; senão, a mais recente.
   linesQuery = lineId
@@ -3522,7 +3526,7 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
 
   const { data: postsData } = await supabase
     .from("editorial_posts")
-    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes, post_date_iso, delivery_date, delivery_overridden, commemorative_date, client_status, client_feedback, client_reviewed_at")
+    .select("id, n, title, format, pillar, description, legenda, art_direction, post_date, weekday, refs, task_id, tema, assignee, assignee_secondary, priority, notes, post_date_iso, delivery_date, delivery_overridden, commemorative_date, client_status, client_feedback, client_reviewed_at, reference_url")
     .eq("line_id", line.id)
     .order("n");
 
@@ -3550,6 +3554,13 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     }
   }
 
+  // Data legada: posts anteriores à 0066 têm só `post_date` ("01/07"). Sem
+  // isto eles apareceriam no kanban com o campo vazio e sumiriam da linha do
+  // tempo — que só entende ISO.
+  const refMes = line.reference_month ?? null;
+  const isoDaPostagem = (p: EditorialPostRow) =>
+    p.post_date_iso ?? isoDaDataLegada(p.post_date, refMes) ?? undefined;
+
   const posts: EditorialPost[] = postRows.map((p) => ({
     id: p.id,
     n: Number(p.n ?? 0),
@@ -3572,9 +3583,10 @@ export async function sbGetEditorialLine(clientId: string, lineId?: string): Pro
     assigneeSecondary: p.assignee_secondary ?? undefined,
     priority: p.priority === "urgente" ? "urgente" : "normal",
     notes: p.notes ?? undefined,
-    postDateIso: p.post_date_iso ?? undefined,
+    postDateIso: isoDaPostagem(p),
     deliveryDate: p.delivery_date ?? undefined,
     deliveryOverridden: !!p.delivery_overridden,
+    referenceUrl: p.reference_url ?? undefined,
     commemorativeDate: p.commemorative_date ?? undefined,
     clientStatus:
       p.client_status === "approved" || p.client_status === "changes"
