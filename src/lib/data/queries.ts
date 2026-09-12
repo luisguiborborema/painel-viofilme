@@ -725,7 +725,9 @@ export async function getEmployeeProfileView(id: string): Promise<EmployeeProfil
       activity: [],
     };
   }
-  // Sem Supabase / ids de demonstração: usa o mock rico.
+  // Com banco configurado, colaborador que não existe é "não existe" — devolver
+  // o perfil de demonstração mostraria uma pessoa inventada como se fosse real.
+  if (isSupabaseConfigured()) return null;
   return employeeProfileMock(id);
 }
 
