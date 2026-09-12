@@ -40,8 +40,9 @@ import {
 } from "@/lib/data/delivery-card-fields";
 import {
   DELIVERY_CONFIG_FALLBACK,
-  DELIVERY_TODAY_ISO,
-  DELIVERY_TODAY_IDX,
+  diaUtilPadrao,
+  hojeIdxSemana,
+  hojeIso,
   OPS_TEAM,
   TASK_STAGES,
   DELIVERY_PRIORITIES,
@@ -1239,7 +1240,7 @@ function Geral({ tasks, onDrill, cap }: {
   const approval = tasks.filter((t) => t.stage === "approval").length;
   const lateList = tasks.filter((t) => t.late);
   const isActionable = (t: DeliveryTask) => ["todo", "doing", "review"].includes(t.stage);
-  const today = tasks.filter((t) => isActionable(t) && sameDay(t.dueDate, DELIVERY_TODAY_ISO) && !t.late);
+  const today = tasks.filter((t) => isActionable(t) && sameDay(t.dueDate, hojeIso()) && !t.late);
   const week = tasks.filter((t) => isActionable(t) && !t.late);
   const maxStage = Math.max(1, ...TASK_STAGES.map((s) => tasks.filter((t) => t.stage === s.key).length));
 
@@ -1402,10 +1403,29 @@ function Kanban({ tasks, onStage, openTask, clientColor, cardFields, groupBy }: 
   );
 }
 
+/**
+ * "Hoje" de verdade, resolvido só depois da montagem.
+ *
+ * O servidor e o primeiro render do cliente precisam produzir o mesmo HTML; se
+ * cada um calculasse a data por conta própria, uma virada de dia entre os dois
+ * quebraria a hidratação. Antes de montar, devolve -1 — nenhum dia marcado.
+ */
+function useHoje() {
+  const [hoje, setHoje] = useState<{ iso: string; idx: number }>({ iso: "", idx: -1 });
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- é o ponto: a data real só pode entrar depois da hidratação
+    setHoje({ iso: hojeIso(), idx: hojeIdxSemana() });
+  }, []);
+  return hoje;
+}
+
 // --- Calendário (ENT08-09) — por data de entrega, cor por cliente ------------
 function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: DeliveryTask[] } & Shared) {
   const [sub, setSub] = useState<"dia" | "semana" | "mes">("semana");
-  const [dayIdx, setDayIdx] = useState(DELIVERY_TODAY_IDX);
+  const hoje = useHoje();
+  const [dayIdx, setDayIdx] = useState<number | null>(null);
+  // Enquanto não montou, cai no dia útil padrão — no fim de semana, segunda.
+  const diaAtivo = dayIdx ?? diaUtilPadrao();
 
   const SubToggle = (
     <div className="mb-3 inline-flex rounded-lg border border-line bg-surface p-0.5">
@@ -1419,15 +1439,15 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
   );
 
   if (sub === "dia") {
-    const day = tasks.filter((t) => t.day === dayIdx);
+    const day = tasks.filter((t) => t.day === diaAtivo);
     return (
       <div>
         {SubToggle}
         <div className="mb-3 flex gap-1">
           {WEEKDAYS.map((wd, i) => (
             <button key={wd} onClick={() => setDayIdx(i)}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", dayIdx === i ? "bg-brand-600 text-white" : "bg-surface text-muted hover:text-ink")}>
-              {wd}{i === DELIVERY_TODAY_IDX ? " (hoje)" : ""}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", diaAtivo === i ? "bg-brand-600 text-white" : "bg-surface text-muted hover:text-ink")}>
+              {wd}{i === hoje.idx ? " (hoje)" : ""}
             </button>
           ))}
         </div>
@@ -1447,8 +1467,8 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
           {WEEKDAYS.map((wd, i) => {
             const day = tasks.filter((t) => t.day === i);
             return (
-              <div key={wd} className={cn("rounded-2xl border p-2.5", i === DELIVERY_TODAY_IDX ? "border-brand-400 bg-brand-50/40" : "border-line bg-surface")}>
-                <p className="mb-2 px-1 text-sm font-semibold text-ink">{wd}{i === DELIVERY_TODAY_IDX ? " · hoje" : ""}</p>
+              <div key={wd} className={cn("rounded-2xl border p-2.5", i === hoje.idx ? "border-brand-400 bg-brand-50/40" : "border-line bg-surface")}>
+                <p className="mb-2 px-1 text-sm font-semibold text-ink">{wd}{i === hoje.idx ? " · hoje" : ""}</p>
                 <div className="space-y-2">
                   {day.map((t) => <TaskCard key={t.id} t={t} openTask={openTask} clientColor={clientColor} cardFields={cardFields} />)}
                   {day.length === 0 && <p className="px-1 py-3 text-center text-xs text-muted">—</p>}
@@ -1461,9 +1481,9 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
     );
   }
 
-  // Mês — grade do mês de "hoje", tasks na data real de entrega
-  const today = new Date(DELIVERY_TODAY_ISO);
-  const y = today.getUTCFullYear(), mo = today.getUTCMonth();
+  // Mês — grade do mês corrente, tasks na data real de entrega
+  const baseMes = hoje.iso ? new Date(`${hoje.iso}T12:00:00Z`) : new Date(`${hojeIso()}T12:00:00Z`);
+  const y = baseMes.getUTCFullYear(), mo = baseMes.getUTCMonth();
   const first = new Date(Date.UTC(y, mo, 1));
   const startDow = first.getUTCDay();
   const daysInMonth = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
@@ -1482,7 +1502,7 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
         <div className="mt-1 grid grid-cols-7 gap-1">
           {cells.map((d, i) => {
             const list = d ? tasksOn(d) : [];
-            const isToday = d === today.getUTCDate();
+            const isToday = hoje.iso !== "" && d === Number(hoje.iso.slice(8, 10));
             return (
               <div key={i} className={cn("min-h-[72px] rounded-lg border p-1", isToday ? "border-brand-400 bg-brand-50/40" : "border-line")}>
                 {d && <p className="px-1 text-[10px] font-medium text-muted">{d}</p>}
@@ -1507,7 +1527,10 @@ function Calendario({ tasks, openTask, clientColor, cardFields }: { tasks: Deliv
 
 // --- Linha do tempo (ENT10-11) — agenda por membro, blocos por duração -------
 function Timeline({ tasks, openTask, clientColor, durations }: { tasks: DeliveryTask[]; durations: Record<string, number> } & Shared) {
-  const [dayIdx, setDayIdx] = useState(DELIVERY_TODAY_IDX);
+  const hoje = useHoje();
+  const [dayIdx, setDayIdx] = useState<number | null>(null);
+  // Enquanto não montou, cai no dia útil padrão — no fim de semana, segunda.
+  const diaAtivo = dayIdx ?? diaUtilPadrao();
   const START = 9, END = 19; // 9h–19h
   const totalMin = (END - START) * 60;
   const members = OPS_TEAM.filter((m) => tasks.some((t) => t.assignee === m.id));
@@ -1517,8 +1540,8 @@ function Timeline({ tasks, openTask, clientColor, durations }: { tasks: Delivery
       <div className="mb-3 flex gap-1">
         {WEEKDAYS.map((wd, i) => (
           <button key={wd} onClick={() => setDayIdx(i)}
-            className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", dayIdx === i ? "bg-brand-600 text-white" : "bg-surface text-muted hover:text-ink")}>
-            {wd}{i === DELIVERY_TODAY_IDX ? " (hoje)" : ""}
+            className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", diaAtivo === i ? "bg-brand-600 text-white" : "bg-surface text-muted hover:text-ink")}>
+            {wd}{i === hoje.idx ? " (hoje)" : ""}
           </button>
         ))}
       </div>
@@ -1533,7 +1556,7 @@ function Timeline({ tasks, openTask, clientColor, durations }: { tasks: Delivery
           </div>
           <div className="space-y-2">
             {members.map((m) => {
-              const dayTasks = tasks.filter((t) => t.assignee === m.id && t.day === dayIdx);
+              const dayTasks = tasks.filter((t) => t.assignee === m.id && t.day === diaAtivo);
               let cursor = 0; // minutos desde START
               return (
                 <div key={m.id} className="grid items-center gap-0" style={{ gridTemplateColumns: `120px 1fr` }}>
@@ -1612,10 +1635,12 @@ function Workload({ tasks, onDrill, cap }: { tasks: DeliveryTask[]; onDrill: (d:
 // --- Entregas por cliente (ENT14-15) — kanban por cliente + janela -----------
 function PorCliente({ tasks, openTask, clientColor, cardFields }: { tasks: DeliveryTask[] } & Shared) {
   const [win, setWin] = useState<"dia" | "semana" | "mes">("semana");
-  const today = new Date(DELIVERY_TODAY_ISO);
+  const hoje = useHoje();
+  const hojeRef = hoje.iso || hojeIso();
+  const today = new Date(`${hojeRef}T12:00:00Z`);
   const inWin = (t: DeliveryTask) => {
     const d = new Date(t.dueDate);
-    if (win === "dia") return sameDay(t.dueDate, DELIVERY_TODAY_ISO);
+    if (win === "dia") return sameDay(t.dueDate, hojeRef);
     if (win === "mes") return d.getUTCFullYear() === today.getUTCFullYear() && d.getUTCMonth() === today.getUTCMonth();
     return true; // semana (mock: todas na semana atual)
   };

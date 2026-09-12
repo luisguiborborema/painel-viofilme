@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, Clock3, ListChecks, Plus, User, X } from "
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
-import { DELIVERY_TODAY_ISO, OPS_TEAM, type DeliveryTask } from "@/lib/data/operacao";
+import { hojeIso, OPS_TEAM, type DeliveryTask } from "@/lib/data/operacao";
 import { TaskFicha } from "./linha-editorial";
 
 const memberName = (id: string) => OPS_TEAM.find((m) => m.id === id)?.name ?? id;
@@ -66,7 +66,7 @@ export function ClientTasksTab({
       day: 2,
       startDay: 2,
       span: 1,
-      dueDate: DELIVERY_TODAY_ISO,
+      dueDate: hojeIso(),
       checklist: [],
       comments: [],
     };

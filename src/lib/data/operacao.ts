@@ -734,9 +734,17 @@ function deliveryDate(dayIdx: number): string {
   return d.toISOString();
 }
 
-/** "Hoje" do Painel de Entregas (quarta da semana de referência). */
-export const DELIVERY_TODAY_ISO = deliveryDate(2);
-export const DELIVERY_TODAY_IDX = 2;
+/**
+ * "Hoje" dos dados de DEMONSTRAÇÃO — ancorado à data fixa do mock.
+ *
+ * NÃO use para nada que o usuário veja ou grave: durante muito tempo o painel
+ * marcava "quarta (hoje)" em qualquer dia da semana e criava tarefas vencendo
+ * em 24/06/2026, porque este valor fixo tinha vazado para o modo real.
+ * Para a data de verdade, use `hojeIso()` e `hojeIdxSemana()`.
+ */
+export const DEMO_TODAY_ISO = deliveryDate(2);
+
+export { hojeIso, hojeIdxSemana, diaUtilPadrao } from "./hoje";
 
 export type DeliveryTask = {
   id: string;
@@ -833,7 +841,8 @@ export function getDeliveryTasks(): DeliveryTask[] {
   return base.map((t) => ({
     ...t,
     dueDate: deliveryDate(t.day),
-    late: t.day < DELIVERY_TODAY_IDX && t.stage !== "done" && t.stage !== "approval",
+    // Dados de demonstração: "hoje" é a quarta da semana de referência.
+    late: t.day < 2 && t.stage !== "done" && t.stage !== "approval",
   }));
 }
 

@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
   ART_DIRECTIONS,
-  DELIVERY_TODAY_ISO,
+  hojeIso,
   OPS_TEAM,
   type ArtDirection,
   type CampaignGoal,
@@ -111,7 +111,7 @@ export function CriativosTab({
       day: 2,
       startDay: 2,
       span: 1,
-      dueDate: DELIVERY_TODAY_ISO,
+      dueDate: hojeIso(),
       comments: [],
       campaignGoal: goal || undefined,
       contentFormat: format || undefined,

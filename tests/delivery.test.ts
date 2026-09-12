@@ -59,3 +59,33 @@ test("estimativa acima do teto é recusada", () => {
   assert.equal(r.ok, false);
   assert.match((r as { erro: string }).erro, /acima do limite/);
 });
+
+/* ── "hoje" de verdade, não o "hoje" dos dados de demonstração ── */
+// O painel marcava "Qua (hoje)" em qualquer dia da semana e criava tarefas
+// vencendo em 24/06/2026: a data fixa do mock tinha vazado para o modo real.
+
+import { diaUtilPadrao, hojeIdxSemana, hojeIso } from "../src/lib/data/hoje.ts";
+
+const emSegunda = new Date("2026-09-07T10:00:00");
+const emSexta   = new Date("2026-09-11T10:00:00");
+const emSabado  = new Date("2026-09-12T10:00:00");
+const emDomingo = new Date("2026-09-13T10:00:00");
+
+eq("segunda é o índice 0", hojeIdxSemana(emSegunda), 0);
+eq("sexta é o índice 4", hojeIdxSemana(emSexta), 4);
+// A régua só tem Seg–Sex: marcar um dia útil como "hoje" no sábado é mentira —
+// foi exatamente o defeito relatado, com a quarta destacada num sábado.
+eq("sábado não marca dia nenhum", hojeIdxSemana(emSabado), -1);
+eq("domingo não marca dia nenhum", hojeIdxSemana(emDomingo), -1);
+
+eq("no fim de semana a régua abre na segunda", diaUtilPadrao(emSabado), 0);
+eq("em dia útil a régua abre no próprio dia", diaUtilPadrao(emSexta), 4);
+
+test("hojeIso usa o fuso local, não UTC", () => {
+  // Às 22h de Brasília já é o dia seguinte em UTC. Usar UTC faria a tarefa
+  // nascer vencendo amanhã durante toda a noite.
+  const noite = new Date(2026, 8, 12, 22, 30);
+  assert.equal(hojeIso(noite), "2026-09-12");
+});
+
+eq("formata com dois dígitos", hojeIso(new Date(2026, 0, 5, 12)), "2026-01-05");
