@@ -67,6 +67,7 @@ function CardPostagem({
   const pendencia = descreverPendencias({
     title: f.title,
     description: f.description,
+    legenda: f.legenda,
     deliveryDate: f.deliveryDate,
     postDateIso: f.postDateIso,
     assignee: f.assignee,
@@ -143,6 +144,17 @@ function CardPostagem({
                 : coluna.tipo === "Extra" ? "Descreva o que precisa ser feito..."
                   : "Copy do post..."
           }
+          rows={2}
+          className={inputCls + " resize-y"}
+        />
+      </label>
+
+      <label className="mt-2 block">
+        <span className={rotulo}>Legenda</span>
+        <textarea
+          value={f.legenda ?? ""}
+          onChange={(e) => muda("legenda", e.target.value)}
+          placeholder="Legenda que vai junto com a postagem..."
           rows={2}
           className={inputCls + " resize-y"}
         />
@@ -228,7 +240,7 @@ export function EditorialKanban({
   }, [posts]);
 
   const prontos = posts.filter((p) => cardPronto({
-    title: p.title, description: p.description,
+    title: p.title, description: p.description, legenda: p.legenda,
     deliveryDate: p.deliveryDate, postDateIso: p.postDateIso, assignee: p.assignee,
   })).length;
 

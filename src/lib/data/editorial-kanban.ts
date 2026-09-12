@@ -62,6 +62,7 @@ export function tipoDoPost(format: string | null | undefined): TipoPostagem {
 export const CAMPOS_OBRIGATORIOS = [
   { key: "title", label: "Título" },
   { key: "description", label: "Roteiro" },
+  { key: "legenda", label: "Legenda" },
   { key: "deliveryDate", label: "Data de entrega" },
   { key: "postDateIso", label: "Data de postagem" },
   { key: "assignee", label: "Responsável" },

@@ -19,6 +19,7 @@ const eq = (nome: string, a: unknown, b: unknown) =>
 const completo = {
   title: "Rotina de treino",
   description: "gancho, desenvolvimento, CTA",
+  legenda: "Três erros que travam seu treino 👇",
   deliveryDate: "2026-09-23",
   postDateIso: "2026-09-30",
   assignee: "gustavo",
@@ -28,9 +29,10 @@ const completo = {
 
 eq("card completo está pronto", cardPronto(completo), true);
 eq("card vazio lista tudo que falta", camposFaltando({}),
-  ["Título", "Roteiro", "Data de entrega", "Data de postagem", "Responsável"]);
+  ["Título", "Roteiro", "Legenda", "Data de entrega", "Data de postagem", "Responsável"]);
 
 eq("sem roteiro não está pronto", cardPronto({ ...completo, description: "" }), false);
+eq("sem legenda não está pronto", cardPronto({ ...completo, legenda: "" }), false);
 eq("sem responsável não está pronto", cardPronto({ ...completo, assignee: "" }), false);
 eq("sem data de entrega não está pronto", cardPronto({ ...completo, deliveryDate: null }), false);
 
@@ -45,6 +47,8 @@ eq("duas pendências", descreverPendencias({ ...completo, description: "", assig
   "faltam Roteiro e Responsável");
 eq("três pendências", descreverPendencias({ ...completo, title: "", description: "", assignee: "" }),
   "faltam Título, Roteiro e Responsável");
+eq("pendências saem na ordem do card",
+  camposFaltando({ ...completo, legenda: "", title: "" }), ["Título", "Legenda"]);
 eq("card pronto não tem frase", descreverPendencias(completo), null);
 
 /* ── colunas ── */
