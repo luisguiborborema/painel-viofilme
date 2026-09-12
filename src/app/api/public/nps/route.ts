@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { novoEstadoEnvios, podeEnviar } from "@/lib/data/entrada-publica";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/audit/log";
 import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
+
+/** Envios por IP — o formulário é público, sem login. */
+const envios = novoEstadoEnvios();
 export const dynamic = "force-dynamic";
 
 const str = (v: unknown) => (v == null ? "" : String(v).trim());
@@ -16,6 +20,17 @@ async function postHandler(req: Request) {
     b = await req.json();
   } catch {
     return NextResponse.json({ error: "corpo inválido" }, { status: 400 });
+  }
+
+  // Teto por IP: o formulário é público e sem login.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip") || "desconhecido";
+  const envio = podeEnviar(envios, ip, Date.now());
+  if (!envio.ok) {
+    return NextResponse.json(
+      { error: `Muitos envios deste dispositivo. Tente de novo em ${envio.esperarMinutos} min.` },
+      { status: 429 },
+    );
   }
   if (str(b.website)) return NextResponse.json({ ok: true }); // honeypot
 

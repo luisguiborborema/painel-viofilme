@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
+import {
+  emailPlausivel, limitar, limitarPropriedades,
+  novoEstadoEnvios, podeEnviar, telefoneLimpo,
+} from "@/lib/data/entrada-publica";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { withApiLog } from "@/lib/audit/api-log";
 
 export const runtime = "nodejs";
+
+/**
+ * Envios por IP. Formulário público é preenchido uma vez, talvez duas — sem
+ * teto, dá para encher o CRM de negócios falsos até os reais sumirem no meio.
+ */
+const envios = novoEstadoEnvios();
 export const dynamic = "force-dynamic";
 
 // CORS: por padrão aceita qualquer origem (só cria lead; protegido por slug +
@@ -91,6 +101,17 @@ async function postHandler(req: Request) {
   if (!b.slug || !b.name?.trim()) {
     return json({ error: "dados obrigatórios ausentes" }, { status: 400 });
   }
+
+  // Teto por IP: o formulário é público, e sem isto uma enxurrada entra inteira.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip") || "desconhecido";
+  const envio = podeEnviar(envios, ip, Date.now());
+  if (!envio.ok) {
+    return json(
+      { error: `Muitos envios deste dispositivo. Tente de novo em ${envio.esperarMinutos} min.` },
+      { status: 429 },
+    );
+  }
   if (!isSupabaseConfigured() || !hasServiceRole()) {
     // Sem backend: aceita (demo) sem persistir.
     return json({ ok: true, persisted: false });
@@ -109,7 +130,8 @@ async function postHandler(req: Request) {
 
   const owner = (form.owner as string | null) ?? null;
   const source = (form.source as string | null) ?? "Formulário";
-  const companyName = b.company?.trim() || b.name.trim();
+  // Texto vindo de fora entra aparado e cortado — ver lib/data/entrada-publica.
+  const companyName = limitar(b.company, "empresa") ?? limitar(b.name, "nome")!;
 
   // Empresa (reaproveita por nome).
   let companyId: string;
@@ -125,9 +147,9 @@ async function postHandler(req: Request) {
       .from("crm_companies")
       .insert({
         name: companyName,
-        segment: b.segment?.trim() || null,
-        phone: b.phone?.replace(/\D/g, "") || null,
-        email: b.email?.trim() || null,
+        segment: limitar(b.segment, "curto"),
+        phone: telefoneLimpo(b.phone),
+        email: emailPlausivel(b.email),
         owner,
       })
       .select("id")
@@ -141,9 +163,9 @@ async function postHandler(req: Request) {
     .from("crm_contacts")
     .insert({
       company_id: companyId,
-      name: b.name.trim(),
-      phone: b.phone?.replace(/\D/g, "") || null,
-      email: b.email?.trim() || null,
+      name: limitar(b.name, "nome")!,
+      phone: telefoneLimpo(b.phone),
+      email: emailPlausivel(b.email),
       is_primary: true,
       owner,
     })
@@ -169,11 +191,13 @@ async function postHandler(req: Request) {
       primary_contact_id: contactId ?? null,
       pipeline_id: pipe?.id ?? null,
       stage_id: firstOpen?.id ?? null,
-      stage: firstOpen?.key ?? "prospeccao",
-      segment: b.segment?.trim() || null,
+      // Sem etapa aberta configurada, o negócio entraria numa coluna que não
+      // existe e ninguém o veria chegar.
+      stage: firstOpen?.key ?? null,
+      segment: limitar(b.segment, "curto"),
       source,
       owner,
-      properties: collectProperties(b),
+      properties: limitarPropriedades(collectProperties(b)),
       stage_changed_at: new Date().toISOString(),
     })
     .select("id")

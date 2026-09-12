@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { novoEstadoEnvios, podeEnviar } from "@/lib/data/entrada-publica";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { slotsForDate, type AvailWindow } from "@/lib/data/agenda";
@@ -7,6 +8,9 @@ import { logEvent } from "@/lib/audit/log";
 import { trigger } from "@/lib/push/triggers";
 
 export const runtime = "nodejs";
+
+/** Envios por IP — o formulário é público, sem login. */
+const envios = novoEstadoEnvios();
 export const dynamic = "force-dynamic";
 
 const TZ = "America/Sao_Paulo";
@@ -78,6 +82,14 @@ export async function POST(req: Request) {
     b = await req.json();
   } catch {
     return json({ error: "corpo inválido" }, 400);
+  }
+
+  // Teto por IP: o formulário é público e sem login.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip") || "desconhecido";
+  const envio = podeEnviar(envios, ip, Date.now());
+  if (!envio.ok) {
+    return json({ error: `Muitos envios deste dispositivo. Tente de novo em ${envio.esperarMinutos} min.` }, 429);
   }
   const slug = str(b.slug);
   const date = str(b.date);
