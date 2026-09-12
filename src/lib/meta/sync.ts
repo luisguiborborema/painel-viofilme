@@ -138,6 +138,7 @@ export async function syncClientFromMeta(clientId: string): Promise<SyncResult> 
     let reach = 0;
     let impressions = 0;
     let profileViews = 0;
+    let insightsOk = false;
     try {
       const ins = await getInstagramInsights(
         c.ig_user_id,
@@ -151,23 +152,37 @@ export async function syncClientFromMeta(clientId: string): Promise<SyncResult> 
         else if (m.name === "impressions") impressions = last;
         else if (m.name === "profile_views") profileViews = last;
       }
+      insightsOk = true;
     } catch (e) {
       result.errors.push(`insights: ${msg(e)}`);
     }
 
     try {
-      await admin.from("account_metrics").upsert(
-        {
-          client_id: clientId,
-          platform: "instagram",
-          date: today(),
-          followers: result.followers,
-          reach,
-          impressions,
-          profile_views: profileViews,
-        },
-        { onConflict: "client_id,platform,date" },
-      );
+      /**
+       * Grava só o que foi realmente lido.
+       *
+       * Antes, uma falha na API do Meta deixava reach/impressões em 0 e o upsert
+       * gravava esses zeros por cima do dia — inclusive por cima de números
+       * certos de uma sincronização anterior bem-sucedida. O relatório do
+       * cliente mostrava "0 de alcance", que é indistinguível de um dia
+       * realmente sem alcance. Erro de API virava número errado em vez de falha
+       * visível.
+       *
+       * Omitir as colunas mantém o valor que já estava lá: o upsert só atualiza
+       * o que vem no payload.
+       */
+      const linha: Record<string, unknown> = {
+        client_id: clientId,
+        platform: "instagram",
+        date: today(),
+        followers: result.followers,
+      };
+      if (insightsOk) {
+        linha.reach = reach;
+        linha.impressions = impressions;
+        linha.profile_views = profileViews;
+      }
+      await admin.from("account_metrics").upsert(linha, { onConflict: "client_id,platform,date" });
     } catch (e) {
       result.errors.push(`account_metrics: ${msg(e)}`);
     }
