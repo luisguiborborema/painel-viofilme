@@ -10,6 +10,10 @@
  * apenas atualiza as linhas existentes (upsert por chave natural).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotifications } from "@/lib/notifications";
+import { sendWhatsappText } from "@/lib/whatsapp/send";
+import { WHATSAPP_NOTIFY_NUMBERS } from "@/lib/whatsapp/config";
+import { deveAvisar, mensagemDeAviso, proximoEstado } from "./sync-health";
 import {
   getAdCampaigns,
   getCampaignInsights,
@@ -98,13 +102,20 @@ export type SyncResult = {
 /** Sincroniza um cliente a partir de sua conexão Meta. */
 export async function syncClientFromMeta(clientId: string): Promise<SyncResult> {
   const admin = createAdminClient();
-  const { data: conn, error } = await admin
+  // Tolerante: as colunas de saúde só existem depois da migração 0143.
+  const COLS = "client_id, ig_user_id, fb_page_id, page_name, access_token, ad_account_id, token_expires_at";
+  const v2 = await admin
     .from("meta_connections")
-    .select(
-      "client_id, ig_user_id, fb_page_id, page_name, access_token, ad_account_id, token_expires_at",
-    )
+    .select(`${COLS}, consecutive_failures, alerted_at`)
     .eq("client_id", clientId)
     .single();
+  const { data: conn, error } = v2.error
+    ? await admin
+    .from("meta_connections")
+    .select(COLS)
+    .eq("client_id", clientId)
+    .single()
+    : v2;
 
   if (error || !conn) throw new Error("conexão Meta não encontrada para o cliente");
   const c = conn as MetaConnectionRow;
@@ -228,13 +239,71 @@ export async function syncClientFromMeta(clientId: string): Promise<SyncResult> 
     }
   }
 
-  // Carimbo da última sincronização
-  await admin
-    .from("meta_connections")
-    .update({ last_synced_at: new Date().toISOString() })
-    .eq("client_id", clientId);
-
+  await registrarSaude(admin, clientId, result, conn as Record<string, unknown>);
   return result;
+}
+
+/**
+ * Guarda o resultado da sincronização e avisa quando ela para de funcionar.
+ *
+ * Sem isto o erro morre no corpo de uma resposta que o cron descarta: uma conta
+ * com token expirado ficaria semanas sem números, e quem notaria primeiro seria
+ * o cliente.
+ */
+async function registrarSaude(
+  admin: ReturnType<typeof createAdminClient>,
+  clientId: string,
+  result: SyncResult,
+  conn: Record<string, unknown>,
+): Promise<void> {
+  const falhou = result.errors.length > 0;
+  const estado = {
+    consecutiveFailures: Number(conn.consecutive_failures ?? 0),
+    alertedAt: (conn.alerted_at as string) ?? null,
+  };
+  const avisar = deveAvisar(estado, falhou);
+  const patch = proximoEstado(estado, falhou, result.errors[0] ?? null, avisar);
+
+  // Em caso de falha, campos nulos ficam de fora para preservar o que já havia
+  // (last_synced_at marca o último sucesso, não a última tentativa).
+  const semNulo = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== null || !falhou));
+  const { error: erroSaude } = await admin.from("meta_connections").update(semNulo).eq("client_id", clientId);
+  if (erroSaude) {
+    // Sem a migração 0143 as colunas de saúde não existem. Ainda assim o
+    // carimbo de sucesso precisa entrar — ele já existia antes e a tela de
+    // status depende dele.
+    if (!falhou) {
+      await admin
+        .from("meta_connections")
+        .update({ last_synced_at: patch.last_synced_at })
+        .eq("client_id", clientId);
+    }
+  }
+
+  if (!avisar) return;
+  try {
+    const { data: cli } = await admin.from("clients").select("name").eq("id", clientId).maybeSingle();
+    const nome = (cli as { name?: string } | null)?.name ?? "cliente";
+    const texto = mensagemDeAviso(nome, patch.consecutive_failures, result.errors[0] ?? "erro desconhecido");
+
+    // Painel: chega para quem abre o sistema, mesmo sem WhatsApp contratado.
+    const { data: admins } = await admin.from("profiles").select("id").eq("role", "gerencial").limit(50);
+    await createNotifications(
+      ((admins ?? []) as { id: string }[]).map((a) => String(a.id)),
+      {
+        title: `Sincronização parada — ${nome}`,
+        body: texto.split("\n")[0],
+        url: "/gerencial/integracoes",
+        category: "clients",
+        type: "meta_sync_failed",
+      },
+    );
+
+    // WhatsApp, se estiver configurado.
+    for (const num of WHATSAPP_NOTIFY_NUMBERS) await sendWhatsappText(num, `⚠️ ${texto}`).catch(() => {});
+  } catch {
+    /* o aviso nunca derruba a sincronização */
+  }
 }
 
 /** Sincroniza campanhas + métricas diárias dos últimos 30 dias. */
