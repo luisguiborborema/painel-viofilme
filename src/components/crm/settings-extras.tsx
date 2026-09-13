@@ -158,15 +158,3 @@ export function ShortcutPanel({ description, href, cta }: { description: string;
   );
 }
 
-/** Regras de lead score — casca (ainda não configurável). */
-export function LeadScorePanel() {
-  return (
-    <div className="rounded-xl border border-dashed border-line bg-surface p-5 text-sm text-muted">
-      <p className="font-medium text-ink">Regras de lead score · em construção</p>
-      <p className="mt-1">
-        O lead score é calculado hoje por regra fixa (BANT + engajamento). A configuração dos pesos e gatilhos entra
-        aqui numa próxima etapa — a estrutura de propriedades e etapas já dá o insumo.
-      </p>
-    </div>
-  );
-}

@@ -1010,6 +1010,8 @@ export type CrmLeadCard = CrmLead & { daysInStage: number; rot: Rot };
 
 // ── Lead scoring (0–100, heurístico) ────────────────────────────────────────
 
+import { calcularScore, type ConfigLeadScore } from "./lead-score";
+
 export type ScoreTier = "hot" | "warm" | "cold";
 
 export const SCORE_TIERS: Record<ScoreTier, { label: string; color: string; chip: string }> = {
@@ -1025,41 +1027,22 @@ export type DealScore = {
 };
 
 /** Pontua um negócio por sinais de qualidade/engajamento (0–100). */
-export function scoreDeal(deal: CrmLead, nowIso: string): DealScore {
-  const factors: { label: string; points: number }[] = [];
-  const add = (label: string, points: number) => {
-    if (points) factors.push({ label, points });
-  };
-
-  // Valor mensal (até 25)
-  const v = deal.monthlyValue;
-  add("Valor mensal", v >= 5000 ? 25 : v >= 2000 ? 16 : v > 0 ? 8 : 0);
-
-  // Qualificação BANT (5 cada, até 20)
-  const bantFilled = (["budget", "authority", "need", "timing"] as const).filter(
-    (k) => deal.bant?.[k]?.trim(),
-  ).length;
-  add("Qualificação (BANT)", bantFilled * 5);
-
-  // Estágio / probabilidade (até 20)
-  add("Estágio no funil", Math.round((deal.probability / 100) * 20));
-
-  // Origem quente (indicação)
-  if ((deal.source ?? "").toLowerCase().includes("indica")) add("Indicação", 10);
-
-  // Recência da última interação (até 15)
-  if (deal.lastInteractionAt) {
-    const days = daysBetween(deal.lastInteractionAt, nowIso);
-    add("Engajamento recente", days <= 2 ? 15 : days <= 7 ? 10 : days <= 14 ? 4 : 0);
-  }
-
-  // Contatabilidade
-  add("Telefone", deal.contactPhone ? 5 : 0);
-  add("E-mail", deal.contactEmail ? 5 : 0);
-
-  const score = Math.max(0, Math.min(100, factors.reduce((s, f) => s + f.points, 0)));
-  const tier: ScoreTier = score >= 70 ? "hot" : score >= 40 ? "warm" : "cold";
-  return { score, tier, factors };
+export function scoreDeal(deal: CrmLead, nowIso: string, cfg?: ConfigLeadScore): DealScore {
+  // O cálculo vive em lib/data/lead-score.ts, configurável em Comercial →
+  // Configurações. Sem configuração salva, vale o padrão — que são os mesmos
+  // pesos que estavam fixos aqui antes.
+  return calcularScore(
+    {
+      monthlyValue: deal.monthlyValue,
+      bant: deal.bant,
+      probability: deal.probability,
+      source: deal.source,
+      diasDesdeInteracao: deal.lastInteractionAt ? daysBetween(deal.lastInteractionAt, nowIso) : null,
+      temTelefone: Boolean(deal.contactPhone),
+      temEmail: Boolean(deal.contactEmail),
+    },
+    cfg,
+  );
 }
 
 export function toCard(lead: CrmLead, nowIso: string): CrmLeadCard {

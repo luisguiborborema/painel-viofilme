@@ -12,7 +12,6 @@ import {
   type PropertyDef,
   type PropertyGroup,
   type Workflow,
-  type LeadScoreRule,
   type Tag,
   type TaskFlow,
   type CaptureForm,
@@ -60,13 +59,11 @@ export function CrmSettings({
   propertyGroups = [],
   workflows = [],
   workflowStats = {},
-  leadScoreRules = [],
 }: {
   properties: PropertyDef[];
   propertyGroups?: PropertyGroup[];
   workflows?: Workflow[];
   workflowStats?: Record<string, { active: number; done: number; canceled: number }>;
-  leadScoreRules?: LeadScoreRule[];
   pipelines: Pipeline[];
   tags: Tag[];
   leads: CrmLead[];
@@ -266,14 +263,9 @@ export function CrmSettings({
     },
     {
       key: "leadscore",
-      label: "Regras de lead score",
-      description: "Some pontos por critério (estilo HubSpot) — o total vira a Pontuação (regras) do negócio.",
-      node: (
-        <LeadScoreManager
-          initialRules={leadScoreRules}
-          dealProps={properties.filter((p) => p.objectType === "deal" && !p.isArchived).map((p) => ({ key: p.key, label: p.label }))}
-        />
-      ),
+      label: "Lead score",
+      description: "Os pesos que decidem quem a equipe liga primeiro. A prévia mostra o efeito antes de salvar.",
+      node: <LeadScoreManager />,
     },
     {
       key: "import",
