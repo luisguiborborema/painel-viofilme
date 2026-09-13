@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Check, Copy, Eye, FileText, Loader2, Plus, Send, Trash2, X,
+  AlertTriangle, Check, Copy, Download, Eye, FileText, Loader2, PenLine, Plus, Send, Trash2, X,
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,19 @@ import {
   CADENCIAS, avaliarMargem, fmtBRL, normalizarCadencia, rotuloDoPlano, totaisDoPacote,
   type Cadencia, type ItemPacote, type TotaisPacote,
 } from "@/lib/data/catalogo";
+import { MODOS_AUTENTICACAO } from "@/lib/data/zapsign";
 import type { ServiceCatalog } from "@/lib/data/listas-server";
 
-type Proposta = { id: string; token: string; status: string; viewedAt: string | null; signedAt: string | null };
+type Proposta = {
+  id: string;
+  token: string;
+  status: string;
+  viewedAt: string | null;
+  signedAt: string | null;
+  provider: "interno" | "zapsign";
+  signUrl: string | null;
+  signedFileUrl: string | null;
+};
 type Pacote = {
   id: string;
   name: string;
@@ -49,6 +59,7 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
   const [pendente, setPendente] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
+  const [assinar, setAssinar] = useState<Pacote | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
@@ -66,14 +77,14 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
     carregar();
   }, [carregar]);
 
-  async function api(body: unknown): Promise<{ ok: boolean; error?: string; caminho?: string }> {
+  async function api(body: unknown): Promise<{ ok: boolean; error?: string; caminho?: string; signUrl?: string }> {
     const res = await fetch("/api/gerencial/pacotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const j = await res.json().catch(() => null);
-    return { ok: res.ok, error: j?.error, caminho: j?.caminho };
+    return { ok: res.ok, error: j?.error, caminho: j?.caminho, signUrl: j?.signUrl };
   }
 
   async function salvar() {
@@ -115,6 +126,24 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
     // por onde a pessoa entrou, não o que alguém configurou meses atrás.
     if (r.caminho) await navigator.clipboard?.writeText(`${window.location.origin}${r.caminho}`).catch(() => {});
     toast("Proposta gerada — link copiado.", "success");
+    carregar();
+  }
+
+  async function enviarAssinatura(dados: { nome: string; email: string; telefone: string; modo: string }) {
+    if (!assinar) return;
+    setOcupado("assinar");
+    const r = await api({
+      action: "enviar-assinatura",
+      id: assinar.id,
+      signerName: dados.nome,
+      signerEmail: dados.email,
+      signerPhone: dados.telefone,
+      authMode: dados.modo,
+    });
+    setOcupado(null);
+    if (!r.ok) { toast(r.error ?? "Falha ao enviar.", "error"); return; }
+    toast("Enviado para assinatura na ZapSign.", "success");
+    setAssinar(null);
     carregar();
   }
 
@@ -184,10 +213,91 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
               }
               onDelete={() => excluir(p.id)}
               onPropose={() => gerarProposta(p.id)}
+              onSign={() => setAssinar(p)}
             />
           ))}
         </div>
       )}
+
+      {assinar && (
+        <ModalAssinatura
+          pacote={assinar}
+          ocupado={ocupado === "assinar"}
+          onClose={() => setAssinar(null)}
+          onSubmit={enviarAssinatura}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Envio para assinatura ───────────────────────────────────────────────── */
+
+function ModalAssinatura({
+  pacote, ocupado, onClose, onSubmit,
+}: {
+  pacote: Pacote;
+  ocupado: boolean;
+  onClose: () => void;
+  onSubmit: (d: { nome: string; email: string; telefone: string; modo: string }) => void;
+}) {
+  const [nome, setNome] = useState(pacote.clientHint ?? "");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [modo, setModo] = useState<string>("assinaturaTela");
+  const precisaTelefone = modo === "tokenSms" || modo === "tokenWhatsapp";
+  const precisaEmail = modo === "tokenEmail";
+  const podeEnviar =
+    nome.trim() && (email.trim() || telefone.trim()) &&
+    (!precisaTelefone || telefone.trim()) && (!precisaEmail || email.trim());
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md space-y-3 rounded-2xl border border-line bg-surface p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-semibold text-ink">Enviar para assinatura</h3>
+            <p className="text-xs text-muted">{pacote.name}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-black/5">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <input className={campo} placeholder="Nome de quem vai assinar *" value={nome} onChange={(e) => setNome(e.target.value)} />
+        <input className={campo} placeholder="E-mail" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className={campo} placeholder="WhatsApp (com DDD)" inputMode="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+
+        <label className="block text-xs text-muted">
+          Como a pessoa se identifica
+          <select className={cn(campo, "mt-1")} value={modo} onChange={(e) => setModo(e.target.value)}>
+            {MODOS_AUTENTICACAO.map((m) => (
+              <option key={m.key} value={m.key}>{m.label} · {m.custo}</option>
+            ))}
+          </select>
+        </label>
+
+        <p className="text-xs text-muted">
+          O PDF da proposta vai para a ZapSign e a pessoa recebe o link. Quando assinar, o painel atualiza sozinho.
+        </p>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm text-muted hover:bg-black/5">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!podeEnviar || ocupado}
+            onClick={() => onSubmit({ nome, email, telefone, modo })}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            {ocupado ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />} Enviar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -431,7 +541,7 @@ function Bloco({
 /* ── Cartão do pacote salvo ─────────────────────────────────────────────── */
 
 function CartaoPacote({
-  p, metaMargin, ocupado, onEdit, onDelete, onPropose,
+  p, metaMargin, ocupado, onEdit, onDelete, onPropose, onSign,
 }: {
   p: Pacote;
   metaMargin: number;
@@ -439,6 +549,7 @@ function CartaoPacote({
   onEdit: () => void;
   onDelete: () => void;
   onPropose: () => void;
+  onSign: () => void;
 }) {
   const v = avaliarMargem(p.totais.ano.margemPct, metaMargin);
   // Caminho relativo aqui e absoluto só no clique: `window` no corpo do render
@@ -456,6 +567,15 @@ function CartaoPacote({
           {p.clientHint && <div className="truncate text-xs text-muted">para {p.clientHint}</div>}
         </div>
         <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            onClick={onSign}
+            disabled={ocupado}
+            title="Enviar para assinatura na ZapSign"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-black/5 hover:text-brand-600 disabled:opacity-50"
+          >
+            <PenLine className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={onPropose}
@@ -505,12 +625,29 @@ function CartaoPacote({
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-black/[0.02] px-2.5 py-2 text-xs">
           <FileText className="h-3.5 w-3.5 text-brand-600" />
           <span className="text-muted">Proposta</span>
-          {p.proposta.signedAt ? (
+          {p.proposta.provider === "zapsign" && (
+            <span className="rounded-full bg-brand-600/10 px-1.5 py-0.5 text-[10px] text-brand-600">ZapSign</span>
+          )}
+          {p.proposta.status === "refused" ? (
+            <span className="text-rose-600">recusada</span>
+          ) : p.proposta.signedAt ? (
             <span className="text-emerald-600">assinada</span>
+          ) : p.proposta.provider === "zapsign" ? (
+            <span className="text-muted">aguardando assinatura</span>
           ) : p.proposta.viewedAt ? (
             <span className="inline-flex items-center gap-1 text-brand-600"><Eye className="h-3 w-3" /> vista</span>
           ) : (
             <span className="text-muted">enviada, ainda não aberta</span>
+          )}
+          {p.proposta.signedFileUrl && (
+            <a
+              href={p.proposta.signedFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-emerald-600 hover:underline"
+            >
+              <Download className="h-3 w-3" /> PDF assinado
+            </a>
           )}
           <button
             type="button"

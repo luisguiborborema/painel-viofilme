@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCadencia, textoDaProposta, totaisDoPacote, valorDeCapa, type ItemPacote } from "@/lib/data/catalogo";
+import { normalizarCadencia, textoDaProposta, totaisDoPacote, valorDeCapa, fmtBRL, type ItemPacote } from "@/lib/data/catalogo";
+import { normalizarModo } from "@/lib/data/zapsign";
+import { enviarParaAssinatura, zapsignConfigurado } from "@/lib/data/zapsign-server";
+import { buildProposalPdf } from "@/lib/crm/proposal-pdf";
+import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,7 +81,7 @@ async function carregarPacotes(supabase: Awaited<ReturnType<typeof createClient>
     ids.length
       ? supabase
           .from("crm_documents")
-          .select("id, package_id, public_token, status, viewed_at, signed_at")
+          .select("id, package_id, public_token, status, viewed_at, signed_at, provider, sign_url, signed_file_url")
           .in("package_id", ids)
       : Promise.resolve({ data: [] as LinhaItem[], error: null }),
   ]);
@@ -122,6 +126,9 @@ async function carregarPacotes(supabase: Awaited<ReturnType<typeof createClient>
             status: String(doc.status ?? "draft"),
             viewedAt: doc.viewed_at ? String(doc.viewed_at) : null,
             signedAt: doc.signed_at ? String(doc.signed_at) : null,
+            provider: doc.provider === "zapsign" ? "zapsign" : "interno",
+            signUrl: doc.sign_url ? String(doc.sign_url) : null,
+            signedFileUrl: doc.signed_file_url ? String(doc.signed_file_url) : null,
           }
         : null,
     };
@@ -155,10 +162,14 @@ type Body = {
   status?: string;
   discount?: number;
   itens?: unknown;
+  signerName?: string;
+  signerEmail?: string;
+  signerPhone?: string;
+  authMode?: string;
 };
 
 /** Só estas ações escrevem. Sem a lista, um `action` errado cairia num update. */
-const ACOES = new Set(["criar", "atualizar", "excluir", "gerar-proposta"]);
+const ACOES = new Set(["criar", "atualizar", "excluir", "gerar-proposta", "enviar-assinatura"]);
 
 export async function POST(req: Request) {
   const user = await getSession();
@@ -325,6 +336,122 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, token, caminho, url: base ? `${base}${caminho}` : caminho });
       }
 
+      case "enviar-assinatura": {
+        if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+        if (!zapsignConfigurado()) {
+          return NextResponse.json(
+            { error: "ZapSign não configurada. Falta a variável ZAPSIGN_TOKEN." },
+            { status: 503 },
+          );
+        }
+        if (!hasServiceRole()) {
+          return NextResponse.json({ error: "serviço indisponível para subir o PDF" }, { status: 503 });
+        }
+
+        const carga = await carregarParaProposta(supabase, b.id);
+        if (!carga) return NextResponse.json({ error: "pacote não encontrado" }, { status: 404 });
+        if (!carga.itens.length) {
+          return NextResponse.json({ error: "Adicione ao menos um item antes de enviar." }, { status: 400 });
+        }
+
+        const nomeSig = clean(b.signerName, 160);
+        if (!nomeSig) return NextResponse.json({ error: "Informe o nome de quem vai assinar." }, { status: 400 });
+
+        const totais = totaisDoPacote(carga.itens, carga.desconto);
+        const nomePacote = String(carga.p.name ?? "Proposta");
+        const paraQuem = (carga.p.client_hint as string | null) ?? nomePacote;
+
+        // O PDF de marca que o CRM já usa. Uma proposta assinada com cara
+        // diferente da enviada por WhatsApp levanta a dúvida de ser a mesma.
+        const bytes = await buildProposalPdf({
+          companyName: paraQuem,
+          dealTitle: nomePacote,
+          monthlyValue: totais.mensal.receita,
+          owner: user.name,
+          scopeLines: carga.itens.map(
+            (i) => `${i.label}${i.qty > 1 ? ` (${i.qty}x)` : ""} — ${fmtBRL(i.price * i.qty)}`,
+          ),
+          validityDays: 15,
+          dateLabel: new Date().toLocaleDateString("pt-BR"),
+        });
+
+        // A ZapSign busca o arquivo do lado dela, então precisa de URL pública.
+        // O caminho carrega o id do pacote e o instante — não é adivinhável.
+        const admin = createAdminClient();
+        await admin.storage
+          .createBucket("wa-media", { public: true, fileSizeLimit: "16MB" })
+          .catch(() => {});
+        const caminhoPdf = `proposals/pacote/${b.id}/${Date.now()}.pdf`;
+        const { error: upErr } = await admin.storage
+          .from("wa-media")
+          .upload(caminhoPdf, Buffer.from(bytes), { contentType: "application/pdf", upsert: false });
+        if (upErr) return NextResponse.json({ error: "Falha ao subir o PDF." }, { status: 500 });
+        const urlPdf = admin.storage.from("wa-media").getPublicUrl(caminhoPdf).data.publicUrl;
+
+        const envio = await enviarParaAssinatura({
+          nome: `Proposta — ${nomePacote}`.slice(0, 255),
+          urlPdf,
+          signatario: { nome: nomeSig, email: clean(b.signerEmail, 160), telefone: clean(b.signerPhone, 40) },
+          modo: normalizarModo(b.authMode),
+          mensagem: `Olá! Segue a proposta comercial. Qualquer dúvida, é só chamar.`,
+        });
+        if (!envio.ok) return NextResponse.json({ error: envio.erro }, { status: envio.status ?? 502 });
+
+        // Reaproveita o documento do pacote, se já houver: manter um só evita
+        // que o cliente receba dois pedidos de assinatura com preços diferentes.
+        const conteudo = textoDaProposta(
+          { name: nomePacote, clientHint: carga.p.client_hint as string | null, notes: carga.p.notes as string | null },
+          carga.itens,
+          carga.desconto,
+        );
+        const linha: Record<string, unknown> = {
+          title: `Proposta — ${nomePacote}`,
+          kind: "proposta",
+          content: conteudo,
+          value: valorDeCapa(totais),
+          deal_id: (carga.p.deal_id as string | null) ?? null,
+          package_id: carga.p.id,
+          owner: user.name,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          created_by: user.id,
+          provider: "zapsign",
+          external_id: envio.docToken,
+          sign_url: envio.signUrl,
+          signer_email: clean(b.signerEmail, 160),
+          signer_phone: clean(b.signerPhone, 40),
+        };
+
+        const { data: existente } = await supabase
+          .from("crm_documents")
+          .select("id, public_token")
+          .eq("package_id", b.id)
+          .maybeSingle();
+
+        let token: string;
+        if (existente) {
+          const { error: e2 } = await supabase.from("crm_documents").update(linha).eq("id", existente.id);
+          if (e2) throw e2;
+          token = String(existente.public_token);
+        } else {
+          const { data: novo, error: e3 } = await supabase
+            .from("crm_documents")
+            .insert(linha)
+            .select("id, public_token")
+            .single();
+          if (e3) throw e3;
+          token = String(novo.public_token);
+        }
+
+        await supabase.from("packages").update({ status: "enviado" }).eq("id", b.id);
+        return NextResponse.json({
+          ok: true,
+          token,
+          caminho: `/proposta/${token}`,
+          signUrl: envio.signUrl,
+        });
+      }
+
       default:
         return NextResponse.json({ error: "ação inválida" }, { status: 400 });
     }
@@ -332,6 +459,39 @@ export async function POST(req: Request) {
     if (semMigracao(e)) return erroDeMigracao();
     return NextResponse.json({ error: mensagem(e) || "erro" }, { status: 500 });
   }
+}
+
+type PacoteComItens = {
+  p: Record<string, unknown>;
+  itens: ItemPacote[];
+  desconto: number;
+};
+
+/** Carrega o pacote e seus itens — o que gerar proposta e enviar para assinar precisam. */
+async function carregarParaProposta(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+): Promise<PacoteComItens | null> {
+  const { data: p, error } = await supabase
+    .from("packages")
+    .select("id, name, client_hint, deal_id, notes, discount")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!p) return null;
+  const { data: itensRaw } = await supabase
+    .from("package_items")
+    .select("label, qty, price, cost, cadence, position")
+    .eq("package_id", id)
+    .order("position");
+  const itens: ItemPacote[] = (itensRaw ?? []).map((i) => ({
+    label: String(i.label ?? ""),
+    qty: Number(i.qty ?? 1),
+    price: Number(i.price ?? 0),
+    cost: Number(i.cost ?? 0),
+    cadence: normalizarCadencia(i.cadence),
+  }));
+  return { p: p as Record<string, unknown>, itens, desconto: Number(p.discount ?? 0) };
 }
 
 /** Substitui os itens do pacote. Apagar e reinserir mantém a ordem explícita. */

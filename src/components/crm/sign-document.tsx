@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2, PenLine } from "lucide-react";
+import { CheckCircle2, Download, ExternalLink, Loader2, PenLine } from "lucide-react";
 import { LogoHorizontal } from "@/components/brand/logo";
 
 export type SignDoc = {
@@ -14,6 +14,9 @@ export type SignDoc = {
   signedByName?: string | null;
   signedAt?: string | null;
   expired: boolean;
+  provider?: "interno" | "zapsign";
+  signUrl?: string | null;
+  signedFileUrl?: string | null;
 };
 
 const inputCls =
@@ -85,11 +88,35 @@ export function SignDocument({ doc }: { doc: SignDoc }) {
                 {doc.signedByName ? `Por ${doc.signedByName}` : "Assinatura registrada"}
                 {doc.signedAt ? ` · ${fmtDate(doc.signedAt)}` : ""}
               </p>
+              {doc.signedFileUrl && (
+                <a
+                  href={doc.signedFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink hover:border-brand-400"
+                >
+                  <Download className="h-4 w-4" /> Baixar documento assinado
+                </a>
+              )}
             </div>
           ) : doc.expired ? (
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center text-sm text-amber-700">
               Este documento está expirado. Solicite um novo link à equipe.
             </div>
+          ) : doc.provider === "zapsign" ? (
+            doc.signUrl ? (
+              <a
+                href={doc.signUrl}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+              >
+                <PenLine className="h-4 w-4" /> Assinar documento
+                <ExternalLink className="h-3.5 w-3.5 opacity-80" />
+              </a>
+            ) : (
+              <div className="rounded-2xl border border-line bg-surface p-5 text-center text-sm text-muted">
+                O link de assinatura ainda está sendo preparado. Recarregue em instantes ou fale com a equipe.
+              </div>
+            )
           ) : (
             <form onSubmit={submit} className="rounded-2xl border border-line bg-surface p-5">
               <p className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-ink">

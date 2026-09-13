@@ -11,12 +11,17 @@ ela passa a funcionar — sem tocar no código do app.
 | Função | O que faz | Flag | Secrets |
 |---|---|---|---|
 | `vioflux-publish` | Publica post no Instagram/Facebook (VioFlux) | `VIOFLUX_PUBLISH_ENABLED` | `META_SYSTEM_USER_TOKEN` |
-| `zapsign-send` | Envia contrato p/ assinatura no **Lead Ganho** | `ZAPSIGN_ENABLED` | `ZAPSIGN_TOKEN`, `ZAPSIGN_TEMPLATE_ID` |
+| `zapsign-send` | Envia **contrato** p/ assinatura no *Lead Ganho* | `ZAPSIGN_ENABLED` | `ZAPSIGN_TOKEN`, `ZAPSIGN_TEMPLATE_ID` |
 | `instagram-webhook` | Recebe DMs do Instagram → inbox | `INSTAGRAM_ENABLED` | `META_VERIFY_TOKEN`, `META_SYSTEM_USER_TOKEN` |
 | `instagram-send` | Envia DM do Instagram (resposta) | `INSTAGRAM_ENABLED` | `META_SYSTEM_USER_TOKEN`, `IG_BUSINESS_ID` |
 | `email-inbound` | Recebe e-mail (provedor inbound) → inbox | `EMAIL_ENABLED` | `EMAIL_INBOUND_SECRET` |
 | `email-send` | Envia e-mail (resposta) | `EMAIL_ENABLED` | `EMAIL_API_KEY`, `EMAIL_FROM` |
 
+> A **proposta** não passa por aqui: assina via ZapSign por rota Next
+> (`/api/gerencial/pacotes` → `enviar-assinatura`, webhook em
+> `/api/webhooks/zapsign`). Ver `docs/ZAPSIGN.md`. Esta função cobre só o
+> contrato no Lead Ganho e segue desligada.
+>
 > WhatsApp já é **real** (Uazapi) via rotas Next + webhook `/api/webhooks/uazapi`
 > — não é Edge Function. Google Calendar é integrado no app (`src/lib/google/`).
 > `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` são injetados automaticamente nas

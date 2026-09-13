@@ -21,7 +21,7 @@ export default async function PropostaPage({ params }: { params: Promise<{ token
   const admin = createAdminClient();
   const { data } = await admin
     .from("crm_documents")
-    .select("id, title, content, value, kind, status, signed_by_name, signed_at, expires_at")
+    .select("id, title, content, value, kind, status, signed_by_name, signed_at, expires_at, provider, sign_url, signed_file_url")
     .eq("public_token", token)
     .maybeSingle();
   if (!data) notFound();
@@ -48,6 +48,12 @@ export default async function PropostaPage({ params }: { params: Promise<{ token
     signedByName: data.signed_by_name ? String(data.signed_by_name) : null,
     signedAt: data.signed_at ? String(data.signed_at) : null,
     expired: isExpired(data.expires_at ? String(data.expires_at) : null),
+    // Quando a assinatura é da ZapSign, a página não coleta nada: manda para
+    // lá. Oferecer os dois caminhos deixaria dois registros do mesmo aceite,
+    // com pesos jurídicos diferentes e nenhuma regra de qual vale.
+    provider: data.provider === "zapsign" ? "zapsign" : "interno",
+    signUrl: data.sign_url ? String(data.sign_url) : null,
+    signedFileUrl: data.signed_file_url ? String(data.signed_file_url) : null,
   };
 
   return (
