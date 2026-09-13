@@ -260,6 +260,26 @@ vazia (respondeu certo, mas não há registro no recorte) e qual falhou. Vale
 rodar depois de cada mudança no financeiro ou no CRM: ferramenta quebrada aqui
 quebra também na conversa com o Claude, e lá ele só diz que não conseguiu.
 
+## Análises prontas
+
+Além das ferramentas, o MCP publica cinco análises que aparecem como sugestão
+no cliente — para quem sabe o que precisa saber mas não sabe o que perguntar:
+
+| Análise | O que faz |
+|---|---|
+| **Fechamento do mês** | DRE com comparativo, desvio de orçamento, o que ficou a receber |
+| **Quem cobrar hoje** | Lista priorizada por valor e idade, com encargos |
+| **O que falta na linha editorial** | Pendências por cliente e semanas sobrecarregadas |
+| **Saúde da carteira** | Cruza entrega atrasada, dívida e NPS — risco de saída |
+| **A semana da equipe** | Entregas, reuniões e onde a carga bate |
+
+Cada uma diz ao Claude quais ferramentas usar e em que ordem, para a resposta
+não depender de ele escolher bem a cada vez.
+
+Só aparecem para chaves que alcançam as áreas necessárias: um prompt que
+dependesse de uma área fechada falharia no meio, depois de já ter começado a
+responder.
+
 ## Limite de chamadas
 
 Cada chave pode fazer **60 chamadas por minuto**. Ao passar, o endpoint

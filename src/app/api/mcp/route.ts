@@ -3,6 +3,7 @@ import { TOOLS, TOOLS_BY_NAME, runTool } from "@/lib/mcp/tools";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { validarToken } from "@/lib/data/api-keys-server";
 import { ferramentasPermitidas, rotuloEscopos } from "@/lib/data/api-keys";
+import { PROMPTS, promptsPermitidos } from "@/lib/mcp/prompts";
 import { anotarChamada, withApiLog } from "@/lib/audit/api-log";
 import { LIMITE_POR_MINUTO, novoEstado, registrarChamada } from "@/lib/mcp/rate-limit";
 
@@ -115,7 +116,7 @@ async function handleRpc(req: RpcRequest, identidade: Identidade): Promise<objec
       const asked = String((req.params?.protocolVersion as string) ?? "");
       return ok(id, {
         protocolVersion: SUPPORTED_VERSIONS.has(asked) ? asked : PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
           "Dados do Painel Viofilme (agência de marketing): clientes, comercial/CRM, financeiro, entregas, campanhas, NPS e disparos. Todas as ferramentas são somente leitura. Comece por `search` ou `list_clients` quando não souber o id de um registro.",
@@ -171,7 +172,33 @@ async function handleRpc(req: RpcRequest, identidade: Identidade): Promise<objec
     case "resources/list":
       return ok(id, { resources: [] });
     case "prompts/list":
-      return ok(id, { prompts: [] });
+      // Só o que a chave alcança — prompt que depende de uma área fechada
+      // falharia no meio, depois de já ter começado a responder.
+      return ok(id, {
+        prompts: promptsPermitidos(identidade.scopes).map((p) => ({
+          name: p.name,
+          title: p.title,
+          description: p.description,
+          arguments: p.arguments ?? [],
+        })),
+      });
+
+    case "prompts/get": {
+      const nome = String(req.params?.name ?? "");
+      const prompt = PROMPTS.find((p) => p.name === nome);
+      if (!prompt) return err(id, -32602, `Prompt desconhecido: ${nome}`);
+      if (!promptsPermitidos(identidade.scopes).some((p) => p.name === nome)) {
+        return err(id, -32002, `Esta chave não alcança as áreas necessárias para "${nome}".`);
+      }
+      const args = (req.params?.arguments ?? {}) as Record<string, string>;
+      anotarChamada({ meta: { prompt: nome } });
+      return ok(id, {
+        description: prompt.description,
+        messages: [
+          { role: "user", content: { type: "text", text: prompt.montar(args) } },
+        ],
+      });
+    }
 
     default:
       return err(id, -32601, `Método não suportado: ${method}`);
