@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { buscarTudo } from "./paginate-server";
 import { STATUS_IGNORAR } from "./dre";
 import { intervalo, type DrePeriodo } from "./dre";
 
@@ -44,12 +45,16 @@ export async function getRentabilidade(periodo: DrePeriodo = "mes", ref = new Da
     const r = intervalo(periodo, ref);
 
     const [recRes, expRes] = await Promise.all([
-      supabase.from("payments").select("client_id, value, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
-      supabase.from("expenses").select("client_id, amount").gte("due_date", r.from).lte("due_date", r.to).limit(5000),
+      // Paginado: a rentabilidade soma dinheiro por cliente, e um teto fixo
+      // devolveria margem calculada sobre parte do período, sem avisar.
+      buscarTudo<Record<string, unknown>>((de, ate) =>
+        supabase.from("payments").select("client_id, value, status, clients(name)").gte("due_date", r.from).lte("due_date", r.to).range(de, ate)),
+      buscarTudo<Record<string, unknown>>((de, ate) =>
+        supabase.from("expenses").select("client_id, amount").gte("due_date", r.from).lte("due_date", r.to).range(de, ate)),
     ]);
 
     const receitaPor = new Map<string, { nome: string; total: number }>();
-    for (const p of (recRes.data ?? []) as Record<string, unknown>[]) {
+    for (const p of recRes.linhas) {
       if (STATUS_IGNORAR.has(String(p.status ?? "")) || !p.client_id) continue;
       const c = p.clients as { name?: string } | { name?: string }[] | null;
       const nome = (Array.isArray(c) ? c[0]?.name : c?.name) ?? "Cliente";
@@ -60,10 +65,10 @@ export async function getRentabilidade(periodo: DrePeriodo = "mes", ref = new Da
     }
 
     // expenses.client_id só existe após a 0136 → sem ela, não há custo direto.
-    const semVinculo = Boolean(expRes.error);
+    const semVinculo = Boolean(expRes.erro);
     const custoPor = new Map<string, number>();
     let custoIndireto = 0;
-    for (const e of (semVinculo ? [] : (expRes.data ?? [])) as Record<string, unknown>[]) {
+    for (const e of semVinculo ? [] : expRes.linhas) {
       const v = Number(e.amount ?? 0);
       if (e.client_id) custoPor.set(String(e.client_id), (custoPor.get(String(e.client_id)) ?? 0) + v);
       else custoIndireto += v;

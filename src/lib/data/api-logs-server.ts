@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { buscarTudo } from "./paginate-server";
 
 export type ApiLogRow = {
   id: string;
@@ -32,6 +33,9 @@ export type ApiLogsData = {
   };
   /** Tabela ainda não existe (migração 0129 não rodada). */
   semTabela: boolean;
+  /** O período tem mais chamadas do que coube na agregação: os números abaixo
+   *  são de uma amostra, não do total. */
+  resumoIncompleto?: boolean;
 };
 
 const VAZIO: ApiLogsData = {
@@ -66,11 +70,21 @@ export async function getApiLogs(opts: { days?: number; source?: string; onlyErr
       return VAZIO;
     }
 
-    // Agregado do período (independe dos filtros de fonte/erro da tabela).
-    let aggQ = supabase.from("api_logs").select("source, ok, duration_ms, created_at").limit(20000);
-    if (since) aggQ = aggQ.gte("created_at", since);
-    const { data: agg } = await aggQ;
-    const rows = (agg ?? []) as { source: string; ok: boolean; duration_ms: number; created_at: string }[];
+    /**
+     * Agregado do período (independe dos filtros de fonte/erro da tabela).
+     *
+     * Paginado com teto: taxa de erro e duração média calculadas sobre uma
+     * amostra truncada dariam um número plausível e errado — e é justamente
+     * nesta tela que alguém vai decidir se algo está quebrado.
+     */
+    const TETO_AGREGADO = 60_000;
+    const { linhas: agg, truncado } = await buscarTudo<{
+      source: string; ok: boolean; duration_ms: number; created_at: string;
+    }>((de, ate) => {
+      const q = supabase.from("api_logs").select("source, ok, duration_ms, created_at").range(de, ate);
+      return since ? q.gte("created_at", since) : q;
+    }, { teto: TETO_AGREGADO });
+    const rows = agg;
 
     const porFonteMap = new Map<string, { total: number; erros: number }>();
     const porDiaMap = new Map<string, { total: number; erros: number }>();
@@ -106,6 +120,7 @@ export async function getApiLogs(opts: { days?: number; source?: string; onlyErr
         actor: r.actor ? String(r.actor) : null,
         meta: r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>) : null,
       })),
+      resumoIncompleto: truncado,
       sources: [...porFonteMap.keys()].sort(),
       resumo: {
         total: rows.length,

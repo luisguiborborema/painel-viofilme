@@ -148,6 +148,13 @@ export function ApiLogs({ data, days, source, onlyErrors }: { data: ApiLogsData;
       </div>
 
       {/* KPIs */}
+      {data.resumoIncompleto && (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          O período tem mais chamadas do que cabe numa leitura só — os números
+          abaixo são de uma amostra. Reduza o intervalo para o resumo exato.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="p-4"><p className="text-xs uppercase tracking-wide text-muted">Chamadas</p><p className="mt-1 text-2xl font-bold text-ink">{resumo.total}</p></Card>
         <Card className="p-4"><p className="text-xs uppercase tracking-wide text-muted">Erros</p><p className={cn("mt-1 text-2xl font-bold", resumo.erros > 0 ? "text-rose-600" : "text-ink")}>{resumo.erros}</p></Card>
