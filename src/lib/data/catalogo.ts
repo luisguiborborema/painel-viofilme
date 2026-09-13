@@ -149,6 +149,19 @@ export function rotuloDoPlano(servico: string, plano: string): string {
   return p ? `${s} › ${p}` : s;
 }
 
+/**
+ * O número que vai na capa da proposta e no valor do documento.
+ *
+ * A página pública mostra este valor em destaque, embaixo do título. O total de
+ * 12 meses assusta sem informar: o cliente vê "R$ 28.700,00" antes de ler que é
+ * mensal. O CRM também trabalha em valor mensal (`monthly_value`), então o
+ * recorrente é o número coerente nos dois lugares — o total anual continua no
+ * painel, onde a decisão de margem é tomada.
+ */
+export function valorDeCapa(t: TotaisPacote): number {
+  return t.mensal.receita > 0 ? t.mensal.receita : t.unico.receita;
+}
+
 export const fmtBRL = (v: number) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -181,10 +194,12 @@ export function textoDaProposta(
   if (rec.length) secao("Serviços recorrentes", rec.map(linha));
   if (uni.length) secao("Investimento pontual", uni.map(linha));
 
+  // O desconto vem antes do valor líquido: depois dele, o cliente lê "R$ 2.100
+  // por mês" seguido de "desconto de 30%" e pergunta se ainda vai descontar.
   const inv: string[] = [];
+  if (t.descontoPct > 0) inv.push(`• Desconto de ${t.descontoPct}% já aplicado abaixo`);
   if (t.mensal.receita > 0) inv.push(`• ${fmtBRL(t.mensal.receita)} por mês`);
   if (t.unico.receita > 0) inv.push(`• ${fmtBRL(t.unico.receita)} — pagamento único`);
-  if (t.descontoPct > 0) inv.push(`• Desconto aplicado: ${t.descontoPct}%`);
   if (inv.length) secao("Investimento", inv);
 
   if (p.notes) secao("Observações", [p.notes]);

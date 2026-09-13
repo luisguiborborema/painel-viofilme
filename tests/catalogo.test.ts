@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  avaliarMargem, fatorMensal, normalizarCadencia, textoDaProposta, totaisDoPacote,
+  avaliarMargem, fatorMensal, normalizarCadencia, textoDaProposta, totaisDoPacote, valorDeCapa,
   type ItemPacote,
 } from "../src/lib/data/catalogo.ts";
 
@@ -135,4 +135,23 @@ test("a proposta não inventa seção vazia", () => {
 test("custo não vaza para a proposta do cliente", () => {
   const txt = textoDaProposta({ name: "P" }, [item({ label: "Gestão", price: 3000, cost: 1234.56 })]);
   assert.ok(!txt.includes("1.234,56"), "o cliente não pode ver o custo interno");
+});
+
+/* ── valor de capa ── */
+
+test("a capa mostra o mensal quando há recorrente", () => {
+  // O total de 12 meses assusta sem informar: o cliente vê o número grande
+  // antes de ler que é mensal.
+  const t = totaisDoPacote([item({ price: 3000 }), item({ price: 5000, cadence: "unico" })]);
+  assert.equal(valorDeCapa(t), 3000);
+});
+
+test("sem recorrente, a capa mostra o pontual", () => {
+  assert.equal(valorDeCapa(totaisDoPacote([item({ price: 5000, cadence: "unico" })])), 5000);
+});
+
+test("o desconto aparece antes do valor líquido", () => {
+  const txt = textoDaProposta({ name: "P" }, [item({ label: "Gestão", price: 3000 })], 30);
+  assert.ok(txt.indexOf("Desconto") < txt.indexOf("por mês"), "senão o cliente acha que ainda vai descontar");
+  assert.match(txt, /R\$\s?2\.100,00 por mês/);
 });

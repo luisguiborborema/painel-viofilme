@@ -66,14 +66,14 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
     carregar();
   }, [carregar]);
 
-  async function api(body: unknown): Promise<{ ok: boolean; error?: string; url?: string }> {
+  async function api(body: unknown): Promise<{ ok: boolean; error?: string; caminho?: string }> {
     const res = await fetch("/api/gerencial/pacotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const j = await res.json().catch(() => null);
-    return { ok: res.ok, error: j?.error, url: j?.url };
+    return { ok: res.ok, error: j?.error, caminho: j?.caminho };
   }
 
   async function salvar() {
@@ -111,7 +111,9 @@ export function MontadorPacotes({ catalogo }: { catalogo: ServiceCatalog[] }) {
     const r = await api({ action: "gerar-proposta", id });
     setOcupado(null);
     if (!r.ok) { toast(r.error ?? "Falha ao gerar.", "error"); return; }
-    if (r.url) await navigator.clipboard?.writeText(r.url).catch(() => {});
+    // Origem do navegador em vez do env: o link copiado precisa ser o domínio
+    // por onde a pessoa entrou, não o que alguém configurou meses atrás.
+    if (r.caminho) await navigator.clipboard?.writeText(`${window.location.origin}${r.caminho}`).catch(() => {});
     toast("Proposta gerada — link copiado.", "success");
     carregar();
   }

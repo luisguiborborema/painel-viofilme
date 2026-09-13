@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { normalizarCadencia, textoDaProposta, totaisDoPacote, type ItemPacote } from "@/lib/data/catalogo";
+import { normalizarCadencia, textoDaProposta, totaisDoPacote, valorDeCapa, type ItemPacote } from "@/lib/data/catalogo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -225,6 +225,21 @@ export async function POST(req: Request) {
 
       case "excluir": {
         if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
+
+        // Excluir o pacote sem mexer na proposta deixaria o link público vivo,
+        // mostrando ao cliente um preço que não existe mais. Expira em vez de
+        // apagar: o CRM precisa da memória de que a proposta foi enviada.
+        // Assinada fica intacta — é registro de negócio fechado, não rascunho.
+        await supabase
+          .from("crm_documents")
+          .update({ status: "expired", expires_at: new Date().toISOString() })
+          .eq("package_id", b.id)
+          .is("signed_at", null)
+          .then(
+            () => {},
+            () => {},
+          );
+
         const { error } = await supabase.from("packages").delete().eq("id", b.id);
         if (error) throw error;
         return NextResponse.json({ ok: true });
@@ -276,7 +291,7 @@ export async function POST(req: Request) {
           title: `Proposta — ${p.name}`,
           kind: "proposta",
           content: conteudo,
-          value: totais.ano.receita,
+          value: valorDeCapa(totais),
           deal_id: p.deal_id ?? null,
           package_id: p.id,
           owner: user.name,
@@ -302,8 +317,12 @@ export async function POST(req: Request) {
 
         await supabase.from("packages").update({ status: "enviado" }).eq("id", b.id);
 
+        // `caminho` é o que a tela usa: o link absoluto sai do próprio navegador,
+        // que sempre sabe o domínio certo. `url` fica para quem chama a API de
+        // fora e depende do env estar configurado.
         const base = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-        return NextResponse.json({ ok: true, token, url: `${base}/proposta/${token}` });
+        const caminho = `/proposta/${token}`;
+        return NextResponse.json({ ok: true, token, caminho, url: base ? `${base}${caminho}` : caminho });
       }
 
       default:
