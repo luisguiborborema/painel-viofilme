@@ -37,43 +37,71 @@ export async function getSavedViews(ownerId: string): Promise<SavedView[]> {
   })) as SavedView[];
 }
 
-// ── Casca Produtos: catálogo de serviços (serviço › plano) ───────────────────
+// ── Produtos: catálogo de serviços (serviço › plano) ─────────────────────────
+//
+// Estas colunas vêm da 0065 (`label`, `type`, `area`, `default_price`), não da
+// 0081: aquela migração usou `create table if not exists` sobre tabelas que já
+// existiam, virou no-op, e a leitura pedia colunas inexistentes — o catálogo
+// devolvia lista vazia desde sempre. A ficha rica (summary/description/cost/
+// cadence) entrou pela 0144 e é lida com fallback.
 export type ServiceCatalog = {
   id: string;
   name: string;
   category?: string;
   summary?: string;
+  description?: string;
   deliveryType: string;
   active: boolean;
-  plans: { id: string; name: string; cadence: string; priceCents?: number; costCents?: number; billingType: string }[];
+  plans: {
+    id: string;
+    name: string;
+    cadence: string;
+    price: number;
+    cost: number;
+    billingType: string;
+    active: boolean;
+  }[];
 };
 
 export async function getServiceCatalog(): Promise<ServiceCatalog[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const [{ data: svc }, { data: plans }] = await Promise.all([
-    supabase.from("services").select("id,name,category,summary,delivery_type,active,position").order("position"),
-    supabase.from("service_plans").select("id,service_id,name,cadence,price_cents,cost_cents,billing_type,position").order("position"),
+
+  async function ler(tabela: string, base: string, ricas: string): Promise<Record<string, unknown>[]> {
+    const comRicas = await supabase.from(tabela).select(`${base}, ${ricas}`).order("sort");
+    if (!comRicas.error) return (comRicas.data ?? []) as unknown as Record<string, unknown>[];
+    const basico = await supabase.from(tabela).select(base).order("sort");
+    return (basico.data ?? []) as unknown as Record<string, unknown>[];
+  }
+
+  const [svc, plans] = await Promise.all([
+    ler("services", "id,label,type,area,sort,active", "summary,description"),
+    ler("service_plans", "id,service_id,label,default_price,sort", "cadence,cost,billing_type,active"),
   ]);
+
   const byService = new Map<string, ServiceCatalog["plans"]>();
-  for (const p of plans ?? []) {
-    const arr = byService.get(String(p.service_id)) ?? [];
+  for (const p of plans) {
+    const sid = String(p.service_id);
+    const arr = byService.get(sid) ?? [];
     arr.push({
       id: String(p.id),
-      name: String(p.name),
+      name: String(p.label ?? ""),
       cadence: String(p.cadence ?? "mensal"),
-      priceCents: p.price_cents == null ? undefined : Number(p.price_cents),
-      costCents: p.cost_cents == null ? undefined : Number(p.cost_cents),
+      price: Number(p.default_price ?? 0),
+      cost: Number(p.cost ?? 0),
       billingType: String(p.billing_type ?? "fixo"),
+      active: p.active === undefined ? true : Boolean(p.active),
     });
-    byService.set(String(p.service_id), arr);
+    byService.set(sid, arr);
   }
-  return (svc ?? []).map((s) => ({
+
+  return svc.map((s) => ({
     id: String(s.id),
-    name: String(s.name),
-    category: s.category ? String(s.category) : undefined,
+    name: String(s.label ?? ""),
+    category: s.area ? String(s.area) : undefined,
     summary: s.summary ? String(s.summary) : undefined,
-    deliveryType: String(s.delivery_type ?? "recorrente"),
+    description: s.description ? String(s.description) : undefined,
+    deliveryType: String(s.type ?? "recorrente"),
     active: Boolean(s.active),
     plans: byService.get(String(s.id)) ?? [],
   }));

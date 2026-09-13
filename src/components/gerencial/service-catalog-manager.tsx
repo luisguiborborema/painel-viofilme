@@ -5,9 +5,22 @@ import { Check, Loader2, Pencil, Plus, Repeat, Trash2, X, Zap } from "lucide-rea
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { CADENCIAS, avaliarMargem } from "@/lib/data/catalogo";
 
-type Plan = { id: string; label: string; defaultPrice: number };
-type Svc = { id: string; label: string; type: string; area: string; active: boolean; plans: Plan[] };
+type Plan = { id: string; label: string; defaultPrice: number; cost: number; cadence: string; billingType: string };
+type Svc = {
+  id: string; label: string; type: string; area: string; active: boolean;
+  summary: string | null; description: string | null; plans: Plan[];
+};
+
+/**
+ * Margem do plano. É o número que falta na hora de montar a proposta: preço sem
+ * custo ao lado deixa qualquer desconto parecer inofensivo.
+ */
+function margemDoPlano(p: Plan): number | null {
+  if (!(p.defaultPrice > 0)) return null;
+  return Math.round(((p.defaultPrice - p.cost) / p.defaultPrice) * 100);
+}
 
 const AREAS = ["Social", "Performance", "Conteúdo", "Criação", "Audiovisual", "Desenvolvimento", "Outra"];
 const money = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -32,10 +45,14 @@ export function ServiceCatalogManager() {
   const [nsType, setNsType] = useState<"recorrente" | "pontual">("recorrente");
   const [nsArea, setNsArea] = useState("Social");
   // novo plano por serviço
-  const [planDraft, setPlanDraft] = useState<Record<string, { label: string; price: string }>>({});
+  const [planDraft, setPlanDraft] = useState<Record<string, { label: string; price: string; cost: string; cadence: string }>>({});
   // edição inline
-  const [editSvc, setEditSvc] = useState<{ id: string; label: string; type: string; area: string } | null>(null);
-  const [editPlan, setEditPlan] = useState<{ id: string; label: string; price: string } | null>(null);
+  const [editSvc, setEditSvc] = useState<
+    { id: string; label: string; type: string; area: string; summary: string; description: string } | null
+  >(null);
+  const [editPlan, setEditPlan] = useState<
+    { id: string; label: string; price: string; cost: string; cadence: string } | null
+  >(null);
 
   async function load() {
     const res = await fetch("/api/gerencial/service-catalog", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
@@ -71,10 +88,13 @@ export function ServiceCatalogManager() {
     const d = planDraft[serviceId];
     if (!d?.label.trim()) { toast("Informe o nome do plano/formato.", "error"); return; }
     setBusy(`plan-${serviceId}`);
-    const r = await api({ action: "add-plan", serviceId, label: d.label.trim(), defaultPrice: num(d.price) });
+    const r = await api({
+      action: "add-plan", serviceId, label: d.label.trim(),
+      defaultPrice: num(d.price), cost: num(d.cost), cadence: d.cadence || "mensal",
+    });
     setBusy(null);
     if (!r.ok) { toast(r.error ?? "Falha.", "error"); return; }
-    setPlanDraft((p) => ({ ...p, [serviceId]: { label: "", price: "" } }));
+    setPlanDraft((p) => ({ ...p, [serviceId]: { label: "", price: "", cost: "", cadence: "mensal" } }));
     load();
   }
 
@@ -90,7 +110,10 @@ export function ServiceCatalogManager() {
     if (!editSvc) return;
     if (!editSvc.label.trim()) { toast("Informe o nome do serviço.", "error"); return; }
     setBusy(`edit-${editSvc.id}`);
-    const r = await api({ action: "update-service", id: editSvc.id, label: editSvc.label.trim(), type: editSvc.type, area: editSvc.area });
+    const r = await api({
+      action: "update-service", id: editSvc.id, label: editSvc.label.trim(),
+      type: editSvc.type, area: editSvc.area, summary: editSvc.summary, description: editSvc.description,
+    });
     setBusy(null);
     if (!r.ok) { toast(r.error ?? "Falha.", "error"); return; }
     setEditSvc(null);
@@ -101,7 +124,10 @@ export function ServiceCatalogManager() {
     if (!editPlan) return;
     if (!editPlan.label.trim()) { toast("Informe o nome do plano/formato.", "error"); return; }
     setBusy(`editp-${editPlan.id}`);
-    const r = await api({ action: "update-plan", id: editPlan.id, label: editPlan.label.trim(), defaultPrice: num(editPlan.price) });
+    const r = await api({
+      action: "update-plan", id: editPlan.id, label: editPlan.label.trim(),
+      defaultPrice: num(editPlan.price), cost: num(editPlan.cost), cadence: editPlan.cadence,
+    });
     setBusy(null);
     if (!r.ok) { toast(r.error ?? "Falha.", "error"); return; }
     setEditPlan(null);
@@ -114,7 +140,7 @@ export function ServiceCatalogManager() {
   const pontuais = services.filter((s) => s.type === "pontual");
 
   const renderService = (s: Svc) => {
-    const d = planDraft[s.id] ?? { label: "", price: "" };
+    const d = planDraft[s.id] ?? { label: "", price: "", cost: "", cadence: s.type === "pontual" ? "unico" : "mensal" };
     const isEditing = editSvc?.id === s.id;
     return (
       <Card key={s.id} className="p-4">
@@ -134,20 +160,35 @@ export function ServiceCatalogManager() {
               </button>
               <button onClick={() => setEditSvc(null)} className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line px-2.5 text-muted hover:text-ink"><X className="h-4 w-4" /></button>
             </div>
+            <input value={editSvc.summary} onChange={(e) => setEditSvc({ ...editSvc, summary: e.target.value })} placeholder="Resumo comercial (uma linha)" className={inputCls} />
+            <textarea
+              value={editSvc.description}
+              onChange={(e) => setEditSvc({ ...editSvc, description: e.target.value })}
+              placeholder="Ficha: o que é, o que entrega, prazo/SLA"
+              className="min-h-[72px] w-full rounded-lg border border-line bg-surface px-2.5 py-2 text-sm text-ink outline-none focus:border-brand-400"
+            />
           </div>
         ) : (
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink">{s.label}</p>
               <p className="text-[11px] uppercase tracking-wide text-brand-600">{s.area}</p>
+              {s.summary && <p className="mt-0.5 text-xs text-muted">{s.summary}</p>}
             </div>
             <div className="flex shrink-0 items-center">
-              <button onClick={() => setEditSvc({ id: s.id, label: s.label, type: s.type, area: s.area })} className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-ink" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setEditSvc({ id: s.id, label: s.label, type: s.type, area: s.area, summary: s.summary ?? "", description: s.description ?? "" })} className="rounded-lg p-1.5 text-muted hover:bg-subtle hover:text-ink" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
               <button onClick={() => delService(s.id)} disabled={busy === s.id} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-50">
                 {busy === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               </button>
             </div>
           </div>
+        )}
+
+        {s.description && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted hover:text-ink">Ficha do serviço</summary>
+            <p className="mt-1 whitespace-pre-wrap rounded-lg bg-subtle px-2.5 py-2 text-xs text-ink">{s.description}</p>
+          </details>
         )}
 
         <div className="mt-2 space-y-1">
@@ -156,7 +197,11 @@ export function ServiceCatalogManager() {
             editPlan?.id === p.id ? (
               <div key={p.id} className="flex items-center gap-1.5 rounded-lg bg-subtle px-2 py-1.5">
                 <input value={editPlan.label} onChange={(e) => setEditPlan({ ...editPlan, label: e.target.value })} className={fieldCls + " min-w-0 flex-1"} />
-                <input value={editPlan.price} onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })} inputMode="decimal" placeholder="Preço" className={fieldCls + " w-24 shrink-0"} />
+                <input value={editPlan.price} onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })} inputMode="decimal" placeholder="Preço" className={fieldCls + " w-20 shrink-0"} />
+                <input value={editPlan.cost} onChange={(e) => setEditPlan({ ...editPlan, cost: e.target.value })} inputMode="decimal" placeholder="Custo" className={fieldCls + " w-20 shrink-0"} />
+                <select value={editPlan.cadence} onChange={(e) => setEditPlan({ ...editPlan, cadence: e.target.value })} className={fieldCls + " w-28 shrink-0"}>
+                  {CADENCIAS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                </select>
                 <button onClick={savePlan} disabled={busy === `editp-${p.id}`} className="inline-flex h-9 items-center rounded-lg bg-brand-600 px-2 text-white hover:bg-brand-700 disabled:opacity-60">
                   {busy === `editp-${p.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </button>
@@ -167,7 +212,8 @@ export function ServiceCatalogManager() {
                 <span className="text-ink">{p.label}</span>
                 <span className="flex items-center gap-2">
                   <span className="text-xs text-muted">{p.defaultPrice > 0 ? money(p.defaultPrice) : "sem preço"}</span>
-                  <button onClick={() => setEditPlan({ id: p.id, label: p.label, price: p.defaultPrice ? String(p.defaultPrice) : "" })} className="text-muted hover:text-ink" title="Editar"><Pencil className="h-3 w-3" /></button>
+                  <MargemDoPlano plan={p} />
+                  <button onClick={() => setEditPlan({ id: p.id, label: p.label, price: p.defaultPrice ? String(p.defaultPrice) : "", cost: p.cost ? String(p.cost) : "", cadence: p.cadence || "mensal" })} className="text-muted hover:text-ink" title="Editar"><Pencil className="h-3 w-3" /></button>
                   <button onClick={() => delPlan(p.id)} disabled={busy === p.id} className="text-muted hover:text-rose-500 disabled:opacity-50">
                     {busy === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                   </button>
@@ -179,7 +225,11 @@ export function ServiceCatalogManager() {
 
         <div className="mt-2 flex items-center gap-1.5">
           <input value={d.label} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, label: e.target.value } }))} placeholder={s.type === "recorrente" ? "Novo plano" : "Novo formato"} className={fieldCls + " min-w-0 flex-1"} />
-          <input value={d.price} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, price: e.target.value } }))} inputMode="decimal" placeholder="Preço sugerido" className={fieldCls + " w-28 shrink-0"} />
+          <input value={d.price} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, price: e.target.value } }))} inputMode="decimal" placeholder="Preço" className={fieldCls + " w-20 shrink-0"} />
+          <input value={d.cost} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, cost: e.target.value } }))} inputMode="decimal" placeholder="Custo" className={fieldCls + " w-20 shrink-0"} />
+          <select value={d.cadence} onChange={(e) => setPlanDraft((p) => ({ ...p, [s.id]: { ...d, cadence: e.target.value } }))} className={fieldCls + " w-24 shrink-0"}>
+            {CADENCIAS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
           <button onClick={() => addPlan(s.id)} disabled={busy === `plan-${s.id}`} className="inline-flex h-9 items-center gap-1 rounded-lg bg-brand-600 px-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
             {busy === `plan-${s.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </button>
@@ -228,5 +278,26 @@ export function ServiceCatalogManager() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Só aparece quando há custo lançado: um "margem 100%" para plano sem custo
+ * informado seria uma mentira confortável.
+ */
+function MargemDoPlano({ plan }: { plan: Plan }) {
+  const m = margemDoPlano(plan);
+  if (m == null || !plan.cost) return null;
+  const nivel = avaliarMargem(m, 0).nivel;
+  return (
+    <span
+      className={cn(
+        "rounded-full px-1.5 py-0.5 text-[10px]",
+        nivel === "prejuizo" ? "bg-rose-500/15 text-rose-600" : "bg-emerald-500/15 text-emerald-600",
+      )}
+      title={`Custo ${money(plan.cost)}`}
+    >
+      {m}%
+    </span>
   );
 }

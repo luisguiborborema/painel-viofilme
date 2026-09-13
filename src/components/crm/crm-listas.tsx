@@ -32,6 +32,7 @@ import { ListaShell, type Col } from "./listas-shell";
 import { CrmList } from "./crm-list";
 import { TabNav } from "@/components/ui/tab-nav";
 import { ServiceCatalogManager } from "@/components/gerencial/service-catalog-manager";
+import { MontadorPacotes } from "@/components/crm/montador-pacotes";
 import { NewContactModal } from "./new-contact-modal";
 import { NewCompanyModal } from "./new-company-modal";
 import { BulkTaskModal } from "./bulk-task-modal";
@@ -271,10 +272,10 @@ export function CrmListas({
       {sub === "produtos" && (
         <div className="space-y-6">
           <ServiceCatalogManager />
-          <details className="rounded-xl border border-dashed border-line">
-            <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-muted">Catálogo rico (custo/margem/proposta) · em construção</summary>
-            <div className="p-4 pt-0"><ProdutosCasca services={serviceCatalog} /></div>
-          </details>
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-ink">Pacotes e propostas</h2>
+            <MontadorPacotes catalogo={serviceCatalog} />
+          </section>
         </div>
       )}
       {sub === "processos" && <ProcessosCasca knowledge={knowledge} />}
@@ -292,75 +293,6 @@ export function CrmListas({
           onClose={() => setTaskTargets(null)}
           onDone={() => { setTaskTargets(null); router.refresh(); }}
         />
-      )}
-    </div>
-  );
-}
-
-// ── Casca Produtos ───────────────────────────────────────────────────────────
-function fmtBRL(cents?: number): string {
-  if (cents == null) return "—";
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-const DELIVERY_LABEL: Record<string, string> = {
-  recorrente: "Recorrente",
-  projeto: "Projeto",
-  avulso: "Avulso",
-};
-
-function ProdutosCasca({ services }: { services: ServiceCatalog[] }) {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">
-        <p className="font-medium text-ink">Catálogo de serviços · em construção</p>
-        <p className="mt-1">
-          A estrutura já existe (serviço › plano › pacote, com custo, receita e margem). A ficha rica do serviço, o
-          montador de pacotes e a geração de proposta entram na próxima etapa.
-        </p>
-      </div>
-
-      {services.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface p-10 text-center text-sm text-muted">
-          Nenhum serviço cadastrado ainda.
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {services.map((s) => (
-            <div key={s.id} className="rounded-xl border border-line bg-surface p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-medium text-ink">{s.name}</div>
-                  {s.summary && <div className="text-xs text-muted">{s.summary}</div>}
-                </div>
-                <span className="shrink-0 rounded-full bg-black/5 px-2 py-0.5 text-[11px] text-muted">
-                  {DELIVERY_LABEL[s.deliveryType] ?? s.deliveryType}
-                </span>
-              </div>
-              {s.category && <div className="mt-1 text-[11px] uppercase tracking-wide text-brand-600">{s.category}</div>}
-              <div className="mt-3 space-y-1.5">
-                {s.plans.length === 0 && <p className="text-xs text-muted">Sem planos.</p>}
-                {s.plans.map((p) => {
-                  const margin = p.priceCents != null && p.costCents != null ? p.priceCents - p.costCents : undefined;
-                  return (
-                    <div key={p.id} className="flex items-center justify-between rounded-lg bg-black/[0.02] px-3 py-2 text-sm">
-                      <span className="text-ink">
-                        {p.name} <span className="text-xs text-muted">· {p.cadence}</span>
-                        {p.billingType === "midia_a_parte" && (
-                          <span className="ml-1 text-[11px] text-amber-600">mídia à parte</span>
-                        )}
-                      </span>
-                      <span className="text-right text-xs">
-                        <span className="font-medium text-ink">{fmtBRL(p.priceCents)}</span>
-                        {margin != null && <span className="ml-2 text-emerald-600">margem {fmtBRL(margin)}</span>}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       )}
     </div>
   );

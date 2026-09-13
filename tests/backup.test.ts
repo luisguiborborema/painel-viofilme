@@ -22,7 +22,10 @@ function tabelasDasMigracoes(): Set<string> {
   const dir = join(import.meta.dirname, "..", "supabase", "migrations");
   const tabelas = new Set<string>();
   for (const arquivo of readdirSync(dir).filter((f) => f.endsWith(".sql"))) {
-    const sql = readFileSync(join(dir, arquivo), "utf8");
+    // Comentários fora antes de procurar DDL: uma migração que *explique* um
+    // `create table` em português registraria uma tabela inexistente e o teste
+    // passaria a cobrar backup dela.
+    const sql = readFileSync(join(dir, arquivo), "utf8").replace(/--[^\n]*/g, "");
     for (const m of sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?"?([a-z_0-9]+)"?/gi)) {
       tabelas.add(m[1]);
     }
