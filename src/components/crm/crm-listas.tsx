@@ -27,6 +27,7 @@ import {
 } from "@/lib/data/listas";
 import type { Attendant } from "@/lib/data/inbox";
 import type { KnowledgeCategory, KnowledgePageCard, ServiceCatalog } from "@/lib/data/listas-server";
+import { KnowledgeEditor, PAGINA_NOVA, type PaginaEmEdicao } from "./knowledge-editor";
 import { ListaShell, type Col } from "./listas-shell";
 import { CrmList } from "./crm-list";
 import { TabNav } from "@/components/ui/tab-nav";
@@ -369,6 +370,7 @@ function ProdutosCasca({ services }: { services: ServiceCatalog[] }) {
 function ProcessosCasca({ knowledge }: { knowledge: { categories: KnowledgeCategory[]; pages: KnowledgePageCard[] } }) {
   const [cat, setCat] = useState<string>("");
   const [q, setQ] = useState("");
+  const [editando, setEditando] = useState<PaginaEmEdicao | null>(null);
   const pages = knowledge.pages.filter((p) => {
     if (cat && p.categoryId !== cat) return false;
     const term = q.trim().toLowerCase();
@@ -379,12 +381,18 @@ function ProcessosCasca({ knowledge }: { knowledge: { categories: KnowledgeCateg
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-sm text-muted">
-        <p className="font-medium text-ink">Base de conhecimento · em construção</p>
-        <p className="mt-1">
-          Mural de processos e playbooks por categoria. O editor rico (texto, arquivos, links, vídeo) e a ligação com
-          scripts/cadências entram na próxima etapa. As categorias abaixo já estão prontas.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Base de conhecimento</h3>
+          <p className="text-[11px] text-muted">Processos e playbooks do time, por categoria.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditando(PAGINA_NOVA)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          <Plus className="h-4 w-4" /> Novo processo
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -418,15 +426,31 @@ function ProcessosCasca({ knowledge }: { knowledge: { categories: KnowledgeCateg
       </div>
 
       {pages.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface p-10 text-center text-sm text-muted">
-          Nenhum processo publicado ainda. As categorias estão prontas para receber os cards.
+        <div className="rounded-xl border border-dashed border-line bg-surface p-10 text-center text-sm text-muted">
+          {q || cat
+            ? "Nenhum processo neste filtro."
+            : "Nenhum processo publicado ainda. Comece pelo que a equipe mais pergunta."}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {pages.map((p) => {
             const c = catById(p.categoryId);
             return (
-              <div key={p.id} className="rounded-xl border border-line bg-surface p-4">
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setEditando({
+                  id: p.id,
+                  categoryId: p.categoryId ?? null,
+                  title: p.title,
+                  summary: p.summary ?? "",
+                  content: "",
+                  tags: p.tags,
+                  videoUrl: "",
+                  pinned: p.pinned,
+                })}
+                className="rounded-xl border border-line bg-surface p-4 text-left transition-colors hover:border-brand-300"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {c && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />}
@@ -447,10 +471,18 @@ function ProcessosCasca({ knowledge }: { knowledge: { categories: KnowledgeCateg
                 <div className="mt-3 inline-flex items-center gap-1 text-xs text-brand-600">
                   Abrir <ExternalLink className="h-3 w-3" />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+      )}
+
+      {editando && (
+        <KnowledgeEditor
+          pagina={editando}
+          categorias={knowledge.categories}
+          onClose={() => setEditando(null)}
+        />
       )}
     </div>
   );
