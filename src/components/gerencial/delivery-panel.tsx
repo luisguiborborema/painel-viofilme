@@ -38,6 +38,7 @@ import {
   readUserCardFields,
   writeUserCardFields,
 } from "@/lib/data/delivery-card-fields";
+import { corDoCliente } from "@/lib/data/cores-cliente";
 import {
   DELIVERY_CONFIG_FALLBACK,
   diaUtilPadrao,
@@ -75,7 +76,6 @@ const TYPE_COLOR = new Map<string, string>([
 ]);
 
 const ORIGINS: TaskOrigin[] = ["Linha editorial", "Projeto", "Tarefa avulsa"];
-const CLIENT_PALETTE = ["#2a63c9", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0284c7", "#be185d", "#0f766e"];
 
 /**
  * Pessoas a listar nas visões por responsável.
@@ -515,6 +515,7 @@ export function DeliveryPanel({
   // Views salvas (conjuntos de filtros nomeados) — por usuário.
   const [views, setViews] = useState<{ id: string; name: string; filters: Record<string, unknown> }[]>([]);
   const [viewsOpen, setViewsOpen] = useState(false);
+  const [ajustesOpen, setAjustesOpen] = useState(false);
   const [newViewName, setNewViewName] = useState("");
   useEffect(() => {
     fetch("/api/gerencial/delivery-views")
@@ -574,7 +575,8 @@ export function DeliveryPanel({
     () => [...new Set(items.map((t) => t.client))].sort(),
     [items],
   );
-  const clientColor = (c: string) => CLIENT_PALETTE[allClients.indexOf(c) % CLIENT_PALETTE.length];
+  // A cor sai do nome, não da posição na lista: ver corDoCliente.
+  const clientColor = corDoCliente;
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -781,34 +783,57 @@ export function DeliveryPanel({
         >
           <BarChart3 className="h-3.5 w-3.5" /> Métricas
         </button>
-        <button
-          onClick={() => setShowCardFields(true)}
-          title="Escolher quais propriedades aparecem no card"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-        >
-          <LayoutGrid className="h-3.5 w-3.5" /> Campos do card
-        </button>
+        {/*
+          Ajustes ficavam soltos na barra como três botões, e "Campos do card"
+          e "Campos" eram vizinhos com nomes quase iguais para coisas bem
+          diferentes: um é o que EU vejo, o outro muda os campos de todo mundo.
+          Recolhidos aqui com a diferença escrita, e "Nova tarefa" — a ação de
+          todo dia — deixa de vir depois de quatro botões de configuração.
+        */}
+        <div className="relative">
+          <button
+            onClick={() => setAjustesOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustes
+          </button>
+          {ajustesOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAjustesOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                <MenuAjuste
+                  icon={LayoutGrid}
+                  titulo="O que aparece no card"
+                  descricao="Só para você, neste navegador."
+                  onClick={() => { setAjustesOpen(false); setShowCardFields(true); }}
+                />
+                {!readOnly && (
+                  <>
+                    <MenuAjuste
+                      icon={Users}
+                      titulo="Capacidade do time"
+                      descricao="Quantas tarefas por dia cada pessoa aguenta."
+                      onClick={() => { setAjustesOpen(false); setShowConfig(true); }}
+                    />
+                    <MenuAjuste
+                      icon={Settings2}
+                      titulo="Campos personalizados"
+                      descricao="Muda os campos da tarefa para a agência inteira."
+                      onClick={() => { setAjustesOpen(false); setShowFields(true); }}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         {!readOnly && (
-          <>
-            <button
-              onClick={() => setShowConfig(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" /> Capacidade
-            </button>
-            <button
-              onClick={() => setShowFields(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-subtle"
-            >
-              <Settings2 className="h-3.5 w-3.5" /> Campos
-            </button>
-            <button
-              onClick={() => setShowNew((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-            >
-              <Plus className="h-4 w-4" /> Nova tarefa
-            </button>
-          </>
+          <button
+            onClick={() => setShowNew((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+          >
+            <Plus className="h-4 w-4" /> Nova tarefa
+          </button>
         )}
       </div>
       {showCardFields && (
@@ -1228,6 +1253,29 @@ function TaskCard({ t, openTask, clientColor, cardFields, draggable, onDragStart
         )}
       </div>
     </div>
+  );
+}
+
+/** Item do menu Ajustes: o que faz e quem é afetado, em duas linhas. */
+function MenuAjuste({
+  icon: Icon, titulo, descricao, onClick,
+}: {
+  icon: typeof LayoutGrid;
+  titulo: string;
+  descricao: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-subtle"
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+      <span className="min-w-0">
+        <span className="block text-xs font-medium text-ink">{titulo}</span>
+        <span className="block text-[11px] text-muted">{descricao}</span>
+      </span>
+    </button>
   );
 }
 
