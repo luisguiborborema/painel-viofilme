@@ -116,6 +116,7 @@ import type { CSClient, CSClientDetail, CSStatus, CSTimelineEvent, CSTone } from
 type HubClientRow = {
   id: string;
   name: string | null;
+  logo_url?: string | null;
   segment: string | null;
   status: string | null;
   monthly_fee: number | null;
@@ -1966,27 +1967,27 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
   const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const d30 = new Date(now.getTime() - 30 * dayMs).toISOString().slice(0, 10);
 
-  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes, logoRes] = await Promise.all([
-    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), responsibles, services_list, ${CLIENT_PROFILE_COLS}`).order("name"),
+  const [clientsRes, tasks, paysRes, postsRes, npsRes, leRes, csRes, cdRes] = await Promise.all([
+    supabase.from("clients").select(`id, name, segment, status, monthly_fee, created_at, whatsapp, squad_id, squads(name), responsibles, services_list, logo_url, ${CLIENT_PROFILE_COLS}`).order("name"),
     sbGetDeliveryTasks(),
+    // Só o que está em aberto e vencido. Antes vinha TODO pagamento já
+    // vencido — incluindo os pagos, que são a maioria — e o filtro acontecia
+    // em JavaScript depois. Além do tráfego à toa, o PostgREST corta a
+    // resposta num teto de linhas e esta consulta não tem ordenação: passado
+    // o teto, quais faturas chegam é arbitrário, e um cliente com 60 dias de
+    // atraso apareceria como "em dia" porque a fatura dele ficou de fora.
     supabase
       .from("payments")
       .select("client_id, status, due_date")
       .not("client_id", "is", null)
-      .lte("due_date", todayStr),
+      .lte("due_date", todayStr)
+      .not("status", "in", `(${[...PAID_STATUS, "REFUNDED", "DELETED"].join(",")})`),
     supabase.from("content_posts").select("client_id").eq("status", "published").gte("published_at", d30),
     supabase.from("nps_surveys").select("client_id, score, created_at").not("score", "is", null).order("created_at", { ascending: false }),
     supabase.from("editorial_lines").select("client_id, month, stage"),
     supabase.from("client_services").select("client_id, services(name)"),
     supabase.from("client_deliverables").select("client_id, format, monthly_qty"),
-    // Logos — leitura tolerante (coluna pode não existir antes da migração 0106).
-    supabase.from("clients").select("id, logo_url"),
   ]);
-
-  const logoById = new Map<string, string>();
-  for (const l of (logoRes.data ?? []) as { id: string; logo_url: string | null }[]) {
-    if (l.logo_url) logoById.set(String(l.id), String(l.logo_url));
-  }
 
   // Serviços e entregáveis REAIS por cliente (não fabricados pelo plano).
   const servicesByClient = new Map<string, string[]>();
@@ -2080,7 +2081,7 @@ export async function sbGetHubClientsOps(): Promise<HubClientOps[]> {
       responsavel: dash(c.cs_responsavel),
       mrr: fee,
       whatsapp: c.whatsapp ?? null,
-      logoUrl: logoById.get(cid),
+      logoUrl: c.logo_url ?? undefined,
       onboarding: isNew
         ? { step: 1, total: 5, startDate: new Date(createdMs).toLocaleDateString("pt-BR") }
         : undefined,
