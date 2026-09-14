@@ -395,7 +395,13 @@ export async function POST(req: Request) {
           modo: normalizarModo(b.authMode),
           mensagem: `Olá! Segue a proposta comercial. Qualquer dúvida, é só chamar.`,
         });
-        if (!envio.ok) return NextResponse.json({ error: envio.erro }, { status: envio.status ?? 502 });
+        if (!envio.ok) {
+          // O PDF já subiu. Sem isto, cada tentativa recusada (token errado,
+          // plano sem API, timeout) deixa um arquivo público órfão no bucket,
+          // que ninguém vai procurar depois.
+          await admin.storage.from("wa-media").remove([caminhoPdf]).catch(() => {});
+          return NextResponse.json({ error: envio.erro }, { status: envio.status ?? 502 });
+        }
 
         // Reaproveita o documento do pacote, se já houver: manter um só evita
         // que o cliente receba dois pedidos de assinatura com preços diferentes.
