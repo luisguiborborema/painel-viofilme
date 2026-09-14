@@ -21,6 +21,7 @@ import {
   getUserMentions,
 } from "@/lib/data/queries";
 import { getCalendarEvents } from "@/lib/data/agenda-server";
+import { reunioesDoDia } from "@/lib/data/agenda-unificada";
 import { getGoogleStatus } from "@/lib/google/client";
 import { listUpcomingEvents } from "@/lib/google/calendar";
 import { buildTaskItems } from "@/lib/data/crm";
@@ -96,18 +97,13 @@ export default async function MeuDia() {
   // funcionava para quem se chamasse como elas.
   const meKeys = new Set([me, me?.split(" ")[0]].filter(Boolean) as string[]);
 
-  // Agenda de hoje: eventos próprios (calendar_events) + Google, ordenados.
-  const events = [
-    ...ownEvents.map((e) => ({ id: `o-${e.id}`, title: e.title, start: e.startAt, link: e.meetLink })),
-    ...googleEvents.map((e, i) => ({
-      id: `g-${e.id ?? i}`,
-      title: e.summary || "(sem título)",
-      start: e.start ?? "",
-      link: e.hangoutLink ?? e.htmlLink,
-    })),
-  ]
-    .filter((e) => e.start)
-    .sort((a, b) => a.start.localeCompare(b.start));
+  // Agenda de hoje: eventos próprios (calendar_events) + Google.
+  //
+  // Isto era feito à mão aqui e errava três coisas que a tela de Agenda já
+  // acertava: ordenava datas como texto, não removia o compromisso espelhado
+  // no Google, e tratava evento de dia inteiro como reunião — que aparecia
+  // como "21:00" no topo do dia, porque só a data vira meia-noite UTC.
+  const events = reunioesDoDia(ownEvents, googleEvents);
 
   // Minhas tarefas de entrega (mine + não concluídas).
   const deliveryItems: DayTask[] = deliveries
