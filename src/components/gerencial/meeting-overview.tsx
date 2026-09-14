@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { legendaDaAmostra, textoDoIndicador, tomDoIndicador } from "@/lib/data/indicadores";
 import type { MeetingEntry } from "@/lib/data/meeting-survey";
 
 function fmtDate(iso: string) {
@@ -41,7 +42,12 @@ export function MeetingOverview({ entries, summary }: { entries: MeetingEntry[];
     });
   }, [entries, q, min]);
 
-  const avgTone = summary.avg >= 4 ? "text-emerald-600" : summary.avg >= 3 ? "text-amber-600" : "text-rose-500";
+  // 0.0 não existe numa escala de 1 a 5: era ausência de avaliação exibida
+  // como nota — em vermelho, logo acima de "Nenhuma avaliação ainda".
+  const avgTone = tomDoIndicador(
+    summary.total,
+    summary.avg >= 4 ? "text-emerald-600" : summary.avg >= 3 ? "text-amber-600" : "text-rose-500",
+  );
 
   return (
     <div className="space-y-4">
@@ -50,9 +56,12 @@ export function MeetingOverview({ entries, summary }: { entries: MeetingEntry[];
         <Card className="p-4">
           <p className="text-xs text-muted">Média das reuniões</p>
           <p className={cn("flex items-center gap-2 text-3xl font-bold", avgTone)}>
-            {summary.avg.toFixed(1)} <Star className="h-6 w-6 fill-amber-400 text-amber-400" />
+            {textoDoIndicador(summary.avg, summary.total, 1)}
+            {summary.total > 0 && <Star className="h-6 w-6 fill-amber-400 text-amber-400" />}
           </p>
-          <p className="text-[11px] text-muted">{summary.total} avaliação(ões)</p>
+          <p className="text-[11px] text-muted">
+            {legendaDaAmostra(summary.total, "avaliação", "avaliações", "sem avaliações ainda")}
+          </p>
         </Card>
         <Card className="p-4 sm:col-span-2">
           <p className="mb-2 text-xs text-muted">Distribuição</p>

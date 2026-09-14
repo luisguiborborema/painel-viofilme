@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, SendHorizontal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, SendHorizontal } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { enviarSolicitacao } from "@/lib/data/envio-solicitacao";
 
 const AREAS = [
   "Social Media",
@@ -34,22 +35,23 @@ export function MeetingRequestModal({
   const [urgency, setUrgency] = useState("");
   const [slot, setSlot] = useState("");
   const [sent, setSent] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const detailOk = detail.trim().length >= MIN_DETAIL;
   const valid =
     area && subject.trim() && detailOk && urgency && slot.trim();
 
-  function submit() {
-    if (!valid) return;
-    // Rota stub (modo híbrido): registra + notifica; persistência real depois.
-    void fetch("/api/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "meeting",
-        payload: { area, subject, detail, urgency, slot },
-      }),
-    }).catch(() => {});
+  async function submit() {
+    if (!valid || enviando) return;
+    // Espera a resposta antes de confirmar. Antes isto era dispare-e-esqueça
+    // com `setSent(true)` imediato: o cliente via "enviado" com a rede caída
+    // ou com a gravação recusada, e a agência não tinha o pedido.
+    setEnviando(true);
+    setErro(null);
+    const r = await enviarSolicitacao("meeting", { area, subject, detail, urgency, slot });
+    setEnviando(false);
+    if (!r.ok) { setErro(r.erro); return; }
     setSent(true);
   }
 
@@ -58,6 +60,7 @@ export function MeetingRequestModal({
     // reset após fechar
     setTimeout(() => {
       setSent(false);
+      setErro(null);
       setArea("");
       setSubject("");
       setDetail("");
@@ -97,11 +100,12 @@ export function MeetingRequestModal({
       footer={
         <>
           <button
-            disabled={!valid}
+            disabled={!valid || enviando}
             onClick={submit}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
           >
-            <SendHorizontal className="h-4 w-4" /> Enviar solicitação
+            {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+            {enviando ? "Enviando…" : "Enviar solicitação"}
           </button>
           <button
             onClick={close}
@@ -112,6 +116,12 @@ export function MeetingRequestModal({
         </>
       }
     >
+      {erro && (
+        <p className="mb-3 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{erro}</span>
+        </p>
+      )}
       <p className="mb-4 rounded-xl bg-subtle p-3 text-xs text-muted">
         Use este formulário para solicitar uma reunião formal — quando o assunto
         precisa de mais atenção do que uma mensagem ou ligação rápida. Para

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, SendHorizontal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, SendHorizontal } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { enviarSolicitacao } from "@/lib/data/envio-solicitacao";
 
 const FORMATS = ["Post feed", "Reels", "Carrossel", "Stories", "Vídeo", "Outro"];
 const NETWORKS = ["Instagram", "Facebook", "TikTok", "LinkedIn"];
@@ -33,6 +34,8 @@ export function ContentRequestForm({
   const [refs, setRefs] = useState("");
   const [urgency, setUrgency] = useState("");
   const [sent, setSent] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   // pré-preenche a data quando aberto pelo calendário
   const [lastInitial, setLastInitial] = useState(initialDate);
@@ -48,27 +51,25 @@ export function ContentRequestForm({
     setNetworks((arr) => (arr.includes(n) ? arr.filter((x) => x !== n) : [...arr, n]));
   }
 
-  function submit() {
-    if (!valid) return;
-    // Rota stub (modo híbrido): registra + notifica; persistência real depois.
-    void fetch("/api/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "content",
-        payload: {
-          format,
-          networks,
-          date,
-          time,
-          subject,
-          description: desc,
-          guideline,
-          references: refs,
-          urgency,
-        },
-      }),
-    }).catch(() => {});
+  async function submit() {
+    if (!valid || enviando) return;
+    // Espera a resposta antes de confirmar — era dispare-e-esqueça, e o cliente
+    // via "enviado" mesmo quando nada tinha sido gravado.
+    setEnviando(true);
+    setErro(null);
+    const r = await enviarSolicitacao("content", {
+      format,
+      networks,
+      date,
+      time,
+      subject,
+      description: desc,
+      guideline,
+      references: refs,
+      urgency,
+    });
+    setEnviando(false);
+    if (!r.ok) { setErro(r.erro); return; }
     setSent(true);
   }
 
@@ -76,6 +77,7 @@ export function ContentRequestForm({
     onClose();
     setTimeout(() => {
       setSent(false);
+      setErro(null);
       setFormat("");
       setNetworks([]);
       setDate("");
@@ -130,16 +132,23 @@ export function ContentRequestForm({
               Cancelar
             </button>
             <button
-              disabled={!valid}
+              disabled={!valid || enviando}
               onClick={submit}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
             >
-              <SendHorizontal className="h-4 w-4" /> Enviar solicitação
+              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+              {enviando ? "Enviando…" : "Enviar solicitação"}
             </button>
           </div>
         </div>
       }
     >
+      {erro && (
+        <p className="mb-4 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{erro}</span>
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {/* Coluna esquerda */}
         <div className="space-y-4">

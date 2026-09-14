@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { legendaDaAmostra, textoDoIndicador, tomDoIndicador } from "@/lib/data/indicadores";
 import type { NpsEntry } from "@/lib/data/nps";
 
 const CLASS_META: Record<NpsEntry["classification"], { label: string; chip: string }> = {
@@ -37,7 +38,12 @@ export function NpsOverview({ entries, summary }: { entries: NpsEntry[]; summary
     });
   }, [entries, q, filter]);
 
-  const scoreTone = summary.score >= 50 ? "text-emerald-600" : summary.score >= 0 ? "text-amber-600" : "text-rose-500";
+  // Sem resposta, o NPS não é 0 — é desconhecido. Zero é nota real e medíocre
+  // nesta escala, então imprimi-lo afirma um resultado que ninguém mediu.
+  const scoreTone = tomDoIndicador(
+    summary.total,
+    summary.score >= 50 ? "text-emerald-600" : summary.score >= 0 ? "text-amber-600" : "text-rose-500",
+  );
 
   return (
     <div className="space-y-4">
@@ -45,8 +51,8 @@ export function NpsOverview({ entries, summary }: { entries: NpsEntry[]; summary
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="p-4">
           <p className="text-xs text-muted">NPS geral</p>
-          <p className={cn("text-3xl font-bold", scoreTone)}>{summary.score}</p>
-          <p className="text-[11px] text-muted">{summary.total} resposta(s)</p>
+          <p className={cn("text-3xl font-bold", scoreTone)}>{textoDoIndicador(summary.score, summary.total)}</p>
+          <p className="text-[11px] text-muted">{legendaDaAmostra(summary.total, "resposta", "respostas", "sem respostas ainda")}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted">Promotores (9–10)</p>
