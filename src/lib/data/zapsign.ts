@@ -22,6 +22,15 @@
 export const ZAPSIGN_API = "https://api.zapsign.com.br/api/v1";
 
 /**
+ * Ambiente de testes. Reproduz produção, mas o que se assina lá **não tem
+ * validade jurídica** — e não exige Plano de API, que produção exige.
+ *
+ * O token do sandbox é outro, tirado de sandbox.app.zapsign.com.br. Usar o
+ * token de produção aqui (ou o contrário) responde 401 sem explicar por quê.
+ */
+export const ZAPSIGN_API_SANDBOX = "https://sandbox.api.zapsign.com.br/api/v1";
+
+/**
  * Como o signatário se autentica. `assinaturaTela` não custa crédito; os
  * outros custam por envio, então a escolha é da agência, não nossa.
  */

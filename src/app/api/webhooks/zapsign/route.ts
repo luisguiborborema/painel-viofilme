@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createAdminClient, hasServiceRole } from "@/lib/supabase/admin";
 import { lerWebhook, segredoConfere } from "@/lib/data/zapsign";
+import { zapsignSandbox } from "@/lib/data/zapsign-server";
 import { logEvent } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
@@ -89,5 +90,6 @@ export async function GET() {
     ok: true,
     servico: "webhook ZapSign",
     configurado: Boolean(process.env.ZAPSIGN_WEBHOOK_SECRET),
+    ambiente: zapsignSandbox() ? "sandbox (sem validade jurídica)" : "produção",
   });
 }

@@ -1,5 +1,7 @@
 import "server-only";
-import { ZAPSIGN_API, lerRespostaDocumento, montarDocumento, type EntradaDocumento } from "@/lib/data/zapsign";
+import {
+  ZAPSIGN_API, ZAPSIGN_API_SANDBOX, lerRespostaDocumento, montarDocumento, type EntradaDocumento,
+} from "@/lib/data/zapsign";
 
 /**
  * Chamada à ZapSign. Só aqui o token sai do ambiente — nunca chega ao cliente.
@@ -7,6 +9,15 @@ import { ZAPSIGN_API, lerRespostaDocumento, montarDocumento, type EntradaDocumen
 
 export function zapsignConfigurado(): boolean {
   return Boolean(process.env.ZAPSIGN_TOKEN);
+}
+
+/** Sandbox só quando pedido explicitamente: o padrão nunca pode ser o ambiente sem validade jurídica. */
+export function zapsignSandbox(): boolean {
+  return String(process.env.ZAPSIGN_SANDBOX ?? "").trim().toLowerCase() === "true";
+}
+
+export function baseZapsign(): string {
+  return zapsignSandbox() ? ZAPSIGN_API_SANDBOX : ZAPSIGN_API;
 }
 
 export type ResultadoEnvio =
@@ -22,7 +33,7 @@ export async function enviarParaAssinatura(entrada: EntradaDocumento): Promise<R
 
   let res: Response;
   try {
-    res = await fetch(`${ZAPSIGN_API}/docs/`, {
+    res = await fetch(`${baseZapsign()}/docs/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(corpo),
@@ -67,7 +78,10 @@ export async function enviarParaAssinatura(entrada: EntradaDocumento): Promise<R
     return {
       ok: false,
       status: res.status === 401 || res.status === 403 ? 401 : 502,
-      erro: `ZapSign recusou (HTTP ${res.status}): ${detalhe}`,
+      erro:
+        res.status === 402
+          ? `${detalhe} (Para testar sem plano, use o sandbox: ZAPSIGN_SANDBOX=true com o token de sandbox.app.zapsign.com.br.)`
+          : `ZapSign recusou (HTTP ${res.status}): ${detalhe}`,
     };
   }
 

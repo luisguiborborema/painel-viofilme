@@ -15,6 +15,30 @@ diferente.
 
 ## Configurar (uma vez)
 
+### 0. Produção exige Plano de API
+
+A ZapSign responde **HTTP 402** — *"É obrigatório contratar um Plano de API para
+utilizá-la em modo produção"* — enquanto a conta não tiver um Plano de API. O
+token sozinho não basta.
+
+Para testar antes de contratar, use o **sandbox**: reproduz produção inteira,
+não exige plano, e o que se assina lá **não tem validade jurídica**.
+
+```
+ZAPSIGN_SANDBOX = true
+ZAPSIGN_TOKEN   = <token tirado de sandbox.app.zapsign.com.br>
+```
+
+O token do sandbox é **outro**, tirado de
+`https://sandbox.app.zapsign.com.br/acesso/entrar` → Configurações →
+Integrações → API. Usar o token de produção no sandbox (ou o contrário)
+responde 401 sem explicar por quê. O webhook também precisa ser registrado no
+painel do sandbox.
+
+Para ir a produção: contrate o Plano de API, troque o token pelo de produção e
+**remova** `ZAPSIGN_SANDBOX` (ou ponha `false`). O padrão é produção — o
+ambiente sem validade jurídica nunca é assumido por omissão.
+
 ### 1. Token da API
 
 No painel da ZapSign: **Configurações → Integrações → API** e copie o token.
@@ -85,7 +109,7 @@ Para conferir se o endpoint está de pé:
 
 ```bash
 curl https://www.viofilme.com.br/api/webhooks/zapsign
-# {"ok":true,"servico":"webhook ZapSign","configurado":true}
+# {"ok":true,"servico":"webhook ZapSign","configurado":true,"ambiente":"produção"}
 ```
 
 `configurado: false` significa que a variável não chegou ao deploy.
