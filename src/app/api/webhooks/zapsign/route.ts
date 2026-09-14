@@ -24,11 +24,15 @@ export async function POST(req: Request) {
   if (!esperado) {
     return NextResponse.json({ error: "webhook não configurado" }, { status: 503 });
   }
-  const recebido =
-    req.headers.get("authorization") ??
-    req.headers.get("x-zapsign-secret") ??
-    new URL(req.url).searchParams.get("secret");
-  if (!segredoConfere(recebido, esperado)) {
+  // Qualquer um dos três serve. Em cadeia com `??`, um `Authorization` posto
+  // por proxy no caminho venceria o `?secret=` da URL e derrubaria um webhook
+  // que estava correto — e o painel da ZapSign só deixa configurar a URL.
+  const candidatos = [
+    req.headers.get("authorization"),
+    req.headers.get("x-zapsign-secret"),
+    new URL(req.url).searchParams.get("secret"),
+  ];
+  if (!candidatos.some((c) => segredoConfere(c, esperado))) {
     return NextResponse.json({ error: "não autorizado" }, { status: 401 });
   }
 

@@ -50,7 +50,20 @@ Faça o redeploy para as variáveis valerem.
 
 ### 3. Registrar o webhook na ZapSign
 
-Pelo painel da ZapSign, ou por esta chamada:
+**O painel da ZapSign não tem campo de header** — ele só pede tipo de evento e
+URL. Há dois caminhos, e os dois funcionam:
+
+**Pelo painel (mais simples):** ponha o segredo na própria URL.
+
+```
+https://www.viofilme.com.br/api/webhooks/zapsign?secret=SEU_ZAPSIGN_WEBHOOK_SECRET
+```
+
+Tipo de evento: **Todos (documentos)**. Vale saber que o segredo fica guardado
+na configuração da ZapSign e pode aparecer em log de servidor — é um pouco mais
+exposto que o header. Para trocar depois, é só editar o webhook e a variável.
+
+**Pela API (header, mais protegido):**
 
 ```bash
 curl -X POST https://api.zapsign.com.br/api/v1/user/company/webhook/ \
@@ -98,8 +111,9 @@ documento e o cartão passa a mostrar **assinada** com link para o PDF assinado.
 - O PDF fica numa URL pública (caminho não adivinhável, mas sem autenticação) —
   é o mesmo mecanismo que o envio de proposta por WhatsApp já usava. A ZapSign
   exige URL pública; a alternativa seria mandar o arquivo em base64.
-- A ZapSign não reenvia evento indefinidamente. Se o webhook estiver fora do ar
-  na hora da assinatura, o documento fica como "aguardando" até alguém reenviar
-  ou conferir no painel da ZapSign.
+- A ZapSign reenvia evento que falhou (configurável no painel: até 30 tentativas,
+  com espera entre elas). Por isso o endpoint responde **200** para documento
+  desconhecido — devolver erro faria a ZapSign insistir num evento que nunca
+  vamos conseguir tratar.
 - O contrato no *Lead Ganho* continua usando a Edge Function `zapsign-send`,
   que é outra casca e segue desligada. Só a **proposta** passa pelo fluxo acima.
