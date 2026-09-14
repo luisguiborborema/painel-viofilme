@@ -27,7 +27,14 @@ export default async function GerencialConteudo() {
         title="VioFlux"
         subtitle="O passa-pratos — do conteúdo pronto à aprovação do cliente e às redes."
       />
-      <VioFlux clients={clients} myClientIds={myClientIds} initialPosts={posts} />
+      <VioFlux
+        clients={clients}
+        myClientIds={myClientIds}
+        squadClientIds={user?.squadId ? ops.filter((c) => c.squadId === user.squadId).map((c) => c.id) : []}
+        clientSquads={Object.fromEntries(ops.map((c) => [c.id, c.squadId ?? null]))}
+        mySquadId={user?.squadId}
+        initialPosts={posts}
+      />
     </div>
   );
 }

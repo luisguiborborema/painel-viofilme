@@ -26,8 +26,9 @@ import {
   type LeNextMonth,
   type LeTone,
 } from "@/lib/data/operacao";
+import { ESCOPOS, escoposUteis, noEscopo, type Escopo } from "@/lib/data/escopo";
 
-type Scope = "meus" | "squad" | "todos";
+
 
 // HUB06.1 — "LE próximo mês" muda de cor conforme o prazo aperta.
 const LE_TONE: Record<LeTone, string> = {
@@ -286,9 +287,15 @@ function SortTh({ label, k, sort, onSort, align }: {
   );
 }
 
-export function HubClientes({ clients, meName, canDelete = false }: { clients: HubClientOps[]; meName?: string; canDelete?: boolean }) {
+export function HubClientes({ clients, meName, mySquadId, canDelete = false }: { clients: HubClientOps[]; meName?: string; mySquadId?: string | null; canDelete?: boolean }) {
+  // Só oferece "squad" quando ele distingue algo — com a agência inteira num
+  // squad só, o botão daria o mesmo resultado de "todos".
+  const escoposDisponiveis = useMemo(
+    () => escoposUteis(mySquadId, clients.map((c) => c.squadId)),
+    [mySquadId, clients],
+  );
   const [layout, setLayout] = usePersistentState<"card" | "lista">("vio-hub-layout", "card");
-  const [scope, setScope] = useState<Scope>("squad");
+  const [scope, setScope] = useState<Escopo>("todos");
   const [query, setQuery] = useState("");
   const [estado, setEstado] = useState<EstadoFilter>("todas");
   const [resp, setResp] = useState<string>("");
@@ -307,7 +314,7 @@ export function HubClientes({ clients, meName, canDelete = false }: { clients: H
   const filtered = useMemo(
     () =>
       clients.filter((c) => {
-        if (scope === "meus" && !isMine(c)) return false;
+        if (!noEscopo(scope, { ehMeu: isMine(c), squadId: c.squadId }, mySquadId)) return false;
         if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
         if (estado !== "todas" && estado !== "le-pendente" && statusOf(c) !== estado) return false;
         if (estado === "le-pendente" && c.leNextMonth.status !== "pendente") return false;
@@ -356,10 +363,11 @@ export function HubClientes({ clients, meName, canDelete = false }: { clients: H
           />
         </div>
         <div data-tour="hub-escopo" className="inline-flex rounded-xl border border-line bg-surface p-0.5">
-          {(["meus", "squad", "todos"] as const).map((s) => (
+          {escoposDisponiveis.map((s) => (
             <button
               key={s}
               onClick={() => setScope(s)}
+              title={ESCOPOS.find((e) => e.key === s)?.ajuda}
               className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-colors", scope === s ? "bg-brand-600 text-white" : "text-muted hover:text-ink")}
             >
               {s}

@@ -18,6 +18,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { clockLabel, dayMonth } from "@/lib/datetime";
+import { ESCOPOS, escoposUteis, noEscopo, type Escopo } from "@/lib/data/escopo";
 import {
   FLUX_POSTS,
   FLUX_STATES,
@@ -30,7 +31,7 @@ import type { EditorialFormat } from "@/lib/data/operacao";
 
 type ClientOpt = { id: string; name: string };
 type View = "dashboard" | "calendario" | "posts" | "aprovacao" | "criar";
-type Scope = "meus" | "squad" | "todos";
+
 
 const VIEWS: { key: View; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -77,21 +78,41 @@ function NetIcons({ nets }: { nets: FluxNetwork[] }) {
 export function VioFlux({
   clients,
   myClientIds,
+  squadClientIds = [],
+  clientSquads = {},
+  mySquadId,
   initialPosts = FLUX_POSTS,
 }: {
   clients: ClientOpt[];
   myClientIds: string[];
+  /** Clientes do squad de quem está olhando. */
+  squadClientIds?: string[];
+  /** Squad de cada cliente — decide se o botão "squad" distingue algo. */
+  clientSquads?: Record<string, string | null>;
+  mySquadId?: string | null;
   initialPosts?: FluxPost[];
 }) {
   const [posts, setPosts] = useState<FluxPost[]>(initialPosts);
   const [view, setView] = useState<View>("dashboard");
-  const [scope, setScope] = useState<Scope>("squad");
+  const [scope, setScope] = useState<Escopo>("todos");
   const [clientId, setClientId] = useState<string>("");
   const [selected, setSelected] = useState<FluxPost | null>(null);
   const mine = useMemo(() => new Set(myClientIds), [myClientIds]);
+  const doSquad = useMemo(() => new Set(squadClientIds), [squadClientIds]);
+  // "squad" era o padrão e não filtrava nada: a condição antiga
+  // (`scope !== "meus"`) valia igual para "squad" e para "todos".
+  const escoposDisponiveis = useMemo(
+    () => escoposUteis(mySquadId, clients.map((c) => clientSquads[c.id] ?? null)),
+    [mySquadId, clients, clientSquads],
+  );
 
   const visible = posts.filter(
-    (p) => (scope !== "meus" || mine.has(p.clientId)) && (!clientId || p.clientId === clientId),
+    (p) =>
+      noEscopo(
+        scope,
+        { ehMeu: mine.has(p.clientId), squadId: doSquad.has(p.clientId) ? (mySquadId ?? null) : null },
+        mySquadId,
+      ) && (!clientId || p.clientId === clientId),
   );
 
   function update(id: string, patch: Partial<FluxPost>) {
@@ -109,8 +130,13 @@ export function VioFlux({
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <div className="inline-flex rounded-xl border border-line bg-surface p-0.5">
-          {(["meus", "squad", "todos"] as const).map((s) => (
-            <button key={s} onClick={() => setScope(s)} className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold capitalize", scope === s ? "bg-brand-600 text-white" : "text-muted hover:text-ink")}>{s}</button>
+          {escoposDisponiveis.map((s) => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              title={ESCOPOS.find((e) => e.key === s)?.ajuda}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold capitalize", scope === s ? "bg-brand-600 text-white" : "text-muted hover:text-ink")}
+            >{s}</button>
           ))}
         </div>
         <span className="text-xs text-muted">{visible.length} post(s)</span>

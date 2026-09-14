@@ -27,7 +27,7 @@ export default async function GerencialClientes() {
         </div>
       </div>
 
-      <HubClientes clients={clients} meName={user?.name} canDelete={canDelete} />
+      <HubClientes clients={clients} meName={user?.name} mySquadId={user?.squadId} canDelete={canDelete} />
     </div>
   );
 }

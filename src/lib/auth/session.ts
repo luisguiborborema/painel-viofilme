@@ -47,7 +47,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   // Buscamos o nome do cliente numa query separada, sem ambiguidade.
   const { data: profile } = await db
     .from("profiles")
-    .select("id, full_name, role, client_id, team_role, commercial_role, allowed_sections, avatar_url")
+    .select("id, full_name, role, client_id, team_role, commercial_role, allowed_sections, avatar_url, squad_id")
     .eq("id", userId)
     .maybeSingle();
 
@@ -97,6 +97,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     teamRole: (profile?.team_role as string | null | undefined) ?? null,
     commercialRole:
       (profile?.commercial_role as string | null | undefined) ?? "gestor",
+    squadId: (profile?.squad_id as string | null | undefined) ?? null,
     tier,
     readOnly: tier === "viewer",
     isAdmin: tier === "admin",

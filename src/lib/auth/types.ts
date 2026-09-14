@@ -18,6 +18,8 @@ export type SessionUser = {
   teamRole?: string | null;
   /** Função comercial (sdr/closer/gestor) — define a lente do Dashboard Comercial. */
   commercialRole?: string | null;
+  /** Squad do usuário — filtra o escopo "squad" no Hub e no VioFlux. */
+  squadId?: string | null;
   /** Perfil (tier): admin | gestor | colaborador | viewer. */
   tier?: string | null;
   /** Viewer = somente leitura (bloqueia ações de escrita). */
