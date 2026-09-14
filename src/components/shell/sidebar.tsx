@@ -112,6 +112,7 @@ export function Sidebar({
                 <div key={item.href}>
                   <Link
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                       active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
@@ -128,6 +129,7 @@ export function Sidebar({
                         <Link
                           key={t.href}
                           href={t.href}
+                          aria-current={tActive ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
                             tActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white",
@@ -147,6 +149,7 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
@@ -169,6 +172,7 @@ export function Sidebar({
                 <div key={item.href}>
                   <Link
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
                       active ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
@@ -184,6 +188,7 @@ export function Sidebar({
                         <Link
                           key={t.href}
                           href={t.href}
+                          aria-current={tActive ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
                             tActive ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
@@ -202,6 +207,7 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
                   active ? "bg-brand-500/10 text-brand-600" : "text-ink hover:bg-subtle",
@@ -226,6 +232,7 @@ export function Sidebar({
                         key={item.href}
                         href={item.href}
                         title={item.label}
+                        aria-current={active ? "page" : undefined}
                         className={cn(
                           "group relative flex items-center justify-center rounded-xl p-2.5 transition-colors",
                           active ? "bg-white text-brand-700 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white",
