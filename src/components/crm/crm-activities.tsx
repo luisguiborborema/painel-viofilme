@@ -1281,7 +1281,7 @@ function TaskViewTab({
         <button
           type="button"
           onClick={onDelete}
-          className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+          className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100"
           title="Excluir visão"
         >
           <X className="h-3 w-3" />

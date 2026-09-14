@@ -178,7 +178,7 @@ function TimeTab({ data }: { data: RhData }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.employees.map((e) => (
           <div key={e.id} className="group relative">
-            <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100">
               <button
                 onClick={() => setEditing(e)}
                 className="rounded-lg border border-line bg-surface p-1.5 text-muted shadow-sm hover:bg-subtle hover:text-ink"
@@ -621,7 +621,7 @@ function PdisTab({ data }: { data: RhData }) {
             >
               {(Object.keys(PDI_STATUS) as PdiObjectiveStatus[]).map((k) => <option key={k} value={k}>{PDI_STATUS[k].label}</option>)}
             </select>
-            <button onClick={() => remove(p.id)} disabled={busyId === p.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100" aria-label="Excluir">
+            <button onClick={() => remove(p.id)} disabled={busyId === p.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100" aria-label="Excluir">
               {busyId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             </button>
           </div>
@@ -759,7 +759,7 @@ function AvaliacoesTab({ data }: { data: RhData }) {
             <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium", REVIEW_STATUS[r.status].chip)}>
               {REVIEW_STATUS[r.status].label}
             </span>
-            <button onClick={() => remove(r.id)} disabled={busyId === r.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100" aria-label="Excluir">
+            <button onClick={() => remove(r.id)} disabled={busyId === r.id} className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100" aria-label="Excluir">
               {busyId === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             </button>
           </div>
@@ -885,7 +885,7 @@ function MuralTab({ data }: { data: RhData }) {
               <button
                 onClick={() => remove(a.id)}
                 disabled={busyId === a.id}
-                className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 disabled:opacity-50"
+                className="rounded-lg p-1 text-muted opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
                 aria-label="Excluir comunicado"
               >
                 {busyId === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}

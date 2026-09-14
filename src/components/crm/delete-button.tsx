@@ -15,7 +15,7 @@ export function InlineDelete({ onConfirm }: { onConfirm: () => void }) {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
-        className="rounded p-1 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+        className="rounded p-1 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100"
         title="Excluir"
       >
         <Trash2 className="h-4 w-4" />

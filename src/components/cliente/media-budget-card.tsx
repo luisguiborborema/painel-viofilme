@@ -76,7 +76,7 @@ export function MediaBudgetCard({
         >
           <p className="flex items-center gap-1 text-xl font-bold text-ink">
             {formatNumber(leads)}
-            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100" />
           </p>
           <p className="text-xs text-muted">Leads gerados</p>
         </Link>
@@ -86,7 +86,7 @@ export function MediaBudgetCard({
         >
           <p className="flex items-center gap-1 text-xl font-bold text-ink">
             {formatNumber(conversions)}
-            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100" />
           </p>
           <p className="text-xs text-muted">Conversões</p>
         </Link>

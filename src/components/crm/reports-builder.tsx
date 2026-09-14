@@ -283,7 +283,7 @@ function DashTab({ active, onClick, label, onDelete }: { active: boolean; onClic
     >
       <button type="button" onClick={onClick}>{label}</button>
       {onDelete && (
-        <button type="button" onClick={onDelete} className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100" title="Excluir dashboard">
+        <button type="button" onClick={onDelete} className="rounded p-0.5 text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100" title="Excluir dashboard">
           <Trash2 className="h-3 w-3" />
         </button>
       )}

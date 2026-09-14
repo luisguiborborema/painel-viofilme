@@ -342,7 +342,7 @@ function CommentItem({
           )}
 
           {/* Ações (aparecem no hover) */}
-          <div className="relative mt-1 flex items-center gap-2.5 text-[11px] text-muted opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <div className="relative mt-1 flex items-center gap-2.5 text-[11px] text-muted opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100">
             <button
               onClick={() => setPickerOpen((o) => !o)}
               className="inline-flex items-center gap-1 hover:text-ink"

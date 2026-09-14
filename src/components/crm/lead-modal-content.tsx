@@ -1433,7 +1433,7 @@ function EditableField({
           title="Clique para editar"
         >
           <span className="min-w-0 truncate">{display}</span>
-          <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+          <Pencil className="h-3 w-3 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100" />
         </button>
       )}
     </div>
@@ -2314,7 +2314,7 @@ function AssigneesControl({
         <span key={name} className="group inline-flex items-center gap-1.5 rounded-full bg-subtle py-0.5 pl-0.5 pr-2 text-sm text-ink">
           <Avatar name={name} url={avatarOf(name)} size={22} />
           {name}
-          <button onClick={() => toggle(name)} title="Remover" className="text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100">
+          <button onClick={() => toggle(name)} title="Remover" className="text-muted opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100">
             <X className="h-3 w-3" />
           </button>
         </span>

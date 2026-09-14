@@ -125,13 +125,13 @@ export function PlaybooksApp({ sectors }: { sectors: PlaybookSector[] }) {
                     <span className="truncate text-sm font-semibold text-ink">{s.name}</span>
                     <span className="text-[10px] text-muted">{s.playbooks.length}</span>
                   </button>
-                  <button onClick={() => setEditor({ mode: "create", sectorId: s.id })} className="rounded p-1 text-muted opacity-0 hover:text-brand-600 group-hover:opacity-100" title="Novo playbook">
+                  <button onClick={() => setEditor({ mode: "create", sectorId: s.id })} className="rounded p-1 text-muted opacity-0 hover:text-brand-600 group-hover:opacity-100 focus-visible:opacity-100" title="Novo playbook">
                     <Plus className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => renameSector(s.id, s.name)} className="rounded p-1 text-muted opacity-0 hover:text-ink group-hover:opacity-100" title="Renomear">
+                  <button onClick={() => renameSector(s.id, s.name)} className="rounded p-1 text-muted opacity-0 hover:text-ink group-hover:opacity-100 focus-visible:opacity-100" title="Renomear">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => deleteSector(s.id, s.name)} className="rounded p-1 text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100" title="Excluir setor">
+                  <button onClick={() => deleteSector(s.id, s.name)} className="rounded p-1 text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100" title="Excluir setor">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -366,7 +366,7 @@ function AttachmentsPanel({
               <button
                 onClick={() => remove(a)}
                 disabled={busy}
-                className="absolute right-1.5 top-1.5 rounded-lg bg-surface/90 p-1 text-muted opacity-0 shadow-sm hover:text-rose-500 group-hover:opacity-100 disabled:opacity-60"
+                className="absolute right-1.5 top-1.5 rounded-lg bg-surface/90 p-1 text-muted opacity-0 shadow-sm hover:text-rose-500 group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-60"
                 title="Remover anexo"
               >
                 <Trash2 className="h-3.5 w-3.5" />
