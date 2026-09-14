@@ -39,17 +39,36 @@ export async function enviarParaAssinatura(entrada: EntradaDocumento): Promise<R
     };
   }
 
-  const json: unknown = await res.json().catch(() => null);
+  // Lê como texto primeiro: erro da ZapSign às vezes vem vazio ou em HTML, e
+  // `res.json()` transformaria isso num `null` indistinguível de corpo vazio.
+  const bruto = await res.text().catch(() => "");
+  let json: unknown = null;
+  try {
+    json = bruto ? JSON.parse(bruto) : null;
+  } catch {
+    json = null;
+  }
+
   if (!res.ok) {
-    // A ZapSign devolve o motivo em campos variados; sem isto o usuário vê só
-    // "502" e não descobre que era o PDF inacessível ou o plano sem crédito.
+    // O motivo vem em campos variados — e às vezes por campo do formulário
+    // (`{"url_pdf": ["..."]}`). Sem o status HTTP junto, "recusou: {}" não diz
+    // nada a quem precisa arrumar.
     const o = (json ?? {}) as Record<string, unknown>;
+    const primeiroCampo = Object.entries(o)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join("; ") : String(v)}`)
+      .join(" | ");
     const detalhe =
       (typeof o.error === "string" && o.error) ||
       (typeof o.detail === "string" && o.detail) ||
       (typeof o.message === "string" && o.message) ||
-      JSON.stringify(json ?? {}).slice(0, 300);
-    return { ok: false, status: res.status === 401 ? 401 : 502, erro: `ZapSign recusou: ${detalhe}` };
+      primeiroCampo ||
+      bruto.slice(0, 300) ||
+      "sem corpo na resposta";
+    return {
+      ok: false,
+      status: res.status === 401 || res.status === 403 ? 401 : 502,
+      erro: `ZapSign recusou (HTTP ${res.status}): ${detalhe}`,
+    };
   }
 
   const lido = lerRespostaDocumento(json);
