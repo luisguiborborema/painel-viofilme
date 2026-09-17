@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        // Campanhas foi absorvida pela Gestão à Vista. A página fazia isto com
+        // `redirect()` de dentro do componente, que em contexto de streaming
+        // vira uma meta tag executada pelo navegador: a resposta saía 200 com
+        // corpo vazio e só redirecionava com JS ligado. No roteador, é um 308
+        // de verdade — vale para favorito, link colado e crawler.
+        source: "/gerencial/campanhas",
+        destination: "/gerencial/gestao-a-vista",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
