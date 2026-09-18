@@ -23,7 +23,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 24, não 20: os testes são .ts rodados direto por `node --test`,
+          # que só existe sem flag a partir do 23, e o glob de arquivos do
+          # runner chegou no 22. No 20 o passo falhava com "Could not find
+          # tests/**/*.test.ts" — parecia teste quebrado e era versão.
+          node-version: 24
           cache: npm
 
       - name: Install
