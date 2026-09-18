@@ -46,6 +46,24 @@ bateu no teto de 50.000 linhas e foi cortada?
 Vale rodar de vez em quando, não só antes do ensaio. É o único jeito de
 descobrir que o backup parou **antes** de precisar dele.
 
+O verificador foi exercitado contra arquivos estragados de propósito e pega:
+token de integração que saiu **em claro** em vez de redigido, linha sem `id`
+(que o restore ignoraria em silêncio), arquivo velho demais, tabela que bateu
+no teto de 50.000 linhas e tabelas faltando. Não é checagem decorativa.
+
+### O backup diário rodou mesmo?
+
+O cron passa por `withApiLog`, então cada execução deixa registro. Em
+**Conta → Logs de API** (só admin), filtre pela origem `cron:backup`:
+
+```
+/gerencial/logs?source=cron:backup&days=30
+```
+
+Trinta dias sem linha nenhuma ali significa que o backup parou — e o arquivo
+mais recente no Drive é de antes disso. Esta é a checagem de dois cliques que
+vale fazer no primeiro dia útil do mês.
+
 ## Ensaio completo (faça uma vez, sem pressa)
 
 1. Crie um projeto Supabase novo, vazio — o plano gratuito serve.
