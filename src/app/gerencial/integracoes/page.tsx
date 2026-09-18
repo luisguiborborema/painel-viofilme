@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import {
   AlertTriangle,
   CalendarDays,
@@ -25,6 +26,8 @@ import { getGoogleStatus, getGoogleGrantedScopes } from "@/lib/google/client";
 import { DriveSettings } from "@/components/gerencial/drive-settings";
 import { GoogleCalendarPicker } from "@/components/gerencial/google-calendar-picker";
 import { GoogleDisconnectButton } from "@/components/gerencial/google-disconnect-button";
+import { diagnosticarMeta } from "@/lib/meta/diagnostico";
+import { APP_URL, META_APP_ID } from "@/lib/meta/config";
 
 export const metadata = { title: "Integrações" };
 
@@ -53,6 +56,16 @@ export default async function GerencialIntegracoes({
   const { ok, erro, gok, gerro } = await searchParams;
   const clients = await getClients();
   const configured = isMetaConfigured();
+  // Checagem de pré-requisitos: o que o painel consegue afirmar sozinho antes
+  // de a pessoa gastar tempo na App Review e descobrir o problema lá.
+  const hostAtual = (await headers()).get("host") ?? "";
+  const checksMeta = diagnosticarMeta({
+    appId: META_APP_ID,
+    temSecret: isMetaConfigured() || Boolean(process.env.META_APP_SECRET),
+    appUrl: APP_URL,
+    hostAtual,
+    redirectUri: META_REDIRECT_URI,
+  });
   const googleConfigured = isGoogleConfigured();
   const google = await getGoogleStatus();
   const googleScopes = google.connected ? await getGoogleGrantedScopes() : null;
@@ -220,6 +233,28 @@ export default async function GerencialIntegracoes({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-ink/80">
+            {/* Checagem antes da lista: mostra em qual passo a coisa parou. */}
+            <ul className="mb-4 space-y-2">
+              {checksMeta.map((c) => (
+                <li
+                  key={c.titulo}
+                  className={
+                    c.nivel === "falta"
+                      ? "rounded-xl border border-rose-500/30 bg-rose-500/10 p-3"
+                      : c.nivel === "atencao"
+                        ? "rounded-xl border border-amber-500/30 bg-amber-500/10 p-3"
+                        : "rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3"
+                  }
+                >
+                  <p className="text-xs font-semibold text-ink">
+                    {c.nivel === "ok" ? "✓ " : c.nivel === "atencao" ? "⚠ " : "✕ "}
+                    {c.titulo}
+                  </p>
+                  <p className="mt-0.5 break-words text-xs text-muted">{c.detalhe}</p>
+                </li>
+              ))}
+            </ul>
+
             <ol className="list-decimal space-y-2 pl-5">
               <li>
                 Crie um app <strong>Business</strong> em{" "}
