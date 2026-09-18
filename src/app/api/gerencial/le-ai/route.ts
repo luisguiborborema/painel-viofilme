@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-const KINDS = new Set(["objetivo", "narrativa", "tensao", "pilares", "temas", "datas"]);
+const KINDS = new Set(["objetivo", "narrativa", "tensao", "pilares", "temas", "datas", "roteiro", "legenda"]);
 
 const INSTRUCTION: Record<string, string> = {
   objetivo: "Proponha o objetivo/foco do mês em 1 frase curta e acionável (ex.: 'encher reservas de ter–qui · lançar o novo cardápio'). Responda só com a frase.",
@@ -18,6 +18,15 @@ const INSTRUCTION: Record<string, string> = {
   pilares: "Liste 4 pilares de conteúdo, um por linha, no formato 'Nome do pilar'. Sem numeração, sem descrição, só o nome de cada pilar por linha.",
   temas: "Sugira 6 temas de post alinhados ao briefing, um por linha, curtos. Sem numeração.",
   datas: "Liste as datas comemorativas relevantes para o segmento neste mês, uma por linha no formato 'DD/MM — Nome'. Só datas que fazem sentido para o negócio. Sem numeração.",
+  // Roteiro e legenda são por POST, não por mês: recebem o tema e o formato do
+  // card em `extra`. O pedido é explícito sobre estrutura porque roteiro sem
+  // gancho e sem CTA dá texto bonito que não serve para gravar.
+  roteiro:
+    "Escreva o roteiro deste post. Estruture em GANCHO (primeiros 3 segundos), DESENVOLVIMENTO (as cenas ou os pontos, em tópicos curtos) e CTA. " +
+    "Linguagem falada, do jeito que a pessoa vai gravar — não texto de artigo. Sem emoji, sem hashtag, sem preâmbulo. Responda só com o roteiro.",
+  legenda:
+    "Escreva a legenda deste post para a rede indicada. Primeira linha precisa segurar o leitor sozinha. " +
+    "Curta, na voz da marca, com uma chamada para ação no fim. Até 3 emojis, só se couber. Hashtags no máximo 5, na última linha. Responda só com a legenda.",
 };
 
 type Body = { kind?: string; clientId?: string; extra?: string };

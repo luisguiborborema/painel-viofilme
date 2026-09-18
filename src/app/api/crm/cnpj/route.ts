@@ -5,10 +5,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Consulta automática de CNPJ (casca + fallback manual).
- * Tenta a ReceitaWS pública (sem chave) para pré-preencher razão social,
- * cidade/UF e segmento no cadastro outbound. Qualquer falha/timeout retorna
- * { ok: false } — o SDR preenche na mão, sem travar a tela.
+ * Consulta automática de CNPJ.
+ *
+ * Consulta a ReceitaWS pública (sem chave) para pré-preencher razão social,
+ * cidade/UF e segmento no cadastro outbound. Qualquer falha ou timeout devolve
+ * `{ ok: false }` — o SDR preenche na mão, sem travar a tela.
+ *
+ * `CNPJ_LOOKUP_URL` troca a consulta por um provedor pago, se um dia fizer
+ * falta: a ReceitaWS gratuita limita requisições por minuto, então em rajada de
+ * cadastro ela recusa e a tela volta ao preenchimento manual.
  */
 export async function GET(req: Request) {
   const user = await getSession();

@@ -31,6 +31,7 @@ import {
 import { AlternadorDeVisao, EditorialKanban, type Visao } from "./editorial-kanban";
 import { EditorialTimeline } from "./editorial-timeline";
 import { Card } from "@/components/ui/card";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
   ART_DIRECTIONS,
@@ -273,6 +274,7 @@ export function PostFicha({
   const [roteiro, setRoteiro] = useState(post.description);
   const [legenda, setLegenda] = useState(post.legenda ?? "");
   const [notes, setNotes] = useState(post.notes ?? "");
+  const [iaCampo, setIaCampo] = useState<"roteiro" | "legenda" | null>(null);
   const [shotlist, setShotlist] = useState<EditorialShot[]>(() => post.shotlist ?? []);
   const [refs, setRefs] = useState<EditorialRef[]>(() => post.references ?? []);
   // Upload da postagem final para o Google Drive (pasta do cliente).
@@ -431,6 +433,56 @@ export function PostFicha({
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Escreve roteiro ou legenda com a IA (/api/gerencial/le-ai).
+   *
+   * O botão existia desde sempre e só disparava um alert("em breve") — a rota
+   * já estava pronta, faltavam os dois `kind` e a ligação.
+   *
+   * Nunca substitui trabalho em silêncio: com o campo preenchido, o texto atual
+   * vai junto como base (a IA melhora em vez de inventar outro) e a troca só
+   * acontece depois de confirmar. Campo vazio preenche direto — não há o que
+   * perder.
+   */
+  async function escreverComIA(campo: "roteiro" | "legenda") {
+    const atual = campo === "roteiro" ? roteiro : legenda;
+    if (atual.trim() && !window.confirm(`Substituir o ${campo} que já está escrito?`)) return;
+
+    setIaCampo(campo);
+    try {
+      const contexto = [
+        `Tema do post: ${tema || title || "(sem tema)"}`,
+        `Formato: ${format}`,
+        pillar && `Pilar: ${pillar}`,
+        narrativa && `Narrativa do mês: ${narrativa}`,
+        leLabel && `Mês: ${leLabel}`,
+        campo === "legenda" && roteiro.trim() && `Roteiro já escrito:\n${roteiro.trim()}`,
+        atual.trim() && `Versão atual, para melhorar em vez de recomeçar:\n${atual.trim()}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const res = await fetch("/api/gerencial/le-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: campo, clientId, extra: contexto }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok && j.suggestion) {
+        const texto = String(j.suggestion).trim();
+        if (campo === "roteiro") setRoteiro(texto);
+        else setLegenda(texto);
+        toast("Sugestão aplicada — revise antes de salvar.", "success");
+      } else {
+        toast(j.reason ?? "IA não configurada (falta OPENAI_API_KEY).", "error");
+      }
+    } catch {
+      toast("Não foi possível falar com a IA.", "error");
+    } finally {
+      setIaCampo(null);
+    }
+  }
 
   const clientFirst = clientName.split(" ")[0];
   const clientInitials = clientName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -721,10 +773,12 @@ export function PostFicha({
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Roteiro / copy</p>
                 <button
-                  onClick={() => alert("Ajudar a escrever (IA) — em breve. Vai usar o contexto real do cliente + LEs anteriores via Edge Function.")}
-                  className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 hover:bg-violet-100"
+                  type="button"
+                  disabled={iaCampo !== null}
+                  onClick={() => escreverComIA("roteiro")}
+                  className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 hover:bg-violet-100 disabled:opacity-60"
                 >
-                  ✨ Ajudar a escrever
+                  ✨ {iaCampo === "roteiro" ? "Escrevendo…" : "Ajudar a escrever"}
                 </button>
               </div>
               <textarea
@@ -739,7 +793,17 @@ export function PostFicha({
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Legenda da publicação</p>
-                <span className="text-[11px] font-semibold text-cyan-600">→ usada no agendamento</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-cyan-600">→ usada no agendamento</span>
+                  <button
+                    type="button"
+                    disabled={iaCampo !== null}
+                    onClick={() => escreverComIA("legenda")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 hover:bg-violet-100 disabled:opacity-60"
+                  >
+                    ✨ {iaCampo === "legenda" ? "Escrevendo…" : "Ajudar a escrever"}
+                  </button>
+                </div>
               </div>
               <textarea
                 value={legenda}
