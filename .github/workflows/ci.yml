@@ -29,7 +29,7 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Gates que bloqueiam: os três verdes hoje.
+      # Gates que bloqueiam.
       - name: Lint
         run: npm run lint
 
@@ -38,3 +38,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Os testes só rodavam na mão de quem estava mexendo — 500 casos em 24
+      # arquivos, cobrindo margem de pacote, conciliação bancária, score de
+      # lead, escopo de squad e agenda. Regra quebrada por um refactor passava
+      # pelo CI inteiro sem ninguém notar.
+      - name: Testes
+        run: npm test
