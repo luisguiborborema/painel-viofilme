@@ -114,6 +114,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
       { label: "Painel Executivo", href: "/gerencial/painel-executivo", icon: TrendingUp, section: "visao-geral" },
       { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
+      { label: "Planejamento", href: "/gerencial/financeiro/planejamento", icon: TrendingUp, section: "financeiro" },
       { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
       { label: "Usuários", href: "/gerencial/usuarios", icon: ShieldCheck, adminOnly: true },
