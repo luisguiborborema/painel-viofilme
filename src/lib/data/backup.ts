@@ -46,7 +46,7 @@ export const TABELAS_BACKUP = [
   "account_metrics", "account_transfers", "api_keys", "asaas_subscriptions", "asaas_webhook_events", "audit_events", "bank_entries",
   "bank_statements", "broadcast_recipients", "broadcasts", "budgets", "calendar_events", "campaign_metrics",
   "budget_assumptions", "budget_goals", "budget_reviews", "budget_versions",
-  "campaigns", "client_accesses", "client_contacts", "client_deliverables", "client_documents", "client_goals",
+  "campaigns", "client_accesses", "client_profitability_monthly", "client_contacts", "client_deliverables", "client_documents", "client_goals",
   "client_services", "clients", "collaborators", "commercial_board", "content_posts", "content_requests",
   "crm_capture_forms", "crm_card_layout", "crm_comments", "crm_companies", "crm_contacts", "crm_deal_contacts",
   "crm_document_templates", "crm_documents", "crm_form_fields", "crm_form_submissions", "crm_freeze_reasons", "crm_goals",
@@ -62,7 +62,7 @@ export const TABELAS_BACKUP = [
   "notification_preferences", "nps_config", "nps_surveys", "package_items", "packages", "payments",
   "playbook_sectors", "playbooks", "profiles", "push_subscriptions", "recurring_update_logs", "recurring_updates", "report_sends",
   "rh_announcements", "rh_documents", "rh_pdis", "rh_reviews", "roadmap_blocks", "routine_blocks",
-  "role_params", "routine_templates", "saved_views", "scenarios", "scheduling_links", "service_plans", "services", "squads", "variance_comments",
+  "mrr_movements", "projects", "role_params", "routine_templates", "saved_views", "scenarios", "scheduling_links", "service_plans", "services", "squads", "team_allocations", "variance_comments",
   "suggestions", "task_types", "vioflux_posts", "violaunch_gates", "violaunch_projects", "violaunch_steps",
   "violaunch_substeps", "wa_conversations", "wa_messages",
 ] as const;
