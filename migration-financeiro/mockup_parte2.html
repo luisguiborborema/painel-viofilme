@@ -1,0 +1,673 @@
+<!--
+MOCKUP — Dashboard Financeiro Viofilme · FONTE LEGÍVEL · PARTE 2 de 2
+Acompanha viofilme_dashboard_parte2.md. Escopo desta parte: checklist de implantação (Primeiro uso), Bloco 4 Esta semana, Bloco 5 Panorama, ficha universal, baixa rápida, toast.
+Fora deste arquivo (está no mockup da outra parte): layout base, cabeçalho, faixa "Desde ontem", Blocos 1 a 3.
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Dashboard_Financeiro.html), sem o runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura para layout, cores, espaçamentos, textos e dados de exemplo.
+  Para ver o visual, abra o Design___Dashboard_Financeiro.html original no navegador (não leia o código dele).
+- Os trechos de markup são recortes de uma árvore maior; algumas tags de abertura/fechamento ficam sem par.
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (script no fim do arquivo), que contém estado, dados de exemplo e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos são inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36).
+- Prop "cenario": Operação normal · Tudo em dia · Primeiro uso.
+- Fonte: Instrument Sans.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Dashboard Financeiro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-scroll::-webkit-scrollbar{width:8px}
+.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+
+</head><body>
+
+<!-- ===== recorte 1 ===== -->
+<section aria-label="Implantação" style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 6px; max-width: 620px;">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.015em;">Vamos preparar o financeiro</h2>
+<p style="margin: 0; color: #A6A9B1; font-size: 14px; line-height: 1.5;">Saldo, projeção de caixa, receita e resultado aparecem aqui assim que as contas e as recorrências de receita estiverem cadastradas.</p>
+</div>
+<span style="font-size: 14px; color: #A6A9B1;">2 de 5 concluídos</span>
+</div>
+<div style="height: 6px; border-radius: 3px; background: #2C2F36; overflow: hidden;"><div style="width: 40%; height: 100%; background: {{accent}};"></div></div>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{ setupSteps }}" as="s" hint-placeholder-count="5">
+<li style="display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 10px; background: #191B1F; border: 1px solid #2A2D33;">
+<sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}"><span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(111,211,162,0.16); color: #6FD3A2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span></sc-if>
+<sc-if value="{{ s.todo }}" hint-placeholder-val="{{ true }}"><span style="width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #454852; color: #A6A9B1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; box-sizing: border-box;">{{ s.n }}</span></sc-if>
+<div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+<span style="font-weight: 600; font-size: 14px;">{{ s.t }}</span>
+<span style="font-size: 13px; color: #A6A9B1;">{{ s.d }}</span>
+</div>
+<sc-if value="{{ s.todo }}" hint-placeholder-val="{{ true }}"><button type="button" class="vf-hov" sc-camel-on-click="{{ s.go }}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #33363E; background: #1D1F24; color: #EEEEF0; font-size: 13px; font-weight: 500; cursor: pointer;">Começar</button></sc-if>
+</li>
+</sc-for>
+</ol>
+</section>
+</sc-if>
+
+<sc-if value="{{ notSetup }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 48px;">
+
+<div style="display: flex; flex-direction: column; gap: 20px;">
+
+
+<!-- ===== recorte 2 ===== -->
+<section aria-labelledby="sec-semana" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 id="sec-semana" style="margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.015em;">Esta semana</h2>
+<p style="margin: 0; font-size: 14px; color: #A6A9B1;">Cada entrada e saída de hoje até 24/09, com a ação ao lado.</p>
+</div>
+<div role="group" aria-label="Filtrar direção" style="display: flex; padding: 3px; border-radius: 9px; background: #1A1C20; border: 1px solid #2C2F36;">
+<sc-for list="{{ segs }}" as="sg" hint-placeholder-count="3">
+<button type="button" sc-camel-on-click="{{ sg.pick }}" aria-pressed="{{ sg.on }}" style="height: 32px; padding: 0 14px; border-radius: 6px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: {{ sg.bg }}; color: {{ sg.fg }};">{{ sg.label }}</button>
+</sc-for>
+</div>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: grid; grid-template-columns: 76px 28px minmax(0, 1fr) 150px 100px 130px 150px; gap: 14px; padding: 12px 22px; font-size: 12px; color: #A6A9B1; border-bottom: 1px solid #2A2D33; background: #1A1C20;">
+<span>Data</span><span></span><span>Pessoa e descrição</span><span>Situação</span><span>Conta</span><span style="text-align: right;">Valor</span><span></span>
+</div>
+<ul class="vf-scroll" style="margin: 0; padding: 0; list-style: none; height: 392px; overflow-y: auto;">
+<sc-for list="{{ weekShown }}" as="it" hint-placeholder-count="9">
+<li class="vf-hov" style="display: grid; grid-template-columns: 76px 28px minmax(0, 1fr) 150px 100px 130px 150px; align-items: center; gap: 14px; padding: 0 22px; height: 56px; border-bottom: 1px solid #25282D;">
+<span style="font-size: 13px; font-weight: {{ it.dateWeight }}; color: {{ it.dateColor }};">{{ it.dateLabel }}</span>
+<span aria-label="{{ it.dirLabel }}" style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: {{ it.dirBg }}; color: {{ it.dirColor }};">
+<svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ it.dirRotate }};"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>
+</span>
+<button type="button" sc-camel-on-click="{{ it.open }}" style="min-width: 0; border: none; background: transparent; color: #EEEEF0; text-align: left; padding: 4px 0; cursor: pointer; display: flex; align-items: baseline; gap: 10px;">
+<span style="font-size: 14px; font-weight: 600; white-space: nowrap;">{{ it.pessoa }}</span>
+<span style="font-size: 13px; color: #A6A9B1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ it.desc }}</span>
+</button>
+<span><span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ it.tone }}; background: {{ it.toneBg }}; white-space: nowrap;">{{ it.status }}</span></span>
+<span style="font-size: 13px; color: #A6A9B1;">{{ it.conta }}</span>
+<span style="text-align: right; font-size: 14px; font-weight: 600; color: {{ it.valColor }};">{{ it.valTxt }}</span>
+<button type="button" sc-camel-on-click="{{ it.act }}" style="justify-self: end; height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid #373A43; background: #22252B; color: #EEEEF0; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;">{{ it.actLabel }}</button>
+</li>
+</sc-for>
+<sc-if value="{{ weekEmpty }}" hint-placeholder-val="{{ false }}">
+<li style="padding: 28px 22px; color: #A6A9B1; font-size: 14px;">Nada previsto para esta semana neste filtro.</li>
+</sc-if>
+</ul>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid #2A2D33; background: #1A1C20;">
+<span style="font-size: 13px; color: #A6A9B1;">{{ weekCount }}<span style="display: inline-block; width: 20px;"></span>Entra <span style="color: #6FD3A2; font-weight: 600;">{{ weekIn }}</span><span style="display: inline-block; width: 16px;"></span>Sai <span style="color: #EEEEF0; font-weight: 600;">{{ weekOut }}</span></span>
+<a href="#" style="font-size: 13px; text-decoration: none; font-weight: 500;">Abrir no fluxo de caixa</a>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="sec-pan" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 id="sec-pan" style="margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.015em;">Panorama</h2>
+<p style="margin: 0; font-size: 14px; color: #A6A9B1;">Caixa, receita, resultado e custos em leitura rápida. Passe para o lado para ver cada visão.</p>
+</div>
+<div style="display: flex; align-items: center; gap: 12px;">
+<span style="font-size: 13px; color: #A6A9B1;">{{ slideCounter }}</span>
+<button type="button" class="vf-hov" aria-label="Visão anterior" sc-camel-on-click="{{ prevSlide }}" style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #33363E; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button type="button" class="vf-hov" aria-label="Próxima visão" sc-camel-on-click="{{ nextSlide }}" style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #33363E; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</div>
+<div role="tablist" aria-label="Visões do panorama" style="display: flex; gap: 8px;">
+<sc-for list="{{ slideTabs }}" as="tb" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{ tb.on }}" sc-camel-on-click="{{ tb.pick }}" style="height: 36px; padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid {{ tb.border }}; background: {{ tb.bg }}; color: {{ tb.fg }};">{{ tb.label }}</button>
+</sc-for>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: flex; transform: {{ trackX }}; transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.26, 1);">
+
+<div style="flex: 0 0 100%; box-sizing: border-box; padding: 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 36px;">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<h3 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em;">Caixa nos próximos 30 dias</h3>
+<p style="margin: 0; font-size: 15px; color: #C9CBD1; line-height: 1.5;">O caixa aperta no dia 5, com a folha, mas continua acima da reserva mínima.</p>
+<div style="display: flex; flex-direction: column;">
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Saldo hoje</span><span style="font-weight: 600;">R$ 84.320</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Saldo em 30 dias</span><span style="font-weight: 600;">R$ 116.750</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Menor saldo</span><span style="font-weight: 600; color: #F08A84;">R$ 40.050 em 05/10</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Entradas previstas</span><span style="font-weight: 600; color: #6FD3A2;">R$ 115.100</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0;"><span style="color: #A6A9B1;">Saídas previstas</span><span style="font-weight: 600;">R$ 82.670</span></div>
+</div>
+<p style="margin: 0; font-size: 12px; color: #A6A9B1; line-height: 1.5;">Recebimentos vencidos ficam fora da projeção. Se forem pagos, somam mais R$ 8.450.</p>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goFluxo }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 14px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir fluxo de caixa</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px; justify-content: center;">
+<div style="display: flex; gap: 18px; font-size: 12px; color: #A6A9B1;">
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: {{accent}};"></span>Saldo projetado</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 0; border-top: 2px dashed #EDB866;"></span>Reserva mínima de R$ 30 mil</span>
+</div>
+<div style="position: relative; width: 660px; height: 250px;" sc-camel-on-mouse-leave="{{ clearHover }}">
+<svg width="660" height="250" sc-camel-view-box="0 0 660 250" aria-label="Saldo projetado dia a dia, com menor ponto de R$ 40.050 em 5 de outubro">
+<line x1="48" x2="650" y1="29.5" y2="29.5" stroke="#2A2D33" stroke-width="1"></line>
+<line x1="48" x2="650" y1="91.7" y2="91.7" stroke="#2A2D33" stroke-width="1"></line>
+<line x1="48" x2="650" y1="153.8" y2="153.8" stroke="#2A2D33" stroke-width="1"></line>
+<line x1="48" x2="650" y1="216" y2="216" stroke="#33363E" stroke-width="1"></line>
+<text x="40" y="33.5" text-anchor="end" font-size="11" fill="#A6A9B1">120 mil</text>
+<text x="40" y="95.7" text-anchor="end" font-size="11" fill="#A6A9B1">80 mil</text>
+<text x="40" y="157.8" text-anchor="end" font-size="11" fill="#A6A9B1">40 mil</text>
+<text x="40" y="220" text-anchor="end" font-size="11" fill="#A6A9B1">0</text>
+<line x1="48" x2="650" y1="169.4" y2="169.4" stroke="#EDB866" stroke-width="1.5" stroke-dasharray="5 4"></line>
+<path d="{{ areaPath }}" fill="{{accent}}" fill-opacity="0.09"></path>
+<path d="{{ linePath }}" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"></path>
+<line x1="{{ hoverX }}" x2="{{ hoverX }}" y1="14" y2="216" stroke="#EEEEF0" stroke-opacity="{{ hoverOpacity }}" stroke-width="1"></line>
+<circle cx="{{ hoverX }}" cy="{{ hoverY }}" r="4" fill="#EEEEF0" fill-opacity="{{ hoverOpacity }}"></circle>
+<circle cx="409.2" cy="153.8" r="5" fill="#16171B" stroke="#F08A84" stroke-width="2"></circle>
+<text x="400" y="188" text-anchor="end" font-size="11" font-weight="600" fill="#F08A84">mín. R$ 40.050 em 05/10</text>
+<text x="48" y="238" text-anchor="start" font-size="11" fill="#A6A9B1">17/09</text>
+<text x="188.5" y="238" text-anchor="middle" font-size="11" fill="#A6A9B1">24/09</text>
+<text x="328.9" y="238" text-anchor="middle" font-size="11" fill="#A6A9B1">01/10</text>
+<text x="469.4" y="238" text-anchor="middle" font-size="11" fill="#A6A9B1">08/10</text>
+<text x="609.9" y="238" text-anchor="middle" font-size="11" fill="#A6A9B1">15/10</text>
+</svg>
+<div style="position: absolute; left: 38px; top: 0; width: 622px; height: 222px; display: flex;">
+<sc-for list="{{ days }}" as="dy" hint-placeholder-count="31">
+<div sc-camel-on-mouse-enter="{{ dy.enter }}" style="flex-grow: 1; height: 100%;"></div>
+</sc-for>
+</div>
+<sc-if value="{{ hasHover }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: -6px; left: {{ tipLeft }}px; width: 176px; pointer-events: none; background: #2A2D34; border: 1px solid #3A3D46; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 8px 20px rgba(0,0,0,0.4);">
+<span style="font-size: 12px; color: #A6A9B1;">{{ tipDate }}</span>
+<span style="font-size: 14px; font-weight: 600;">{{ tipVal }}</span>
+<span style="font-size: 12px; color: #C9CBD1; line-height: 1.35;">{{ tipNote }}</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+
+<div style="flex: 0 0 100%; box-sizing: border-box; padding: 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 36px;">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<h3 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em;">Composição da receita de setembro</h3>
+<p style="margin: 0; font-size: 15px; color: #C9CBD1; line-height: 1.5;">81% da receita é recorrente. Audiovisual é o serviço que mais depende de trabalhos pontuais.</p>
+<div style="display: flex; flex-direction: column;">
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Receita do mês</span><span style="font-weight: 600;">R$ 119.000</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Recorrente (MRR)</span><span style="font-weight: 600;">R$ 96.400, 81%</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Pontual</span><span style="font-weight: 600; color: #7FC8F8;">R$ 22.600, 19%</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0;"><span style="color: #A6A9B1;">MRR em 30 dias</span><span style="font-weight: 600; color: #6FD3A2;">+ R$ 4.500</span></div>
+</div>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goReceita }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 14px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir receita</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; height: 16px; border-radius: 8px; overflow: hidden; gap: 2px;"><span style="width: 81%; background: {{accent}};"></span><span style="width: 19%; background: #7FC8F8;"></span></div>
+<div style="display: flex; gap: 22px; font-size: 13px;">
+<span style="display: flex; align-items: center; gap: 8px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}};"></span>Recorrente</span>
+<span style="display: flex; align-items: center; gap: 8px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #7FC8F8;"></span>Pontual</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<span style="font-size: 12px; color: #A6A9B1;">Por serviço</span>
+<sc-for list="{{ services }}" as="sv" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 96px; gap: 14px; align-items: center;">
+<span style="font-size: 14px; color: #C9CBD1;">{{ sv.name }}</span>
+<div style="display: flex; height: 12px; gap: 2px;"><span style="width: {{ sv.wRec }}; background: {{accent}}; border-radius: 2px;"></span><span style="width: {{ sv.wPon }}; background: #7FC8F8; border-radius: 2px;"></span></div>
+<span style="font-size: 14px; font-weight: 600; text-align: right;">{{ sv.total }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid #2A2D33;">
+<span style="font-size: 12px; color: #A6A9B1;">Pontuais do mês</span>
+<sc-for list="{{ pontuais }}" as="pt" hint-placeholder-count="3">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14px;"><span style="color: #C9CBD1;">{{ pt.name }}</span><span style="font-weight: 500;">{{ pt.val }}</span></div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="flex: 0 0 100%; box-sizing: border-box; padding: 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 36px;">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<h3 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em;">Resultado nos últimos 6 meses</h3>
+<p style="margin: 0; font-size: 15px; color: #C9CBD1; line-height: 1.5;">Terceiro mês seguido de alta no resultado. Setembro ainda está em curso.</p>
+<div style="display: flex; flex-direction: column;">
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Resultado de setembro</span><span style="font-weight: 600;">R$ 41.200</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Média dos 6 meses</span><span style="font-weight: 600;">R$ 32.700</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Receita no período</span><span style="font-weight: 600;">R$ 647.400</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0;"><span style="color: #A6A9B1;">Resultado no período</span><span style="font-weight: 600;">R$ 196.200</span></div>
+</div>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goDre }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 14px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir DRE</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px; justify-content: center;">
+<div style="display: flex; gap: 18px; font-size: 12px; color: #A6A9B1;">
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}};"></span>Receita</span>
+<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #4A4E58;"></span>Custos, despesas e impostos</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; align-items: end;">
+<sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch;">
+<div style="height: 220px; display: flex; align-items: flex-end; justify-content: center; gap: 5px;">
+<div style="width: 34px; height: {{ m.hR }}px; border-radius: 3px 3px 0 0; background: {{ m.bgR }};"></div>
+<div style="width: 34px; height: {{ m.hC }}px; border-radius: 3px 3px 0 0; background: #4A4E58;"></div>
+</div>
+<span style="font-size: 12px; color: #A6A9B1; text-align: center;">{{ m.label }}</span>
+<span style="font-size: 14px; font-weight: 600; text-align: center; color: #EEEEF0;">{{ m.res }}</span>
+<span style="font-size: 11px; color: #A6A9B1; text-align: center;">{{ m.margem }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="flex: 0 0 100%; box-sizing: border-box; padding: 28px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 36px;">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<h3 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em;">Para onde vai o dinheiro em setembro</h3>
+<p style="margin: 0; font-size: 15px; color: #C9CBD1; line-height: 1.5;">Equipe de entrega é quase metade de tudo que sai. Softwares estão acima do orçado.</p>
+<div style="display: flex; flex-direction: column;">
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Total do mês</span><span style="font-weight: 600;">R$ 77.800</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Em relação à receita</span><span style="font-weight: 600;">65%</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2A2D33;"><span style="color: #A6A9B1;">Maior grupo</span><span style="font-weight: 600;">Equipe de entrega, 49%</span></div>
+<div style="display: flex; justify-content: space-between; padding: 10px 0;"><span style="color: #A6A9B1;">Acima do orçado</span><span style="font-weight: 600; color: #EDB866;">Softwares, 118%</span></div>
+</div>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goDre }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 14px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir DRE</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 18px; justify-content: center;">
+<sc-for list="{{ gastos }}" as="g" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 44px; gap: 14px; align-items: center;">
+<span style="font-size: 14px; color: #C9CBD1; display: flex; align-items: center; gap: 6px;">{{ g.name }}<sc-if value="{{ g.over }}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 6px; border-radius: 999px; background: rgba(237,184,102,0.14); color: #EDB866; font-size: 10px; font-weight: 600;">118%</span></sc-if></span>
+<div style="height: 12px; border-radius: 3px; background: #25282D;"><div style="width: {{ g.w }}; height: 100%; border-radius: 3px; background: {{ g.bg }};"></div></div>
+<span style="font-size: 14px; font-weight: 600; text-align: right;">{{ g.val }}</span>
+<span style="font-size: 12px; color: #A6A9B1; text-align: right;">{{ g.pct }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+</div>
+</sc-if>
+
+</div>
+</main>
+
+<sc-if value="{{ fichaOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 30; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar ficha" sc-camel-on-click="{{ closeFicha }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Ficha do lançamento" style="position: relative; width: 480px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 24px 26px 18px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<span style="font-size: 13px; color: #A6A9B1;">{{ ficha.kind }}</span>
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeFicha }}" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid #33363E; background: #22252B; color: #EEEEF0; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 22px; font-weight: 600; letter-spacing: -0.015em;">{{ ficha.pessoa }}</span>
+<span style="font-size: 14px; color: #A6A9B1;">{{ ficha.desc }}</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+<span style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: {{ ficha.valColor }};">{{ ficha.valTxt }}</span>
+<span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #EEEEF0; background: #2C2F36;">Aberta</span>
+<span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ ficha.tone }}; background: {{ ficha.toneBg }};">{{ ficha.status }}</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; background: #191B1F; font-size: 13px; color: #C9CBD1;">
+<svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A6A9B1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"></path></svg>
+<span>{{ ficha.origem }}</span>
+</div>
+</div>
+<div style="flex-grow: 1; overflow: auto; padding: 20px 26px; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Vencimento</span><span style="font-weight: 500;">{{ ficha.venc }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Competência</span><span style="font-weight: 500;">{{ ficha.comp }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Parcela</span><span style="font-weight: 500;">{{ ficha.parcela }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Conta prevista</span><span style="font-weight: 500;">{{ ficha.conta }}</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Itens</h3>
+<sc-for list="{{ ficha.itens }}" as="fi" hint-placeholder-count="2">
+<div style="display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+<span style="font-weight: 500;">{{ fi.cat }}</span>
+<span style="font-size: 12px; color: #A6A9B1; line-height: 1.45;">{{ fi.dims }}</span>
+</div>
+<span style="font-weight: 600; white-space: nowrap;">{{ fi.val }}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ ficha.hasCob }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Cobrança</h3>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36;">
+<span style="font-size: 13px; color: #C9CBD1; line-height: 1.45;">{{ ficha.cob }}</span>
+<button type="button" sc-camel-on-click="{{ copiar }}" style="flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid #373A43; background: #22252B; color: #EEEEF0; font-size: 12px; cursor: pointer;">Copiar link</button>
+</div>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Histórico</h3>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px;">
+<sc-for list="{{ ficha.hist }}" as="h" hint-placeholder-count="3">
+<li style="display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; font-size: 13px;">
+<span style="color: #A6A9B1;">{{ h.d }}</span>
+<span style="color: #C9CBD1; line-height: 1.45;">{{ h.t }}</span>
+</li>
+</sc-for>
+</ol>
+</div>
+</div>
+<div style="padding: 16px 26px; border-top: 1px solid #2A2D33; display: flex; gap: 10px; align-items: center;">
+<button type="button" sc-camel-on-click="{{ ficha.primary }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ ficha.primaryLabel }}</button>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ ficha.secondary }}" style="height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid #33363E; background: #22252B; color: #EEEEF0; font-size: 14px; font-weight: 500; cursor: pointer;">{{ ficha.secondaryLabel }}</button>
+<button type="button" class="vf-link" sc-camel-on-click="{{ cancelar }}" style="margin-left: auto; height: 42px; padding: 0 8px; border: none; background: transparent; color: #A6A9B1; font-size: 13px; cursor: pointer;">Cancelar parcela</button>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ baixaOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: center;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeBaixa }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<div role="dialog" aria-label="{{ baixa.title }}" style="position: relative; width: 460px; box-sizing: border-box; background: #1F2126; border: 1px solid #373A43; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.55);">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 style="margin: 0; font-size: 19px; font-weight: 600;">{{ baixa.title }}</h2>
+<span style="font-size: 13px; color: #A6A9B1;">{{ baixa.sub }}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Data
+<input type="date" value="{{ fData }}" sc-camel-on-change="{{ onData }}" style="height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit; color-scheme: dark;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Valor
+<input type="text" value="{{ fValor }}" sc-camel-on-change="{{ onValor }}" style="height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit;"></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Conta
+<sc-raw-select value="{{ fConta }}" sc-camel-on-change="{{ onConta }}" style="height: 40px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit;">
+<option value="Inter">Inter</option>
+<option value="Asaas">Asaas</option>
+<option value="Sicoob">Sicoob</option>
+</sc-raw-select></label>
+<button type="button" class="vf-link" sc-camel-on-click="{{ toggleExtras }}" aria-expanded="{{ extras }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer; padding: 0;">{{ extrasLabel }}</button>
+<sc-if value="{{ extras }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Juros<input type="text" placeholder="0,00" style="height: 38px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Multa<input type="text" placeholder="0,00" style="height: 38px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #A6A9B1;">Desconto<input type="text" placeholder="0,00" style="height: 38px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; font-family: inherit;"></label>
+</div>
+</sc-if>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ anexar }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border-radius: 8px; border: 1px dashed #454852; background: transparent; color: #A6A9B1; font-size: 13px; cursor: pointer;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7L14 5.5a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4L15.5 8.6"></path></svg>Anexar comprovante (opcional)</button>
+<div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px;">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ closeBaixa }}" style="height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid #33363E; background: #22252B; color: #EEEEF0; font-size: 14px; cursor: pointer;">Voltar</button>
+<button type="button" sc-camel-on-click="{{ confirmar }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ baixa.confirm }}</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 50; max-width: 640px; background: #EEEEF0; color: #16171B; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+
+<!-- ===== LÓGICA E DADOS DE EXEMPLO (comum às duas partes) ===== -->
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;cenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Operação normal&quot;,&quot;Tudo em dia&quot;,&quot;Primeiro uso&quot;],&quot;default&quot;:&quot;Operação normal&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A99BFF&quot;,&quot;options&quot;:[&quot;#A99BFF&quot;,&quot;#F2A97E&quot;,&quot;#9ADFB5&quot;,&quot;#E8D27A&quot;]},&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:2600}}">
+class Component extends DCLogic {
+  constructor(...a) {
+    super(...a);
+    this.state = { filtro: 'todas', showInfo: false, saldoOpen: false, novoOpen: false, fichaId: null, baixaId: null, extras: false, paid: [], sent: [], silenced: [], toast: null, hover: -1, slide: 0, expIn: false, expOut: false, fData: '2026-09-17', fValor: '', fConta: 'Inter' };
+  }
+  money(n) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  money0(n) { return 'R$ ' + Math.round(n).toLocaleString('pt-BR'); }
+  mil(n) { return 'R$ ' + (n / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mil'; }
+  say(msg) {
+    this.setState({ toast: msg, novoOpen: false });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  items() {
+    return [
+      { id: 1, dateLabel: 'Hoje', today: true, dir: 'out', pessoa: 'Adobe', desc: 'Creative Cloud, equipe de criação', valor: 449.90, status: 'Programado', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Gerado pela recorrência “Adobe — Creative Cloud”', itens: [{ cat: 'Softwares › Criação', dims: 'Centro de custo Entrega, cliente Operação geral', val: 449.90 }], cob: null, hist: [{ d: '12/09', t: 'Pagamento programado para 17/09 por Iago Lima' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 2, dateLabel: 'Hoje', today: true, dir: 'out', pessoa: 'Google', desc: 'Workspace, 14 licenças', valor: 370.10, status: 'Sem programação', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Não definida', origem: 'Gerado pela recorrência “Google — Workspace”', itens: [{ cat: 'Softwares › Produtividade', dims: 'Centro de custo Administrativo', val: 370.10 }], cob: null, hist: [{ d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 3, dateLabel: 'Hoje', today: true, dir: 'in', pessoa: 'Clínica Vitta', desc: 'Mensalidade setembro', valor: 4800, status: 'Cobrança enviada', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “Clínica Vitta — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3200 }, { cat: 'Receita › Mensalidades', dims: 'Serviço Tráfego pago, centro de custo Entrega', val: 1600 }], cob: 'PIX e boleto via Asaas. Enviada em 12/09, visualizada pelo cliente em 15/09.', hist: [{ d: '15/09', t: 'Cliente abriu a cobrança (Asaas)' }, { d: '12/09', t: 'Cobrança enviada automaticamente, 5 dias antes do vencimento' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 4, dateLabel: 'Amanhã', today: false, dir: 'out', pessoa: 'Imobiliária Praia Mar', desc: 'Aluguel do escritório, setembro', valor: 4200, status: 'Programado', venc: '18/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Gerado pela recorrência “Aluguel escritório”', itens: [{ cat: 'Estrutura › Aluguel', dims: 'Centro de custo Administrativo', val: 4200 }], cob: null, hist: [{ d: '10/09', t: 'Pagamento programado para 18/09 por Iago Lima' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 5, dateLabel: 'Amanhã', today: false, dir: 'out', pessoa: 'EDP', desc: 'Energia elétrica, agosto', valor: 300, status: 'Programado', venc: '18/09/2026', comp: 'Agosto 2026', parcela: 'Única', conta: 'Inter', origem: 'Criado manualmente por Iago Lima em 05/09', itens: [{ cat: 'Estrutura › Energia', dims: 'Centro de custo Administrativo', val: 300 }], cob: null, hist: [{ d: '05/09', t: 'Criado manualmente, conta anexada' }] },
+      { id: 6, dateLabel: 'Seg 21', today: false, dir: 'in', pessoa: 'Grupo Orla', desc: 'Vídeo institucional, parcela 2 de 3', valor: 6000, status: 'Sem cobrança', venc: '21/09/2026', comp: 'Setembro 2026', parcela: '2 de 3', conta: 'Asaas', origem: 'Criado manualmente por Iago Lima em 04/08', itens: [{ cat: 'Receita › Projetos', dims: 'Serviço Audiovisual, projeto Vídeo institucional 2026', val: 6000 }], cob: null, hist: [{ d: '21/08', t: 'Parcela 1 de 3 recebida' }, { d: '04/08', t: 'Título criado em 3 parcelas de R$ 6.000' }] },
+      { id: 7, dateLabel: 'Ter 22', today: false, dir: 'in', pessoa: 'BNEX', desc: 'Mensalidade setembro', valor: 3300, status: 'Sem cobrança', venc: '22/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “BNEX — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3300 }], cob: null, hist: [{ d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 8, dateLabel: 'Qua 23', today: false, dir: 'out', pessoa: 'Marina Costa', desc: 'Edição de vídeo, freelancer', valor: 1200, status: 'Programado', venc: '23/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Veio da Operação, solicitação de freelancer nº 214', itens: [{ cat: 'Custos diretos › Freelancers', dims: 'Cliente Restaurante Sabor do Mar, serviço Audiovisual, centro de custo Entrega', val: 1200 }], cob: null, hist: [{ d: '15/09', t: 'Aprovado e programado por Iago Lima' }, { d: '14/09', t: 'Criado a partir da solicitação da Operação' }] },
+      { id: 9, dateLabel: 'Qui 24', today: false, dir: 'in', pessoa: 'APTO', desc: 'Mensalidade setembro', valor: 4500, status: 'Cobrança enviada', venc: '24/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “APTO — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3000 }, { cat: 'Receita › Mensalidades', dims: 'Serviço Tráfego pago, centro de custo Entrega', val: 1500 }], cob: 'PIX e boleto via Asaas. Enviada em 17/09, ainda não visualizada.', hist: [{ d: '17/09', t: 'Cobrança enviada automaticamente, 5 dias antes do vencimento' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] }
+    ];
+  }
+  tones(status) {
+    if (status === 'Programado') return ['#86B4F7', 'rgba(134,180,247,0.13)'];
+    if (status === 'Cobrança enviada') return ['#6FD3A2', 'rgba(111,211,162,0.13)'];
+    if (status === 'Sem cobrança') return ['#EDB866', 'rgba(237,184,102,0.14)'];
+    return ['#A6A9B1', 'rgba(166,169,177,0.14)'];
+  }
+  strip(past, future, color) {
+    const all = past.concat(future);
+    const max = Math.max.apply(null, all);
+    return all.map((v, i) => {
+      const fut = i >= past.length;
+      const h = v > 0 ? Math.max(6, Math.round(v / max * 62)) : 2;
+      return {
+        h: String(h),
+        bg: v === 0 ? '#33363E' : (fut ? 'transparent' : color),
+        border: v > 0 && fut ? '1.5px solid ' + color : 'none',
+        colBg: i === past.length ? '#262930' : 'transparent'
+      };
+    });
+  }
+  renderVals() {
+    const s = this.state;
+    const accent = this.props.accent ?? '#A99BFF';
+    const cenario = this.props.cenario ?? 'Operação normal';
+    const isSetup = cenario === 'Primeiro uso';
+    const clear = cenario === 'Tudo em dia';
+
+    const all = this.items().filter((it) => !s.paid.includes(it.id)).map((raw) => {
+      const it = Object.assign({}, raw);
+      if (s.sent.includes(it.id)) { it.status = 'Cobrança enviada'; it.cob = 'PIX e boleto via Asaas. Enviada agora, ainda não visualizada.'; }
+      const tn = this.tones(it.status);
+      const isIn = it.dir === 'in';
+      const semCob = isIn && it.status === 'Sem cobrança';
+      return Object.assign(it, {
+        tone: tn[0], toneBg: tn[1],
+        dirLabel: isIn ? 'Entrada' : 'Saída',
+        dirBg: isIn ? 'rgba(111,211,162,0.14)' : 'rgba(166,169,177,0.14)',
+        dirColor: isIn ? '#6FD3A2' : '#C9CBD1',
+        dirRotate: isIn ? 'none' : 'rotate(180deg)',
+        dateWeight: it.today ? '600' : '400',
+        dateColor: it.today ? '#EEEEF0' : '#A6A9B1',
+        valTxt: (isIn ? '+ ' : '− ') + this.money(it.valor),
+        valColor: isIn ? '#6FD3A2' : '#EEEEF0',
+        actLabel: semCob ? 'Enviar cobrança' : (isIn ? 'Registrar recebimento' : 'Registrar pagamento'),
+        act: semCob ? () => this.enviar(it.id, it.pessoa) : () => this.abrirBaixa(it),
+        open: () => this.setState({ fichaId: it.id, novoOpen: false, saldoOpen: false })
+      });
+    });
+
+    const weekShown = all.filter((it) => s.filtro === 'todas' || (s.filtro === 'in' ? it.dir === 'in' : it.dir === 'out'));
+    const sumIn = weekShown.filter((i) => i.dir === 'in').reduce((a, b) => a + b.valor, 0);
+    const sumOut = weekShown.filter((i) => i.dir === 'out').reduce((a, b) => a + b.valor, 0);
+    const segs = [['todas', 'Todas'], ['in', 'Entradas'], ['out', 'Saídas']].map(([k, label]) => ({
+      label, on: s.filtro === k,
+      bg: s.filtro === k ? '#2C2F36' : 'transparent',
+      fg: s.filtro === k ? '#EEEEF0' : '#A6A9B1',
+      pick: () => this.setState({ filtro: k })
+    }));
+
+    const red = ['#F08A84', 'rgba(240,138,132,0.14)'];
+    const amber = ['#EDB866', 'rgba(237,184,102,0.14)'];
+    const nav = (dest) => () => this.say('Abriria ' + dest + ', com o filtro já aplicado');
+    let mainAlerts = [
+      { color: red[0], bg: red[1], sev: 'Crítico', title: 'R$ 1.850 em pagamento vencido', detail: 'Lucas Prado, freelancer de captação. Venceu há 2 dias', dest: 'Pagamentos, vencidos' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: 'R$ 8.450 em recebimentos vencidos', detail: '3 clientes. O mais antigo é Atlas Engenharia, há 12 dias', dest: 'Recebimentos, vencidos' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: 'R$ 5.320 vencem hoje e amanhã', detail: '4 contas a pagar, 1 ainda sem programação', dest: 'Pagamentos, hoje e amanhã' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: s.sent.length ? (2 - s.sent.length) + ' cobrança não enviada' : '2 cobranças não enviadas', detail: 'Grupo Orla e BNEX, vencem até 22/09', dest: 'Recebimentos, emitir cobranças' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: '17 movimentações não conciliadas', detail: 'Inter e Asaas. A mais antiga é de 9 dias atrás', dest: 'Caixa, conciliação' }
+    ].filter((a, i) => !(i === 3 && s.sent.length >= 2)).map((a) => Object.assign(a, { go: nav(a.dest) }));
+    let infos = [
+      { id: 'sicoob', title: 'Extrato do Sicoob sem importação há 8 dias', detail: 'Último arquivo em 09/09', dest: 'Importar extrato' },
+      { id: 'fech', title: 'Fechamento de agosto pendente', detail: '3 itens no checklist', dest: 'Abrir checklist' },
+      { id: 'orc', title: 'Softwares em 118% do orçado', detail: 'R$ 9.440 de R$ 8.000 no mês', dest: 'Ver orçamento' },
+      { id: 'reaj', title: '2 reajustes nos próximos 30 dias', detail: 'APTO em 01/10 e Clínica Vitta em 15/10', dest: 'Ver recorrências' }
+    ].filter((f) => !s.silenced.includes(f.id)).map((f) => Object.assign(f, {
+      go: nav(f.dest.toLowerCase()),
+      silence: () => { this.setState({ silenced: s.silenced.concat([f.id]) }); this.say('Aviso silenciado por 7 dias'); }
+    }));
+    if (clear) { mainAlerts = []; infos = []; }
+
+    const vals = [86450, 81950, 81950, 81950, 87950, 91250, 90050, 94550, 102350, 102350, 102350, 98750, 98750, 93550, 105550, 103450, 103450, 103450, 40050, 44550, 53350, 59850, 59850, 69050, 69050, 69050, 82250, 90450, 106650, 112350, 116750];
+    const notes = { 0: 'Clínica Vitta + R$ 4.800. Adobe, Google e Lucas Prado (vencido) − R$ 2.670', 1: 'Aluguel e energia − R$ 4.500', 4: 'Grupo Orla, parcela 2 de 3 + R$ 6.000', 5: 'BNEX + R$ 3.300', 6: 'Marina Costa − R$ 1.200', 7: 'APTO + R$ 4.500', 8: 'Restaurante Sabor do Mar + R$ 7.800', 11: 'Softwares e ferramentas − R$ 3.600', 13: 'DAS do Simples − R$ 5.200', 14: '4 mensalidades + R$ 12.000', 15: 'Contabilidade e internet − R$ 2.100', 18: 'Folha, pró-labore e encargos − R$ 63.400', 19: 'Atlas Engenharia + R$ 4.500', 20: '2 mensalidades + R$ 8.800', 21: 'BNEX, projeto + R$ 6.500', 23: '3 mensalidades + R$ 9.200', 26: 'Grupo Orla 3 de 3 e mensalidades + R$ 13.200', 27: 'Mensalidades + R$ 8.200', 28: 'Mensalidades + R$ 16.200', 29: 'Mensalidades + R$ 5.700', 30: 'Mensalidades + R$ 4.400' };
+    const dayNames = ['qui', 'sex', 'sáb', 'dom', 'seg', 'ter', 'qua'];
+    const X = (i) => 48 + i * (602 / 30);
+    const Y = (v) => 14 + 202 * (1 - v / 130000);
+    const pts = vals.map((v, i) => X(i).toFixed(1) + ' ' + Y(v).toFixed(1));
+    const linePath = 'M ' + pts.join(' L ');
+    const areaPath = linePath + ' L ' + X(30).toFixed(1) + ' 216 L 48 216 Z';
+    const dateOf = (i) => { const d = new Date(2026, 8, 17 + i); return dayNames[i % 7] + ', ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+    const days = vals.map((v, i) => ({ enter: () => { if (this.state.hover !== i) this.setState({ hover: i }); } }));
+    const h = s.hover;
+    const hasHover = h >= 0;
+
+    const stripIn = this.strip([0, 5200, 0, 0, 8800, 3200, 4400], [4800, 0, 0, 0, 6000, 3300, 0, 4500], '#6FD3A2');
+    const stripOut = this.strip([1200, 0, 3400, 0, 2870, 0, 2400], [820, 4500, 0, 0, 0, 0, 1200, 0], '#86B4F7');
+    const agingRaw = [['1–7 d', 3150], ['8–15 d', 5300], ['16–30 d', 0], ['31–60 d', 0], ['60+ d', 0]];
+    const aging = agingRaw.map(([label, v]) => ({
+      label, v: v ? this.mil(v) : '—',
+      h: String(v ? Math.max(6, Math.round(v / 5300 * 46)) : 2),
+      bg: v ? '#F08A84' : '#33363E',
+      vColor: v ? '#EEEEF0' : '#6E727B'
+    }));
+
+    const svc = [['Social Media', 52800, 0], ['Tráfego pago', 31200, 0], ['Audiovisual', 12400, 14600], ['Projetos e consultoria', 0, 8000]];
+    const maxSvc = 52800;
+    const services = svc.map(([name, r, p]) => ({ name, wRec: (r / maxSvc * 100).toFixed(1) + '%', wPon: (p / maxSvc * 100).toFixed(1) + '%', total: this.money0(r + p) }));
+    const pontuais = [
+      { name: 'Restaurante Sabor do Mar, campanha de verão', val: 'R$ 8.600' },
+      { name: 'Atlas Engenharia, consultoria de marca', val: 'R$ 8.000' },
+      { name: 'Grupo Orla, vídeo institucional (2 de 3)', val: 'R$ 6.000' }
+    ];
+    const mData = [['abr', 98500, 71200], ['mai', 104200, 73900], ['jun', 101800, 76400], ['jul', 109600, 74100], ['ago', 114300, 77800], ['set', 119000, 77800]];
+    const months = mData.map(([label, r, c], i) => {
+      const cur = i === mData.length - 1;
+      return {
+        label: cur ? 'set, em curso' : label,
+        hR: String(Math.round(r / 130000 * 220)), hC: String(Math.round(c / 130000 * 220)),
+        bgR: cur ? 'repeating-linear-gradient(135deg, ' + accent + ' 0 4px, #5A5480 4px 7px)' : accent,
+        res: this.mil(r - c),
+        margem: Math.round((r - c) / r * 100) + '% da receita'
+      };
+    });
+    const gRaw = [['Equipe de entrega', 38400, false], ['Pró-labore e administrativo', 9320, false], ['Softwares', 9440, true], ['Estrutura', 7600, false], ['Impostos sobre receita', 7140, false], ['Freelancers e produção', 5900, false]];
+    const gastos = gRaw.sort((a, b) => b[1] - a[1]).map(([name, v, over]) => ({
+      name, over, val: this.money0(v), pct: Math.round(v / 77800 * 100) + '%',
+      w: (v / 38400 * 100).toFixed(1) + '%',
+      bg: over ? '#EDB866' : '#8F93A0'
+    }));
+
+    const slideTabs = ['Caixa em 30 dias', 'Composição da receita', 'Resultado em 6 meses', 'Para onde vai o dinheiro'].map((label, i) => ({
+      label, on: s.slide === i,
+      bg: s.slide === i ? '#2C2F36' : 'transparent',
+      fg: s.slide === i ? '#EEEEF0' : '#A6A9B1',
+      border: s.slide === i ? '#3A3D46' : '#2C2F36',
+      pick: () => this.setState({ slide: i, hover: -1 })
+    }));
+    const fichaRaw = all.find((i) => i.id === s.fichaId);
+    let ficha = null;
+    if (fichaRaw) {
+      const isIn = fichaRaw.dir === 'in';
+      const semCob = isIn && fichaRaw.status === 'Sem cobrança';
+      ficha = Object.assign({}, fichaRaw, {
+        kind: isIn ? 'Conta a receber' : 'Conta a pagar',
+        itens: fichaRaw.itens.map((x) => ({ cat: x.cat, dims: x.dims, val: this.money(x.val) })),
+        hasCob: !!fichaRaw.cob,
+        primaryLabel: isIn ? 'Registrar recebimento' : 'Registrar pagamento',
+        primary: () => this.abrirBaixa(fichaRaw),
+        secondaryLabel: isIn ? (semCob ? 'Enviar cobrança' : 'Reenviar cobrança') : (fichaRaw.status === 'Programado' ? 'Reprogramar' : 'Programar pagamento'),
+        secondary: isIn ? () => this.enviar(fichaRaw.id, fichaRaw.pessoa) : () => this.say('Abriria a programação de pagamento')
+      });
+    }
+    const baixaRaw = this.items().find((i) => i.id === s.baixaId);
+    const baixa = baixaRaw ? {
+      title: baixaRaw.dir === 'in' ? 'Registrar recebimento' : 'Registrar pagamento',
+      sub: baixaRaw.pessoa + ', ' + baixaRaw.desc.toLowerCase() + '. Saldo de ' + this.money(baixaRaw.valor),
+      confirm: baixaRaw.dir === 'in' ? 'Confirmar recebimento' : 'Confirmar pagamento'
+    } : { title: '', sub: '', confirm: '' };
+
+    const setupSteps = [
+      { t: 'Cadastrar contas financeiras e saldo inicial', d: 'Base de todo saldo e de toda projeção', done: true },
+      { t: 'Revisar o plano de categorias', d: 'Já vem com o padrão de agência carregado', done: true },
+      { t: 'Cadastrar clientes e fornecedores', d: 'Manualmente ou por importação de CSV', done: false },
+      { t: 'Criar as recorrências de receita', d: 'Os contratos atuais. Liberam MRR e projeção de caixa', done: false },
+      { t: 'Criar as recorrências de despesa', d: 'Folha, aluguel, softwares e o que mais se repete', done: false }
+    ].map((st, i) => Object.assign(st, { n: String(i + 1), todo: !st.done, go: () => this.say('Abriria: ' + st.t.toLowerCase()) }));
+
+    return {
+      accent, isSetup, notSetup: !isSetup,
+      novoOpen: s.novoOpen, toggleNovo: () => this.setState({ novoOpen: !s.novoOpen, saldoOpen: false }),
+      novoReceita: () => this.say('Abriria o formulário de nova receita'),
+      novoDespesa: () => this.say('Abriria o formulário de nova despesa'),
+      novoTransf: () => this.say('Abriria o formulário de transferência entre contas'),
+      importar: () => this.say('Abriria a importação de extrato (OFX ou CSV)'),
+      abrirDesde: () => this.say('Abriria o extrato filtrado desde ontem'),
+      setupSteps,
+      allClear: mainAlerts.length === 0, hasAlerts: mainAlerts.length > 0,
+      alertCount: String(mainAlerts.length), mainAlerts,
+      hasInfos: infos.length > 0, infos, showInfo: s.showInfo,
+      infoLabel: s.showInfo ? 'Ocultar avisos' : (infos.length === 1 ? '1 aviso' : infos.length + ' avisos'),
+      infoChevron: s.showInfo ? 'rotate(90deg)' : 'none',
+      toggleInfo: () => this.setState({ showInfo: !s.showInfo }),
+      saldoOpen: s.saldoOpen, toggleSaldo: () => this.setState({ saldoOpen: !s.saldoOpen, novoOpen: false }),
+      goFluxo: nav('Caixa, fluxo de caixa'), goDre: nav('Resultados, DRE de setembro'), goReceita: nav('Resultados, receita'),
+      goReceb: nav('Recebimentos, setembro'), goPag: nav('Pagamentos, setembro'),
+      expIn: s.expIn, expOut: s.expOut,
+      toggleIn: () => this.setState({ expIn: !s.expIn }), toggleOut: () => this.setState({ expOut: !s.expOut }),
+      lblIn: s.expIn ? 'Ocultar composição' : 'Ver composição dos recebimentos',
+      lblOut: s.expOut ? 'Ocultar composição' : 'Ver composição dos pagamentos',
+      chevIn: s.expIn ? 'rotate(180deg)' : 'none', chevOut: s.expOut ? 'rotate(180deg)' : 'none',
+      slideTabs, trackX: 'translateX(-' + (s.slide * 100) + '%)', slideCounter: (s.slide + 1) + ' de 4',
+      prevSlide: () => this.setState({ slide: (s.slide + 3) % 4, hover: -1 }),
+      nextSlide: () => this.setState({ slide: (s.slide + 1) % 4, hover: -1 }),
+      stripIn, stripOut, aging, services, pontuais, months, gastos,
+      segs, weekShown, weekEmpty: weekShown.length === 0,
+      weekCount: weekShown.length === 1 ? '1 lançamento' : weekShown.length + ' lançamentos',
+      weekIn: this.money0(sumIn), weekOut: this.money0(sumOut),
+      linePath, areaPath, days, clearHover: () => this.setState({ hover: -1 }),
+      hasHover, hoverX: hasHover ? X(h).toFixed(1) : '48', hoverY: hasHover ? Y(vals[h]).toFixed(1) : '216', hoverOpacity: hasHover ? '0.6' : '0',
+      tipLeft: hasHover ? String(Math.max(0, Math.min(484, X(h) - 88))) : '0',
+      tipDate: hasHover ? dateOf(h) : '', tipVal: hasHover ? this.money0(vals[h]) : '', tipNote: hasHover ? (notes[h] || 'Sem movimentações previstas') : '',
+      fichaOpen: !!ficha, ficha: ficha || { itens: [], hist: [] }, closeFicha: () => this.setState({ fichaId: null }),
+      copiar: () => this.say('Link da cobrança copiado'),
+      cancelar: () => this.say('Pediria o motivo do cancelamento antes de cancelar'),
+      baixaOpen: !!baixaRaw, baixa, closeBaixa: () => this.setState({ baixaId: null, extras: false }),
+      fData: s.fData, fValor: s.fValor, fConta: s.fConta,
+      onData: (e) => this.setState({ fData: e.target.value }),
+      onValor: (e) => this.setState({ fValor: e.target.value }),
+      onConta: (e) => this.setState({ fConta: e.target.value }),
+      extras: s.extras, extrasLabel: s.extras ? 'Remover juros, multa ou desconto' : 'Adicionar juros, multa ou desconto',
+      toggleExtras: () => this.setState({ extras: !s.extras }),
+      anexar: () => this.say('Abriria o seletor de arquivo'),
+      confirmar: () => this.confirmar(),
+      hasToast: !!s.toast, toast: s.toast || ''
+    };
+  }
+  abrirBaixa(it) {
+    this.setState({ baixaId: it.id, fData: '2026-09-17', fValor: it.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), fConta: it.conta === 'Não definida' ? 'Inter' : it.conta, extras: false, novoOpen: false });
+  }
+  enviar(id, pessoa) {
+    if (!this.state.sent.includes(id)) this.setState({ sent: this.state.sent.concat([id]) });
+    this.say('Cobrança enviada para ' + pessoa + ' via Asaas');
+  }
+  confirmar() {
+    const it = this.items().find((i) => i.id === this.state.baixaId);
+    if (!it) return;
+    const isIn = it.dir === 'in';
+    this.setState({ paid: this.state.paid.concat([it.id]), baixaId: null, fichaId: null, extras: false });
+    this.say((isIn ? 'Recebimento registrado: ' : 'Pagamento registrado: ') + it.pessoa + ', ' + this.money(it.valor) + '. Aguardando confirmação no extrato ' + this.state.fConta);
+  }
+}
+</script>
+</body></html>

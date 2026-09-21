@@ -1,0 +1,481 @@
+<!--
+MOCKUP — Recebimentos (Financeiro Viofilme) · FONTE LEGÍVEL · ARQUIVO 2 de 3
+Painéis e overlays: drawers, fichas, modais e toast (Ficha da conta a receber, Ficha do cliente, Ficha da recorrência, Nova receita).
+Arquivos desta página: mockup_recebimentos_1_pagina.html · mockup_recebimentos_2_paineis.html · mockup_recebimentos_3_logica.js
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Recebimentos.html), sem runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura (layout, cores, espaçamentos, textos).
+  Para ver o visual, abra Design___Recebimentos.html no navegador, mas NÃO leia o código dele (~319 KB em base64, estoura o contexto).
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (arquivo _3_logica.js), que tem estado, dados de exemplo, derivações e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36). Fonte: Instrument Sans.
+- Os recortes de markup vêm de uma árvore maior; algumas tags ficam sem par.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Recebimentos</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button,input,select,textarea{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-row:hover{background:#1F2227 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-in{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #373A43;background:#16171B;color:#EEEEF0;font-size:14px;width:100%;color-scheme:dark}
+.vf-in:focus{outline:2px solid #6B5FD0;outline-offset:0;border-color:#6B5FD0}
+.vf-btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid #33363E;background:#22252B;color:#EEEEF0;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vf-btn:hover{background:#2A2D34}
+.vf-lbl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#A6A9B1}
+.vf-scroll::-webkit-scrollbar{width:8px}.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+</head><body>
+<aside aria-label="Ficha da conta a receber" style="position: relative; width: {{ fichaW }}; max-width: 100%; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<span style="font-size: 13px; color: #A6A9B1;">Conta a receber</span>
+<span style="display: flex; gap: 6px;">
+<button type="button" class="vf-btn" aria-label="Expandir" sc-camel-on-click="{{ toggleWide }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+<button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeFicha }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<button type="button" class="vf-link" sc-camel-on-click="{{ f.openCli }}" style="align-self: flex-start; border: none; background: transparent; color: #EEEEF0; padding: 0; cursor: pointer; font-size: 22px; font-weight: 600; letter-spacing: -0.015em; text-align: left;">{{ f.cli }}</button>
+<span style="font-size: 14px; color: #A6A9B1;">{{ f.desc }}</span>
+</div>
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+<span style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em;">{{ f.saldoTxt }}</span>
+<span style="font-size: 13px; color: {{ f.subColor }};">{{ f.sub }}</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ f.chipFg }}; background: {{ f.chipBg }};">{{ f.chip }}</span>
+<span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ f.cobFg }}; background: #25282E;">{{ f.cobTxt }}</span>
+</div>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ f.goOrigem }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; background: #191B1F; border: none; color: #C9CBD1; font-size: 13px; cursor: pointer; text-align: left;">
+<svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A6A9B1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"></path></svg>
+<span style="flex-grow: 1;">{{ f.origem }}</span>
+<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A6A9B1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+<div style="display: flex; gap: 8px; align-items: center;">
+<sc-if value="{{ f.canReceive }}" hint-placeholder-val="{{ true }}"><button type="button" sc-camel-on-click="{{ f.receber }}" style="height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">Registrar recebimento</button></sc-if>
+<sc-if value="{{ f.canReceive }}" hint-placeholder-val="{{ true }}"><button type="button" class="vf-btn" sc-camel-on-click="{{ f.cobrar }}" style="height: 40px;">{{ f.cobLabel }}</button></sc-if>
+<sc-if value="{{ f.settled }}" hint-placeholder-val="{{ false }}"><button type="button" class="vf-btn" sc-camel-on-click="{{ f.comprovante }}" style="height: 40px;">Ver comprovante</button></sc-if>
+<span style="flex-grow: 1;"></span>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ f.editar }}" style="height: 40px;">Editar</button>
+<button type="button" class="vf-btn" aria-label="Mais ações" sc-camel-on-click="{{ f.more }}" style="height: 40px; width: 40px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+</div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 26px;">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Vencimento</span><span style="font-weight: 500;">{{ f.vencFull }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Competência</span><span style="font-weight: 500;">{{ f.comp }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Conta prevista</span><span style="font-weight: 500;">{{ f.conta }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Forma de cobrança</span><span style="font-weight: 500;">{{ f.forma }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">NF</span><span style="font-weight: 500; color: {{ f.nfColor }};">{{ f.nf }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px;"><span style="font-size: 12px; color: #A6A9B1;">Parcela</span><span style="display: flex; align-items: center; gap: 6px;"><sc-for list="{{ f.dots }}" as="dt" hint-placeholder-count="1"><span title="{{ dt.t }}" style="width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box; background: {{ dt.bg }}; border: 2px solid {{ dt.border }};"></span></sc-for><span style="font-weight: 500; margin-left: 4px;">{{ f.parcTxt }}</span></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Itens</h3>
+<sc-for list="{{ f.itens }}" as="it" hint-placeholder-count="2">
+<div style="display: flex; justify-content: space-between; gap: 16px; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-weight: 500;">{{ it.serv }}</span><span style="font-size: 12px; color: #A6A9B1;">{{ it.dims }}</span></div>
+<span style="font-weight: 600; white-space: nowrap;">{{ it.val }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Cobrança</h3>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+<sc-for list="{{ f.cobSteps }}" as="cs" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="height: 4px; border-radius: 2px; background: {{ cs.bar }};"></span>
+<span style="font-size: 12px; font-weight: 600; color: {{ cs.fg }};">{{ cs.t }}</span>
+<span style="font-size: 12px; color: #A6A9B1;">{{ cs.d }}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ f.hasLink }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36;">
+<span style="font-size: 13px; color: #C9CBD1;">pay.asaas.com/i/vf-{{ f.id }}8821</span>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ copiar }}" style="height: 32px; font-size: 12px;">Copiar link</button>
+</div>
+</sc-if>
+<span style="font-size: 13px; color: #C9CBD1; padding: 10px 12px; border-radius: 9px; background: #191B1F;">{{ f.regua }}</span>
+<span style="font-size: 12px; color: #A6A9B1;">Enviada para {{ f.emails }}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Recebimentos</h3>
+<sc-if value="{{ f.noBaixa }}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #A6A9B1;">Nenhum recebimento registrado.</span></sc-if>
+<sc-for list="{{ f.baixas }}" as="bx" hint-placeholder-count="1">
+<div style="display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36; font-size: 13px;">
+<span style="color: #A6A9B1;">{{ bx.data }}</span>
+<span style="display: flex; flex-direction: column; gap: 3px;"><span>{{ bx.desc }}</span><span style="font-size: 12px; color: {{ bx.concFg }};">{{ bx.conc }}</span></span>
+<span style="font-weight: 600;">{{ bx.val }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Anexos</h3>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ anexar }}" style="height: 52px; border-radius: 10px; border: 1px dashed #454852; background: transparent; color: #A6A9B1; font-size: 13px; cursor: pointer;">Arraste a NF ou o comprovante aqui, ou clique para escolher</button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Observações</h3>
+<textarea aria-label="Observações" placeholder="Nota interna. Visível só para o financeiro." style="min-height: 64px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px; resize: vertical;"></textarea>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Histórico</h3>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{ f.hist }}" as="h" hint-placeholder-count="3">
+<li style="display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; font-size: 13px;"><span style="color: #A6A9B1;">{{ h.d }}</span><span style="color: #C9CBD1; line-height: 1.45;">{{ h.t }}</span></li>
+</sc-for>
+</ol>
+</div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ cliOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 31; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeCli }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Ficha do cliente" style="position: relative; width: 620px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">Cliente</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeCli }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 22px; font-weight: 600; letter-spacing: -0.015em;">{{ cf.nome }}</span><span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ cf.perfFg }}; background: {{ cf.perfBg }};">{{ cf.perfil }}</span></div>
+<span style="font-size: 13px; color: #A6A9B1;">Cliente desde {{ cf.desde }}</span>
+<sc-if value="{{ cf.inc }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(237,184,102,0.35); background: rgba(237,184,102,0.07); font-size: 13px;"><span style="flex-grow: 1;">{{ cf.incTxt }}. Boleto bloqueado até completar.</span><button type="button" class="vf-btn" sc-camel-on-click="{{ completarCad }}" style="height: 32px; font-size: 12px;">Completar</button></div>
+</sc-if>
+<div style="display: flex; gap: 8px;"><button type="button" sc-camel-on-click="{{ cf.novaReceita }}" style="height: 38px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 13px; font-weight: 600; cursor: pointer;">Nova receita para este cliente</button><button type="button" class="vf-btn" sc-camel-on-click="{{ editarCli }}">Editar cadastro</button></div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">MRR</span><span style="font-size: 17px; font-weight: 600;">{{ cf.mrr }}</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Em aberto</span><span style="font-size: 17px; font-weight: 600;">{{ cf.aberto }}</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Vencido</span><span style="font-size: 17px; font-weight: 600; color: {{ cf.vencColor }};">{{ cf.venc }}</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Recebido 12 meses</span><span style="font-size: 17px; font-weight: 600;">{{ cf.rec12 }}</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Atraso médio</span><span style="font-size: 17px; font-weight: 600;">{{ cf.atraso }}</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Pagas em dia</span><span style="font-size: 17px; font-weight: 600;">{{ cf.emDia }}</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Dados cadastrais</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Razão social</span><span>{{ cf.razao }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">CNPJ</span><span style="color: {{ cf.cnpjColor }};">{{ cf.cnpj }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px; grid-column: span 2;"><span style="font-size: 12px; color: #A6A9B1;">Endereço</span><span style="color: {{ cf.endColor }};">{{ cf.end }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Inscrição municipal</span><span>{{ cf.im }}</span></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Contatos de cobrança</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Responsável financeiro</span><span>{{ cf.contato }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">WhatsApp de cobrança</span><span>{{ cf.whats }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px; grid-column: span 2;"><span style="font-size: 12px; color: #A6A9B1;">E-mails de cobrança</span><span>{{ cf.emails }}</span></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Preferências de cobrança</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Forma padrão</span><span>{{ cf.forma }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Dia de vencimento</span><span>Todo dia {{ cf.dia }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Envio automático</span><span>5 dias antes do vencimento</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Régua</span><span>Padrão</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Juros e multa</span><span>Padrão (2% + 1% ao mês)</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Conta de recebimento</span><span>Asaas</span></div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Parcelas de {{ mesNome }}</h3>
+<sc-for list="{{ cf.parcs }}" as="cp" hint-placeholder-count="1">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ cp.open }}" style="display: grid; grid-template-columns: minmax(0, 1fr) 90px 150px 110px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; background: transparent; color: #EEEEF0; font-size: 13px; cursor: pointer; text-align: left;">
+<span>{{ cp.desc }}</span><span style="color: #A6A9B1;">{{ cp.venc }}</span><span><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: {{ cp.chipFg }}; background: {{ cp.chipBg }};">{{ cp.chip }}</span></span><span style="text-align: right; font-weight: 600;">{{ cp.val }}</span>
+</button>
+</sc-for>
+<sc-if value="{{ cf.noParcs }}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #A6A9B1;">Nenhuma parcela neste mês.</span></sc-if>
+</div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ recOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 31; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeRec }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Ficha da recorrência" style="position: relative; width: 600px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">Recorrência</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeRec }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<span style="font-size: 22px; font-weight: 600; letter-spacing: -0.015em;">{{ rf.cli }}</span>
+<div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-size: 28px; font-weight: 600;">{{ rf.valTxt }}</span><span style="color: #A6A9B1;">por mês, todo dia {{ rf.dia }}</span><span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ rf.stFg }}; background: {{ rf.stBg }};">{{ rf.status }}</span></div>
+<div style="display: flex; gap: 8px;"><button type="button" class="vf-btn" sc-camel-on-click="{{ recAcao }}">Editar</button><button type="button" class="vf-btn" sc-camel-on-click="{{ recAcao }}">Reajustar</button><button type="button" class="vf-btn" sc-camel-on-click="{{ recAcao }}">Pausar</button><button type="button" class="vf-btn" sc-camel-on-click="{{ recAcao }}">Encerrar</button></div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Linha do tempo</h3>
+<div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px;">
+<sc-for list="{{ rf.tl }}" as="m" hint-placeholder-count="8">
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: stretch;">
+<span style="height: 34px; border-radius: 6px; background: {{ m.bg }}; border: 1.5px {{ m.bstyle }} {{ m.border }}; box-sizing: border-box;"></span>
+<span style="font-size: 12px; text-align: center; color: #C9CBD1;">{{ m.m }}</span>
+<span style="font-size: 11px; text-align: center; color: {{ m.fg }};">{{ m.s }}</span>
+</div>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #A6A9B1;">Pagas em verde, geradas em aberto em contorno, projetadas tracejadas (ainda não existem como parcela).</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Itens da regra</h3>
+<sc-for list="{{ rf.itens }}" as="it" hint-placeholder-count="2">
+<div style="display: flex; justify-content: space-between; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36;"><span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-weight: 500;">{{ it.serv }}</span><span style="font-size: 12px; color: #A6A9B1;">Receita › Mensalidades, centro de custo Entrega</span></span><span style="font-weight: 600;">{{ it.val }}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Histórico de valor</h3>
+<sc-for list="{{ rf.versoes }}" as="vs" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36; font-size: 13px;"><span style="color: #A6A9B1;">{{ vs.d }}</span><span style="color: #C9CBD1;">{{ vs.t }}</span><span style="font-weight: 600;">{{ vs.v }}</span></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Vigência</span><span>{{ rf.vig }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Reajuste</span><span>{{ rf.reaj }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Competência</span><span>Mês do vencimento</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Cobrança</span><span>Asaas, PIX e boleto, 5 dias antes</span></div>
+</div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ novaOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 35; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeNova }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<aside aria-label="Nova receita" style="position: relative; width: 900px; max-width: 100%; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 20px 26px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2A2D33;">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600;">Nova receita</h2>
+<button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeNova }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 330px;">
+<div class="vf-scroll" style="overflow: auto; padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 24px;">
+
+<div role="group" aria-label="Tipo" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{ tipos }}" as="tp" hint-placeholder-count="3">
+<button type="button" sc-camel-on-click="{{ tp.pick }}" aria-pressed="{{ tp.on }}" style="padding: 12px 14px; border-radius: 10px; border: 1.5px solid {{ tp.border }}; background: {{ tp.bg }}; color: #EEEEF0; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 3px;"><span style="font-weight: 600;">{{ tp.label }}</span><span style="font-size: 12px; color: #A6A9B1;">{{ tp.sub }}</span></button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Cliente</h3>
+<label class="vf-lbl">Cliente
+<sc-raw-select class="vf-in" value="{{ nf.cli }}" sc-camel-on-change="{{ onNfCli }}">
+<option value="">Escolha um cliente</option>
+<option value="APTO">APTO</option>
+<option value="Atlas Engenharia">Atlas Engenharia</option>
+<option value="BNEX">BNEX</option>
+<option value="Café Aroma">Café Aroma</option>
+<option value="Casa Nómade">Casa Nómade</option>
+<option value="Clínica Vitta">Clínica Vitta</option>
+<option value="Construtora Horizonte">Construtora Horizonte</option>
+<option value="Estúdio Brisa">Estúdio Brisa</option>
+<option value="Grupo Orla">Grupo Orla</option>
+<option value="Imobiliária Costa Norte">Imobiliária Costa Norte</option>
+<option value="Mar Azul Pousada">Mar Azul Pousada</option>
+<option value="Nuvem Pet">Nuvem Pet</option>
+<option value="Ótica Visão Clara">Ótica Visão Clara</option>
+<option value="Padaria Trigo Fino">Padaria Trigo Fino</option>
+<option value="Restaurante Sabor do Mar">Restaurante Sabor do Mar</option>
+<option value="Studio Pilates Ápice">Studio Pilates Ápice</option>
+<option value="Verde Vale">Verde Vale</option>
+<option value="__novo">+ Cadastrar novo cliente</option>
+</sc-raw-select></label>
+<sc-if value="{{ nfCliDefaults }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #A6A9B1; padding: 9px 12px; border-radius: 8px; background: #191B1F;">Padrões do cliente aplicados: {{ nfCliInfo }}</span>
+</sc-if>
+<sc-if value="{{ nf.novoCli }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 10px; border: 1px solid #33363E; background: #191B1F;">
+<span style="font-weight: 600;">Cadastro rápido</span>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end;">
+<label class="vf-lbl">CNPJ ou CPF<input class="vf-in" type="text" value="{{ nf.cnpj }}" sc-camel-on-change="{{ onNfCnpj }}" placeholder="00.000.000/0000-00"></label>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ buscarCnpj }}" style="height: 40px;">Buscar dados</button>
+</div>
+<sc-if value="{{ nf.cnpjOk }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; font-size: 13px;">
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #A6A9B1;">Razão social</span>Verde Vale Alimentos Ltda</span>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #A6A9B1;">Nome fantasia</span>Verde Vale</span>
+<span style="display: flex; flex-direction: column; gap: 2px; grid-column: span 2;"><span style="font-size: 12px; color: #A6A9B1;">Endereço</span>Rod. do Sol, 3200, Vila Velha/ES</span>
+</div>
+</sc-if>
+<label class="vf-lbl">E-mail de cobrança<input class="vf-in" type="email" placeholder="financeiro@cliente.com.br"></label>
+<button type="button" sc-camel-on-click="{{ usarNovoCli }}" style="align-self: flex-start; height: 38px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-weight: 600; cursor: pointer;">Usar este cliente</button>
+</div>
+</sc-if>
+<label class="vf-lbl">Descrição<input class="vf-in" type="text" value="{{ nfDesc }}" sc-camel-on-change="{{ onNfDesc }}"></label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Itens</h3>
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 130px 36px; gap: 8px; font-size: 12px; color: #A6A9B1;"><span>Serviço</span><span>Categoria</span><span>Valor</span><span></span></div>
+<sc-for list="{{ nfItens }}" as="ni" hint-placeholder-count="1">
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 130px 36px; gap: 8px; align-items: center;">
+<sc-raw-select class="vf-in" aria-label="Serviço" value="{{ ni.serv }}" sc-camel-on-change="{{ ni.onServ }}">
+<option value="Social Media">Social Media</option>
+<option value="Tráfego pago">Tráfego pago</option>
+<option value="Audiovisual">Audiovisual</option>
+<option value="Design">Design</option>
+<option value="Projetos e consultoria">Projetos e consultoria</option>
+</sc-raw-select>
+<span style="height: 40px; box-sizing: border-box; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #191B1F; color: #C9CBD1; font-size: 13px;">{{ ni.cat }}<span style="margin-left: 8px; font-size: 11px; color: #A6A9B1;">sugerida</span></span>
+<input class="vf-in" type="text" aria-label="Valor" placeholder="0,00" value="{{ ni.val }}" sc-camel-on-change="{{ ni.onVal }}" style="text-align: right;">
+<button type="button" class="vf-btn" aria-label="Remover item" sc-camel-on-click="{{ ni.remove }}" style="width: 36px; height: 40px; padding: 0; justify-content: center;"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-for>
+<div style="display: flex; justify-content: space-between; align-items: center;"><button type="button" class="vf-link" sc-camel-on-click="{{ addItem }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer; padding: 4px 0;">+ Adicionar item</button><span style="font-size: 14px; color: #A6A9B1;">Total <span style="color: #EEEEF0; font-weight: 600; font-size: 16px;">{{ nfTotalTxt }}</span></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Condições</h3>
+<sc-if value="{{ isUnica }}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Vencimento<input class="vf-in" type="date" value="{{ nf.venc }}" sc-camel-on-change="{{ onNfVenc }}"></label>
+<label class="vf-lbl">Competência<span class="vf-in" style="display: flex; align-items: center; justify-content: space-between; background: #191B1F;">{{ compUnica }}<span style="font-size: 12px; color: #C4B9FF;">alterar</span></span></label>
+</div>
+</sc-if>
+<sc-if value="{{ isParc }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Número de parcelas<sc-raw-select class="vf-in" value="{{ nf.nParc }}" sc-camel-on-change="{{ onNfNParc }}"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="10">10</option><option value="12">12</option></sc-raw-select></label>
+<label class="vf-lbl">1º vencimento<input class="vf-in" type="date" value="{{ nf.primVenc }}" sc-camel-on-change="{{ onNfPrim }}"></label>
+<label class="vf-lbl">Intervalo<sc-raw-select class="vf-in"><option>Mensal</option><option>Quinzenal</option></sc-raw-select></label>
+</div>
+<div role="radiogroup" aria-label="Competência" style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 12px; color: #A6A9B1;">Competência</span>
+<sc-for list="{{ compOpts }}" as="co" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{ co.on }}" sc-camel-on-click="{{ co.pick }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; border: 1px solid {{ co.border }}; background: {{ co.bg }}; color: #EEEEF0; cursor: pointer; text-align: left; font-size: 13px;"><span style="width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; border: 2px solid {{ co.dot }}; background: {{ co.fill }};"></span>{{ co.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ isRecForm }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Início<input class="vf-in" type="date" value="{{ nf.inicio }}" sc-camel-on-change="{{ onNfInicio }}"></label>
+<label class="vf-lbl">Dia de vencimento<sc-raw-select class="vf-in" value="{{ nf.dia }}" sc-camel-on-change="{{ onNfDia }}"><option value="5">5</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="14">14</option><option value="15">15</option><option value="17">17</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="24">24</option><option value="25">25</option><option value="28">28</option><option value="30">30</option></sc-raw-select></label>
+<label class="vf-lbl">Periodicidade<sc-raw-select class="vf-in"><option>Mensal</option><option>Trimestral</option><option>Anual</option></sc-raw-select></label>
+<label class="vf-lbl">Competência<sc-raw-select class="vf-in" value="{{ nf.compRef }}" sc-camel-on-change="{{ onNfCompRef }}"><option value="mesmo">Mês do vencimento</option><option value="anterior">Mês anterior ao vencimento</option></sc-raw-select></label>
+<label class="vf-lbl">Término<sc-raw-select class="vf-in" value="{{ nf.termino }}" sc-camel-on-change="{{ onNfTermino }}"><option value="sem">Sem término</option><option value="data">Em 31/12/2026</option><option value="n">Após 12 cobranças</option></sc-raw-select></label>
+<label class="vf-lbl">Reajuste<sc-raw-select class="vf-in" value="{{ nf.reaj }}" sc-camel-on-change="{{ onNfReaj }}"><option value="nenhum">Nenhum</option><option value="ipca">Índice informado (anual)</option><option value="fixo">5% ao ano</option></sc-raw-select></label>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<h3 style="margin: 0; font-size: 14px; font-weight: 600;">Cobrança</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Forma<sc-raw-select class="vf-in" value="{{ nf.forma }}" sc-camel-on-change="{{ onNfForma }}"><option value="Asaas, PIX e boleto">Asaas, PIX e boleto</option><option value="Asaas, só PIX">Asaas, só PIX</option><option value="Manual, transferência">Manual, transferência</option><option value="Sem cobrança">Sem cobrança</option></sc-raw-select></label>
+<label class="vf-lbl">Régua<sc-raw-select class="vf-in"><option>Padrão</option><option>Suave (clientes estratégicos)</option><option>Nenhuma</option></sc-raw-select></label>
+</div>
+<button type="button" role="switch" aria-checked="{{ nf.envio }}" sc-camel-on-click="{{ toggleEnvio }}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36; background: #191B1F; color: #EEEEF0; cursor: pointer; text-align: left;">
+<span style="width: 36px; height: 20px; border-radius: 10px; background: {{ envioTrack }}; position: relative; flex-shrink: 0;"><span style="position: absolute; top: 2px; left: {{ envioKnob }}; width: 16px; height: 16px; border-radius: 50%; background: #EEEEF0;"></span></span>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 500;">Enviar a cobrança automaticamente 5 dias antes do vencimento</span><span style="font-size: 12px; color: #A6A9B1;">Para {{ nfEmails }}. Juros e multa no padrão: 2% + 1% ao mês.</span></span>
+</button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<button type="button" sc-camel-on-click="{{ toggleMais }}" aria-expanded="{{ nf.mais }}" style="align-self: flex-start; display: flex; align-items: center; gap: 8px; border: none; background: transparent; color: #EEEEF0; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ maisChev }};"><path d="M9 6l6 6-6 6"></path></svg>Mais detalhes</button>
+<sc-if value="{{ nf.mais }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Centro de custo<sc-raw-select class="vf-in"><option>Entrega</option><option>Comercial</option><option>Administrativo</option></sc-raw-select></label>
+<label class="vf-lbl">Projeto<sc-raw-select class="vf-in"><option>Nenhum</option><option>Vídeo institucional 2026</option><option>Campanha de lançamento</option></sc-raw-select></label>
+<label class="vf-lbl">Número da NF<input class="vf-in" type="text" placeholder="Opcional"></label>
+<label class="vf-lbl">Conta de recebimento<sc-raw-select class="vf-in"><option>Asaas</option><option>Inter</option><option>Sicoob</option></sc-raw-select></label>
+<label class="vf-lbl" style="grid-column: span 2;">Observação interna<textarea style="min-height: 60px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #373A43; background: #16171B; color: #EEEEF0; font-size: 14px;"></textarea></label>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div class="vf-scroll" style="overflow: auto; background: #191B1F; border-left: 1px solid #2A2D33; padding: 22px 22px 30px; display: flex; flex-direction: column; gap: 18px;">
+<span style="font-size: 12px; color: #A6A9B1;">O que vai ser criado</span>
+<div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 17px; font-weight: 600;">{{ pvTitulo }}</span><span style="font-size: 13px; color: #C9CBD1;">{{ pvSub }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{ pvParcs }}" as="pv" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px {{ pv.bstyle }} #33363E; background: #1D1F24; font-size: 13px;">
+<span style="color: #A6A9B1; font-size: 12px;">{{ pv.n }}</span>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span>{{ pv.venc }}</span><span style="font-size: 11px; color: #A6A9B1;">{{ pv.comp }}</span></span>
+<span style="font-weight: 600;">{{ pv.val }}</span>
+</div>
+</sc-for>
+<sc-if value="{{ pvMais }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #A6A9B1; padding-left: 4px;">{{ pvMaisTxt }}</span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid #2A2D33; font-size: 13px; color: #C9CBD1; line-height: 1.5;">
+<sc-for list="{{ pvLinhas }}" as="pl" hint-placeholder-count="3"><span style="display: flex; gap: 8px;"><span style="color: {{accent}};">•</span>{{ pl.t }}</span></sc-for>
+</div>
+<sc-if value="{{ pvHasErr }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 9px; border: 1px solid rgba(237,184,102,0.35); background: rgba(237,184,102,0.07); font-size: 13px;">
+<span style="font-weight: 600; color: #EDB866;">Para salvar, falta:</span>
+<sc-for list="{{ pvErros }}" as="er" hint-placeholder-count="1"><span style="color: #C9CBD1;">{{ er.t }}</span></sc-for>
+</div>
+</sc-if>
+</div>
+</div>
+<div style="padding: 16px 26px; border-top: 1px solid #2A2D33; display: flex; justify-content: flex-end; gap: 10px;">
+<button type="button" class="vf-btn" sc-camel-on-click="{{ salvarOutra }}" style="height: 42px;">Salvar e criar outra</button>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ salvar }}" style="height: 42px;">Salvar</button>
+<button type="button" sc-camel-on-click="{{ salvarEnviar }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{ salvarBg }}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">Salvar e enviar cobrança</button>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ baixaOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: center;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeBaixa }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<div role="dialog" aria-label="Registrar recebimento" style="position: relative; width: 500px; box-sizing: border-box; background: #1F2126; border: 1px solid #373A43; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 24px 60px rgba(0,0,0,0.55);">
+<div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-size: 19px; font-weight: 600;">Registrar recebimento</h2><span style="font-size: 13px; color: #A6A9B1;">{{ bx.sub }}</span></div>
+<sc-if value="{{ bx.atrasada }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(237,184,102,0.35); background: rgba(237,184,102,0.07);">
+<span style="display: flex; justify-content: space-between; font-size: 13px;"><span style="font-weight: 600;">Encargos por atraso ({{ bx.dias }})</span><span>{{ bx.encTxt }}</span></span>
+<span style="font-size: 12px; color: #C9CBD1;">{{ bx.encDet }}</span>
+<button type="button" role="switch" aria-checked="{{ bForm.dispensa }}" sc-camel-on-click="{{ toggleDispensa }}" style="display: flex; align-items: center; gap: 10px; border: none; background: transparent; color: #EEEEF0; cursor: pointer; padding: 0; font-size: 13px;"><span style="width: 32px; height: 18px; border-radius: 9px; background: {{ dispTrack }}; position: relative; flex-shrink: 0;"><span style="position: absolute; top: 2px; left: {{ dispKnob }}; width: 14px; height: 14px; border-radius: 50%; background: #EEEEF0;"></span></span>Dispensar encargos</button>
+<sc-if value="{{ bForm.dispensa }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap;"><sc-for list="{{ motivos }}" as="mo" hint-placeholder-count="3"><button type="button" sc-camel-on-click="{{ mo.pick }}" aria-pressed="{{ mo.on }}" style="height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12px; cursor: pointer; border: 1px solid {{ mo.border }}; background: {{ mo.bg }}; color: #EEEEF0;">{{ mo.t }}</button></sc-for></div>
+</sc-if>
+</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Data<input class="vf-in" type="date" value="{{ bForm.data }}" sc-camel-on-change="{{ onBData }}"></label>
+<label class="vf-lbl">Valor recebido<input class="vf-in" type="text" value="{{ bForm.valor }}" sc-camel-on-change="{{ onBValor }}"></label>
+</div>
+<label class="vf-lbl">Conta<sc-raw-select class="vf-in" value="{{ bForm.conta }}" sc-camel-on-change="{{ onBConta }}"><option value="Asaas">Asaas</option><option value="Inter">Inter</option><option value="Sicoob">Sicoob</option></sc-raw-select></label>
+<sc-if value="{{ bx.menor }}" hint-placeholder-val="{{ false }}">
+<div role="radiogroup" aria-label="Diferença" style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 13px; color: #EDB866;">{{ bx.difTxt }}</span>
+<sc-for list="{{ parcOpts }}" as="po" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{ po.on }}" sc-camel-on-click="{{ po.pick }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; border: 1px solid {{ po.border }}; background: {{ po.bg }}; color: #EEEEF0; cursor: pointer; text-align: left; font-size: 13px;"><span style="width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; border: 2px solid {{ po.dot }}; background: {{ po.fill }};"></span>{{ po.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ bx.temCob }}" hint-placeholder-val="{{ false }}">
+<button type="button" role="checkbox" aria-checked="{{ bForm.cancelCob }}" sc-camel-on-click="{{ toggleCancelCob }}" style="display: flex; align-items: center; gap: 10px; border: none; background: transparent; color: #C9CBD1; cursor: pointer; padding: 0; font-size: 13px; text-align: left;"><span style="width: 16px; height: 16px; border-radius: 4px; box-sizing: border-box; border: 2px solid {{ ccBorder }}; background: {{ ccFill }}; flex-shrink: 0;"></span>Cancelar a cobrança no Asaas, para o cliente não pagar duas vezes</button>
+</sc-if>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ anexar }}" style="height: 44px; border-radius: 8px; border: 1px dashed #454852; background: transparent; color: #A6A9B1; font-size: 13px; cursor: pointer;">Anexar comprovante (opcional)</button>
+<div style="display: flex; justify-content: flex-end; gap: 10px;">
+<button type="button" class="vf-btn" sc-camel-on-click="{{ closeBaixa }}" style="height: 42px;">Voltar</button>
+<button type="button" sc-camel-on-click="{{ confirmarBaixa }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">Confirmar recebimento</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 60; max-width: 680px; background: #EEEEF0; color: #16171B; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+</body></html>

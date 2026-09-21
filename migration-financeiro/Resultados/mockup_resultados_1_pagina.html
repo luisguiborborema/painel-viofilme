@@ -1,0 +1,393 @@
+<!--
+MOCKUP — Resultados (Financeiro Viofilme) · FONTE LEGÍVEL · ARQUIVO 1 de 3
+Página: sidebar do ERP, cabeçalho e seções/abas (Indicadores, DRE, Rentabilidade, Receita).
+Arquivos desta página: mockup_resultados_1_pagina.html · mockup_resultados_2_paineis.html · mockup_resultados_3_logica.js
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Resultados.html), sem runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura (layout, cores, espaçamentos, textos).
+  Para ver o visual, abra Design___Resultados.html no navegador, mas NÃO leia o código dele (~276 KB em base64, estoura o contexto).
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (arquivo _3_logica.js), que tem estado, dados de exemplo, derivações e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36). Fonte: Instrument Sans.
+- Os recortes de markup vêm de uma árvore maior; algumas tags ficam sem par.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Resultados</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button,input,select,textarea{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-row:hover{background:#1F2227 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-in{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #373A43;background:#16171B;color:#EEEEF0;font-size:14px;width:100%;color-scheme:dark}
+.vf-in:focus{outline:2px solid #6B5FD0;outline-offset:0;border-color:#6B5FD0}
+.vf-btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid #33363E;background:#22252B;color:#EEEEF0;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vf-btn:hover{background:#2A2D34}
+.vf-lbl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#A6A9B1}
+.vf-scroll::-webkit-scrollbar{width:8px}.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+</head><body>
+
+<div style="width: 100%; min-width: 1440px; min-height: 1500px; display: flex; background: #16171B; color: #EEEEF0; font-family: 'Instrument Sans', 'Helvetica Neue', Helvetica, sans-serif; font-size: 14px; font-variant-numeric: tabular-nums;">
+
+<aside style="width: 240px; flex-shrink: 0; box-sizing: border-box; background: #111215; border-right: 1px solid #25272D;">
+<div style="position: sticky; top: 0; height: 100vh; max-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px; padding: 24px 14px;">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 10px;"><span style="font-size: 20px; font-weight: 700; letter-spacing: -0.03em;">viofilme</span><span style="font-size: 12px; font-weight: 500; color: #A6A9B1;">ERP</span></div>
+<nav aria-label="Módulos" style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>CRM e vendas</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"></path></svg>Operação</a>
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #EEEEF0; text-decoration: none; background: #1D1F24; font-weight: 600;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18M16 15h2"></path></svg>Financeiro</a>
+<div style="display: flex; flex-direction: column; gap: 1px; padding: 4px 0 6px 40px;">
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Dashboard</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Recebimentos</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Pagamentos</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Caixa</a>
+<a href="#" style="padding: 7px 10px; border-radius: 6px; color: #EEEEF0; text-decoration: none; background: #25272E; font-weight: 500;">Resultados</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Planejamento</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Configurações</a>
+</div>
+</div>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.7 2.6 3 5.2"></path></svg>Clientes e CS</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path></svg>RH e cultura</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 10px 0; border-top: 1px solid #25272D;">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #2E2A45; color: #C4B9FF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;">IL</div>
+<div style="display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 13px; font-weight: 600;">Iago Lima</span><span style="font-size: 12px; color: #A6A9B1;">Diretoria</span></div>
+</div>
+</div>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 34px 36px 110px;">
+<div style="width: 1128px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px;">
+
+<header style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; color: #A6A9B1;">Financeiro</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.025em;">Resultados</h1>
+<span style="font-size: 14px; color: #A6A9B1;">Onde estamos ganhando e perdendo dinheiro. Tudo por competência.</span>
+</div>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ exportar }}" style="height: 40px;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"></path></svg>Exportar relatório do mês</button>
+</header>
+
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: relative;">
+<div role="group" aria-label="Granularidade" style="display: flex; padding: 3px; border-radius: 10px; background: #1A1C20; border: 1px solid #2C2F36;">
+<sc-for list="{{ grans }}" as="g" hint-placeholder-count="2"><button type="button" sc-camel-on-click="{{ g.pick }}" aria-pressed="{{ g.on }}" style="height: 34px; padding: 0 14px; border-radius: 7px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: {{ g.bg }}; color: {{ g.fg }};">{{ g.label }}</button></sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 4px;">
+<button type="button" class="vf-btn" aria-label="Período anterior" sc-camel-on-click="{{ perPrev }}" style="width: 38px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<span style="min-width: 170px; text-align: center; font-weight: 600; font-size: 15px;">{{ perLabel }}</span>
+<button type="button" class="vf-btn" aria-label="Próximo período" sc-camel-on-click="{{ perNext }}" style="width: 38px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #A6A9B1;">Comparar com<sc-raw-select class="vf-in" value="{{ comp }}" sc-camel-on-change="{{ onComp }}" style="width: 230px; height: 38px;"><option value="ant">Período anterior</option><option value="yoy">Mesmo período do ano anterior</option><option value="orc">Orçado</option></sc-raw-select></label>
+<button type="button" sc-camel-on-click="{{ toggleSelo }}" style="height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ selo.border }}; background: {{ selo.bg }}; color: {{ selo.fg }}; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{ selo.fg }};"></span>{{ selo.txt }}</button>
+<sc-if value="{{ seloOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: 46px; left: 640px; z-index: 20; width: 420px; background: #24272D; border: 1px solid #33363E; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.45);">
+<span style="font-size: 13px; font-weight: 600;">Ajustes após o fechamento de agosto</span>
+<sc-for list="{{ ajustes }}" as="aj" hint-placeholder-count="2"><div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: #1D1F24;"><span style="display: flex; justify-content: space-between;"><span style="font-weight: 500;">{{ aj.linha }}</span><span>{{ aj.v }}</span></span><span style="font-size: 12px; color: #A6A9B1;">{{ aj.t }}</span></div></sc-for>
+</div>
+</sc-if>
+</div>
+
+<section aria-label="Indicadores" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+<div style="padding: 18px 20px; border-radius: 14px; border: 1px solid #2C2F36; background: #1D1F24; display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 13px; color: #A6A9B1;">{{ k.label }}</span>
+<span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">{{ k.val }}</span>
+<span style="font-size: 13px; color: #A6A9B1;"><span style="color: {{ k.dColor }}; font-weight: 600;">{{ k.delta }}</span> {{ k.sub }}</span>
+</div>
+</sc-for>
+</section>
+
+<div role="tablist" aria-label="Seções" style="display: flex; gap: 4px; border-bottom: 1px solid #2C2F36;">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{ t.on }}" sc-camel-on-click="{{ t.pick }}" style="height: 46px; padding: 0 16px; border: none; background: transparent; color: {{ t.fg }}; font-size: 15px; font-weight: {{ t.fw }}; cursor: pointer; border-bottom: 2px solid {{ t.line }}; margin-bottom: -1px;">{{ t.label }}</button></sc-for>
+</div>
+
+<sc-if value="{{ tabDre }}" hint-placeholder-val="{{ true }}">
+<section aria-label="DRE" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Para cada R$ 100 de receita</h2><span style="font-size: 13px; color: #A6A9B1;">{{ cem.sub }}</span></div>
+<div style="display: flex; height: 34px; border-radius: 8px; overflow: hidden; gap: 2px;">
+<sc-for list="{{ cem.segs }}" as="sg" hint-placeholder-count="7"><span title="{{ sg.label }}" style="width: {{ sg.w }}; background: {{ sg.bg }}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: {{ sg.fg }}; white-space: nowrap; overflow: hidden;">{{ sg.short }}</span></sc-for>
+</div>
+<div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px;">
+<sc-for list="{{ cem.segs }}" as="sg" hint-placeholder-count="7"><span style="display: flex; align-items: center; gap: 7px; color: #C9CBD1;"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{ sg.bg }};"></span>{{ sg.label }} <span style="color: #EEEEF0; font-weight: 600;">R$ {{ sg.v }}</span></span></sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">DRE gerencial</h2><span style="font-size: 12px; color: #A6A9B1;">Clique numa linha para abrir as categorias. Clique num valor de categoria para ver os lançamentos.</span></div>
+<div role="group" aria-label="Modo" style="display: flex; padding: 3px; border-radius: 9px; background: #1A1C20; border: 1px solid #2C2F36;"><sc-for list="{{ modos }}" as="md" hint-placeholder-count="2"><button type="button" sc-camel-on-click="{{ md.pick }}" aria-pressed="{{ md.on }}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: {{ md.bg }}; color: {{ md.fg }};">{{ md.label }}</button></sc-for></div>
+</div>
+<div class="vf-scroll" style="overflow-x: auto; border-top: 1px solid #2A2D33;">
+<div style="min-width: {{ dre.minW }}px;">
+<div style="display: grid; grid-template-columns: {{ dre.cols }}; background: #1A1C20; border-bottom: 1px solid #2A2D33; font-size: 12px; color: #A6A9B1;">
+<span style="padding: 10px 16px; position: sticky; left: 0; background: #1A1C20;"></span>
+<sc-for list="{{ dre.head }}" as="h" hint-placeholder-count="5"><span style="padding: 10px 12px; text-align: right;">{{ h.t }}</span></sc-for>
+</div>
+<sc-for list="{{ dre.rows }}" as="r" hint-placeholder-count="12">
+<div style="display: grid; grid-template-columns: {{ dre.cols }}; border-bottom: 1px solid {{ r.line }}; background: {{ r.bg }};">
+<sc-if value="{{ r.isGroup }}" hint-placeholder-val="{{ true }}"><button type="button" sc-camel-on-click="{{ r.toggle }}" style="position: sticky; left: 0; background: {{ r.stickyBg }}; border: none; color: #EEEEF0; text-align: left; padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: {{ r.fw }};"><svg width="11" height="11" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ r.chev }};"><path d="M9 6l6 6-6 6"></path></svg>{{ r.label }}</button></sc-if>
+<sc-if value="{{ r.isPlain }}" hint-placeholder-val="{{ false }}"><span style="position: sticky; left: 0; background: {{ r.stickyBg }}; padding: 10px 16px 10px {{ r.indent }}px; font-size: 13px; font-weight: {{ r.fw }}; color: {{ r.labelColor }}; display: flex; align-items: center; gap: 6px;">{{ r.label }}<sc-if value="{{ r.ajuste }}" hint-placeholder-val="{{ false }}"><span title="Ajustado após o fechamento" style="width: 7px; height: 7px; border-radius: 50%; background: #EDB866;"></span></sc-if></span></sc-if>
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5"><button type="button" sc-camel-on-click="{{ c.open }}" disabled="{{ c.off }}" style="border: none; background: transparent; text-align: right; padding: 10px 12px; font-family: inherit; font-size: 13px; font-variant-numeric: tabular-nums; font-weight: {{ r.fw }}; color: {{ c.color }}; cursor: {{ c.cursor }}; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;"><span>{{ c.v }}</span><sc-if value="{{ c.hasSub }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 400; color: #8F93A0;">{{ c.sub }}</span></sc-if></button></sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600;">O que explica a variação</h2>
+<span style="font-size: 13px; color: #A6A9B1;">{{ varc.sub }}</span>
+<span style="font-size: 24px; font-weight: 600; color: {{ varc.color }};">{{ varc.total }}</span>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{ varc.items }}" as="vi" hint-placeholder-count="5">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ vi.open }}" style="display: flex; flex-direction: column; gap: 3px; padding: 9px 10px; border-radius: 8px; border: 1px solid #2C2F36; background: transparent; color: #EEEEF0; text-align: left; cursor: pointer;">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px;"><span style="display: flex; align-items: center; gap: 6px;"><span style="color: {{ vi.color }};">{{ vi.arrow }}</span>{{ vi.label }}</span><span style="font-weight: 600; color: {{ vi.color }}; white-space: nowrap;">{{ vi.v }}</span></span>
+<sc-if value="{{ vi.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #A6A9B1; line-height: 1.4;">{{ vi.note }}</span></sc-if>
+</button>
+</sc-for>
+<span style="display: flex; justify-content: space-between; font-size: 13px; color: #A6A9B1; padding: 4px 10px;"><span>Demais linhas</span><span>{{ varc.demais }}</span></span>
+</div>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600;">Fora da DRE</h2>
+<div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A6A9B1;">Investimentos do período</span><span style="font-weight: 600;">{{ fora.inv }}</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A6A9B1;">Sócios e financiamento</span><span style="font-weight: 600;">{{ fora.soc }}</span></div>
+<span style="font-size: 12px; color: #8F93A0; line-height: 1.45;">Movimentam o caixa, mas não são receita nem despesa da operação.</span>
+</div>
+</div>
+</div>
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Do resultado ao caixa</h2><span style="font-size: 13px; color: #A6A9B1;">Por que o caixa não variou o mesmo que o resultado.</span></div><span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6FD3A2;"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>Confere com a variação do disponível no Caixa</span></div>
+<div style="position: relative; height: 240px; display: flex; gap: 10px; padding: 0 4px;">
+<sc-for list="{{ ponteCx }}" as="pc" hint-placeholder-count="7">
+<div style="flex: 1 1 0; position: relative;">
+<span style="position: absolute; left: 12%; right: 12%; top: {{ pc.top }}px; height: {{ pc.h }}px; background: {{ pc.bg }}; border-radius: 3px;"></span>
+<span style="position: absolute; left: 0; right: 0; top: {{ pc.valTop }}px; text-align: center; font-size: 12px; font-weight: 600; color: {{ pc.valColor }};">{{ pc.v }}</span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 12px; color: #A6A9B1; line-height: 1.3;">{{ pc.label }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ tabRent }}" hint-placeholder-val="{{ false }}">
+<section aria-label="Rentabilidade" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div role="group" aria-label="Dimensão" style="display: flex; padding: 3px; border-radius: 10px; background: #1A1C20; border: 1px solid #2C2F36;"><sc-for list="{{ dims }}" as="d" hint-placeholder-count="4"><button type="button" sc-camel-on-click="{{ d.pick }}" aria-pressed="{{ d.on }}" style="height: 34px; padding: 0 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: {{ d.bg }}; color: {{ d.fg }};">{{ d.label }}</button></sc-for></div>
+<button type="button" class="vf-link" sc-camel-on-click="{{ toggleComo }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer;">Como é calculado</button>
+</div>
+<sc-if value="{{ comoOpen }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 18px; border-radius: 12px; border: 1px solid #33363E; background: #191B1F; font-size: 13px; color: #C9CBD1; line-height: 1.6;">Margem de contribuição = receita do cliente − deduções proporcionais (alíquota efetiva) − custos diretos vinculados − equipe alocada. A equipe entra por vagas: o custo de cada função dividido pela capacidade (ou pelo número de vagas usadas, se passar da capacidade). Exemplo: duas social medias custam R$ 7.000 e suportam 22 vagas, então cada vaga custa R$ 318. Vagas livres viram capacidade ociosa e não são distribuídas. A estrutura (pró-labore, administrativo, softwares) também não é distribuída.</div>
+</sc-if>
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+<sc-for list="{{ prova }}" as="pv" hint-placeholder-count="5"><span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: #A6A9B1;">{{ pv.label }}</span><span style="font-size: 18px; font-weight: 600; color: {{ pv.color }};">{{ pv.v }}</span></span><sc-if value="{{ pv.op }}" hint-placeholder-val="{{ true }}"><span style="font-size: 18px; color: #6E727B;">{{ pv.opTxt }}</span></sc-if></sc-for>
+<span style="flex-grow: 1;"></span>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6FD3A2; padding: 6px 12px; border-radius: 999px; background: rgba(111,211,162,0.1);"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>Confere com a DRE</span>
+</div>
+<sc-if value="{{ hasAlertas }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px;"><sc-for list="{{ alertas }}" as="al" hint-placeholder-count="1"><div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(237,184,102,0.35); background: rgba(237,184,102,0.06); font-size: 13px;"><span style="flex-grow: 1;">{{ al.t }}</span><button type="button" class="vf-link" sc-camel-on-click="{{ al.go }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer;">{{ al.cta }}</button></div></sc-for></div>
+</sc-if>
+
+<sc-if value="{{ dimCli }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Matriz de rentabilidade</h2><span style="font-size: 12px; color: #A6A9B1;">Receita no período × margem de contribuição. Tamanho do ponto: vagas de equipe consumidas.</span></div>
+<div style="position: relative; width: 1080px; height: 330px;" sc-camel-on-mouse-leave="{{ clearHovCli }}">
+<svg width="1080" height="330" sc-camel-view-box="0 0 1080 330" style="position: absolute; left: 0; top: 0;" aria-hidden="true">
+<rect x="60" y="10" width="1010" height="290" fill="#191B1F" rx="6"></rect>
+<line x1="{{ mx.vx }}" x2="{{ mx.vx }}" y1="10" y2="300" stroke="#3A3D46" stroke-dasharray="4 4"></line>
+<line x1="60" x2="1070" y1="{{ mx.hy }}" y2="{{ mx.hy }}" stroke="#3A3D46" stroke-dasharray="4 4"></line>
+<line x1="60" x2="1070" y1="{{ mx.zeroY }}" y2="{{ mx.zeroY }}" stroke="#F08A84" stroke-opacity="0.35"></line>
+</svg>
+<span style="position: absolute; left: 70px; top: 16px; font-size: 11px; font-weight: 600; color: #6FD3A2; letter-spacing: 0.02em;">EFICIENTES</span>
+<span style="position: absolute; right: 18px; top: 16px; font-size: 11px; font-weight: 600; color: #6FD3A2; letter-spacing: 0.02em;">PILARES</span>
+<span style="position: absolute; left: 70px; top: 280px; font-size: 11px; font-weight: 600; color: #F08A84; letter-spacing: 0.02em;">ATENÇÃO</span>
+<span style="position: absolute; right: 18px; top: 280px; font-size: 11px; font-weight: 600; color: #EDB866; letter-spacing: 0.02em;">REVER ESCOPO OU PREÇO</span>
+<sc-for list="{{ mx.yl }}" as="yl" hint-placeholder-count="4"><span style="position: absolute; left: 0; width: 52px; text-align: right; top: {{ yl.top }}px; font-size: 11px; color: #A6A9B1;">{{ yl.t }}</span></sc-for>
+<sc-for list="{{ mx.xl }}" as="xl" hint-placeholder-count="4"><span style="position: absolute; top: 308px; left: {{ xl.left }}px; font-size: 11px; color: #A6A9B1;">{{ xl.t }}</span></sc-for>
+<sc-for list="{{ mx.pts }}" as="p" hint-placeholder-count="20">
+<button type="button" aria-label="{{ p.nome }}" sc-camel-on-click="{{ p.open }}" sc-camel-on-mouse-enter="{{ p.enter }}" style="position: absolute; left: {{ p.left }}px; top: {{ p.top }}px; width: {{ p.size }}px; height: {{ p.size }}px; border-radius: 50%; border: 2px solid {{ p.color }}; background: {{ p.fill }}; cursor: pointer; padding: 0;"></button>
+<sc-if value="{{ p.showLabel }}" hint-placeholder-val="{{ false }}"><span style="position: absolute; left: {{ p.labelLeft }}px; top: {{ p.labelTop }}px; font-size: 11px; color: #C9CBD1; white-space: nowrap; pointer-events: none;">{{ p.short }}</span></sc-if>
+</sc-for>
+<sc-if value="{{ mx.hasHov }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; left: {{ mx.tipLeft }}px; top: {{ mx.tipTop }}px; width: 220px; pointer-events: none; background: #2A2D34; border: 1px solid #3A3D46; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.45);"><span style="font-weight: 600; font-size: 13px;">{{ mx.tip.nome }}</span><span style="display: flex; justify-content: space-between; color: #A6A9B1;"><span>Receita</span><span style="color: #EEEEF0;">{{ mx.tip.rec }}</span></span><span style="display: flex; justify-content: space-between; color: #A6A9B1;"><span>Margem</span><span style="color: #EEEEF0;">{{ mx.tip.mg }}</span></span><span style="display: flex; justify-content: space-between; color: #A6A9B1;"><span>Vagas</span><span style="color: #EEEEF0;">{{ mx.tip.vagas }}</span></span></div></sc-if>
+</div>
+</div>
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 100px 90px 100px 100px 110px 80px 60px 90px 100px; gap: 10px; padding: 11px 20px; font-size: 12px; color: #A6A9B1; background: #1A1C20; border-bottom: 1px solid #2A2D33;"><span>Cliente</span><span style="text-align: right;">Receita</span><span style="text-align: right;">Deduções</span><span style="text-align: right;">Equipe</span><span style="text-align: right;">Custos diretos</span><span style="text-align: right;">Margem</span><span style="text-align: right;">Margem %</span><span style="text-align: right;">Vagas</span><span>Tendência</span><span>Saúde</span></div>
+<ul style="margin: 0; padding: 0; list-style: none;">
+<sc-for list="{{ cliRows }}" as="c" hint-placeholder-count="12">
+<li><button type="button" class="vf-row" sc-camel-on-click="{{ c.open }}" style="width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 100px 90px 100px 100px 110px 80px 60px 90px 100px; gap: 10px; align-items: center; padding: 0 20px; min-height: 50px; border: none; border-bottom: 1px solid #25282D; background: transparent; color: #EEEEF0; text-align: left; cursor: pointer; font-size: 13px; font-variant-numeric: tabular-nums;">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.nome }}</span><span style="font-size: 11px; color: #A6A9B1;">{{ c.servs }}</span></span>
+<span style="text-align: right;">{{ c.rec }}</span><span style="text-align: right; color: #A6A9B1;">{{ c.ded }}</span><span style="text-align: right; color: #A6A9B1;">{{ c.eq }}</span><span style="text-align: right; color: #A6A9B1;">{{ c.dir }}</span>
+<span style="text-align: right; font-weight: 600; color: {{ c.mgColor }};">{{ c.mg }}</span><span style="text-align: right; font-weight: 600; color: {{ c.mgColor }};">{{ c.mgp }}</span><span style="text-align: right; color: #A6A9B1;">{{ c.vagas }}</span>
+<svg width="80" height="22" sc-camel-view-box="0 0 80 22" aria-hidden="true"><path d="{{ c.spark }}" fill="none" stroke="{{ c.sparkColor }}" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+<span><span style="padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; color: {{ c.hFg }}; background: {{ c.hBg }};">{{ c.health }}</span></span>
+</button></li>
+</sc-for>
+</ul>
+<sc-for list="{{ cliFoot }}" as="cf" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 100px 90px 100px 100px 110px 80px 60px 90px 100px; gap: 10px; padding: 11px 20px; font-size: 13px; background: {{ cf.bg }}; border-bottom: 1px solid #25282D; color: {{ cf.color }}; font-variant-numeric: tabular-nums;"><span style="font-weight: {{ cf.fw }};">{{ cf.label }}</span><span style="text-align: right;">{{ cf.rec }}</span><span></span><span style="text-align: right;">{{ cf.eq }}</span><span style="text-align: right;">{{ cf.dir }}</span><span style="text-align: right; font-weight: 600;">{{ cf.mg }}</span><span style="text-align: right;">{{ cf.mgp }}</span><span></span><span></span><span style="font-size: 11px; color: #A6A9B1;">{{ cf.note }}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dimSrv }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600;">Receita e margem por serviço</h2>
+<sc-for list="{{ srv.bars }}" as="b" hint-placeholder-count="4">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ b.open }}" style="display: grid; grid-template-columns: 190px minmax(0, 1fr) 120px 120px; gap: 14px; align-items: center; padding: 8px 10px; border-radius: 8px; border: none; background: transparent; color: #EEEEF0; cursor: pointer; text-align: left; font-size: 14px;">
+<span style="font-weight: 500;">{{ b.nome }}</span>
+<span style="display: flex; height: 14px; gap: 2px;"><span style="width: {{ b.wRec }}; background: {{accent}}; border-radius: 2px;"></span><span style="width: {{ b.wPon }}; background: #7FC8F8; border-radius: 2px;"></span></span>
+<span style="text-align: right; font-weight: 600;">{{ b.rec }}</span>
+<span style="text-align: right; font-weight: 600; color: {{ b.mgColor }};">{{ b.mgp }} de margem</span>
+</button>
+</sc-for>
+<div style="display: flex; gap: 18px; font-size: 12px; color: #A6A9B1;"><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}};"></span>Recorrente</span><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #7FC8F8;"></span>Pontual</span></div>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 110px 70px 110px 110px 110px 80px 70px; gap: 10px; padding: 11px 20px; font-size: 12px; color: #A6A9B1; background: #1A1C20; border-bottom: 1px solid #2A2D33;"><span>Serviço</span><span style="text-align: right;">Receita</span><span style="text-align: right;">% total</span><span style="text-align: right;">Equipe</span><span style="text-align: right;">Custos diretos</span><span style="text-align: right;">Margem</span><span style="text-align: right;">Margem %</span><span style="text-align: right;">Clientes</span></div>
+<sc-for list="{{ srv.rows }}" as="s" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 110px 70px 110px 110px 110px 80px 70px; gap: 10px; padding: 13px 20px; font-size: 13px; border-bottom: 1px solid #25282D; font-variant-numeric: tabular-nums;"><span style="font-weight: 600;">{{ s.nome }}</span><span style="text-align: right;">{{ s.rec }}</span><span style="text-align: right; color: #A6A9B1;">{{ s.pct }}</span><span style="text-align: right; color: #A6A9B1;">{{ s.eq }}</span><span style="text-align: right; color: #A6A9B1;">{{ s.dir }}</span><span style="text-align: right; font-weight: 600;">{{ s.mg }}</span><span style="text-align: right; font-weight: 600; color: {{ s.mgColor }};">{{ s.mgp }}</span><span style="text-align: right; color: #A6A9B1;">{{ s.n }}</span></div></sc-for>
+</div>
+<span style="font-size: 12px; color: #A6A9B1; line-height: 1.5;">Equipe por serviço: Social Media, Tráfego e Audiovisual vêm direto das vagas da função. Design e relacionamento são divididos pela composição de serviços de cada cliente.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ dimProj }}" hint-placeholder-val="{{ false }}">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 110px 100px 100px 100px 100px 90px 190px; gap: 10px; padding: 11px 20px; font-size: 12px; color: #A6A9B1; background: #1A1C20; border-bottom: 1px solid #2A2D33;"><span>Projeto</span><span>Status</span><span style="text-align: right;">Contratado</span><span style="text-align: right;">Receita no período</span><span style="text-align: right;">Custos + equipe</span><span style="text-align: right;">Margem</span><span style="text-align: right;">Margem %</span><span>Custo acumulado vs. orçado</span></div>
+<sc-for list="{{ projRows }}" as="p" hint-placeholder-count="7"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 110px 100px 100px 100px 100px 90px 190px; gap: 10px; align-items: center; padding: 12px 20px; font-size: 13px; border-bottom: 1px solid #25282D; font-variant-numeric: tabular-nums;">
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 600;">{{ p.nome }}</span><span style="font-size: 12px; color: #A6A9B1;">{{ p.cli }}</span></span>
+<span><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: {{ p.stFg }}; background: {{ p.stBg }};">{{ p.status }}</span></span>
+<span style="text-align: right;">{{ p.contr }}</span><span style="text-align: right;">{{ p.rec }}</span><span style="text-align: right; color: #A6A9B1;">{{ p.custo }}</span><span style="text-align: right; font-weight: 600; color: {{ p.mgColor }};">{{ p.mg }}</span><span style="text-align: right; font-weight: 600; color: {{ p.mgColor }};">{{ p.mgp }}</span>
+<span style="display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: {{ p.orcColor }};">{{ p.orcTxt }}</span><span style="height: 6px; border-radius: 3px; background: #2C2F36; overflow: hidden;"><span style="display: block; height: 100%; width: {{ p.orcW }}; background: {{ p.orcColor }};"></span></span></span>
+</div></sc-for>
+<div style="padding: 12px 20px; font-size: 12px; color: #A6A9B1;">Custo orçado é informado na criação do projeto. A barra fica vermelha quando os custos acumulados passam do orçado, mesmo com o projeto em andamento.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dimSq }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 18px;">
+<div style="padding: 12px 16px; border-radius: 10px; background: #191B1F; border: 1px solid #2C2F36; font-size: 13px; color: #C9CBD1;">Análise do modelo operacional. Nenhum valor individual é exibido.</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+<sc-for list="{{ squads }}" as="sq" hint-placeholder-count="2">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 17px; font-weight: 600;">{{ sq.nome }}</span><span style="font-size: 13px; color: #A6A9B1;">{{ sq.sub }}</span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Receita da carteira</span><span style="font-size: 17px; font-weight: 600;">{{ sq.rec }}</span></span>
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Equipe e custos diretos</span><span style="font-size: 17px; font-weight: 600;">{{ sq.custo }}</span></span>
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Margem</span><span style="font-size: 17px; font-weight: 600; color: {{ sq.mgColor }};">{{ sq.mg }}</span></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><span style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #A6A9B1;">Ocupação de social media</span><span style="font-weight: 600; color: {{ sq.ocColor }};">{{ sq.oc }}</span></span><span style="height: 8px; border-radius: 4px; background: #2C2F36; overflow: hidden;"><span style="display: block; height: 100%; width: {{ sq.ocW }}; background: {{ sq.ocColor }};"></span></span><span style="font-size: 12px; color: #A6A9B1;">{{ sq.ocTxt }}</span></div>
+</div>
+</sc-for>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Ocupação por função</h2><span style="font-size: 13px; color: #A6A9B1;">Onde está o gargalo antes de contratar, e onde há espaço para vender.</span></div>
+<sc-for list="{{ funcoes }}" as="fu" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 150px 170px; gap: 14px; align-items: center; font-size: 13px;">
+<span style="font-weight: 500;">{{ fu.nome }}</span>
+<span style="height: 10px; border-radius: 5px; background: #2C2F36; overflow: hidden;"><span style="display: block; height: 100%; width: {{ fu.w }}; background: {{ fu.color }};"></span></span>
+<span style="color: {{ fu.color }}; font-weight: 600;">{{ fu.oc }}</span>
+<span style="color: #A6A9B1;">{{ fu.txt }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{ tabRec }}" hint-placeholder-val="{{ false }}">
+<section aria-label="Receita" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;">
+<sc-for list="{{ rk }}" as="k" hint-placeholder-count="6"><div style="padding: 14px 16px; border-radius: 12px; border: 1px solid #2C2F36; background: #1D1F24; display: flex; flex-direction: column; gap: 5px;"><span style="font-size: 12px; color: #A6A9B1;">{{ k.label }}</span><span style="font-size: 19px; font-weight: 600; color: {{ k.color }};">{{ k.v }}</span><span style="font-size: 11px; color: #A6A9B1;">{{ k.sub }}</span></div></sc-for>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Ponte do MRR</h2><span style="font-size: 13px; color: #A6A9B1;">{{ ponteMrrSub }}</span></div>
+<div style="position: relative; height: 250px; display: flex; gap: 8px;">
+<sc-for list="{{ ponteMrr }}" as="pc" hint-placeholder-count="7">
+<div style="flex: 1 1 0; position: relative;">
+<span style="position: absolute; left: 12%; right: 12%; top: {{ pc.top }}px; height: {{ pc.h }}px; background: {{ pc.bg }}; border-radius: 3px;"></span>
+<span style="position: absolute; left: -6px; right: -6px; top: {{ pc.valTop }}px; text-align: center; font-size: 12px; font-weight: 600; color: {{ pc.valColor }};">{{ pc.v }}</span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 12px; color: #A6A9B1;">{{ pc.label }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600;">Movimentos do período</h2>
+<sc-for list="{{ movs }}" as="mv" hint-placeholder-count="5">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ mv.open }}" style="display: grid; grid-template-columns: 86px minmax(0, 1fr) 90px; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; border: 1px solid #2C2F36; background: transparent; color: #EEEEF0; text-align: left; cursor: pointer; font-size: 13px;">
+<span><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: {{ mv.fg }}; background: {{ mv.bg }};">{{ mv.tipo }}</span></span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-weight: 500;">{{ mv.cli }}</span><span style="font-size: 12px; color: #A6A9B1;">{{ mv.motivo }}</span></span>
+<span style="text-align: right; font-weight: 600; color: {{ mv.fg }};">{{ mv.v }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Evolução em 12 meses</h2><span style="font-size: 13px; color: #A6A9B1;">Barras: receita do mês. Linha: MRR no fim do mês.</span></div>
+<div role="group" aria-label="Visão" style="display: flex; padding: 3px; border-radius: 9px; background: #1A1C20; border: 1px solid #2C2F36;"><sc-for list="{{ evoModos }}" as="em" hint-placeholder-count="2"><button type="button" sc-camel-on-click="{{ em.pick }}" aria-pressed="{{ em.on }}" style="height: 30px; padding: 0 12px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; background: {{ em.bg }}; color: {{ em.fg }};">{{ em.label }}</button></sc-for></div>
+</div>
+<div style="position: relative; width: 1080px; height: 260px;">
+<div style="position: absolute; left: 0; top: 0; width: 1080px; height: 230px; display: flex; gap: 14px; align-items: flex-end;">
+<sc-for list="{{ evo.cols }}" as="ec" hint-placeholder-count="12">
+<div title="{{ ec.tip }}" style="flex: 1 1 0; height: 100%; display: flex; flex-direction: column-reverse; gap: 1px; background: {{ ec.colBg }};">
+<sc-for list="{{ ec.segs }}" as="es" hint-placeholder-count="2"><span style="height: {{ es.h }}px; background: {{ es.bg }};"></span></sc-for>
+</div>
+</sc-for>
+</div>
+<svg width="1080" height="230" sc-camel-view-box="0 0 1080 230" style="position: absolute; left: 0; top: 0; pointer-events: none;"><path d="{{ evo.line }}" fill="none" stroke="#EEEEF0" stroke-width="2" stroke-linejoin="round"></path></svg>
+<div style="position: absolute; left: 0; top: 238px; width: 1080px; display: flex; gap: 14px;"><sc-for list="{{ evo.cols }}" as="ec" hint-placeholder-count="12"><span style="flex: 1 1 0; text-align: center; font-size: 11px; color: {{ ec.lblColor }};">{{ ec.m }}</span></sc-for></div>
+</div>
+<div style="display: flex; gap: 18px; font-size: 12px; color: #A6A9B1; flex-wrap: wrap;"><sc-for list="{{ evo.leg }}" as="lg" hint-placeholder-count="3"><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{ lg.bg }};"></span>{{ lg.t }}</span></sc-for><span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #EEEEF0;"></span>MRR</span></div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;">
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Concentração</h2><span style="font-size: 13px; color: {{ conc.noteColor }};">{{ conc.note }}</span></div>
+<sc-for list="{{ conc.rows }}" as="cr" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 60px 60px; gap: 10px; align-items: center; font-size: 13px;">
+<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ cr.nome }}</span>
+<span style="height: 8px; border-radius: 3px; background: #25282D;"><span style="display: block; height: 100%; width: {{ cr.w }}; border-radius: 3px; background: {{ cr.bg }};"></span></span>
+<span style="text-align: right; font-weight: 600;">{{ cr.pct }}</span>
+<span style="text-align: right; color: #A6A9B1; font-size: 12px;">{{ cr.acum }}</span>
+</div>
+</sc-for>
+<span style="font-size: 12px; color: #A6A9B1;">Última coluna: percentual acumulado. Limite de alerta por cliente: 15%.</span>
+</div>
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="padding: 18px 20px 12px;"><h2 style="margin: 0; font-size: 16px; font-weight: 600;">Receita por serviço</h2></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 95px 95px 95px 60px 70px; gap: 8px; padding: 10px 20px; font-size: 12px; color: #A6A9B1; background: #1A1C20; border-top: 1px solid #2A2D33; border-bottom: 1px solid #2A2D33;"><span>Serviço</span><span style="text-align: right;">Recorrente</span><span style="text-align: right;">Pontual</span><span style="text-align: right;">Total</span><span style="text-align: right;">%</span><span style="text-align: right;">Δ</span></div>
+<sc-for list="{{ recSrv }}" as="rs" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 95px 95px 95px 60px 70px; gap: 8px; padding: 12px 20px; font-size: 13px; border-bottom: 1px solid #25282D; font-variant-numeric: tabular-nums;"><span style="font-weight: 600;">{{ rs.nome }}</span><span style="text-align: right;">{{ rs.rec }}</span><span style="text-align: right;">{{ rs.pon }}</span><span style="text-align: right; font-weight: 600;">{{ rs.tot }}</span><span style="text-align: right; color: #A6A9B1;">{{ rs.pct }}</span><span style="text-align: right; color: {{ rs.dColor }};">{{ rs.d }}</span></div></sc-for>
+</div>
+</div>
+</section>
+</sc-if>
+
+</div>
+</main>
+
+<sc-if value="{{ lancOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 30; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeLanc }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+
+</body></html>

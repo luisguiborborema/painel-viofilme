@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -85,8 +85,14 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/** `?aba=` e `?status=` chegam do Dashboard, que linka já filtrado (spec §2). */
+function abaDaUrl(raw: string | null): TabKey | null {
+  return TABS.some((t) => t.key === raw) ? (raw as TabKey) : null;
+}
+
 export function FinanceTabs({ data, tier }: { data: GerFinance; tier?: string | null }) {
-  const [tab, setTab] = useState<TabKey>("visao");
+  const params = useSearchParams();
+  const [tab, setTab] = useState<TabKey>(() => abaDaUrl(params.get("aba")) ?? "visao");
 
   return (
     <div className="space-y-4">
@@ -385,8 +391,14 @@ const REC_TABS: { key: RecFilter; label: string }[] = [
 
 function ContasReceber({ data }: { data: GerFinance }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<RecFilter>("todas");
-  const [novoManual, setNovoManual] = useState(false);
+  const params = useSearchParams();
+  const [filter, setFilter] = useState<RecFilter>(() => {
+    const s = params.get("status");
+    return REC_TABS.some((f) => f.key === s) ? (s as RecFilter) : "todas";
+  });
+  // `?novo=1` vem do "+ Novo" do Dashboard: abrir a aba e deixar o formulário
+  // fechado faria a pessoa procurar o botão que ela acabou de apertar.
+  const [novoManual, setNovoManual] = useState(() => params.get("novo") === "1");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function actManual(body: Record<string, unknown>, id: string) {
@@ -582,8 +594,10 @@ function rotuloCategoria(cats: ExpenseCategoryDef[] | undefined, key: string): s
 }
 
 function ContasPagar({ data, tier }: { data: GerFinance; tier?: string | null }) {
+  const params = useSearchParams();
   const router = useRouter();
-  const [showForm, setShowForm] = useState(false);
+  // Mesma ideia de ContasReceber: o "+ Novo" do Dashboard já abre o formulário.
+  const [showForm, setShowForm] = useState(() => params.get("novo") === "1");
   const [editando, setEditando] = useState<Expense | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 

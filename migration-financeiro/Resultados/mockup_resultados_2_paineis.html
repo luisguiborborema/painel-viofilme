@@ -1,0 +1,107 @@
+<!--
+MOCKUP — Resultados (Financeiro Viofilme) · FONTE LEGÍVEL · ARQUIVO 2 de 3
+Painéis e overlays: drawers, fichas, modais e toast (Lançamentos, Rentabilidade do cliente).
+Arquivos desta página: mockup_resultados_1_pagina.html · mockup_resultados_2_paineis.html · mockup_resultados_3_logica.js
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Resultados.html), sem runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura (layout, cores, espaçamentos, textos).
+  Para ver o visual, abra Design___Resultados.html no navegador, mas NÃO leia o código dele (~276 KB em base64, estoura o contexto).
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (arquivo _3_logica.js), que tem estado, dados de exemplo, derivações e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36). Fonte: Instrument Sans.
+- Os recortes de markup vêm de uma árvore maior; algumas tags ficam sem par.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Resultados</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button,input,select,textarea{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-row:hover{background:#1F2227 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-in{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #373A43;background:#16171B;color:#EEEEF0;font-size:14px;width:100%;color-scheme:dark}
+.vf-in:focus{outline:2px solid #6B5FD0;outline-offset:0;border-color:#6B5FD0}
+.vf-btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid #33363E;background:#22252B;color:#EEEEF0;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vf-btn:hover{background:#2A2D34}
+.vf-lbl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#A6A9B1}
+.vf-scroll::-webkit-scrollbar{width:8px}.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+</head><body>
+<aside aria-label="Lançamentos" style="position: relative; width: 540px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 16px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">{{ lanc.per }}</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeLanc }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<span style="font-size: 20px; font-weight: 600;">{{ lanc.titulo }}</span>
+<span style="font-size: 26px; font-weight: 600;">{{ lanc.total }}</span>
+<span style="font-size: 13px; color: #A6A9B1;">{{ lanc.sub }}</span>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 16px 26px 30px; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{ lanc.itens }}" as="li" hint-placeholder-count="6"><button type="button" class="vf-hov" sc-camel-on-click="{{ li.open }}" style="display: grid; grid-template-columns: 56px minmax(0, 1fr) 110px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; background: transparent; color: #EEEEF0; cursor: pointer; text-align: left; font-size: 13px;"><span style="color: #A6A9B1;">{{ li.d }}</span><span>{{ li.l }}</span><span style="text-align: right; font-weight: 600;">{{ li.v }}</span></button></sc-for>
+<sc-if value="{{ lanc.hasNota }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #A6A9B1; padding-top: 6px; line-height: 1.5;">{{ lanc.nota }}</span></sc-if>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ cliOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 31; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeCli }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Rentabilidade do cliente" style="position: relative; width: 640px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">Rentabilidade, {{ perLabel }}</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeCli }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 22px; font-weight: 600;">{{ cf.nome }}</span><span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ cf.hFg }}; background: {{ cf.hBg }};">{{ cf.health }}</span></div>
+<span style="font-size: 13px; color: #A6A9B1;">{{ cf.sub }}</span>
+<div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-size: 28px; font-weight: 600; color: {{ cf.mgColor }};">{{ cf.mg }}</span><span style="font-size: 14px; color: #A6A9B1;">de margem de contribuição, {{ cf.mgp }}</span></div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 20px 26px 30px; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 8px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Da receita à margem</h3>
+<sc-for list="{{ cf.cascata }}" as="cs" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 100px; gap: 10px; align-items: center; font-size: 13px;">
+<span style="color: {{ cs.lblColor }}; font-weight: {{ cs.fw }};">{{ cs.label }}</span>
+<span style="position: relative; height: 14px;"><span style="position: absolute; left: {{ cs.left }}; width: {{ cs.w }}; top: 0; bottom: 0; border-radius: 2px; background: {{ cs.bg }};"></span></span>
+<span style="text-align: right; font-weight: {{ cs.fw }}; color: {{ cs.valColor }};">{{ cs.v }}</span>
+</div>
+</sc-for>
+<span style="font-size: 12px; color: #A6A9B1;">Equipe aparece por função, não por pessoa.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Margem % em 12 meses</h3>
+<svg width="588" height="90" sc-camel-view-box="0 0 588 90" aria-label="Evolução da margem"><line x1="0" x2="588" y1="{{ cf.limY }}" y2="{{ cf.limY }}" stroke="#6FD3A2" stroke-opacity="0.35" stroke-dasharray="4 4"></line><path d="{{ cf.evo }}" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linejoin="round"></path></svg>
+<span style="font-size: 12px; color: #A6A9B1;">Linha tracejada: limite de margem saudável (55%).</span>
+</div>
+<sc-if value="{{ cf.hasEsforco }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Esforço vs. contrato</h3>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 10px; border: 1px solid {{ cf.esfBorder }}; background: {{ cf.esfBg }}; font-size: 13px;"><span style="display: flex; justify-content: space-between;"><span>Entregas contratadas no mês</span><span style="font-weight: 600;">{{ cf.contr }}</span></span><span style="display: flex; justify-content: space-between;"><span>Entregas realizadas (Operação)</span><span style="font-weight: 600; color: {{ cf.esfColor }};">{{ cf.real }}</span></span><span style="color: #C9CBD1; line-height: 1.5;">{{ cf.esfTxt }}</span></div>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Simular preço</h3>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #191B1F;">
+<div style="display: flex; align-items: end; gap: 12px;"><label class="vf-lbl" style="width: 200px;">Fee mensal<input class="vf-in" type="text" value="{{ simFee }}" sc-camel-on-change="{{ onSimFee }}"></label><span style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Margem com este fee</span><span style="font-size: 20px; font-weight: 600; color: {{ cf.simColor }};">{{ cf.simMg }}</span></span></div>
+<span style="font-size: 13px; color: #C9CBD1; line-height: 1.5;">{{ cf.simTxt }}</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Alocação de equipe no mês</h3>
+<sc-for list="{{ cf.aloc }}" as="al" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px 100px; gap: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid #2C2F36; font-size: 13px;"><span>{{ al.f }}</span><span style="color: #A6A9B1;">{{ al.vagas }}</span><span style="color: #A6A9B1;">{{ al.custoVaga }}</span><span style="text-align: right; font-weight: 600;">{{ al.v }}</span></div></sc-for>
+<button type="button" class="vf-link" sc-camel-on-click="{{ ajustarAloc }}" style="align-self: flex-start; border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer; padding: 4px 0;">Ajustar alocação em Pagamentos, Folha</button>
+</div>
+<sc-if value="{{ cf.hasDir }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Custos diretos do período</h3>
+<sc-for list="{{ cf.dir }}" as="d" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 8px; border: 1px solid #2C2F36; font-size: 13px;"><span>{{ d.l }}</span><span style="font-weight: 600;">{{ d.v }}</span></div></sc-for>
+</div>
+</sc-if>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 60; max-width: 700px; background: #EEEEF0; color: #16171B; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+</body></html>

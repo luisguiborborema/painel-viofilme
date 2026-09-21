@@ -1,0 +1,591 @@
+<!--
+MOCKUP — Dashboard Financeiro Viofilme · FONTE LEGÍVEL · PARTE 1 de 2
+Acompanha viofilme_dashboard_parte1.md. Escopo desta parte: layout base (sidebar), cabeçalho, menu + Novo, faixa "Desde ontem", Bloco 1 Precisa da sua atenção, Bloco 2 Pulso, Bloco 3 Entradas e saídas.
+Fora deste arquivo (está no mockup da outra parte): checklist de implantação (Primeiro uso), Bloco 4 Esta semana, Bloco 5 Panorama, ficha universal, baixa rápida, toast.
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Dashboard_Financeiro.html), sem o runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura para layout, cores, espaçamentos, textos e dados de exemplo.
+  Para ver o visual, abra o Design___Dashboard_Financeiro.html original no navegador (não leia o código dele).
+- Os trechos de markup são recortes de uma árvore maior; algumas tags de abertura/fechamento ficam sem par.
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (script no fim do arquivo), que contém estado, dados de exemplo e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos são inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36).
+- Prop "cenario": Operação normal · Tudo em dia · Primeiro uso.
+- Fonte: Instrument Sans.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Dashboard Financeiro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-scroll::-webkit-scrollbar{width:8px}
+.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+
+</head><body>
+
+<!-- ===== recorte 1 ===== -->
+</helmet>
+<div style="width: 100%; min-width: 1440px; min-height: 2600px; display: flex; background: #16171B; color: #EEEEF0; font-family: 'Instrument Sans', 'Helvetica Neue', Helvetica, sans-serif; font-size: 14px; font-variant-numeric: tabular-nums;">
+
+<aside style="width: 240px; flex-shrink: 0; box-sizing: border-box; background: #111215; border-right: 1px solid #25272D;">
+<div style="position: sticky; top: 0; height: 100vh; max-height: 1000px; box-sizing: border-box; display: flex; flex-direction: column; gap: 26px; padding: 24px 14px;">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 10px;">
+<span style="font-size: 20px; font-weight: 700; letter-spacing: -0.03em;">viofilme</span>
+<span style="font-size: 12px; font-weight: 500; color: #A6A9B1;">ERP</span>
+</div>
+<nav aria-label="Módulos" style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Home</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>CRM e vendas</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"></path></svg>Operação</a>
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #EEEEF0; text-decoration: none; background: #1D1F24; font-weight: 600;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18M16 15h2"></path></svg>Financeiro</a>
+<div style="display: flex; flex-direction: column; gap: 1px; padding: 4px 0 6px 40px;">
+<a href="#" style="padding: 7px 10px; border-radius: 6px; color: #EEEEF0; text-decoration: none; background: #25272E; font-weight: 500;">Dashboard</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Recebimentos</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Pagamentos</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Caixa</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Resultados</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Planejamento</a>
+<a href="#" class="vf-hov" style="padding: 7px 10px; border-radius: 6px; color: #A6A9B1; text-decoration: none;">Configurações</a>
+</div>
+</div>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.7 2.6 3 5.2"></path></svg>Clientes e CS</a>
+<a href="#" class="vf-hov" style="display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: #A6A9B1; text-decoration: none;"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path></svg>RH e cultura</a>
+</nav>
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 10px 0; border-top: 1px solid #25272D;">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #2E2A45; color: #C4B9FF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;">IL</div>
+<div style="display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 13px; font-weight: 600;">Iago Lima</span>
+<span style="font-size: 12px; color: #A6A9B1;">Diretoria</span>
+</div>
+</div>
+</div>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 34px 36px 72px;">
+<div style="width: 1128px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px;">
+
+<div style="display: flex; flex-direction: column; gap: 18px;">
+<header style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; color: #A6A9B1;">Financeiro</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.025em;">Dashboard</h1>
+<span style="font-size: 13px; color: #A6A9B1;">Quinta-feira, 17 de setembro de 2026</span>
+</div>
+<div style="display: flex; gap: 10px; position: relative;">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ importar }}" style="height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #33363E; background: #1D1F24; color: #EEEEF0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"></path></svg>Importar extrato</button>
+<button type="button" sc-camel-on-click="{{ toggleNovo }}" aria-expanded="{{ novoOpen }}" style="height: 40px; padding: 0 14px 0 16px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Novo<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ novoOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; right: 0; top: 48px; z-index: 20; width: 240px; background: #24272D; border: 1px solid #33363E; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; box-shadow: 0 12px 32px rgba(0,0,0,0.45);">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ novoReceita }}" style="text-align: left; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 600; font-size: 14px;">Receita</span><span style="font-size: 12px; color: #A6A9B1;">Conta a receber ou cobrança</span></button>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ novoDespesa }}" style="text-align: left; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 600; font-size: 14px;">Despesa</span><span style="font-size: 12px; color: #A6A9B1;">Conta a pagar, única ou parcelada</span></button>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ novoTransf }}" style="text-align: left; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 600; font-size: 14px;">Transferência</span><span style="font-size: 12px; color: #A6A9B1;">Entre contas da Viofilme</span></button>
+</div>
+</sc-if>
+</div>
+</header>
+<sc-if value="{{ notSetup }}" hint-placeholder-val="{{ true }}">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ abrirDesde }}" style="align-self: flex-start; display: flex; align-items: center; gap: 14px; padding: 9px 14px; border-radius: 999px; border: 1px solid #2C2F36; background: #1A1C20; color: #A6A9B1; font-size: 13px; cursor: pointer;">
+<span style="color: #EEEEF0; font-weight: 600;">Desde ontem</span>
+<span><span style="color: #6FD3A2;">2 recebimentos</span> somando R$ 12.400</span>
+<span style="width: 1px; height: 14px; background: #33363E;"></span>
+<span>3 pagamentos somando R$ 6.180</span>
+<span style="width: 1px; height: 14px; background: #33363E;"></span>
+<span>Casa Nómade quitou uma fatura vencida</span>
+</button>
+</sc-if>
+</div>
+
+<sc-if value="{{ isSetup }}" hint-placeholder-val="{{ false }}">
+
+
+<!-- ===== recorte 2 ===== -->
+<section aria-label="Precisa da sua atenção" style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; overflow: hidden;">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 22px 14px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">Precisa da sua atenção</h2>
+<sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}"><span style="padding: 3px 9px; border-radius: 999px; background: rgba(240,138,132,0.14); color: #F08A84; font-size: 12px; font-weight: 600;">{{ alertCount }}</span></sc-if>
+</div>
+<span style="font-size: 12px; color: #A6A9B1;">Atualizado às 09:14</span>
+</div>
+<sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 18px; padding: 22px 22px 26px; border-top: 1px solid #2A2D33;">
+<span style="width: 44px; height: 44px; border-radius: 50%; background: rgba(111,211,162,0.14); color: #6FD3A2; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 18px; font-weight: 600;">Tudo em dia</span>
+<span style="font-size: 13px; color: #A6A9B1;">Nada vencido, nada para conciliar. Última conciliação hoje às 09:12. Próxima saída relevante: folha de setembro, R$ 63.400 em 05/10.</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}">
+<ul style="margin: 0; padding: 0; list-style: none;">
+<sc-for list="{{ mainAlerts }}" as="al" hint-placeholder-count="5">
+<li style="border-top: 1px solid #2A2D33;">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ al.go }}" style="width: 100%; display: grid; grid-template-columns: 14px minmax(0, 1fr) 96px 240px 16px; align-items: center; gap: 16px; padding: 14px 22px; border: none; background: transparent; color: #EEEEF0; text-align: left; cursor: pointer;">
+<span style="width: 10px; height: 10px; border-radius: 50%; background: {{ al.color }};"></span>
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+<span style="font-size: 15px; font-weight: 600;">{{ al.title }}</span>
+<span style="font-size: 13px; color: #A6A9B1;">{{ al.detail }}</span>
+</span>
+<span style="justify-self: start; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ al.color }}; background: {{ al.bg }};">{{ al.sev }}</span>
+<span style="font-size: 13px; color: #A6A9B1; text-align: right;">{{ al.dest }}</span>
+<svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="#A6A9B1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+<sc-if value="{{ hasInfos }}" hint-placeholder-val="{{ true }}">
+<div style="border-top: 1px solid #2A2D33;">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ toggleInfo }}" aria-expanded="{{ showInfo }}" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 22px; border: none; background: transparent; color: #A6A9B1; font-size: 13px; font-weight: 500; cursor: pointer; text-align: left;">
+<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ infoChevron }};"><path d="M9 6l6 6-6 6"></path></svg>
+<span>{{ infoLabel }}</span>
+</button>
+<sc-if value="{{ showInfo }}" hint-placeholder-val="{{ false }}">
+<ul style="margin: 0; padding: 0 0 8px; list-style: none;">
+<sc-for list="{{ infos }}" as="inf" hint-placeholder-count="4">
+<li style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 9px 22px;">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #6E727B;"></span>
+<span style="display: flex; gap: 10px; align-items: baseline; min-width: 0;"><span style="font-size: 14px; font-weight: 500;">{{ inf.title }}</span><span style="font-size: 13px; color: #A6A9B1;">{{ inf.detail }}</span></span>
+<button type="button" class="vf-link" sc-camel-on-click="{{ inf.go }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; cursor: pointer; padding: 6px 4px;">{{ inf.dest }}</button>
+<button type="button" class="vf-link" sc-camel-on-click="{{ inf.silence }}" style="border: none; background: transparent; color: #A6A9B1; font-size: 13px; cursor: pointer; padding: 6px 4px;">Silenciar 7 dias</button>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+</div>
+</sc-if>
+</section>
+
+<section aria-label="Pulso" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+<div style="position: relative;">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ toggleSaldo }}" aria-expanded="{{ saldoOpen }}" style="width: 100%; height: 100%; box-sizing: border-box; text-align: left; padding: 20px 22px; border-radius: 14px; border: 1px solid #2C2F36; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+<span style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #A6A9B1;">Saldo disponível<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+<span style="font-size: 30px; font-weight: 600; letter-spacing: -0.025em;">R$ 84.320</span>
+<span style="font-size: 13px; color: #A6A9B1;">Cerca de 1,2 mês de fôlego</span>
+</button>
+<sc-if value="{{ saldoOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; top: calc(100% + 8px); z-index: 15; width: 320px; background: #24272D; border: 1px solid #33363E; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.45);">
+<span style="font-size: 12px; color: #A6A9B1;">Compõem o disponível</span>
+<div style="display: flex; justify-content: space-between;"><span>Inter</span><span style="font-weight: 600;">R$ 58.470</span></div>
+<div style="display: flex; justify-content: space-between;"><span>Asaas <span style="color: #A6A9B1; font-size: 12px;">liquidez D+1</span></span><span style="font-weight: 600;">R$ 14.650</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="display: flex; align-items: center; gap: 6px;">Sicoob <span style="padding: 2px 7px; border-radius: 999px; background: rgba(237,184,102,0.14); color: #EDB866; font-size: 11px; font-weight: 600;">extrato há 8 dias</span></span><span style="font-weight: 600;">R$ 11.200</span></div>
+<div style="height: 1px; background: #33363E;"></div>
+<span style="font-size: 12px; color: #A6A9B1;">Fora do disponível</span>
+<div style="display: flex; justify-content: space-between; color: #A6A9B1;"><span>Reserva</span><span>R$ 30.000</span></div>
+<a href="#" style="font-size: 13px; text-decoration: none;">Ver contas no Caixa</a>
+</div>
+</sc-if>
+</div>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ goFluxo }}" style="text-align: left; padding: 20px 22px; border-radius: 14px; border: 1px solid #2C2F36; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 13px; color: #A6A9B1;">Caixa em 30 dias</span>
+<span style="font-size: 30px; font-weight: 600; letter-spacing: -0.025em;">R$ 116.750</span>
+<span style="font-size: 13px; color: #A6A9B1;">Menor saldo: <span style="color: #EEEEF0; font-weight: 500;">R$ 40.050 em 05/10</span></span>
+</button>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ goDre }}" style="text-align: left; padding: 20px 22px; border-radius: 14px; border: 1px solid #2C2F36; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 13px; color: #A6A9B1;">Resultado de setembro</span>
+<span style="font-size: 30px; font-weight: 600; letter-spacing: -0.025em;">R$ 41.200</span>
+<span style="display: flex; flex-direction: column; gap: 7px; width: 100%;">
+<span style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #2C2F36;"><span style="width: 58%; background: {{accent}};"></span><span style="width: 42%; background: repeating-linear-gradient(135deg, #5A5480 0 3px, #2C2F36 3px 6px);"></span></span>
+<span style="font-size: 13px; color: #A6A9B1;">Margem de 37%, sendo 58% já realizado</span>
+</span>
+</button>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ goReceita }}" style="text-align: left; padding: 20px 22px; border-radius: 14px; border: 1px solid #2C2F36; background: #1D1F24; color: #EEEEF0; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 13px; color: #A6A9B1;">MRR e pontual de setembro</span>
+<span style="display: flex; align-items: flex-end; justify-content: space-between; width: 100%; gap: 10px;">
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 27px; font-weight: 600; letter-spacing: -0.025em;">R$ 96.400</span><span style="font-size: 12px; color: {{accent}}; font-weight: 600;">Recorrente</span></span>
+<span style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end;"><span style="font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: #7FC8F8;">R$ 22.600</span><span style="font-size: 12px; color: #7FC8F8; font-weight: 600;">Pontual</span></span>
+</span>
+<span style="display: flex; flex-direction: column; gap: 7px; width: 100%;">
+<span style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px;"><span style="width: 81%; background: {{accent}};"></span><span style="width: 19%; background: #7FC8F8;"></span></span>
+<span style="font-size: 13px; color: #A6A9B1;">Total de R$ 119.000. MRR <span style="color: #6FD3A2; font-weight: 500;">+ R$ 4.500</span> em 30 dias</span>
+</span>
+</button>
+</section>
+</div>
+
+<section aria-labelledby="sec-es" style="display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 id="sec-es" style="margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.015em;">Entradas e saídas</h2>
+<p style="margin: 0; font-size: 14px; color: #A6A9B1;">O ritmo do dinheiro: o que aconteceu na última semana, o que vem na próxima e o que ficou para trás.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start;">
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;">
+<h3 style="margin: 0; font-size: 17px; font-weight: 600;">Recebimentos</h3>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goReceb }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir recebimentos</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em;">82%</span><span style="font-size: 14px; color: #A6A9B1;">do que vence em setembro já entrou: R$ 92.300 de R$ 112.500</span></div>
+<div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #2C2F36;"><span style="width: 82%; background: #6FD3A2;"></span><span style="width: 7.5%; background: #F08A84;"></span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Últimos 7 dias</span><span style="font-size: 17px; font-weight: 600;">R$ 21.600</span><span style="font-size: 12px; color: #A6A9B1;">6 recebimentos</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Próximos 7 dias</span><span style="font-size: 17px; font-weight: 600;">R$ 18.600</span><span style="font-size: 12px; color: #A6A9B1;">4 cobranças</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: rgba(240,138,132,0.08); display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Vencido</span><span style="font-size: 17px; font-weight: 600; color: #F08A84;">R$ 8.450</span><span style="font-size: 12px; color: #A6A9B1;">3 clientes</span></div>
+</div>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ toggleIn }}" aria-expanded="{{ expIn }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border-radius: 8px; border: 1px solid #2C2F36; background: #191B1F; color: #A6A9B1; font-size: 13px; font-weight: 500; cursor: pointer;">{{ lblIn }}<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ chevIn }}; transition: transform 0.2s;"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ expIn }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 12px; color: #A6A9B1;">Dia a dia, de 10/09 a 24/09</span>
+<div style="display: flex; align-items: flex-end; gap: 5px; height: 68px;">
+<sc-for list="{{ stripIn }}" as="b" hint-placeholder-count="15">
+<div style="flex-grow: 1; height: 100%; display: flex; align-items: flex-end; border-radius: 4px; background: {{ b.colBg }};">
+<div style="width: 100%; box-sizing: border-box; height: {{ b.h }}px; border-radius: 3px; background: {{ b.bg }}; border: {{ b.border }};"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #A6A9B1;"><span>10/09</span><span style="color: #EEEEF0; font-weight: 600;">hoje</span><span>24/09</span></div>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; padding-top: 18px; border-top: 1px solid #2A2D33;">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 12px; color: #A6A9B1;">Vencidos por tempo de atraso</span>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; align-items: end;">
+<sc-for list="{{ aging }}" as="ag" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 5px; align-items: stretch;">
+<span style="font-size: 11px; font-weight: 600; color: {{ ag.vColor }}; text-align: center;">{{ ag.v }}</span>
+<div style="height: 46px; display: flex; align-items: flex-end;"><div style="width: 100%; height: {{ ag.h }}px; border-radius: 3px; background: {{ ag.bg }};"></div></div>
+<span style="font-size: 11px; color: #A6A9B1; text-align: center;">{{ ag.label }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Próximo recebimento</span><span style="font-weight: 600;">Clínica Vitta, hoje</span><span style="font-size: 13px; color: #6FD3A2;">R$ 4.800, cobrança visualizada</span></div>
+<div style="display: flex; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Atraso médio</span><span style="font-weight: 600;">3,4 dias</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Inadimplência 90d</span><span style="font-weight: 600;">2,9%</span></div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="background: #1D1F24; border: 1px solid #2C2F36; border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;">
+<h3 style="margin: 0; font-size: 17px; font-weight: 600;">Pagamentos</h3>
+<button type="button" class="vf-link" sc-camel-on-click="{{ goPag }}" style="border: none; background: transparent; color: #C4B9FF; font-size: 13px; font-weight: 500; cursor: pointer; padding: 4px 0;">Abrir pagamentos</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em;">73%</span><span style="font-size: 14px; color: #A6A9B1;">do que vence em setembro já foi pago: R$ 52.300 de R$ 71.300</span></div>
+<div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #2C2F36;"><span style="width: 73.4%; background: #86B4F7;"></span><span style="width: 2.6%; background: #F08A84;"></span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Últimos 7 dias</span><span style="font-size: 17px; font-weight: 600;">R$ 9.870</span><span style="font-size: 12px; color: #A6A9B1;">8 contas pagas</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Próximos 7 dias</span><span style="font-size: 17px; font-weight: 600;">R$ 6.520</span><span style="font-size: 12px; color: #A6A9B1;">5 contas</span></div>
+<div style="padding: 12px 14px; border-radius: 10px; background: rgba(240,138,132,0.08); display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; color: #A6A9B1;">Vencido</span><span style="font-size: 17px; font-weight: 600; color: #F08A84;">R$ 1.850</span><span style="font-size: 12px; color: #A6A9B1;">1 conta, há 2 dias</span></div>
+</div>
+<button type="button" class="vf-hov" sc-camel-on-click="{{ toggleOut }}" aria-expanded="{{ expOut }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border-radius: 8px; border: 1px solid #2C2F36; background: #191B1F; color: #A6A9B1; font-size: 13px; font-weight: 500; cursor: pointer;">{{ lblOut }}<svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: {{ chevOut }}; transition: transform 0.2s;"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ expOut }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 12px; color: #A6A9B1;">Dia a dia, de 10/09 a 24/09</span>
+<div style="display: flex; align-items: flex-end; gap: 5px; height: 68px;">
+<sc-for list="{{ stripOut }}" as="b" hint-placeholder-count="15">
+<div style="flex-grow: 1; height: 100%; display: flex; align-items: flex-end; border-radius: 4px; background: {{ b.colBg }};">
+<div style="width: 100%; box-sizing: border-box; height: {{ b.h }}px; border-radius: 3px; background: {{ b.bg }}; border: {{ b.border }};"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #A6A9B1;"><span>10/09</span><span style="color: #EEEEF0; font-weight: 600;">hoje</span><span>24/09</span></div>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; padding-top: 18px; border-top: 1px solid #2A2D33;">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 12px; color: #A6A9B1;">Situação dos R$ 19.000 que faltam pagar</span>
+<div style="display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: #2C2F36; gap: 2px;"><span style="width: 66.8%; background: #86B4F7;"></span><span style="width: 23.4%; background: #6E727B;"></span><span style="width: 9.8%; background: #F08A84;"></span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+<span style="display: flex; justify-content: space-between;"><span style="display: flex; align-items: center; gap: 8px; color: #C9CBD1;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #86B4F7;"></span>Programado</span><span style="font-weight: 500;">R$ 12.700</span></span>
+<span style="display: flex; justify-content: space-between;"><span style="display: flex; align-items: center; gap: 8px; color: #C9CBD1;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #6E727B;"></span>Sem programação</span><span style="font-weight: 500;">R$ 4.450</span></span>
+<span style="display: flex; justify-content: space-between;"><span style="display: flex; align-items: center; gap: 8px; color: #C9CBD1;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #F08A84;"></span>Vencido</span><span style="font-weight: 500;">R$ 1.850</span></span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Próximo pagamento</span><span style="font-weight: 600;">Adobe e Google, hoje</span><span style="font-size: 13px; color: #C9CBD1;">R$ 820, uma ainda sem programação</span></div>
+<div style="display: flex; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Pagos em dia 90d</span><span style="font-weight: 600;">96%</span></div>
+<div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Maior saída do mês</span><span style="font-weight: 600;">Folha, 05/10</span></div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+
+</div>
+</section>
+
+
+
+<!-- ===== LÓGICA E DADOS DE EXEMPLO (comum às duas partes) ===== -->
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;cenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Operação normal&quot;,&quot;Tudo em dia&quot;,&quot;Primeiro uso&quot;],&quot;default&quot;:&quot;Operação normal&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A99BFF&quot;,&quot;options&quot;:[&quot;#A99BFF&quot;,&quot;#F2A97E&quot;,&quot;#9ADFB5&quot;,&quot;#E8D27A&quot;]},&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:2600}}">
+class Component extends DCLogic {
+  constructor(...a) {
+    super(...a);
+    this.state = { filtro: 'todas', showInfo: false, saldoOpen: false, novoOpen: false, fichaId: null, baixaId: null, extras: false, paid: [], sent: [], silenced: [], toast: null, hover: -1, slide: 0, expIn: false, expOut: false, fData: '2026-09-17', fValor: '', fConta: 'Inter' };
+  }
+  money(n) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  money0(n) { return 'R$ ' + Math.round(n).toLocaleString('pt-BR'); }
+  mil(n) { return 'R$ ' + (n / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mil'; }
+  say(msg) {
+    this.setState({ toast: msg, novoOpen: false });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  items() {
+    return [
+      { id: 1, dateLabel: 'Hoje', today: true, dir: 'out', pessoa: 'Adobe', desc: 'Creative Cloud, equipe de criação', valor: 449.90, status: 'Programado', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Gerado pela recorrência “Adobe — Creative Cloud”', itens: [{ cat: 'Softwares › Criação', dims: 'Centro de custo Entrega, cliente Operação geral', val: 449.90 }], cob: null, hist: [{ d: '12/09', t: 'Pagamento programado para 17/09 por Iago Lima' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 2, dateLabel: 'Hoje', today: true, dir: 'out', pessoa: 'Google', desc: 'Workspace, 14 licenças', valor: 370.10, status: 'Sem programação', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Não definida', origem: 'Gerado pela recorrência “Google — Workspace”', itens: [{ cat: 'Softwares › Produtividade', dims: 'Centro de custo Administrativo', val: 370.10 }], cob: null, hist: [{ d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 3, dateLabel: 'Hoje', today: true, dir: 'in', pessoa: 'Clínica Vitta', desc: 'Mensalidade setembro', valor: 4800, status: 'Cobrança enviada', venc: '17/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “Clínica Vitta — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3200 }, { cat: 'Receita › Mensalidades', dims: 'Serviço Tráfego pago, centro de custo Entrega', val: 1600 }], cob: 'PIX e boleto via Asaas. Enviada em 12/09, visualizada pelo cliente em 15/09.', hist: [{ d: '15/09', t: 'Cliente abriu a cobrança (Asaas)' }, { d: '12/09', t: 'Cobrança enviada automaticamente, 5 dias antes do vencimento' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 4, dateLabel: 'Amanhã', today: false, dir: 'out', pessoa: 'Imobiliária Praia Mar', desc: 'Aluguel do escritório, setembro', valor: 4200, status: 'Programado', venc: '18/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Gerado pela recorrência “Aluguel escritório”', itens: [{ cat: 'Estrutura › Aluguel', dims: 'Centro de custo Administrativo', val: 4200 }], cob: null, hist: [{ d: '10/09', t: 'Pagamento programado para 18/09 por Iago Lima' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 5, dateLabel: 'Amanhã', today: false, dir: 'out', pessoa: 'EDP', desc: 'Energia elétrica, agosto', valor: 300, status: 'Programado', venc: '18/09/2026', comp: 'Agosto 2026', parcela: 'Única', conta: 'Inter', origem: 'Criado manualmente por Iago Lima em 05/09', itens: [{ cat: 'Estrutura › Energia', dims: 'Centro de custo Administrativo', val: 300 }], cob: null, hist: [{ d: '05/09', t: 'Criado manualmente, conta anexada' }] },
+      { id: 6, dateLabel: 'Seg 21', today: false, dir: 'in', pessoa: 'Grupo Orla', desc: 'Vídeo institucional, parcela 2 de 3', valor: 6000, status: 'Sem cobrança', venc: '21/09/2026', comp: 'Setembro 2026', parcela: '2 de 3', conta: 'Asaas', origem: 'Criado manualmente por Iago Lima em 04/08', itens: [{ cat: 'Receita › Projetos', dims: 'Serviço Audiovisual, projeto Vídeo institucional 2026', val: 6000 }], cob: null, hist: [{ d: '21/08', t: 'Parcela 1 de 3 recebida' }, { d: '04/08', t: 'Título criado em 3 parcelas de R$ 6.000' }] },
+      { id: 7, dateLabel: 'Ter 22', today: false, dir: 'in', pessoa: 'BNEX', desc: 'Mensalidade setembro', valor: 3300, status: 'Sem cobrança', venc: '22/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “BNEX — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3300 }], cob: null, hist: [{ d: '01/09', t: 'Gerado automaticamente pela recorrência' }] },
+      { id: 8, dateLabel: 'Qua 23', today: false, dir: 'out', pessoa: 'Marina Costa', desc: 'Edição de vídeo, freelancer', valor: 1200, status: 'Programado', venc: '23/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Inter', origem: 'Veio da Operação, solicitação de freelancer nº 214', itens: [{ cat: 'Custos diretos › Freelancers', dims: 'Cliente Restaurante Sabor do Mar, serviço Audiovisual, centro de custo Entrega', val: 1200 }], cob: null, hist: [{ d: '15/09', t: 'Aprovado e programado por Iago Lima' }, { d: '14/09', t: 'Criado a partir da solicitação da Operação' }] },
+      { id: 9, dateLabel: 'Qui 24', today: false, dir: 'in', pessoa: 'APTO', desc: 'Mensalidade setembro', valor: 4500, status: 'Cobrança enviada', venc: '24/09/2026', comp: 'Setembro 2026', parcela: 'Única', conta: 'Asaas', origem: 'Gerado pela recorrência “APTO — Mensalidade”', itens: [{ cat: 'Receita › Mensalidades', dims: 'Serviço Social Media, centro de custo Entrega', val: 3000 }, { cat: 'Receita › Mensalidades', dims: 'Serviço Tráfego pago, centro de custo Entrega', val: 1500 }], cob: 'PIX e boleto via Asaas. Enviada em 17/09, ainda não visualizada.', hist: [{ d: '17/09', t: 'Cobrança enviada automaticamente, 5 dias antes do vencimento' }, { d: '01/09', t: 'Gerado automaticamente pela recorrência' }] }
+    ];
+  }
+  tones(status) {
+    if (status === 'Programado') return ['#86B4F7', 'rgba(134,180,247,0.13)'];
+    if (status === 'Cobrança enviada') return ['#6FD3A2', 'rgba(111,211,162,0.13)'];
+    if (status === 'Sem cobrança') return ['#EDB866', 'rgba(237,184,102,0.14)'];
+    return ['#A6A9B1', 'rgba(166,169,177,0.14)'];
+  }
+  strip(past, future, color) {
+    const all = past.concat(future);
+    const max = Math.max.apply(null, all);
+    return all.map((v, i) => {
+      const fut = i >= past.length;
+      const h = v > 0 ? Math.max(6, Math.round(v / max * 62)) : 2;
+      return {
+        h: String(h),
+        bg: v === 0 ? '#33363E' : (fut ? 'transparent' : color),
+        border: v > 0 && fut ? '1.5px solid ' + color : 'none',
+        colBg: i === past.length ? '#262930' : 'transparent'
+      };
+    });
+  }
+  renderVals() {
+    const s = this.state;
+    const accent = this.props.accent ?? '#A99BFF';
+    const cenario = this.props.cenario ?? 'Operação normal';
+    const isSetup = cenario === 'Primeiro uso';
+    const clear = cenario === 'Tudo em dia';
+
+    const all = this.items().filter((it) => !s.paid.includes(it.id)).map((raw) => {
+      const it = Object.assign({}, raw);
+      if (s.sent.includes(it.id)) { it.status = 'Cobrança enviada'; it.cob = 'PIX e boleto via Asaas. Enviada agora, ainda não visualizada.'; }
+      const tn = this.tones(it.status);
+      const isIn = it.dir === 'in';
+      const semCob = isIn && it.status === 'Sem cobrança';
+      return Object.assign(it, {
+        tone: tn[0], toneBg: tn[1],
+        dirLabel: isIn ? 'Entrada' : 'Saída',
+        dirBg: isIn ? 'rgba(111,211,162,0.14)' : 'rgba(166,169,177,0.14)',
+        dirColor: isIn ? '#6FD3A2' : '#C9CBD1',
+        dirRotate: isIn ? 'none' : 'rotate(180deg)',
+        dateWeight: it.today ? '600' : '400',
+        dateColor: it.today ? '#EEEEF0' : '#A6A9B1',
+        valTxt: (isIn ? '+ ' : '− ') + this.money(it.valor),
+        valColor: isIn ? '#6FD3A2' : '#EEEEF0',
+        actLabel: semCob ? 'Enviar cobrança' : (isIn ? 'Registrar recebimento' : 'Registrar pagamento'),
+        act: semCob ? () => this.enviar(it.id, it.pessoa) : () => this.abrirBaixa(it),
+        open: () => this.setState({ fichaId: it.id, novoOpen: false, saldoOpen: false })
+      });
+    });
+
+    const weekShown = all.filter((it) => s.filtro === 'todas' || (s.filtro === 'in' ? it.dir === 'in' : it.dir === 'out'));
+    const sumIn = weekShown.filter((i) => i.dir === 'in').reduce((a, b) => a + b.valor, 0);
+    const sumOut = weekShown.filter((i) => i.dir === 'out').reduce((a, b) => a + b.valor, 0);
+    const segs = [['todas', 'Todas'], ['in', 'Entradas'], ['out', 'Saídas']].map(([k, label]) => ({
+      label, on: s.filtro === k,
+      bg: s.filtro === k ? '#2C2F36' : 'transparent',
+      fg: s.filtro === k ? '#EEEEF0' : '#A6A9B1',
+      pick: () => this.setState({ filtro: k })
+    }));
+
+    const red = ['#F08A84', 'rgba(240,138,132,0.14)'];
+    const amber = ['#EDB866', 'rgba(237,184,102,0.14)'];
+    const nav = (dest) => () => this.say('Abriria ' + dest + ', com o filtro já aplicado');
+    let mainAlerts = [
+      { color: red[0], bg: red[1], sev: 'Crítico', title: 'R$ 1.850 em pagamento vencido', detail: 'Lucas Prado, freelancer de captação. Venceu há 2 dias', dest: 'Pagamentos, vencidos' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: 'R$ 8.450 em recebimentos vencidos', detail: '3 clientes. O mais antigo é Atlas Engenharia, há 12 dias', dest: 'Recebimentos, vencidos' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: 'R$ 5.320 vencem hoje e amanhã', detail: '4 contas a pagar, 1 ainda sem programação', dest: 'Pagamentos, hoje e amanhã' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: s.sent.length ? (2 - s.sent.length) + ' cobrança não enviada' : '2 cobranças não enviadas', detail: 'Grupo Orla e BNEX, vencem até 22/09', dest: 'Recebimentos, emitir cobranças' },
+      { color: amber[0], bg: amber[1], sev: 'Atenção', title: '17 movimentações não conciliadas', detail: 'Inter e Asaas. A mais antiga é de 9 dias atrás', dest: 'Caixa, conciliação' }
+    ].filter((a, i) => !(i === 3 && s.sent.length >= 2)).map((a) => Object.assign(a, { go: nav(a.dest) }));
+    let infos = [
+      { id: 'sicoob', title: 'Extrato do Sicoob sem importação há 8 dias', detail: 'Último arquivo em 09/09', dest: 'Importar extrato' },
+      { id: 'fech', title: 'Fechamento de agosto pendente', detail: '3 itens no checklist', dest: 'Abrir checklist' },
+      { id: 'orc', title: 'Softwares em 118% do orçado', detail: 'R$ 9.440 de R$ 8.000 no mês', dest: 'Ver orçamento' },
+      { id: 'reaj', title: '2 reajustes nos próximos 30 dias', detail: 'APTO em 01/10 e Clínica Vitta em 15/10', dest: 'Ver recorrências' }
+    ].filter((f) => !s.silenced.includes(f.id)).map((f) => Object.assign(f, {
+      go: nav(f.dest.toLowerCase()),
+      silence: () => { this.setState({ silenced: s.silenced.concat([f.id]) }); this.say('Aviso silenciado por 7 dias'); }
+    }));
+    if (clear) { mainAlerts = []; infos = []; }
+
+    const vals = [86450, 81950, 81950, 81950, 87950, 91250, 90050, 94550, 102350, 102350, 102350, 98750, 98750, 93550, 105550, 103450, 103450, 103450, 40050, 44550, 53350, 59850, 59850, 69050, 69050, 69050, 82250, 90450, 106650, 112350, 116750];
+    const notes = { 0: 'Clínica Vitta + R$ 4.800. Adobe, Google e Lucas Prado (vencido) − R$ 2.670', 1: 'Aluguel e energia − R$ 4.500', 4: 'Grupo Orla, parcela 2 de 3 + R$ 6.000', 5: 'BNEX + R$ 3.300', 6: 'Marina Costa − R$ 1.200', 7: 'APTO + R$ 4.500', 8: 'Restaurante Sabor do Mar + R$ 7.800', 11: 'Softwares e ferramentas − R$ 3.600', 13: 'DAS do Simples − R$ 5.200', 14: '4 mensalidades + R$ 12.000', 15: 'Contabilidade e internet − R$ 2.100', 18: 'Folha, pró-labore e encargos − R$ 63.400', 19: 'Atlas Engenharia + R$ 4.500', 20: '2 mensalidades + R$ 8.800', 21: 'BNEX, projeto + R$ 6.500', 23: '3 mensalidades + R$ 9.200', 26: 'Grupo Orla 3 de 3 e mensalidades + R$ 13.200', 27: 'Mensalidades + R$ 8.200', 28: 'Mensalidades + R$ 16.200', 29: 'Mensalidades + R$ 5.700', 30: 'Mensalidades + R$ 4.400' };
+    const dayNames = ['qui', 'sex', 'sáb', 'dom', 'seg', 'ter', 'qua'];
+    const X = (i) => 48 + i * (602 / 30);
+    const Y = (v) => 14 + 202 * (1 - v / 130000);
+    const pts = vals.map((v, i) => X(i).toFixed(1) + ' ' + Y(v).toFixed(1));
+    const linePath = 'M ' + pts.join(' L ');
+    const areaPath = linePath + ' L ' + X(30).toFixed(1) + ' 216 L 48 216 Z';
+    const dateOf = (i) => { const d = new Date(2026, 8, 17 + i); return dayNames[i % 7] + ', ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+    const days = vals.map((v, i) => ({ enter: () => { if (this.state.hover !== i) this.setState({ hover: i }); } }));
+    const h = s.hover;
+    const hasHover = h >= 0;
+
+    const stripIn = this.strip([0, 5200, 0, 0, 8800, 3200, 4400], [4800, 0, 0, 0, 6000, 3300, 0, 4500], '#6FD3A2');
+    const stripOut = this.strip([1200, 0, 3400, 0, 2870, 0, 2400], [820, 4500, 0, 0, 0, 0, 1200, 0], '#86B4F7');
+    const agingRaw = [['1–7 d', 3150], ['8–15 d', 5300], ['16–30 d', 0], ['31–60 d', 0], ['60+ d', 0]];
+    const aging = agingRaw.map(([label, v]) => ({
+      label, v: v ? this.mil(v) : '—',
+      h: String(v ? Math.max(6, Math.round(v / 5300 * 46)) : 2),
+      bg: v ? '#F08A84' : '#33363E',
+      vColor: v ? '#EEEEF0' : '#6E727B'
+    }));
+
+    const svc = [['Social Media', 52800, 0], ['Tráfego pago', 31200, 0], ['Audiovisual', 12400, 14600], ['Projetos e consultoria', 0, 8000]];
+    const maxSvc = 52800;
+    const services = svc.map(([name, r, p]) => ({ name, wRec: (r / maxSvc * 100).toFixed(1) + '%', wPon: (p / maxSvc * 100).toFixed(1) + '%', total: this.money0(r + p) }));
+    const pontuais = [
+      { name: 'Restaurante Sabor do Mar, campanha de verão', val: 'R$ 8.600' },
+      { name: 'Atlas Engenharia, consultoria de marca', val: 'R$ 8.000' },
+      { name: 'Grupo Orla, vídeo institucional (2 de 3)', val: 'R$ 6.000' }
+    ];
+    const mData = [['abr', 98500, 71200], ['mai', 104200, 73900], ['jun', 101800, 76400], ['jul', 109600, 74100], ['ago', 114300, 77800], ['set', 119000, 77800]];
+    const months = mData.map(([label, r, c], i) => {
+      const cur = i === mData.length - 1;
+      return {
+        label: cur ? 'set, em curso' : label,
+        hR: String(Math.round(r / 130000 * 220)), hC: String(Math.round(c / 130000 * 220)),
+        bgR: cur ? 'repeating-linear-gradient(135deg, ' + accent + ' 0 4px, #5A5480 4px 7px)' : accent,
+        res: this.mil(r - c),
+        margem: Math.round((r - c) / r * 100) + '% da receita'
+      };
+    });
+    const gRaw = [['Equipe de entrega', 38400, false], ['Pró-labore e administrativo', 9320, false], ['Softwares', 9440, true], ['Estrutura', 7600, false], ['Impostos sobre receita', 7140, false], ['Freelancers e produção', 5900, false]];
+    const gastos = gRaw.sort((a, b) => b[1] - a[1]).map(([name, v, over]) => ({
+      name, over, val: this.money0(v), pct: Math.round(v / 77800 * 100) + '%',
+      w: (v / 38400 * 100).toFixed(1) + '%',
+      bg: over ? '#EDB866' : '#8F93A0'
+    }));
+
+    const slideTabs = ['Caixa em 30 dias', 'Composição da receita', 'Resultado em 6 meses', 'Para onde vai o dinheiro'].map((label, i) => ({
+      label, on: s.slide === i,
+      bg: s.slide === i ? '#2C2F36' : 'transparent',
+      fg: s.slide === i ? '#EEEEF0' : '#A6A9B1',
+      border: s.slide === i ? '#3A3D46' : '#2C2F36',
+      pick: () => this.setState({ slide: i, hover: -1 })
+    }));
+    const fichaRaw = all.find((i) => i.id === s.fichaId);
+    let ficha = null;
+    if (fichaRaw) {
+      const isIn = fichaRaw.dir === 'in';
+      const semCob = isIn && fichaRaw.status === 'Sem cobrança';
+      ficha = Object.assign({}, fichaRaw, {
+        kind: isIn ? 'Conta a receber' : 'Conta a pagar',
+        itens: fichaRaw.itens.map((x) => ({ cat: x.cat, dims: x.dims, val: this.money(x.val) })),
+        hasCob: !!fichaRaw.cob,
+        primaryLabel: isIn ? 'Registrar recebimento' : 'Registrar pagamento',
+        primary: () => this.abrirBaixa(fichaRaw),
+        secondaryLabel: isIn ? (semCob ? 'Enviar cobrança' : 'Reenviar cobrança') : (fichaRaw.status === 'Programado' ? 'Reprogramar' : 'Programar pagamento'),
+        secondary: isIn ? () => this.enviar(fichaRaw.id, fichaRaw.pessoa) : () => this.say('Abriria a programação de pagamento')
+      });
+    }
+    const baixaRaw = this.items().find((i) => i.id === s.baixaId);
+    const baixa = baixaRaw ? {
+      title: baixaRaw.dir === 'in' ? 'Registrar recebimento' : 'Registrar pagamento',
+      sub: baixaRaw.pessoa + ', ' + baixaRaw.desc.toLowerCase() + '. Saldo de ' + this.money(baixaRaw.valor),
+      confirm: baixaRaw.dir === 'in' ? 'Confirmar recebimento' : 'Confirmar pagamento'
+    } : { title: '', sub: '', confirm: '' };
+
+    const setupSteps = [
+      { t: 'Cadastrar contas financeiras e saldo inicial', d: 'Base de todo saldo e de toda projeção', done: true },
+      { t: 'Revisar o plano de categorias', d: 'Já vem com o padrão de agência carregado', done: true },
+      { t: 'Cadastrar clientes e fornecedores', d: 'Manualmente ou por importação de CSV', done: false },
+      { t: 'Criar as recorrências de receita', d: 'Os contratos atuais. Liberam MRR e projeção de caixa', done: false },
+      { t: 'Criar as recorrências de despesa', d: 'Folha, aluguel, softwares e o que mais se repete', done: false }
+    ].map((st, i) => Object.assign(st, { n: String(i + 1), todo: !st.done, go: () => this.say('Abriria: ' + st.t.toLowerCase()) }));
+
+    return {
+      accent, isSetup, notSetup: !isSetup,
+      novoOpen: s.novoOpen, toggleNovo: () => this.setState({ novoOpen: !s.novoOpen, saldoOpen: false }),
+      novoReceita: () => this.say('Abriria o formulário de nova receita'),
+      novoDespesa: () => this.say('Abriria o formulário de nova despesa'),
+      novoTransf: () => this.say('Abriria o formulário de transferência entre contas'),
+      importar: () => this.say('Abriria a importação de extrato (OFX ou CSV)'),
+      abrirDesde: () => this.say('Abriria o extrato filtrado desde ontem'),
+      setupSteps,
+      allClear: mainAlerts.length === 0, hasAlerts: mainAlerts.length > 0,
+      alertCount: String(mainAlerts.length), mainAlerts,
+      hasInfos: infos.length > 0, infos, showInfo: s.showInfo,
+      infoLabel: s.showInfo ? 'Ocultar avisos' : (infos.length === 1 ? '1 aviso' : infos.length + ' avisos'),
+      infoChevron: s.showInfo ? 'rotate(90deg)' : 'none',
+      toggleInfo: () => this.setState({ showInfo: !s.showInfo }),
+      saldoOpen: s.saldoOpen, toggleSaldo: () => this.setState({ saldoOpen: !s.saldoOpen, novoOpen: false }),
+      goFluxo: nav('Caixa, fluxo de caixa'), goDre: nav('Resultados, DRE de setembro'), goReceita: nav('Resultados, receita'),
+      goReceb: nav('Recebimentos, setembro'), goPag: nav('Pagamentos, setembro'),
+      expIn: s.expIn, expOut: s.expOut,
+      toggleIn: () => this.setState({ expIn: !s.expIn }), toggleOut: () => this.setState({ expOut: !s.expOut }),
+      lblIn: s.expIn ? 'Ocultar composição' : 'Ver composição dos recebimentos',
+      lblOut: s.expOut ? 'Ocultar composição' : 'Ver composição dos pagamentos',
+      chevIn: s.expIn ? 'rotate(180deg)' : 'none', chevOut: s.expOut ? 'rotate(180deg)' : 'none',
+      slideTabs, trackX: 'translateX(-' + (s.slide * 100) + '%)', slideCounter: (s.slide + 1) + ' de 4',
+      prevSlide: () => this.setState({ slide: (s.slide + 3) % 4, hover: -1 }),
+      nextSlide: () => this.setState({ slide: (s.slide + 1) % 4, hover: -1 }),
+      stripIn, stripOut, aging, services, pontuais, months, gastos,
+      segs, weekShown, weekEmpty: weekShown.length === 0,
+      weekCount: weekShown.length === 1 ? '1 lançamento' : weekShown.length + ' lançamentos',
+      weekIn: this.money0(sumIn), weekOut: this.money0(sumOut),
+      linePath, areaPath, days, clearHover: () => this.setState({ hover: -1 }),
+      hasHover, hoverX: hasHover ? X(h).toFixed(1) : '48', hoverY: hasHover ? Y(vals[h]).toFixed(1) : '216', hoverOpacity: hasHover ? '0.6' : '0',
+      tipLeft: hasHover ? String(Math.max(0, Math.min(484, X(h) - 88))) : '0',
+      tipDate: hasHover ? dateOf(h) : '', tipVal: hasHover ? this.money0(vals[h]) : '', tipNote: hasHover ? (notes[h] || 'Sem movimentações previstas') : '',
+      fichaOpen: !!ficha, ficha: ficha || { itens: [], hist: [] }, closeFicha: () => this.setState({ fichaId: null }),
+      copiar: () => this.say('Link da cobrança copiado'),
+      cancelar: () => this.say('Pediria o motivo do cancelamento antes de cancelar'),
+      baixaOpen: !!baixaRaw, baixa, closeBaixa: () => this.setState({ baixaId: null, extras: false }),
+      fData: s.fData, fValor: s.fValor, fConta: s.fConta,
+      onData: (e) => this.setState({ fData: e.target.value }),
+      onValor: (e) => this.setState({ fValor: e.target.value }),
+      onConta: (e) => this.setState({ fConta: e.target.value }),
+      extras: s.extras, extrasLabel: s.extras ? 'Remover juros, multa ou desconto' : 'Adicionar juros, multa ou desconto',
+      toggleExtras: () => this.setState({ extras: !s.extras }),
+      anexar: () => this.say('Abriria o seletor de arquivo'),
+      confirmar: () => this.confirmar(),
+      hasToast: !!s.toast, toast: s.toast || ''
+    };
+  }
+  abrirBaixa(it) {
+    this.setState({ baixaId: it.id, fData: '2026-09-17', fValor: it.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), fConta: it.conta === 'Não definida' ? 'Inter' : it.conta, extras: false, novoOpen: false });
+  }
+  enviar(id, pessoa) {
+    if (!this.state.sent.includes(id)) this.setState({ sent: this.state.sent.concat([id]) });
+    this.say('Cobrança enviada para ' + pessoa + ' via Asaas');
+  }
+  confirmar() {
+    const it = this.items().find((i) => i.id === this.state.baixaId);
+    if (!it) return;
+    const isIn = it.dir === 'in';
+    this.setState({ paid: this.state.paid.concat([it.id]), baixaId: null, fichaId: null, extras: false });
+    this.say((isIn ? 'Recebimento registrado: ' : 'Pagamento registrado: ') + it.pessoa + ', ' + this.money(it.valor) + '. Aguardando confirmação no extrato ' + this.state.fConta);
+  }
+}
+</script>
+</body></html>

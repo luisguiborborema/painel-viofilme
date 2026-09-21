@@ -1,0 +1,164 @@
+<!--
+MOCKUP — Planejamento (Viofilme ERP) · FONTE LEGÍVEL · ARQUIVO 2 de 3
+Painéis e overlays: drawers, fichas, modais e toast (painel de detalhe com título dinâmico {{ qc.titulo }}, Revisão do mês, Montar orçamento de 2027).
+Arquivos desta página: mockup_planejamento_1_pagina.html · mockup_planejamento_2_paineis.html · mockup_planejamento_3_logica.js
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Viofilme_ERP___Planejamento___Planejamento.html), sem runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura (layout, cores, espaçamentos, textos).
+  Para ver o visual, abra Viofilme_ERP___Planejamento___Planejamento.html no navegador, mas NÃO leia o código dele (~265 KB em base64, estoura o contexto).
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (arquivo _3_logica.js), que tem estado, dados de exemplo, derivações e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36). Fonte: Instrument Sans.
+- Os recortes de markup vêm de uma árvore maior; algumas tags ficam sem par.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Planejamento</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button,input,select,textarea{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-row:hover{background:#1F2227 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-in{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #373A43;background:#16171B;color:#EEEEF0;font-size:14px;width:100%;color-scheme:dark}
+.vf-in:focus{outline:2px solid #6B5FD0;outline-offset:0;border-color:#6B5FD0}
+.vf-btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid #33363E;background:#22252B;color:#EEEEF0;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vf-btn:hover{background:#2A2D34}
+.vf-lbl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#A6A9B1}
+.vf-scroll::-webkit-scrollbar{width:8px}.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+</head><body>
+<aside aria-label="{{ qc.titulo }}" style="position: relative; width: 560px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2A2D33;"><h2 style="margin: 0; font-size: 20px; font-weight: 600;">{{ qc.titulo }}</h2><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeQ }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 20px 26px 30px; display: flex; flex-direction: column; gap: 18px;">
+<sc-if value="{{ qContratar }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+<label class="vf-lbl">Função<sc-raw-select class="vf-in" value="{{ qf.funcao }}" sc-camel-on-change="{{ onQFuncao }}"><option value="SM">Social Media</option><option value="TR">Tráfego pago</option><option value="DS">Design</option><option value="AV">Audiovisual</option></sc-raw-select></label>
+<label class="vf-lbl">Remuneração<input class="vf-in" type="text" value="{{ qf.rem }}" sc-camel-on-change="{{ onQRem }}"></label>
+<label class="vf-lbl">A partir de<sc-raw-select class="vf-in" value="{{ qf.mes }}" sc-camel-on-change="{{ onQMes }}"><option value="0">Outubro</option><option value="1">Novembro</option><option value="2">Dezembro</option><option value="3">Janeiro</option></sc-raw-select></label>
+</div>
+</sc-if>
+<sc-if value="{{ qPerder }}" hint-placeholder-val="{{ false }}">
+<label class="vf-lbl">Cliente<sc-raw-select class="vf-in" value="{{ qf.cli }}" sc-camel-on-change="{{ onQCli }}"><option value="0">Restaurante Sabor do Mar (maior margem em R$)</option><option value="1">Grupo Litoral Shopping</option><option value="2">Rede Farma Mais</option><option value="3">Colégio Horizonte Azul</option><option value="4">Imobiliária Costa Norte</option><option value="5">Atlas Engenharia</option><option value="6">BNEX</option></sc-raw-select></label>
+</sc-if>
+<sc-if value="{{ qVender }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+<label class="vf-lbl">Meta<sc-raw-select class="vf-in" value="{{ qf.metaTipo }}" sc-camel-on-change="{{ onQMetaTipo }}"><option value="mrr">MRR em setembro de 2027</option><option value="res">Resultado dos próximos 12 meses</option></sc-raw-select></label>
+<label class="vf-lbl">Valor<input class="vf-in" type="text" value="{{ qf.meta }}" sc-camel-on-change="{{ onQMeta }}"></label>
+</div>
+</sc-if>
+<sc-if value="{{ qDistribuir }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+<label class="vf-lbl">Valor extra a distribuir<input class="vf-in" type="text" value="{{ qf.dist }}" sc-camel-on-change="{{ onQDist }}"></label>
+<label class="vf-lbl">Em<sc-raw-select class="vf-in" value="{{ qf.distMes }}" sc-camel-on-change="{{ onQDistMes }}"><option value="0">Outubro</option><option value="1">Novembro</option><option value="2">Dezembro</option></sc-raw-select></label>
+</div>
+<span style="font-size: 12px; color: #A6A9B1;">Além das distribuições já planejadas no orçamento.</span>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 12px; border: 1px solid {{ qc.border }}; background: {{ qc.bg }};"><span style="font-size: 12px; color: #A6A9B1;">Resposta</span><span style="font-size: 18px; font-weight: 600; color: {{ qc.color }}; line-height: 1.35;">{{ qc.resposta }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{ qc.linhas }}" as="ql" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px; border-radius: 9px; background: #191B1F; font-size: 13px;"><span style="color: #C9CBD1;">{{ ql.l }}</span><span style="font-weight: 600; color: {{ ql.color }}; text-align: right;">{{ ql.v }}</span></div></sc-for>
+</div>
+<span style="font-size: 13px; color: #C9CBD1; line-height: 1.55;">{{ qc.nota }}</span>
+<div style="display: flex; gap: 8px;"><sc-if value="{{ qc.hasEvento }}" hint-placeholder-val="{{ false }}"><button type="button" sc-camel-on-click="{{ qc.evento }}" style="height: 40px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-weight: 600; cursor: pointer;">Adicionar à projeção como evento</button></sc-if><button type="button" class="vf-btn" sc-camel-on-click="{{ qc.guardar }}" style="height: 40px;">Guardar como cenário</button></div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ revOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 30; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeRev }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Revisão do mês" style="position: relative; width: 640px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 16px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 20px; font-weight: 600;">Revisão de agosto</h2><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeRev }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;"><sc-for list="{{ revSteps }}" as="rs" hint-placeholder-count="3"><span style="display: flex; flex-direction: column; gap: 6px;"><span style="height: 4px; border-radius: 2px; background: {{ rs.bar }};"></span><span style="font-size: 12px; color: {{ rs.fg }};">{{ rs.t }}</span></span></sc-for></div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 20px 26px 30px; display: flex; flex-direction: column; gap: 16px;">
+<sc-if value="{{ rev1 }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<span style="font-size: 14px; color: #C9CBD1; line-height: 1.5;">3 linhas ficaram fora da tolerância em agosto. Para cada uma: por que aconteceu, e se é pontual ou muda o resto do ano.</span>
+<sc-for list="{{ desvios }}" as="dv" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 12px; border: 1px solid #33363E; background: #191B1F;">
+<span style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-size: 15px; font-weight: 600;">{{ dv.l }}</span><span style="font-size: 13px; color: #F08A84; font-weight: 600;">{{ dv.d }}</span></span>
+<span style="font-size: 13px; color: #A6A9B1;">Orçado {{ dv.orc }}, realizado {{ dv.real }}</span>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 8px; background: #1D1F24;"><span style="font-size: 12px; color: #A6A9B1;">O que explica</span><sc-for list="{{ dv.exp }}" as="ex" hint-placeholder-count="2"><span style="display: flex; justify-content: space-between; font-size: 13px; color: #C9CBD1;"><span>{{ ex.l }}</span><span>{{ ex.v }}</span></span></sc-for></div>
+<label class="vf-lbl">Comentário<input class="vf-in" type="text" value="{{ dv.com }}" sc-camel-on-change="{{ dv.onCom }}" placeholder="Por que aconteceu?"></label>
+<div role="radiogroup" aria-label="Classificação" style="display: flex; gap: 8px;"><sc-for list="{{ dv.opts }}" as="op" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{ op.on }}" sc-camel-on-click="{{ op.pick }}" style="flex: 1 1 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 9px; border: 1.5px solid {{ op.border }}; background: {{ op.bg }}; color: #EEEEF0; cursor: pointer; text-align: left;"><span style="font-size: 13px; font-weight: 600;">{{ op.t }}</span><span style="font-size: 11px; color: #A6A9B1;">{{ op.s }}</span></button></sc-for></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ rev2 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<span style="font-size: 14px; color: #C9CBD1;">Como as metas do ano ficaram depois de agosto.</span>
+<sc-for list="{{ metas }}" as="m" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 14px; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 10px; background: #191B1F; font-size: 13px;"><span style="font-weight: 600;">{{ m.label }}</span><span style="color: #C9CBD1;">Meta {{ m.meta }}. {{ m.ritmo }}</span><span style="width: 10px; height: 10px; border-radius: 50%; background: {{ m.color }};"></span></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ rev3 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: #C9CBD1; line-height: 1.55;">
+<span style="font-size: 16px; font-weight: 600; color: #EEEEF0;">Pronto para concluir</span>
+<sc-for list="{{ revResumo }}" as="rr" hint-placeholder-count="3"><span style="display: flex; gap: 8px;"><span style="color: {{accent}};">•</span>{{ rr.t }}</span></sc-for>
+<span>A revisão fica registrada com data e autor. Os comentários aparecem na tabela de orçado × realizado.</span>
+</div>
+</sc-if>
+</div>
+<div style="padding: 16px 26px; border-top: 1px solid #2A2D33; display: flex; justify-content: space-between;"><button type="button" class="vf-btn" sc-camel-on-click="{{ revVoltar }}" style="height: 42px;">{{ revVoltarLbl }}</button><button type="button" sc-camel-on-click="{{ revAvancar }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ revAvancarLbl }}</button></div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ wzOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 35; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeWz }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<aside aria-label="Montar orçamento de 2027" style="position: relative; width: 1040px; max-width: 100%; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 20px 26px 14px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 20px; font-weight: 600;">Montar o orçamento de 2027</h2><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeWz }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;"><sc-for list="{{ wzSteps }}" as="ws" hint-placeholder-count="6"><button type="button" sc-camel-on-click="{{ ws.pick }}" style="border: none; background: transparent; padding: 0; cursor: pointer; display: flex; flex-direction: column; gap: 6px; text-align: left;"><span style="height: 4px; border-radius: 2px; background: {{ ws.bar }};"></span><span style="font-size: 12px; color: {{ ws.fg }};">{{ ws.n }}. {{ ws.t }}</span></button></sc-for></div>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px;">
+<div class="vf-scroll" style="overflow: auto; padding: 22px 26px 30px; display: flex; flex-direction: column; gap: 16px;">
+<span style="font-size: 14px; color: #C9CBD1; line-height: 1.5;">{{ wzIntro }}</span>
+<sc-if value="{{ wzCapWarn }}" hint-placeholder-val="{{ false }}"><div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(237,184,102,0.4); background: rgba(237,184,102,0.07); font-size: 13px; line-height: 1.45;"><span style="flex-grow: 1;">{{ wzCapTxt }}</span><button type="button" class="vf-btn" sc-camel-on-click="{{ wzAddHire }}" style="height: 34px; font-size: 12px;">Planejar contratação</button></div></sc-if>
+<sc-for list="{{ wzFields }}" as="f" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 10px; background: #191B1F;">
+<span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 14px; font-weight: 500;">{{ f.l }}</span><span style="font-size: 12px; color: #8F93A0;">{{ f.sug }}</span></span>
+<sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}"><input class="vf-in" type="text" aria-label="{{ f.l }}" value="{{ f.v }}" sc-camel-on-change="{{ f.on }}" style="text-align: right;"></sc-if>
+<sc-if value="{{ f.isRead }}" hint-placeholder-val="{{ false }}"><span style="text-align: right; font-weight: 600;">{{ f.v }}</span></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ wzHasHires }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 13px; font-weight: 600;">Contratações planejadas</span>
+<sc-for list="{{ wzHires }}" as="h" hint-placeholder-count="1"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 100px 110px 36px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; font-size: 13px;"><span>{{ h.f }}</span><span style="color: #A6A9B1;">{{ h.m }}</span><span style="text-align: right; font-weight: 600;">{{ h.v }}</span><button type="button" class="vf-btn" aria-label="Remover" sc-camel-on-click="{{ h.remove }}" style="width: 32px; height: 32px; padding: 0; justify-content: center;"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></sc-for>
+<span style="font-size: 12px; color: #A6A9B1;">Cada social media contratada libera 11 vagas de capacidade.</span>
+</div>
+</sc-if>
+<sc-if value="{{ wzStep6 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 13px; font-weight: 600;">DRE planejada de 2027, em R$ mil</span>
+<div style="display: grid; grid-template-columns: 130px repeat(12, minmax(0, 1fr)); font-size: 11px; color: #A6A9B1; border-bottom: 1px solid #2A2D33; padding-bottom: 6px;"><span></span><sc-for list="{{ wzDre.head }}" as="h" hint-placeholder-count="12"><span style="text-align: right;">{{ h.m }}</span></sc-for></div>
+<sc-for list="{{ wzDre.rows }}" as="r" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: 130px repeat(12, minmax(0, 1fr)); font-size: 12px; font-variant-numeric: tabular-nums; padding: 5px 0; border-bottom: 1px solid #25282D;"><span style="font-weight: {{ r.fw }};">{{ r.l }}</span><sc-for list="{{ r.c }}" as="c" hint-placeholder-count="12"><span style="text-align: right; color: {{ c.color }}; font-weight: {{ r.fw }};">{{ c.v }}</span></sc-for></div></sc-for>
+</div>
+</sc-if>
+</div>
+<div class="vf-scroll" style="overflow: auto; background: #191B1F; border-left: 1px solid #2A2D33; padding: 22px 22px 30px; display: flex; flex-direction: column; gap: 14px;">
+<span style="font-size: 12px; color: #A6A9B1;">Prévia do ano de 2027</span>
+<sc-for list="{{ wzPrev }}" as="p" hint-placeholder-count="6"><div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid #2A2D33;"><span style="font-size: 12px; color: #A6A9B1;">{{ p.l }}</span><span style="font-size: 19px; font-weight: 600; color: {{ p.color }};">{{ p.v }}</span><span style="font-size: 11px; color: #8F93A0;">{{ p.s }}</span></div></sc-for>
+<span style="font-size: 12px; color: #A6A9B1; line-height: 1.5;">Tudo que você altera à esquerda recalcula aqui. Os valores sugeridos vêm do histórico e da projeção.</span>
+</div>
+</div>
+<div style="padding: 16px 26px; border-top: 1px solid #2A2D33; display: flex; justify-content: space-between;"><button type="button" class="vf-btn" sc-camel-on-click="{{ wzVoltar }}" style="height: 42px;">{{ wzVoltarLbl }}</button><button type="button" sc-camel-on-click="{{ wzAvancar }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ wzAvancarLbl }}</button></div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 60; max-width: 720px; background: #EEEEF0; color: #16171B; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+</body></html>

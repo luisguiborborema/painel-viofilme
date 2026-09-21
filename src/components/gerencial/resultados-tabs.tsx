@@ -20,9 +20,13 @@ const COR_SEG: Record<string, string> = {
 };
 
 export function ResultadosTabs({ dados }: { dados: ResultadosView }) {
-  const [aba, setAba] = useState<Aba>("dre");
   const router = useRouter();
   const params = useSearchParams();
+  // `?aba=` chega do Dashboard, que linka já na visão certa (spec §2).
+  const daUrl = params.get("aba");
+  const [aba, setAba] = useState<Aba>(
+    daUrl === "rentabilidade" || daUrl === "receita" ? daUrl : "dre",
+  );
 
   function irParaMes(delta: number) {
     const m = dados.mes + delta;

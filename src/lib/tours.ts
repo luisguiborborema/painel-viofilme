@@ -196,7 +196,43 @@ export const TOURS: Tour[] = [
     ],
   },
 
-  // Financeiro.
+  // Financeiro. O Dashboard vem antes: o primeiro match vale.
+  {
+    id: "financeiro-dashboard",
+    title: "Dashboard financeiro",
+    match: /^\/gerencial\/financeiro\/dashboard/,
+    steps: [
+      {
+        title: "Dashboard financeiro",
+        body: "Responde duas perguntas, nesta ordem: tem algum problema para resolver hoje, e a empresa está saudável agora. Está sempre no presente — não há filtro de período.",
+      },
+      {
+        selector: '[data-tour="fin-dash-atencao"]',
+        title: "Precisa da sua atenção",
+        body: "Só o que está fora do lugar agora. Cada linha some sozinha quando o problema é resolvido — crítico e atenção não têm botão de dispensar; avisos podem ser silenciados por 7 dias.",
+      },
+      {
+        selector: '[data-tour="fin-dash-pulso"]',
+        title: "Pulso",
+        body: "Saldo disponível (clique para ver por conta), caixa projetado em 30 dias, resultado do mês por competência e a divisão entre receita recorrente e pontual.",
+      },
+      {
+        selector: '[data-tour="fin-dash-fluxo"]',
+        title: "Entradas e saídas",
+        body: "O ritmo do dinheiro nos dois sentidos. 'Ver composição' abre o dia a dia, o aging dos vencidos e o próximo lançamento de cada lado.",
+      },
+      {
+        selector: '[data-tour="fin-dash-semana"]',
+        title: "Esta semana",
+        body: "Tudo que vence de hoje até daqui a 7 dias. Clique no nome para abrir a ficha do lançamento e dar baixa sem sair daqui. O que já venceu não aparece aqui — está lá em cima.",
+      },
+      {
+        selector: '[data-tour="fin-dash-panorama"]',
+        title: "Panorama",
+        body: "Quatro leituras rápidas: caixa em 30 dias, composição da receita, resultado em 6 meses e para onde vai o dinheiro. Cada uma vem com a conclusão escrita, não só o gráfico.",
+      },
+    ],
+  },
   {
     id: "financeiro",
     title: "Financeiro",

@@ -1,0 +1,203 @@
+<!--
+MOCKUP — Caixa (Financeiro Viofilme) · FONTE LEGÍVEL · ARQUIVO 2 de 3
+Painéis e overlays: drawers, fichas, modais e toast (Lançamentos do valor, Ficha da movimentação, Ficha da conta).
+Arquivos desta página: mockup_caixa_1_pagina.html · mockup_caixa_2_paineis.html · mockup_caixa_3_logica.js
+
+O QUE É ESTE ARQUIVO
+- Código extraído do export do Claude Design (Design___Caixa.html), sem runtime, React e fontes embutidas.
+- NÃO renderiza sozinho: é referência de leitura (layout, cores, espaçamentos, textos).
+  Para ver o visual, abra Design___Caixa.html no navegador, mas NÃO leia o código dele (~294 KB em base64, estoura o contexto).
+
+SINTAXE DO CLAUDE DESIGN
+- <sc-if value="{{ cond }}"> = renderização condicional; <sc-for list="{{ lista }}" as="x"> = loop.
+- {{ expr }} = binding para a classe Component (arquivo _3_logica.js), que tem estado, dados de exemplo, derivações e handlers.
+- {accent} = cor de destaque (padrão #A99BFF). Estilos inline; tema escuro (fundo #16171B, cards #1D1F24, bordas #2C2F36). Fonte: Instrument Sans.
+- Os recortes de markup vêm de uma árvore maior; algumas tags ficam sem par.
+-->
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Mockup Caixa</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#16171B}
+a{color:#C4B9FF}a:hover{color:#E2DCFF}
+button,input,select,textarea{font-family:inherit}
+.vf-hov:hover{background:#262930 !important}
+.vf-row:hover{background:#1F2227 !important}
+.vf-link:hover{color:#EEEEF0 !important}
+.vf-in{height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #373A43;background:#16171B;color:#EEEEF0;font-size:14px;width:100%;color-scheme:dark}
+.vf-in:focus{outline:2px solid #6B5FD0;outline-offset:0;border-color:#6B5FD0}
+.vf-btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid #33363E;background:#22252B;color:#EEEEF0;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.vf-btn:hover{background:#2A2D34}
+.vf-lbl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#A6A9B1}
+.vf-scroll::-webkit-scrollbar{width:8px}.vf-scroll::-webkit-scrollbar-thumb{background:#33363E;border-radius:4px}
+</style>
+</head><body>
+<aside aria-label="Lançamentos do valor" style="position: relative; width: 540px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 16px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">{{ cell.mes }}</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeCell }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<span style="font-size: 20px; font-weight: 600;">{{ cell.linha }}</span>
+<span style="font-size: 26px; font-weight: 600;">{{ cell.total }}</span>
+<span style="font-size: 13px; color: #A6A9B1;">{{ cell.sub }}</span>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 16px 26px 30px; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{ cell.itens }}" as="ci" hint-placeholder-count="6">
+<button type="button" class="vf-hov" sc-camel-on-click="{{ ci.open }}" style="display: grid; grid-template-columns: 50px minmax(0, 1fr) 110px 110px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; background: transparent; color: #EEEEF0; cursor: pointer; text-align: left; font-size: 13px;"><span style="color: #A6A9B1;">{{ ci.d }}</span><span>{{ ci.l }}</span><span><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: {{ ci.stFg }}; background: {{ ci.stBg }};">{{ ci.st }}</span></span><span style="text-align: right; font-weight: 600;">{{ ci.v }}</span></button>
+</sc-for>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ txOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 30; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeTx }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Ficha da movimentação" style="position: relative; width: 540px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">Movimentação, {{ tf.conta }}</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeTx }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<span style="font-size: 20px; font-weight: 600;">{{ tf.clean }}</span>
+<span style="font-size: 28px; font-weight: 600; color: {{ tf.valColor }};">{{ tf.valor }}</span>
+<span><span style="padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: {{ tf.stFg }}; background: {{ tf.stBg }};">{{ tf.st }}</span></span>
+<div style="display: flex; gap: 8px;">
+<sc-if value="{{ tf.isPend }}" hint-placeholder-val="{{ false }}"><button type="button" sc-camel-on-click="{{ tf.irConc }}" style="height: 38px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-weight: 600; cursor: pointer;">Conciliar</button></sc-if>
+<sc-if value="{{ tf.isConc }}" hint-placeholder-val="{{ true }}"><button type="button" class="vf-btn" sc-camel-on-click="{{ tf.desfazer }}">Desfazer conciliação</button></sc-if>
+<button type="button" class="vf-btn" sc-camel-on-click="{{ tf.ignorar }}">{{ tf.ignLabel }}</button>
+</div>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 20px 26px 30px; display: flex; flex-direction: column; gap: 22px;">
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Dados do banco</h3>
+<div style="display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px 14px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36; font-size: 13px;">
+<span style="color: #A6A9B1;">Data</span><span>{{ tf.data }}</span>
+<span style="color: #A6A9B1;">Descrição original</span><span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px;">{{ tf.raw }}</span>
+<span style="color: #A6A9B1;">Contraparte</span><span>{{ tf.contra }}</span>
+<span style="color: #A6A9B1;">Identificador</span><span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px;">{{ tf.idb }}</span>
+<span style="color: #A6A9B1;">Origem</span><span>{{ tf.orig }}</span>
+</div>
+<span style="font-size: 12px; color: #A6A9B1;">Movimentações importadas não têm data, valor ou descrição editáveis. Só o vínculo e a classificação.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Vínculo</h3><span style="padding: 12px 14px; border-radius: 10px; border: 1px solid #2C2F36; font-size: 13px; color: {{ tf.vincColor }};">{{ tf.vinc }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Como foi conciliada</h3><span style="font-size: 13px; color: #C9CBD1;">{{ tf.how }}</span></div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ contaOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 31; display: flex; justify-content: flex-end;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeConta }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.55); cursor: pointer;"></button>
+<aside aria-label="Ficha da conta" style="position: relative; width: 620px; height: 100%; box-sizing: border-box; background: #1D1F24; border-left: 1px solid #33363E; display: flex; flex-direction: column;">
+<div style="padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #2A2D33;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #A6A9B1;">{{ cf.tipo }}</span><button type="button" class="vf-btn" aria-label="Fechar" sc-camel-on-click="{{ closeConta }}" style="width: 36px; padding: 0; justify-content: center;"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<span style="font-size: 22px; font-weight: 600;">{{ cf.nome }}</span>
+<span style="font-size: 28px; font-weight: 600; color: {{ cf.saldoColor }};">{{ cf.saldo }}</span>
+<span style="font-size: 13px; color: {{ cf.stColor }};">{{ cf.st }}</span>
+</div>
+<div class="vf-scroll" style="flex-grow: 1; overflow: auto; padding: 20px 26px 30px; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Saldo nos últimos 90 dias</h3>
+<svg width="568" height="110" sc-camel-view-box="0 0 568 110" aria-label="Saldo da conta em 90 dias"><path d="{{ cf.area }}" fill="{{accent}}" fill-opacity="0.08"></path><path d="{{ cf.path }}" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linejoin="round"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Conferência de saldo</h3><button type="button" class="vf-btn" sc-camel-on-click="{{ toggleCpForm }}" style="height: 32px; font-size: 12px;">Informar saldo do banco</button></div>
+<sc-if value="{{ cpFormOpen }}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 8px; align-items: end; padding: 12px; border-radius: 10px; background: #191B1F;"><label class="vf-lbl" style="width: 160px;">Data<input class="vf-in" type="date" value="2026-09-17"></label><label class="vf-lbl" style="width: 180px;">Saldo no banco<input class="vf-in" type="text" value="{{ cpValor }}" sc-camel-on-change="{{ onCpValor }}" placeholder="0,00"></label><button type="button" sc-camel-on-click="{{ salvarCp }}" style="height: 40px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-weight: 600; cursor: pointer;">Conferir</button></div></sc-if>
+<sc-for list="{{ cf.cps }}" as="cp" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: 70px 90px minmax(0, 1fr) minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid {{ cp.border }}; font-size: 13px;"><span style="color: #A6A9B1;">{{ cp.d }}</span><span style="color: #A6A9B1;">{{ cp.orig }}</span><span>Banco {{ cp.banco }}</span><span>Sistema {{ cp.sis }}</span><span style="text-align: right; font-weight: 600; color: {{ cp.color }};">{{ cp.res }}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Configuração</h3>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 14px 16px; border-radius: 10px; border: 1px solid #2C2F36; font-size: 13px;">
+<sc-for list="{{ cf.cfg }}" as="k" hint-placeholder-count="6"><span style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">{{ k.l }}</span><span>{{ k.v }}</span></span></sc-for>
+</div>
+<span style="font-size: 12px; color: #A6A9B1;">Alterar o saldo inicial recalcula todos os saldos desde a data e fica na auditoria. Não é possível em período fechado.</span>
+</div>
+<sc-if value="{{ cf.hasImports }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Importações</h3>
+<sc-for list="{{ cf.imports }}" as="im" hint-placeholder-count="2"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; font-size: 13px;"><span style="display: flex; flex-direction: column; gap: 2px;"><span>{{ im.arq }}</span><span style="font-size: 12px; color: #A6A9B1;">{{ im.sub }}</span></span><span style="font-size: 12px; color: #A6A9B1;">{{ im.quando }}</span><button type="button" class="vf-btn" sc-camel-on-click="{{ im.desfazer }}" disabled="{{ im.bloq }}" style="height: 30px; font-size: 12px; opacity: {{ im.op }};">Desfazer</button></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ cf.hasRegras }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;"><h3 style="margin: 0; font-size: 14px; font-weight: 600;">Regras de categorização aprendidas</h3>
+<sc-for list="{{ cf.regras }}" as="rg" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 120px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 9px; border: 1px solid #2C2F36; font-size: 13px;"><span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px;">contém "{{ rg.p }}"</span><span style="color: #C9CBD1;">{{ rg.c }}</span><span style="text-align: right; font-size: 12px; color: #A6A9B1;">{{ rg.n }}</span></div></sc-for>
+</div>
+</sc-if>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: center;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeImport }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<div role="dialog" aria-label="Importar extrato" style="position: relative; width: 580px; box-sizing: border-box; background: #1F2126; border: 1px solid #373A43; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.55);">
+<div style="display: flex; justify-content: space-between; align-items: center;"><h2 style="margin: 0; font-size: 19px; font-weight: 600;">Importar extrato</h2><span style="font-size: 12px; color: #A6A9B1;">Passo {{ impStep }} de 3</span></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;"><sc-for list="{{ impSteps }}" as="is" hint-placeholder-count="3"><span style="display: flex; flex-direction: column; gap: 6px;"><span style="height: 4px; border-radius: 2px; background: {{ is.bar }};"></span><span style="font-size: 12px; color: {{ is.fg }};">{{ is.t }}</span></span></sc-for></div>
+<sc-if value="{{ imp1 }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<label class="vf-lbl">Conta<sc-raw-select class="vf-in"><option>Sicoob</option><option>Inter</option><option>Cartão Inter (fatura)</option></sc-raw-select></label>
+<button type="button" sc-camel-on-click="{{ escolherArq }}" style="height: 110px; border-radius: 12px; border: 1.5px dashed {{ arqBorder }}; background: {{ arqBg }}; color: {{ arqFg }}; font-size: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;"><span style="font-weight: 600;">{{ arqTxt }}</span><span style="font-size: 12px; color: #A6A9B1;">OFX ou CSV. Para CSV, o mapeamento de colunas fica salvo por conta.</span></button>
+</div>
+</sc-if>
+<sc-if value="{{ imp2 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<span style="font-size: 13px; color: #A6A9B1;">extrato_sicoob_16-09.ofx, de 10/09 a 16/09</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+<div style="padding: 12px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">No arquivo</span><span style="font-size: 20px; font-weight: 600;">4</span></div>
+<div style="padding: 12px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Novas</span><span style="font-size: 20px; font-weight: 600; color: #6FD3A2;">3</span></div>
+<div style="padding: 12px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Já existentes</span><span style="font-size: 20px; font-weight: 600;">1</span></div>
+<div style="padding: 12px; border-radius: 10px; background: #191B1F; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 12px; color: #A6A9B1;">Confirmam baixas</span><span style="font-size: 20px; font-weight: 600;">0</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 10px; border: 1px solid rgba(111,211,162,0.4); background: rgba(111,211,162,0.06); font-size: 13px;"><span style="font-weight: 600; color: #6FD3A2;">Conferência de saldo: confere</span><span style="color: #C9CBD1;">Saldo final no arquivo em 16/09: R$ 11.512,40. Saldo calculado após a importação: R$ 11.512,40. A diferença de R$ 312,40 era de movimentações ainda não importadas.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{ impLinhas }}" as="il" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: 50px minmax(0, 1fr) 100px 90px; gap: 10px; font-size: 12px; padding: 7px 10px; border-radius: 7px; background: #191B1F; opacity: {{ il.op }};"><span style="color: #A6A9B1;">{{ il.d }}</span><span style="font-family: ui-monospace, Menlo, monospace;">{{ il.raw }}</span><span style="text-align: right; font-weight: 600;">{{ il.v }}</span><span style="color: {{ il.stColor }};">{{ il.st }}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ imp3 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px;">
+<span style="display: flex; align-items: center; gap: 10px;"><span style="width: 32px; height: 32px; border-radius: 50%; background: rgba(111,211,162,0.14); color: #6FD3A2; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span><span style="font-weight: 600;">3 movimentações importadas no Sicoob</span></span>
+<span style="color: #C9CBD1; line-height: 1.5;">Saldo do Sicoob agora confere com o banco. 2 foram reconhecidas por regras (rendimento e tarifa) e 1 precisa de classificação. Todas estão na fila de conciliação.</span>
+</div>
+</sc-if>
+<div style="display: flex; justify-content: flex-end; gap: 10px;">
+<button type="button" class="vf-btn" sc-camel-on-click="{{ closeImport }}" style="height: 42px;">{{ impCancel }}</button>
+<button type="button" sc-camel-on-click="{{ impNext }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{ impNextBg }}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ impNextLabel }}</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ movOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: center;">
+<button type="button" aria-label="Fechar" sc-camel-on-click="{{ closeMov }}" style="position: absolute; inset: 0; border: none; background: rgba(8,8,10,0.6); cursor: pointer;"></button>
+<div role="dialog" aria-label="{{ movTitulo }}" style="position: relative; width: 500px; box-sizing: border-box; background: #1F2126; border: 1px solid #373A43; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 24px 60px rgba(0,0,0,0.55);">
+<div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-size: 19px; font-weight: 600;">{{ movTitulo }}</h2><span style="font-size: 13px; color: #A6A9B1;">{{ movSub }}</span></div>
+<sc-if value="{{ isTransf }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">De<sc-raw-select class="vf-in" value="{{ mf.de }}" sc-camel-on-change="{{ onMfDe }}"><option value="Inter">Inter</option><option value="Asaas">Asaas</option><option value="Sicoob">Sicoob</option><option value="Reserva">Reserva</option></sc-raw-select></label>
+<label class="vf-lbl">Para<sc-raw-select class="vf-in" value="{{ mf.para }}" sc-camel-on-change="{{ onMfPara }}"><option value="Reserva">Reserva</option><option value="Inter">Inter</option><option value="Sicoob">Sicoob</option><option value="Cartão Inter">Cartão Inter (pagar fatura)</option></sc-raw-select></label>
+</div>
+</sc-if>
+<sc-if value="{{ isMov }}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Conta<sc-raw-select class="vf-in" value="{{ mf.de }}" sc-camel-on-change="{{ onMfDe }}"><option value="Inter">Inter</option><option value="Asaas">Asaas</option><option value="Sicoob">Sicoob</option></sc-raw-select></label>
+<label class="vf-lbl">Tipo<sc-raw-select class="vf-in" value="{{ mf.tipo }}" sc-camel-on-change="{{ onMfTipo }}"><option value="saida">Saída</option><option value="entrada">Entrada</option></sc-raw-select></label>
+<label class="vf-lbl">Categoria<sc-raw-select class="vf-in" value="{{ mf.cat }}" sc-camel-on-change="{{ onMfCat }}"><option value="Tarifas bancárias">Tarifas bancárias</option><option value="Rendimentos">Rendimentos</option><option value="Transporte">Transporte</option><option value="Alimentação">Alimentação</option><option value="Outras receitas › Reembolsos">Outras receitas › Reembolsos</option></sc-raw-select></label>
+<label class="vf-lbl">Descrição<input class="vf-in" type="text" value="{{ mf.desc }}" sc-camel-on-change="{{ onMfDesc }}"></label>
+</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<label class="vf-lbl">Data<input class="vf-in" type="date" value="2026-09-17"></label>
+<label class="vf-lbl">Valor<input class="vf-in" type="text" value="{{ mf.valor }}" sc-camel-on-change="{{ onMfValor }}" placeholder="0,00"></label>
+</div>
+<span style="font-size: 12px; color: #A6A9B1; line-height: 1.5;">{{ movNota }}</span>
+<div style="display: flex; justify-content: flex-end; gap: 10px;"><button type="button" class="vf-btn" sc-camel-on-click="{{ closeMov }}" style="height: 42px;">Voltar</button><button type="button" sc-camel-on-click="{{ salvarMov }}" style="height: 42px; padding: 0 18px; border-radius: 8px; border: none; background: {{accent}}; color: #15131F; font-size: 14px; font-weight: 600; cursor: pointer;">{{ movBtn }}</button></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 60; max-width: 700px; background: #EEEEF0; color: #16171B; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+</body></html>

@@ -15,8 +15,14 @@ import { join } from "node:path";
  *  • api_logs / wa_webhook_log — diagnóstico, com purga própria e volume alto.
  *  • notifications — avisos efêmeros na sineta; restaurar avisos antigos como
  *    não lidos seria pior que não restaurar.
+ *  • dashboard_silences / dashboard_visits — preferência de tela por usuário,
+ *    com validade de dias. Restaurar um silêncio antigo esconderia um aviso
+ *    que já devia ter voltado, e o custo de perdê-los é silenciar de novo.
  */
-const FORA_DE_PROPOSITO = new Set(["api_logs", "wa_webhook_log", "notifications"]);
+const FORA_DE_PROPOSITO = new Set([
+  "api_logs", "wa_webhook_log", "notifications",
+  "dashboard_silences", "dashboard_visits",
+]);
 
 function tabelasDasMigracoes(): Set<string> {
   const dir = join(import.meta.dirname, "..", "supabase", "migrations");

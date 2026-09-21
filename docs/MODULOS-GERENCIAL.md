@@ -54,6 +54,32 @@ Biblioteca de processos e padrões da agência, organizada por **setor**, com do
 ### Visão geral — [/gerencial](../src/app/gerencial/)
 Dashboard executivo (C-Level): KPIs da agência (receita, lead score, pipeline), alertas operacionais por prioridade, histórico de MRR com meta de escala, saúde de contas, carga do time, DRE e funil comercial. Dados via `getCLevel()`.
 
+### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
+A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.
+
+Cinco blocos:
+1. **Precisa da sua atenção** — exceções derivadas (E1–E8, I1–I3). Não existe tabela de alertas: cada linha é uma consulta sobre o estado atual e some sozinha quando o problema é resolvido. Crítico e atenção não podem ser dispensados; avisos podem ser silenciados por 7 dias, por usuário e por escopo.
+2. **Pulso** — saldo disponível (popover por conta), caixa projetado em 30 dias, resultado do mês por competência e a divisão entre MRR e receita pontual.
+3. **Entradas e saídas** — dois painéis espelhados com o ritmo dos últimos e próximos 7 dias, aging dos vencidos e composição expansível.
+4. **Esta semana** — o que vence de hoje a +7 dias, em quadro de altura fixa com rolagem interna. Abre a **ficha universal** pelo nome e a **baixa rápida** pela ação. Vencidos ficam de fora: já estão no bloco 1.
+5. **Panorama** — carrossel de 4 visões (caixa em 30 dias, composição da receita, resultado em 6 meses, para onde vai o dinheiro). Cada uma traz a **conclusão escrita**, gerada por regra no servidor, sem IA.
+
+Todo número linka para o destino **já filtrado** (`?aba=` e `?status=`, lidos por `FinanceTabs` e `ResultadosTabs`). Nenhum cálculo acontece no front.
+
+**As ações escrevem pelos endpoints das páginas de origem** (`/api/gerencial/expenses` e `/api/gerencial/receivables`), nunca por um caminho próprio. É o que faz a baixa feita aqui passar pela alçada de aprovação, pela trava de período fechado e pela auditoria — não existe atalho sem registro.
+
+**Estado "Primeiro uso"**: enquanto faltar conta com saldo inicial ou cliente com fee mensal, os cinco blocos dão lugar ao checklist de implantação, cujos passos são derivados dos dados (sem flag manual).
+
+Camadas: [`dashboard-financeiro.ts`](../src/lib/data/dashboard-financeiro.ts) e [`dashboard-panorama.ts`](../src/lib/data/dashboard-panorama.ts) (métricas e frases, puras e testadas em [`tests/dashboard-financeiro.test.ts`](../tests/dashboard-financeiro.test.ts) e [`tests/dashboard-panorama.test.ts`](../tests/dashboard-panorama.test.ts)); [`dashboard-financeiro-server.ts`](../src/lib/data/dashboard-financeiro-server.ts) e [`dashboard-panorama-server.ts`](../src/lib/data/dashboard-panorama-server.ts) (leitura). Precisa da migração `0148_dashboard_financeiro.sql`; sem ela a página funciona com os padrões de §13 e avisa.
+
+**O que o modelo atual ainda não suporta**, e a tela não finge que suporta:
+- não há `scheduled_payment_date` — a conta escolhida na despesa faz as vezes de "programado";
+- não há recorrência de receita com data de reajuste, por isso **não existe a exceção I4**;
+- não há baixa parcial: a baixa registra o saldo cheio da parcela;
+- **não há emissão de cobrança** (o Asaas client só cria cliente e assinatura), então a ação "Enviar cobrança" de §8.3 não existe: uma entrada do Asaas oferece "Ver cobrança" e uma manual, a baixa;
+- **juros, multa e desconto são informativos**: a ficha mostra o encargo que as regras configuradas implicam, mas a baixa grava o valor da parcela — onde o encargo entra na DRE é decisão do documento-mãe;
+- **não há status "cancelada"** em parcela, então a ficha não tem "Cancelar parcela": o que existe no banco é `delete`, e apagar não é cancelar.
+
 ### Financeiro — [/gerencial/financeiro](../src/app/gerencial/financeiro/)
 Fluxo de caixa (previsão), faturas pendentes com opção de cobrança, e DRE da agência. Integra pagamentos do **Asaas** (webhook [/api/webhooks/asaas](../src/app/api/webhooks/asaas/route.ts)). Dados via `getGerFinance()`.
 

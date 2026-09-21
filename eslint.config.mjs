@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Edge Functions rodam em Deno, fora do projeto Next.
     "supabase/functions/**",
+    // Mockups e specs de migração: material de leitura, não código do app.
+    "migration-financeiro/**",
   ]),
   // Respeita a convenção de prefixo "_" para itens intencionalmente não usados.
   {
