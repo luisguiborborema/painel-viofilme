@@ -140,7 +140,9 @@ As regras vivem em [`resultados.ts`](../src/lib/data/resultados.ts), puras e tes
 - a Rentabilidade lista as lacunas do período (sem colaborador, sem alocação, receita sem cliente no item) e explica que, sem elas, "margem" seria receita menos custo direto — que é outra coisa;
 - a Receita explica que **MRR é contratual, não faturado**: sem recorrência cadastrada ele é zero, e estimá-lo pela receita do mês confundiria um cliente que atrasou com um que saiu.
 
-**Ainda não implementado desta spec**: drawer de lançamentos por categoria (§8.1), ficha de rentabilidade do cliente com o simulador de preço (§8.2), relatório em PDF (§3.4), esforço vs. contrato (depende de Operação) e o congelamento da rentabilidade no fechamento (§11).
+**Todo número da DRE abre os lançamentos que o formam** (§8.1): clicar no valor de uma categoria — no período ou numa coluna do modo Evolução — abre o drawer com cada item por competência. Ele usa a mesma função de rateio da tabela, de propósito: com uma leitura própria, o drawer poderia somar diferente do número em que a pessoa clicou, que é o pior defeito possível aqui.
+
+**Ainda não implementado desta spec**: ficha de rentabilidade do cliente com o simulador de preço (§8.2), relatório em PDF (§3.4), esforço vs. contrato (depende de Operação) e o congelamento da rentabilidade no fechamento (§11).
 
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.

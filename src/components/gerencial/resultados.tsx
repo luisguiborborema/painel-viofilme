@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronRight as Chevron, Download } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronRight as Chevron, Download, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -231,6 +231,7 @@ function AbaDre({
   dados, irPara,
 }: { dados: Dados; irPara: (p: Record<string, string | null>) => void }) {
   const [abertos, setAbertos] = useState<string[]>(dados.gruposAbertos);
+  const [lancamentos, setLancamentos] = useState<{ cat: string; mes?: string } | null>(null);
 
   const alternar = (k: string) =>
     setAbertos((v) => (v.includes(k) ? v.filter((x) => x !== k) : [...v, k]));
@@ -290,6 +291,8 @@ function AbaDre({
                     dados={dados}
                     aberto={abertos.includes(l.key)}
                     onAlternar={() => alternar(l.key)}
+                    onAbrirLancamentos={(mes) =>
+                      setLancamentos({ cat: l.key.split(":").slice(1).join(":"), mes })}
                   />
                 ))}
               </tbody>
@@ -313,6 +316,15 @@ function AbaDre({
       </div>
 
       <PonteDoCaixa dados={dados} />
+
+      {lancamentos && (
+        <DrawerLancamentos
+          cat={lancamentos.cat}
+          mes={lancamentos.mes}
+          dados={dados}
+          onFechar={() => setLancamentos(null)}
+        />
+      )}
     </section>
   );
 }
@@ -374,8 +386,11 @@ function ParaCadaCem({ dados }: { dados: Dados }) {
 }
 
 function LinhaDaDre({
-  l, dados, aberto, onAlternar,
-}: { l: LinhaDre; dados: Dados; aberto: boolean; onAlternar: () => void }) {
+  l, dados, aberto, onAlternar, onAbrirLancamentos,
+}: {
+  l: LinhaDre; dados: Dados; aberto: boolean; onAlternar: () => void;
+  onAbrirLancamentos: (mes?: string) => void;
+}) {
   const total = l.nivel === "total";
   const grupo = l.nivel === "grupo";
   const negativo = l.sinal === -1;
@@ -387,22 +402,35 @@ function LinhaDaDre({
 
   const valor = (c: number) => (c === 0 ? "—" : brlCheio(negativo ? -c : c).replace("R$ ", ""));
 
+  // Só categoria abre lançamentos: grupo e total são somas, não lançamento.
+  const abrivel = l.clicavel;
   const celulas = dados.modo === "evo"
     ? l.meses.map((m) => (
         <td key={m.mes} className="px-3 py-2.5 text-right tabular-nums">
-          <span className="block">{valor(m.valorCent)}</span>
-          {m.pctRl !== null && m.valorCent !== 0 && (
-            <span className="block text-[10px] text-muted">
-              {m.pctRl.toFixed(0)}%
-            </span>
-          )}
+          <button
+            type="button"
+            disabled={!abrivel || m.valorCent === 0}
+            onClick={() => onAbrirLancamentos(m.mes.slice(0, 7))}
+            className={cn("block w-full text-right", abrivel && m.valorCent !== 0 && "hover:text-brand-600")}
+          >
+            <span className="block">{valor(m.valorCent)}</span>
+            {m.pctRl !== null && m.valorCent !== 0 && (
+              <span className="block text-[10px] text-muted">{m.pctRl.toFixed(0)}%</span>
+            )}
+          </button>
         </td>
       ))
     : dados.mesAberto
       ? [
           <td key="r" className="px-3 py-2.5 text-right tabular-nums">{l.nivel === "categoria" ? valor(l.realizadoCent) : ""}</td>,
           <td key="p" className="px-3 py-2.5 text-right tabular-nums text-muted">{l.nivel === "categoria" ? valor(l.previstoCent) : ""}</td>,
-          <td key="t" className="px-3 py-2.5 text-right tabular-nums">{valor(l.valorCent)}</td>,
+          <td key="t" className="px-3 py-2.5 text-right tabular-nums">
+            {abrivel ? (
+              <button type="button" onClick={() => onAbrirLancamentos()} className="hover:text-brand-600">
+                {valor(l.valorCent)}
+              </button>
+            ) : valor(l.valorCent)}
+          </td>,
           <td key="pct" className="px-3 py-2.5 text-right tabular-nums text-muted">{l.pctRl === null ? "—" : `${l.pctRl.toFixed(0)}%`}</td>,
           <td key="c" className="px-3 py-2.5 text-right tabular-nums text-muted">{valor(l.comparacaoCent)}</td>,
           <td key="d" className={cn("px-3 py-2.5 text-right tabular-nums", TOM_DELTA[tomDelta])}>
@@ -410,7 +438,13 @@ function LinhaDaDre({
           </td>,
         ]
       : [
-          <td key="v" className="px-3 py-2.5 text-right tabular-nums">{valor(l.valorCent)}</td>,
+          <td key="v" className="px-3 py-2.5 text-right tabular-nums">
+            {abrivel ? (
+              <button type="button" onClick={() => onAbrirLancamentos()} className="hover:text-brand-600">
+                {valor(l.valorCent)}
+              </button>
+            ) : valor(l.valorCent)}
+          </td>,
           <td key="pct" className="px-3 py-2.5 text-right tabular-nums text-muted">{l.pctRl === null ? "—" : `${l.pctRl.toFixed(0)}%`}</td>,
           <td key="c" className="px-3 py-2.5 text-right tabular-nums text-muted">{valor(l.comparacaoCent)}</td>,
           <td key="d" className={cn("px-3 py-2.5 text-right tabular-nums", TOM_DELTA[tomDelta])}>
@@ -1040,5 +1074,83 @@ function AbaReceita({ dados }: { dados: Dados }) {
         </Card>
       </div>
     </section>
+  );
+}
+
+/* ── Drawer de lançamentos (§8.1) ──────────────────────────────────────── */
+
+type Lancamentos = {
+  titulo: string; periodoLabel: string; totalCent: number;
+  itens: { mes: string; descricao: string; valorCent: number; realizadoCent: number }[];
+  nota: string | null;
+};
+
+function DrawerLancamentos({
+  cat, mes, dados, onFechar,
+}: { cat: string; mes?: string; dados: Dados; onFechar: () => void }) {
+  const [d, setD] = useState<Lancamentos | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    const q = new URLSearchParams({ cat, gran: dados.periodo.gran, periodo: dados.periodo.iso });
+    if (mes) q.set("mes", mes);
+    fetch(`/api/gerencial/resultados/lancamentos?${q}`)
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!vivo) return;
+        if (!r.ok) setErro(j?.error ?? "Não foi possível abrir os lançamentos.");
+        else setD(j as Lancamentos);
+      })
+      .catch(() => vivo && setErro("Não foi possível abrir os lançamentos."));
+    return () => { vivo = false; };
+  }, [cat, mes, dados.periodo.gran, dados.periodo.iso]);
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onFechar]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <button type="button" aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50" />
+      <aside
+        aria-label="Lançamentos"
+        className="relative flex h-full w-full max-w-[540px] flex-col border-l border-line bg-surface"
+      >
+        <header className="space-y-1 border-b border-line px-6 py-5">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-xs text-muted">{d?.periodoLabel ?? dados.periodo.label}</span>
+            <button type="button" aria-label="Fechar" onClick={onFechar}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-subtle hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <h2 className="text-lg font-semibold text-ink">{d?.titulo ?? "Lançamentos"}</h2>
+          <p className="text-2xl font-semibold tracking-tight text-ink">
+            {brlCheio(d?.totalCent ?? 0)}
+          </p>
+          <p className="text-xs text-muted">
+            {d ? `${d.itens.length} ${d.itens.length === 1 ? "item" : "itens"}, por competência` : ""}
+          </p>
+        </header>
+
+        <div className="flex-1 space-y-1.5 overflow-y-auto px-6 py-4">
+          {erro && <p className="text-sm text-muted">{erro}</p>}
+          {d?.itens.map((i, n) => (
+            <div key={n} className="grid grid-cols-[56px_minmax(0,1fr)_110px] items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs">
+              <span className="text-muted">{i.mes}</span>
+              <span className="truncate text-ink">{i.descricao}</span>
+              <span className="text-right font-semibold text-ink">{brlCheio(i.valorCent)}</span>
+            </div>
+          ))}
+          {d && !d.itens.length && (
+            <p className="text-xs text-muted">Nenhum lançamento nesta categoria no período.</p>
+          )}
+          {d?.nota && <p className="pt-2 text-[11px] leading-relaxed text-muted">{d.nota}</p>}
+        </div>
+      </aside>
+    </div>
   );
 }

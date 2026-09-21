@@ -324,35 +324,18 @@ type Fatia = {
   descricao: string;
 };
 
-async function montar(
+
+/**
+ * As fatias de competência da janela pedida.
+ *
+ * Extraída para ter uma fonte só: a página e o drawer de lançamentos precisam
+ * exatamente do mesmo rateio, e duas cópias divergiriam no primeiro ajuste.
+ */
+async function lerFatias(
   db: SupabaseClient,
-  filtros: FiltrosResultados,
-  hoje: string,
-): Promise<ResultadosView> {
-  const cfgRes = await db.from("finance_settings")
-    .select("closed_until, healthy_margin_pct, attention_margin_pct, concentration_limit_pct, churn_alert_pct")
-    .eq("id", 1).maybeSingle();
-  const cfg = (cfgRes.data ?? {}) as Linha;
-  const fechadoAte = cfg.closed_until ? String(cfg.closed_until) : null;
-
-  const gran: Granularidade = filtros.gran === "tri" ? "tri" : "mes";
-  const ancora = /^\d{4}-\d{2}/.test(filtros.periodo ?? "")
-    ? `${filtros.periodo}-01`
-    : periodoPadrao(hoje, fechadoAte);
-  const periodo = periodoDe(gran, ancora);
-  const modo = filtros.modo === "evo" ? "evo" : "periodo";
-
-  // A comparação decide o que "Δ" significa; o orçado só existe se houver
-  // versão aprovada no Planejamento, senão a opção fica desligada (§3.2).
-  const comp = ["ant", "yoy"].includes(filtros.comp ?? "") ? filtros.comp! : "ant";
-  const anterior = comp === "yoy"
-    ? deslocarPeriodo(periodo, gran === "tri" ? -4 : -12)
-    : deslocarPeriodo(periodo, -1);
-
-  // Janela: 12 meses até o fim do período (evolução) e o período de comparação.
-  const doze = deslocarPeriodo(periodoDe("mes", periodo.meses[periodo.meses.length - 1]), -11);
-  const janelaIni = [doze.inicio, anterior.inicio, periodo.inicio].sort()[0];
-  const janelaFim = [periodo.fim, anterior.fim].sort().reverse()[0];
+  janelaIni: string,
+  janelaFim: string,
+): Promise<{ fatias: Fatia[]; semImpacto: string[] }> {
 
   const [parcelasRes, catsRes] = await Promise.all([
     buscarTudo<Linha>((a, b) => db.from("installments")
@@ -445,6 +428,38 @@ async function montar(
     }
   }
 
+  return { fatias, semImpacto };
+}
+
+async function montar(
+  db: SupabaseClient,
+  filtros: FiltrosResultados,
+  hoje: string,
+): Promise<ResultadosView> {
+  const cfgRes = await db.from("finance_settings")
+    .select("closed_until, healthy_margin_pct, attention_margin_pct, concentration_limit_pct, churn_alert_pct")
+    .eq("id", 1).maybeSingle();
+  const cfg = (cfgRes.data ?? {}) as Linha;
+  const fechadoAte = cfg.closed_until ? String(cfg.closed_until) : null;
+
+  const gran: Granularidade = filtros.gran === "tri" ? "tri" : "mes";
+  const ancora = /^\d{4}-\d{2}/.test(filtros.periodo ?? "")
+    ? `${filtros.periodo}-01`
+    : periodoPadrao(hoje, fechadoAte);
+  const periodo = periodoDe(gran, ancora);
+  const modo = filtros.modo === "evo" ? "evo" : "periodo";
+
+  // A comparação decide o que "Δ" significa; o orçado só existe se houver
+  // versão aprovada no Planejamento, senão a opção fica desligada (§3.2).
+  const comp = ["ant", "yoy"].includes(filtros.comp ?? "") ? filtros.comp! : "ant";
+  const anterior = comp === "yoy"
+    ? deslocarPeriodo(periodo, gran === "tri" ? -4 : -12)
+    : deslocarPeriodo(periodo, -1);
+
+  // Janela: 12 meses até o fim do período (evolução) e o período de comparação.
+  const doze = deslocarPeriodo(periodoDe("mes", periodo.meses[periodo.meses.length - 1]), -11);
+  const janelaIni = [doze.inicio, anterior.inicio, periodo.inicio].sort()[0];
+  const janelaFim = [periodo.fim, anterior.fim].sort().reverse()[0];  const { fatias, semImpacto } = await lerFatias(db, janelaIni, janelaFim);
   const doPeriodo = (p: Periodo) => fatias.filter((f) => p.meses.includes(f.mes));
 
   const totaisDe = (lista: Fatia[]): TotaisPorImpacto => {
@@ -1408,4 +1423,73 @@ function escadaDeBarras(
     topoPct: Math.min(y(pontos[i].de), y(pontos[i].ate)),
     alturaPct: Math.max(1.5, Math.abs(y(pontos[i].de) - y(pontos[i].ate))),
   }));
+}
+
+/* ── Drawer de lançamentos (§8.1) ──────────────────────────────────────── */
+
+export type Lancamento = { mes: string; descricao: string; valorCent: number; realizadoCent: number };
+
+export type LancamentosView = {
+  titulo: string;
+  periodoLabel: string;
+  totalCent: number;
+  itens: Lancamento[];
+  /** Pessoal aparece por função; valor por pessoa depende de permissão (§8.1). */
+  nota: string | null;
+};
+
+/**
+ * Os lançamentos que formam um número da DRE.
+ *
+ * É o primeiro princípio da página: todo valor abre os lançamentos que o
+ * formam. Usa o mesmo `lerFatias` da tabela — se usasse outra leitura, o
+ * drawer poderia somar diferente do número em que o usuário clicou, que é o
+ * pior defeito possível aqui.
+ */
+export async function getLancamentos(
+  categoriaKey: string,
+  filtros: { gran?: string; periodo?: string; mes?: string } = {},
+  agora: Date = new Date(),
+): Promise<LancamentosView> {
+  const hoje = hojeSP(agora);
+  const vazio: LancamentosView = {
+    titulo: "Lançamentos", periodoLabel: "", totalCent: 0, itens: [], nota: null,
+  };
+  if (!isSupabaseConfigured()) return vazio;
+
+  const db = await createClient();
+  // No modo Evolução, o clique é numa coluna de mês; fora dele, no período.
+  const periodo = /^\d{4}-\d{2}/.test(filtros.mes ?? "")
+    ? periodoDe("mes", `${filtros.mes}-01`)
+    : periodoDe(
+        filtros.gran === "tri" ? "tri" : "mes",
+        /^\d{4}-\d{2}/.test(filtros.periodo ?? "") ? `${filtros.periodo}-01` : `${hoje.slice(0, 7)}-01`,
+      );
+
+  const { fatias } = await lerFatias(db, periodo.inicio, periodo.fim);
+  const doPeriodo = fatias.filter(
+    (f) => periodo.meses.includes(f.mes) && f.categoriaKey === categoriaKey,
+  );
+
+  // Uma linha por descrição e mês: dois lançamentos iguais no mesmo mês são
+  // duas linhas, porque são dois documentos que alguém pode querer achar.
+  const itens: Lancamento[] = doPeriodo
+    .map((f) => ({
+      mes: mesCurto(f.mes),
+      descricao: f.descricao.trim() || "Sem descrição",
+      valorCent: f.valorCent,
+      realizadoCent: f.realizadoCent,
+    }))
+    .sort((a, b) => Math.abs(b.valorCent) - Math.abs(a.valorCent));
+
+  return {
+    titulo: doPeriodo[0]?.categoriaLabel ?? "Lançamentos",
+    periodoLabel: periodo.label,
+    totalCent: itens.reduce((s, i) => s + i.valorCent, 0),
+    itens,
+    nota: /pessoal|equipe|salário|pró-labore/i.test(doPeriodo[0]?.categoriaLabel ?? "")
+      ? "Equipe aparece por função. O valor por pessoa fica restrito a quem tem permissão de ver " +
+        "remuneração, em Pagamentos › Folha."
+      : null,
+  };
 }
