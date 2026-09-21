@@ -34,6 +34,18 @@ export type FinanceSettings = {
   taxDueDay: number;
   /** Despesa a partir deste valor precisa de aprovação. 0 desliga. */
   approvalThreshold: number;
+  /**
+   * Parâmetros do Dashboard Financeiro (spec da página 1, §13). Todos têm
+   * padrão: ninguém precisa configurar nada para começar.
+   */
+  minCashReserve: number;
+  chargeLeadDays: number;
+  staleStatementDays: number;
+  unconfirmedDays: number;
+  reconcileMaxOpen: number;
+  reconcileMaxDays: number;
+  budgetTolerance: number;
+  closingDueDay: number;
 };
 
 export const REGUA_PADRAO: CollectionRule[] = [
@@ -65,6 +77,14 @@ export const FINANCE_SETTINGS_PADRAO: FinanceSettings = {
   taxRate: 0,
   taxDueDay: 20,
   approvalThreshold: 0,
+  minCashReserve: 0,
+  chargeLeadDays: 5,
+  staleStatementDays: 7,
+  unconfirmedDays: 7,
+  reconcileMaxOpen: 20,
+  reconcileMaxDays: 7,
+  budgetTolerance: 110,
+  closingDueDay: 10,
 };
 
 /** Normaliza a régua vinda do banco: ordena por dias e descarta lixo. */

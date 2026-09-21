@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { usePersistentState } from "@/lib/use-persistent-state";
 import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -208,7 +208,9 @@ function Rodape({ itens }: { itens: { label: string; valor: string }[] }) {
 /* ── Recebimentos ──────────────────────────────────────────────────────── */
 
 function PainelRecebimentosCard({ painel }: { painel: PainelRecebimentos }) {
-  const [aberto, setAberto] = useState(false);
+  // Lembrado por usuário (§16): quem trabalha com a composição aberta não
+  // quer reabri-la a cada visita, e quem não usa não quer vê-la sempre.
+  const [aberto, setAberto] = usePersistentState("vio-dash-comp-receb", false);
   const maiorAging = Math.max(0, ...painel.aging.map((f) => f.valorCent));
 
   return (
@@ -314,7 +316,7 @@ function PainelRecebimentosCard({ painel }: { painel: PainelRecebimentos }) {
 /* ── Pagamentos ────────────────────────────────────────────────────────── */
 
 function PainelPagamentosCard({ painel }: { painel: PainelPagamentos }) {
-  const [aberto, setAberto] = useState(false);
+  const [aberto, setAberto] = usePersistentState("vio-dash-comp-pag", false);
   const s = painel.situacao;
   const largura = (v: number) => (s.totalCent > 0 ? `${(v / s.totalCent) * 100}%` : "0%");
 

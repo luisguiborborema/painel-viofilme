@@ -68,6 +68,8 @@ Todo número linka para o destino **já filtrado** (`?aba=` e `?status=`, lidos 
 
 **As ações escrevem pelos endpoints das páginas de origem** (`/api/gerencial/expenses` e `/api/gerencial/receivables`), nunca por um caminho próprio. É o que faz a baixa feita aqui passar pela alçada de aprovação, pela trava de período fechado e pela auditoria — não existe atalho sem registro.
 
+Os **parâmetros de §13** (reserva mínima de caixa, antecedência do aviso de cobrança, dias de extrato parado, limites de conciliação, tolerância de orçamento e dia do fechamento) são editáveis em **Financeiro › Configurações**. Todos têm padrão — com a reserva em R$ 0 o caixa só vira alerta depois de ficar negativo; informe o piso real para ser avisado antes.
+
 **Estado "Primeiro uso"**: enquanto faltar conta com saldo inicial ou cliente com fee mensal, os cinco blocos dão lugar ao checklist de implantação, cujos passos são derivados dos dados (sem flag manual).
 
 Camadas: [`dashboard-financeiro.ts`](../src/lib/data/dashboard-financeiro.ts) e [`dashboard-panorama.ts`](../src/lib/data/dashboard-panorama.ts) (métricas e frases, puras e testadas em [`tests/dashboard-financeiro.test.ts`](../tests/dashboard-financeiro.test.ts) e [`tests/dashboard-panorama.test.ts`](../tests/dashboard-panorama.test.ts)); [`dashboard-financeiro-server.ts`](../src/lib/data/dashboard-financeiro-server.ts) e [`dashboard-panorama-server.ts`](../src/lib/data/dashboard-panorama-server.ts) (leitura). Precisa da migração `0148_dashboard_financeiro.sql`; sem ela a página funciona com os padrões de §13 e avisa.
@@ -78,7 +80,8 @@ Camadas: [`dashboard-financeiro.ts`](../src/lib/data/dashboard-financeiro.ts) e 
 - não há baixa parcial: a baixa registra o saldo cheio da parcela;
 - **não há emissão de cobrança** (o Asaas client só cria cliente e assinatura), então a ação "Enviar cobrança" de §8.3 não existe: uma entrada do Asaas oferece "Ver cobrança" e uma manual, a baixa;
 - **juros, multa e desconto são informativos**: a ficha mostra o encargo que as regras configuradas implicam, mas a baixa grava o valor da parcela — onde o encargo entra na DRE é decisão do documento-mãe;
-- **não há status "cancelada"** em parcela, então a ficha não tem "Cancelar parcela": o que existe no banco é `delete`, e apagar não é cancelar.
+- **não há status "cancelada"** em parcela, então a ficha não tem "Cancelar parcela": o que existe no banco é `delete`, e apagar não é cancelar;
+- **não há realtime** (§15 pede atualização ao vivo pelos webhooks do Asaas). O painel inteiro ainda não usa Supabase Realtime: a página carrega ao abrir e é revalidada após cada ação, que é o padrão do resto do projeto.
 
 ### Financeiro — [/gerencial/financeiro](../src/app/gerencial/financeiro/)
 Fluxo de caixa (previsão), faturas pendentes com opção de cobrança, e DRE da agência. Integra pagamentos do **Asaas** (webhook [/api/webhooks/asaas](../src/app/api/webhooks/asaas/route.ts)). Dados via `getGerFinance()`.

@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 const COLS = "meta_margin, collection_rules, payment_methods, alert_margin, alert_overdue";
 const COLS_0137 = "closed_until";
 const COLS_0138 = "late_fine, late_interest_month, late_grace_days, tax_regime, tax_rate, tax_due_day, approval_threshold";
+const COLS_0148 = "min_cash_reserve, charge_lead_days, stale_statement_days, unconfirmed_days, reconcile_max_open, reconcile_max_days, budget_tolerance, closing_due_day";
 
 /** Lê a configuração do Financeiro; cai no padrão se a migração não rodou. */
 export async function GET() {
@@ -25,8 +26,13 @@ export async function GET() {
   if (!isSupabaseConfigured()) return NextResponse.json(FINANCE_SETTINGS_PADRAO);
 
   const supabase = await createClient();
-  // Tolerante em degraus: 0138 (encargos/imposto/alçada) → 0137 (fechamento) → base.
-  const v3 = await supabase.from("finance_settings").select(`${COLS}, ${COLS_0137}, ${COLS_0138}`).eq("id", 1).maybeSingle();
+  // Tolerante em degraus: 0148 (Dashboard) → 0138 (encargos/imposto/alçada) →
+  // 0137 (fechamento) → base. Cada degrau que falta cai no padrão, em vez de
+  // derrubar a tela inteira de configurações.
+  const v4 = await supabase.from("finance_settings").select(`${COLS}, ${COLS_0137}, ${COLS_0138}, ${COLS_0148}`).eq("id", 1).maybeSingle();
+  const v3 = v4.error
+    ? await supabase.from("finance_settings").select(`${COLS}, ${COLS_0137}, ${COLS_0138}`).eq("id", 1).maybeSingle()
+    : v4;
   const v2 = v3.error
     ? await supabase.from("finance_settings").select(`${COLS}, ${COLS_0137}`).eq("id", 1).maybeSingle()
     : v3;
@@ -50,6 +56,14 @@ export async function GET() {
     taxRate: Number(r.tax_rate ?? 0),
     taxDueDay: Number(r.tax_due_day ?? 20),
     approvalThreshold: Number(r.approval_threshold ?? 0),
+    minCashReserve: Number(r.min_cash_reserve ?? 0),
+    chargeLeadDays: Number(r.charge_lead_days ?? 5),
+    staleStatementDays: Number(r.stale_statement_days ?? 7),
+    unconfirmedDays: Number(r.unconfirmed_days ?? 7),
+    reconcileMaxOpen: Number(r.reconcile_max_open ?? 20),
+    reconcileMaxDays: Number(r.reconcile_max_days ?? 7),
+    budgetTolerance: Number(r.budget_tolerance ?? 110),
+    closingDueDay: Number(r.closing_due_day ?? 10),
   };
   return NextResponse.json(out);
 }
@@ -94,10 +108,28 @@ export async function POST(req: Request) {
   if (b.taxDueDay !== undefined) patch.tax_due_day = Math.min(28, Math.max(1, Math.round(Number(b.taxDueDay) || 20)));
   if (b.approvalThreshold !== undefined) patch.approval_threshold = naoNegativo(b.approvalThreshold);
 
+  // Parâmetros do Dashboard (§13). Os de dias têm mínimo 1: "avise a cada 0
+  // dias" não é desligar o aviso, é pedir que ele apareça sempre.
+  const diasEntre1e = (v: unknown, padrao: number, max: number) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), max) : padrao;
+  };
+  if (b.minCashReserve !== undefined) patch.min_cash_reserve = naoNegativo(b.minCashReserve);
+  if (b.chargeLeadDays !== undefined) patch.charge_lead_days = diasEntre1e(b.chargeLeadDays, 5, 90);
+  if (b.staleStatementDays !== undefined) patch.stale_statement_days = diasEntre1e(b.staleStatementDays, 7, 90);
+  if (b.unconfirmedDays !== undefined) patch.unconfirmed_days = diasEntre1e(b.unconfirmedDays, 7, 90);
+  if (b.reconcileMaxOpen !== undefined) patch.reconcile_max_open = diasEntre1e(b.reconcileMaxOpen, 20, 10_000);
+  if (b.reconcileMaxDays !== undefined) patch.reconcile_max_days = diasEntre1e(b.reconcileMaxDays, 7, 365);
+  if (b.budgetTolerance !== undefined) patch.budget_tolerance = Math.min(1000, Math.max(100, Number(b.budgetTolerance) || 110));
+  if (b.closingDueDay !== undefined) patch.closing_due_day = Math.min(28, Math.max(1, Math.round(Number(b.closingDueDay) || 10)));
+
   const supabase = await createClient();
   await logFromUser(user, { action: "update", area: "Financeiro · configurações", target: null });
   const { error } = await supabase.from("finance_settings").upsert(patch, { onConflict: "id" });
   if (error) {
+    if (/min_cash_reserve|charge_lead_days|stale_statement_days|unconfirmed_days|reconcile_max|budget_tolerance|closing_due_day/i.test(error.message)) {
+      return NextResponse.json({ error: "Rode a migração 0148_dashboard_financeiro.sql." }, { status: 409 });
+    }
     if (/late_fine|tax_rate|approval_threshold|tax_regime|late_grace_days/i.test(error.message)) {
       return NextResponse.json({ error: "Rode a migração 0138_conciliacao_nf_encargos_alcada.sql." }, { status: 409 });
     }

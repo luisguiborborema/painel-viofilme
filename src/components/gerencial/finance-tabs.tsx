@@ -34,7 +34,7 @@ import { DRE_REGIMES, variacao, type DrePeriodo, type DreRegime, type DreResulta
 import { DRE_GROUPS, type DreGroup, type ExpenseCategoryDef } from "@/lib/data/expense-categories";
 import { COLLECTION_ACTIONS, type CollectionAction, type FinanceSettings } from "@/lib/data/finance-settings";
 import { Extrato, FluxoDeCaixa, RentabilidadeClientes } from "./finance-extras";
-import { AgingTab, FechamentoPeriodo, IndicadoresCard, OrcamentoTab, RegrasFinanceirasCard } from "./finance-reports";
+import { AgingTab, FechamentoPeriodo, IndicadoresCard, OrcamentoTab, ParametrosDashboardCard, RegrasFinanceirasCard } from "./finance-reports";
 import { ConciliacaoBancaria, Impostos } from "./finance-bank";
 import { APPROVAL_LABEL, podeAprovar } from "@/lib/data/approval";
 import {
@@ -1792,6 +1792,13 @@ function ConfiguracoesFinanceiro() {
       </Card>
 
       <RegrasFinanceirasCard
+        cfg={cfg}
+        onChange={(patch) => setCfg({ ...cfg, ...patch })}
+        onSave={salvar}
+        busy={busy}
+      />
+
+      <ParametrosDashboardCard
         cfg={cfg}
         onChange={(patch) => setCfg({ ...cfg, ...patch })}
         onSave={salvar}

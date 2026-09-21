@@ -338,6 +338,93 @@ export function FechamentoPeriodo({ closedUntil }: { closedUntil: string | null 
   );
 }
 
+/* --------------- Parâmetros do Dashboard Financeiro (config) ---------------- */
+
+/**
+ * Os parâmetros da §13 da spec do Dashboard.
+ *
+ * Todos já vêm com padrão — ninguém precisa abrir esta tela para começar. Ela
+ * existe para quem precisa apertar: a reserva mínima é o que faz o Dashboard
+ * avisar ANTES do caixa zerar, em vez de depois.
+ */
+export function ParametrosDashboardCard({
+  cfg, onChange, onSave, busy,
+}: {
+  cfg: FinanceSettings;
+  onChange: (patch: Partial<FinanceSettings>) => void;
+  onSave: (patch: Partial<FinanceSettings>) => void;
+  busy: boolean;
+}) {
+  const num = (v: string) => Number(v.replace(/\./g, "").replace(",", ".")) || 0;
+  const inteiro = (v: string) => Math.round(num(v));
+
+  const campos: {
+    rotulo: string;
+    valor: number;
+    largura: string;
+    aplicar: (v: string) => Partial<FinanceSettings>;
+  }[] = [
+    { rotulo: "Reserva mínima de caixa (R$)", valor: cfg.minCashReserve, largura: "w-32",
+      aplicar: (v) => ({ minCashReserve: num(v) }) },
+    { rotulo: "Avisar cobrança não enviada (dias antes)", valor: cfg.chargeLeadDays, largura: "w-20",
+      aplicar: (v) => ({ chargeLeadDays: inteiro(v) }) },
+    { rotulo: "Extrato parado vira aviso (dias)", valor: cfg.staleStatementDays, largura: "w-20",
+      aplicar: (v) => ({ staleStatementDays: inteiro(v) }) },
+    { rotulo: "Baixa sem confirmação (dias)", valor: cfg.unconfirmedDays, largura: "w-20",
+      aplicar: (v) => ({ unconfirmedDays: inteiro(v) }) },
+    { rotulo: "Conciliação pendente (qtd)", valor: cfg.reconcileMaxOpen, largura: "w-20",
+      aplicar: (v) => ({ reconcileMaxOpen: inteiro(v) }) },
+    { rotulo: "Conciliação pendente (dias)", valor: cfg.reconcileMaxDays, largura: "w-20",
+      aplicar: (v) => ({ reconcileMaxDays: inteiro(v) }) },
+    { rotulo: "Tolerância de orçamento (%)", valor: cfg.budgetTolerance, largura: "w-20",
+      aplicar: (v) => ({ budgetTolerance: num(v) }) },
+    { rotulo: "Cobrar fechamento a partir do dia", valor: cfg.closingDueDay, largura: "w-20",
+      aplicar: (v) => ({ closingDueDay: inteiro(v) }) },
+  ];
+
+  return (
+    <Card className="p-5">
+      <h2 className="text-sm font-semibold text-ink">Avisos do Dashboard</h2>
+      <p className="mb-3 mt-1 text-[11px] leading-relaxed text-muted">
+        Quando cada exceção do Dashboard aparece. Com a <strong>reserva mínima em
+        R$ 0</strong> (o padrão), o caixa só vira alerta quando já ficou negativo —
+        informe aqui o piso que você não quer furar para ser avisado antes.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        {campos.map((c) => (
+          <label key={c.rotulo} className="text-xs text-muted">
+            {c.rotulo}
+            <input
+              value={c.valor}
+              onChange={(e) => onChange(c.aplicar(e.target.value))}
+              inputMode="decimal"
+              className={inputCls + " mt-1 block " + c.largura}
+            />
+          </label>
+        ))}
+        <button
+          onClick={() =>
+            onSave({
+              minCashReserve: cfg.minCashReserve,
+              chargeLeadDays: cfg.chargeLeadDays,
+              staleStatementDays: cfg.staleStatementDays,
+              unconfirmedDays: cfg.unconfirmedDays,
+              reconcileMaxOpen: cfg.reconcileMaxOpen,
+              reconcileMaxDays: cfg.reconcileMaxDays,
+              budgetTolerance: cfg.budgetTolerance,
+              closingDueDay: cfg.closingDueDay,
+            })
+          }
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Salvar
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 /* ------------------- Encargos, impostos e alçada (config) ------------------- */
 
 /**
