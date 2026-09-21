@@ -424,7 +424,8 @@ function Grafico({ dados }: { dados: Dados }) {
       </div>
 
       {f.menorSaldo && (
-        <p className={cn("text-xs", f.menorSaldo.abaixoDaReserva ? "text-rose-600" : "text-muted")}>
+        <p className={cn("text-xs",
+          f.menorSaldo.abaixoDaReserva || f.menorSaldo.valorCent < 0 ? "text-rose-600" : "text-muted")}>
           Menor saldo do horizonte: {brlCheio(f.menorSaldo.valorCent)} em{" "}
           {f.menorSaldo.dataIso.slice(8, 10)}/{f.menorSaldo.dataIso.slice(5, 7)}
           {f.menorSaldo.abaixoDaReserva && ", abaixo da reserva mínima"}.

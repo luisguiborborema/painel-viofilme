@@ -27,6 +27,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const home = role === "gerencial" ? "/gerencial" : "/cliente";
+  const TODAS_AS_ROTAS = groups.flatMap((g) => g.items.map((i) => i.href));
 
   // Dentro de um cliente (/gerencial/clientes/<id>/…), "Hub de Clientes" ganha
   // um submenu contextual com as abas daquele cliente (cada uma é uma rota).
@@ -45,8 +46,19 @@ export function Sidebar({
     `vio-nav-groups-${role}`,
     {},
   );
-  const isActive = (href: string) =>
-    href === pathname || (href !== home && pathname.startsWith(href));
+  // Item ativo é o de rota MAIS ESPECÍFICA que casa com a URL. Sem isso,
+  // "Financeiro antigo" (/gerencial/financeiro) acendia junto com Caixa e
+  // Pagamentos, que moram debaixo dele — dois itens acesos, e nenhum dos dois
+  // dizendo onde a pessoa está.
+  const isActive = (href: string) => {
+    if (href === pathname) return true;
+    if (href === home || !pathname.startsWith(`${href}/`)) return false;
+    const maisEspecifico = TODAS_AS_ROTAS.some(
+      (outra) => outra !== href && outra.length > href.length &&
+        (pathname === outra || pathname.startsWith(`${outra}/`)),
+    );
+    return !maisEspecifico;
+  };
   const toggleGroup = (title: string) =>
     setOpenGroups({ ...openGroups, [title]: openGroups[title] === false });
 

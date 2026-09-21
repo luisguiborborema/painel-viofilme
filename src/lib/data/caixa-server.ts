@@ -501,7 +501,7 @@ async function montar(
   // O menor saldo é sempre o DIÁRIO, mesmo com o gráfico em semanas ou meses:
   // é ele que responde "quando aperta?", e a média da semana esconderia o dia
   // em que o saldo fura a reserva.
-  const menorDiario = menorSaldoDiario(eventos, saldoBase, hoje, fimJanela);
+  const menorDiario = menorSaldoDiario(eventos, saldoBase, hoje, fimJanela, reservaMinimaCent);
 
   const saidasOperacionais3m = eventos
     .filter((e) => e.tipo === "realizado" && e.valorCent < 0 && e.bloco === "operating" &&
@@ -528,7 +528,10 @@ async function montar(
       sub: menorDiario
         ? `${ddmm(menorDiario.dataIso)}${menorDiario.abaixoDaReserva ? ", abaixo da reserva" : ""}`
         : "sem projeção no horizonte",
-      tom: menorDiario?.abaixoDaReserva ? "ruim" : "neutro" },
+      // Saldo negativo é vermelho mesmo sem reserva configurada: ficar no
+      // vermelho não deixa de ser problema porque ninguém definiu o piso.
+      tom: menorDiario && (menorDiario.abaixoDaReserva || menorDiario.valorCent < 0)
+        ? "ruim" : "neutro" },
     { key: "folego", label: "Fôlego",
       valor: folego === null ? "—" : `${folego.toFixed(1).replace(".", ",")} meses`,
       sub: folego === null ? "sem saídas operacionais para medir" : "saídas operacionais dos últimos 3 meses",
@@ -649,23 +652,32 @@ async function montarLinhaDaMovimentacao(
   return mapa;
 }
 
-/** O menor saldo DIÁRIO do horizonte — o que responde "quando aperta?". */
+/**
+ * O menor saldo DIÁRIO do horizonte — o que responde "quando aperta?".
+ *
+ * A varredura começa em HOJE, não amanhã: pagamento vencido entra como saída
+ * de hoje, e pular o primeiro dia deixava justamente o maior aperto de fora.
+ * Foi o que aconteceu — o cartão dizia "menor saldo R$ 500" enquanto o
+ * gráfico ao lado mostrava a linha indo a −R$ 3.500 no mesmo dia.
+ */
 function menorSaldoDiario(
   eventos: EventoDoCaixa[],
   saldoHojeCent: number,
   hoje: string,
   fim: string,
+  reservaMinimaCent: number,
 ): { valorCent: number; dataIso: string; abaixoDaReserva: boolean } | null {
-  if (fim <= hoje) return null;
+  if (fim < hoje) return null;
   let saldo = saldoHojeCent;
-  let menor = { valorCent: saldo, dataIso: hoje };
-  for (let d = somarDias(hoje, 1); d <= fim; d = somarDias(d, 1)) {
+  let menor: { valorCent: number; dataIso: string } | null = null;
+  for (let d = hoje; d <= fim; d = somarDias(d, 1)) {
     saldo += eventos
       .filter((e) => e.dataIso === d && e.tipo !== "realizado")
       .reduce((s, e) => s + e.valorCent, 0);
-    if (saldo < menor.valorCent) menor = { valorCent: saldo, dataIso: d };
+    if (!menor || saldo < menor.valorCent) menor = { valorCent: saldo, dataIso: d };
   }
-  return { ...menor, abaixoDaReserva: false };
+  if (!menor) return null;
+  return { ...menor, abaixoDaReserva: reservaMinimaCent > 0 && menor.valorCent < reservaMinimaCent };
 }
 
 const MESES_LABEL = [

@@ -111,18 +111,32 @@ const GERENCIAL_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Gestão",
-    icon: Building2,
+    // O Financeiro é um módulo inteiro, não um item de Gestão: são sete
+    // páginas que conversam entre si (a conciliação do Caixa cria as baixas
+    // que a DRE dos Resultados lê). Como sub-abas de Gestão, elas ficavam
+    // perdidas no meio de RH, Integrações e Logs.
+    title: "Financeiro",
+    icon: Wallet,
     items: [
-      { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
-      { label: "Painel Executivo", href: "/gerencial/painel-executivo", icon: TrendingUp, section: "visao-geral" },
-      { label: "Dashboard financeiro", href: "/gerencial/financeiro/dashboard", icon: Gauge, section: "financeiro" },
-      { label: "Financeiro", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
+      { label: "Dashboard", href: "/gerencial/financeiro/dashboard", icon: Gauge, section: "financeiro" },
       { label: "Recebimentos", href: "/gerencial/financeiro/recebimentos", icon: HandCoins, section: "financeiro" },
       { label: "Pagamentos", href: "/gerencial/financeiro/pagamentos", icon: Receipt, section: "financeiro" },
       { label: "Caixa", href: "/gerencial/financeiro/caixa", icon: Landmark, section: "financeiro" },
       { label: "Resultados", href: "/gerencial/financeiro/resultados", icon: PieChart, section: "financeiro" },
       { label: "Planejamento", href: "/gerencial/financeiro/planejamento", icon: TrendingUp, section: "financeiro" },
+      // A página antiga segue no ar enquanto a migração não termina: é lá que
+      // ainda vivem as configurações, as contas e categorias e a cobrança de
+      // fatura pelo Asaas. Nomeada como antiga para ninguém confundir com as
+      // novas nem estranhar quando ela sair.
+      { label: "Financeiro antigo", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
+    ],
+  },
+  {
+    title: "Gestão",
+    icon: Building2,
+    items: [
+      { label: "Visão geral", href: "/gerencial", icon: LayoutDashboard, section: "visao-geral" },
+      { label: "Painel Executivo", href: "/gerencial/painel-executivo", icon: TrendingUp, section: "visao-geral" },
       { label: "RH & Cultura", href: "/gerencial/rh", icon: HeartHandshake, section: "rh" },
       { label: "Integrações", href: "/gerencial/integracoes", icon: Plug, section: "integracoes" },
       { label: "Usuários", href: "/gerencial/usuarios", icon: ShieldCheck, adminOnly: true },
