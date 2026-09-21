@@ -118,6 +118,10 @@ export function linhaDaCobranca(e: EstadoDaCobranca): LinhaCobranca {
   }
   if (e.visualizadaEm) return { texto: "Visualizada pelo cliente", tom: "ok" };
   if (e.enviadaEm) return { texto: `Cobrança enviada em ${ddmm(e.enviadaEm)}`, tom: "info" };
+  // Cobrança que existe mas não tem data de envio: dizer "enviada em" com a
+  // data de criação do registro seria inventar o dia em que o cliente foi
+  // avisado — e é justamente esse dia que decide se cabe cobrar de novo.
+  if (e.temCobranca) return { texto: "Cobrança emitida", tom: "info" };
   if (e.envioProgramadoPara) {
     return { texto: `Envio automático em ${ddmm(e.envioProgramadoPara)}`, tom: "neutro" };
   }
@@ -203,6 +207,19 @@ export const MOTIVOS_DISPENSA = [
   { key: "cortesia", label: "Cortesia" },
 ];
 
+/**
+ * Valor com centavos, para texto que sai da empresa.
+ *
+ * Na tela, arredondar para reais inteiros ajuda a comparar. Numa mensagem de
+ * cobrança, não: o cliente confere contra o boleto, e R$ 16 no lugar de
+ * R$ 15,74 é um erro que ele responde perguntando quanto afinal deve.
+ */
+export function brlExato(cent: number): string {
+  return (Math.round(cent) / 100).toLocaleString("pt-BR", {
+    style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+}
+
 /* ── Régua de cobrança (§9.2) ──────────────────────────────────────────── */
 
 export type EtapaRegua = {
@@ -274,9 +291,11 @@ export function estadoDaRegua(input: {
   }
 
   const nome = (e: EtapaRegua) => `D${e.offsetDias >= 0 ? "+" : ""}${e.offsetDias}`;
+  // A ação vem como a régua foi cadastrada e é usada como veio: minúsculas
+  // transformariam "WhatsApp" em "whatsapp" na frase que a operação lê.
   const frase = atual
-    ? `Etapa atual: ${nome(atual)}, ${atual.acao.toLowerCase()}.` +
-      (proxima ? ` Próximo: ${proxima.acao.toLowerCase()} no ${nome(proxima)}.` : "")
+    ? `Etapa atual: ${nome(atual)}, ${atual.acao}.` +
+      (proxima ? ` Próximo: ${proxima.acao} no ${nome(proxima)}.` : "")
     : "Sem etapa aplicável.";
   return { etapaAtual: atual, proximaEtapa: proxima, pausada: false, motivoPausa: null, frase };
 }

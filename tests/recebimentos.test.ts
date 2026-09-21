@@ -74,6 +74,15 @@ test("'sem cobrança' só aparece quando alguém esperava uma", () => {
   assert.equal(linhaDaCobranca({ ...cob, temCobranca: false, viaSistema: false }).texto, "Cobrança manual");
 });
 
+test("cobrança sem data de envio é 'emitida', não 'enviada em hoje'", () => {
+  // A baixa do Asaas nasceu sem `sent_at`. Cair na data de criação do registro
+  // diria que o cliente foi avisado hoje, quando a cobrança é de julho — e é
+  // esse dia que decide se cabe cobrar de novo.
+  const r = linhaDaCobranca({ ...cob, temCobranca: true, enviadaEm: null });
+  assert.equal(r.texto, "Cobrança emitida");
+  assert.equal(r.tom, "info");
+});
+
 test("recebida fala de conciliação, não de envio", () => {
   assert.equal(linhaDaCobranca({ ...cob, recebida: true }).texto, "Aguardando extrato");
   assert.equal(linhaDaCobranca({ ...cob, recebida: true, confirmadaNoExtrato: true }).tom, "ok");
@@ -131,7 +140,8 @@ test("a etapa é derivada dos dias de atraso, não gravada", () => {
   assert.equal(r.etapaAtual?.offsetDias, 3, "5 dias de atraso está na etapa D+3");
   assert.equal(r.proximaEtapa?.offsetDias, 10);
   assert.match(r.frase, /Etapa atual: D\+3/);
-  assert.match(r.frase, /Próximo: whatsapp no D\+10/i);
+  // A ação sai como foi cadastrada: "WhatsApp", não "whatsapp".
+  assert.match(r.frase, /Próximo: WhatsApp no D\+10/);
 });
 
 test("promessa e pausa têm prioridade sobre qualquer etapa", () => {

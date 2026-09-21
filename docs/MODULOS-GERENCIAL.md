@@ -86,6 +86,30 @@ A **ficha da conta** (§7) abre pelo nome ou pela ação da linha, e traz os doi
 
 **Ainda não implementado desta spec**, e a tela não finge: leitura de boleto/NF por IA (§10.1), modo fatura do cartão (§6), drawer de nova despesa com prévia viva (§10), ações em lote (§5.8), anexo de documentos pela ficha e o ciclo completo da folha (§11).
 
+### Recebimentos — [/gerencial/financeiro/recebimentos](../src/app/gerencial/financeiro/recebimentos/)
+
+O lugar de todo dinheiro que precisa entrar. Quatro abas: **Contas a receber** (visões, período por vencimento ou competência, chip "Sem cobrança", busca), **Recorrências**, **Inadimplência** e **Clientes**.
+
+A faixa de indicadores traz A vencer no mês, Recebido, Vencido e Inadimplência 90 dias.
+
+As regras vivem em [`recebimentos.ts`](../src/lib/data/recebimentos.ts), puras e testadas em [`tests/recebimentos.test.ts`](../tests/recebimentos.test.ts): chip de situação, linha da cobrança, encargos por atraso (multa fixa + juros pro rata die), estado da régua, perfil pagador, divisão de parcelas e pendências do cadastro.
+
+**Dois eixos, não um.** A situação financeira da parcela ("vence em 3 dias") e a situação da cobrança ("sem cobrança emitida") são colunas separadas de propósito: quem decide o que fazer hoje precisa das duas, e um chip só esconderia metade do problema.
+
+**A régua de cobrança é dado, não código** (`dunning_profiles` / `dunning_steps`, migração `0150_recebimentos.sql`), e o **estado da régua por parcela é derivado, nunca gravado**: dias de atraso + eventos + promessas ativas. Um campo "etapa D+3" no banco vira mentira no dia seguinte sem ninguém tocar nele.
+
+**O perfil pagador é por valor, não por quantidade** (§10.3): dez boletos pequenos pagos no dia não compensam a mensalidade inteira atrasada todo mês. Duas promessas quebradas derrubam o perfil independentemente do percentual.
+
+**O que a página declara em vez de fingir:**
+- **as etapas automáticas não disparam** — não existe job de cobrança rodando, e a faixa da régua diz isso: ela mostra em que etapa cada cliente *estaria* hoje;
+- **não há webhook de visualização do Asaas**, então nenhuma cobrança é dada como vista;
+- **cobrança sem `sent_at` aparece como "Cobrança emitida"**, não "enviada em dd/mm" com a data de criação do registro — inventar o dia do aviso muda a decisão de cobrar de novo;
+- **as parcelas herdadas de `payments` não têm cliente vinculado** (o campo já vinha nulo na tabela antiga). A tabela conta quantas são e explica o que se perde sem o vínculo: perfil pagador e régua;
+- **MRR é o das recorrências do Financeiro.** Sem recorrência, o fee do cadastro comercial aparece como linha auxiliar — somar os dois prometeria receita que não tem parcela;
+- os parâmetros de §15 (multa 2%, juros 1% ao mês, meta de inadimplência 3%) ainda não têm coluna em `finance_settings`: ficam com o padrão da spec em um lugar só, e o cliente já sobrescreve multa e juros por `parties.custom_*`.
+
+**Ainda não implementado desta spec**: ficha da conta a receber (§5), modal de registrar recebimento (§6), drawer de nova receita (§7), importação por CSV, ações em lote (§4.7), ações da Inadimplência (§9.4: lembrete, contato, promessa, renegociação, pausa, acionar CS, perda) e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
+
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.
 
