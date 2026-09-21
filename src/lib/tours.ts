@@ -200,7 +200,9 @@ export const TOURS: Tour[] = [
   {
     id: "financeiro",
     title: "Financeiro",
-    match: /^\/gerencial\/financeiro/,
+    // Só a página do módulo: sem a âncora, o tour aparecia também em
+    // Dashboard, Resultados e Planejamento, falando de abas que não há lá.
+    match: /^\/gerencial\/financeiro\/?$/,
     steps: [
       {
         title: "Financeiro",
