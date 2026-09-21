@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { ArrowLeftRight, Check, Plus, Search, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
@@ -53,9 +53,13 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
   const [, revalidar] = useTransition();
   const [modal, setModal] = useState<"movimentacao" | "transferencia" | "importar" | null>(null);
   const [abaAtiva, setAbaAtiva] = useState(aba);
+  const [abaProp, setAbaProp] = useState(aba);
   const recarregar = () => revalidar(() => router.refresh());
 
-  useEffect(() => { setAbaAtiva(aba); }, [aba]);
+  if (aba !== abaProp) {
+    setAbaProp(aba);
+    setAbaAtiva(aba);
+  }
 
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());

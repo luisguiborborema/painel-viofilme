@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   Check, ChevronLeft, ChevronRight, Copy, FileText, Plus, Repeat, Search, TriangleAlert,
 } from "lucide-react";
@@ -58,9 +58,13 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
   const [ficha, setFicha] = useState<string | null>(null);
   const [novo, setNovo] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState(aba);
+  const [abaProp, setAbaProp] = useState(aba);
   const recarregar = () => revalidar(() => router.refresh());
 
-  useEffect(() => { setAbaAtiva(aba); }, [aba]);
+  if (aba !== abaProp) {
+    setAbaProp(aba);
+    setAbaAtiva(aba);
+  }
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
   function irPara(patch: Record<string, string | null>) {

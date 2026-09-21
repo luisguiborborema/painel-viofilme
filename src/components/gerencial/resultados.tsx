@@ -37,8 +37,12 @@ export function ResultadosView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [abaAtiva, setAbaAtiva] = useState(aba);
+  const [abaProp, setAbaProp] = useState(aba);
 
-  useEffect(() => { setAbaAtiva(aba); }, [aba]);
+  if (aba !== abaProp) {
+    setAbaProp(aba);
+    setAbaAtiva(aba);
+  }
 
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());
