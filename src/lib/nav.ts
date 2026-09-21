@@ -128,7 +128,7 @@ const GERENCIAL_GROUPS: NavGroup[] = [
       // ainda vivem as configurações, as contas e categorias e a cobrança de
       // fatura pelo Asaas. Nomeada como antiga para ninguém confundir com as
       // novas nem estranhar quando ela sair.
-      { label: "Financeiro antigo", href: "/gerencial/financeiro", icon: Wallet, section: "financeiro" },
+      { label: "Configurações", href: "/gerencial/financeiro/configuracoes", icon: SlidersHorizontal, section: "financeiro" },
     ],
   },
   {

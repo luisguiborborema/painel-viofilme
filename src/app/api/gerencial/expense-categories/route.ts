@@ -9,6 +9,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const GRUPOS = new Set(["deducao", "custo"]);
+// O tipo de impacto é o campo que decide sozinho onde a categoria aparece na
+// DRE (§10 do documento-mãe) e em que bloco ela cai no Caixa. Errar aqui move
+// dinheiro de dentro para fora do resultado.
+const IMPACTOS = new Set([
+  "operating_revenue", "revenue_deduction", "direct_cost",
+  "operating_expense", "financial_result", "investment", "equity_financing",
+]);
+const BLOCOS = new Set(["operating", "investing", "financing", "internal"]);
+const LINHAS = new Set([
+  "recebimentos", "outras", "equipe", "diretos", "estrutura",
+  "impostos", "cartao", "financeiro", "equipamentos", "socios", "reserva",
+]);
 const clean = (v?: string) => (v && v.trim() ? v.trim() : null);
 
 type Body = {
@@ -18,6 +30,11 @@ type Body = {
   dreGroup?: string;
   color?: string;
   active?: boolean;
+  impactType?: string;
+  cashFlowGroup?: string;
+  cashFlowLine?: string;
+  requiresInvoice?: boolean;
+  requiresReceipt?: boolean;
   ordem?: string[]; // ids na nova ordem
 };
 
@@ -78,6 +95,21 @@ export async function POST(req: Request) {
     if (b.dreGroup !== undefined) campos.dre_group = GRUPOS.has(String(b.dreGroup)) ? b.dreGroup : "custo";
     if (b.color !== undefined) campos.color = clean(b.color);
     if (b.active !== undefined) campos.active = Boolean(b.active);
+    if (b.impactType !== undefined && IMPACTOS.has(String(b.impactType))) {
+      campos.impact_type = b.impactType;
+      // `dre_group` é o campo antigo, que as telas legadas ainda leem: mantê-lo
+      // coerente evita a categoria aparecer num grupo na DRE nova e em outro
+      // na antiga enquanto as duas convivem.
+      campos.dre_group = b.impactType === "revenue_deduction" ? "deducao" : "custo";
+    }
+    if (b.cashFlowGroup !== undefined && BLOCOS.has(String(b.cashFlowGroup))) {
+      campos.cash_flow_group = b.cashFlowGroup;
+    }
+    if (b.cashFlowLine !== undefined && LINHAS.has(String(b.cashFlowLine))) {
+      campos.cash_flow_line = b.cashFlowLine;
+    }
+    if (b.requiresInvoice !== undefined) campos.requires_invoice = Boolean(b.requiresInvoice);
+    if (b.requiresReceipt !== undefined) campos.requires_receipt = Boolean(b.requiresReceipt);
 
     if (action === "update") {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });

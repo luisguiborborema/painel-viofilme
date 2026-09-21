@@ -18,6 +18,8 @@ type Body = {
   kind?: string;
   institution?: string;
   openingBalance?: number;
+  countsAsAvailable?: boolean;
+  requiresStatementConfirmation?: boolean;
   active?: boolean;
   isDefault?: boolean;
 };
@@ -57,6 +59,13 @@ export async function POST(req: Request) {
     if (b.institution !== undefined) campos.institution = clean(b.institution);
     if (b.openingBalance !== undefined) campos.opening_balance = num(b.openingBalance);
     if (b.active !== undefined) campos.active = Boolean(b.active);
+    // Duas flags que o Dashboard e o Caixa leem o tempo todo: se a conta
+    // compõe o saldo disponível e se ela só confirma pelo extrato. Sem poder
+    // editá-las, uma reserva ficaria contada como dinheiro em caixa.
+    if (b.countsAsAvailable !== undefined) campos.counts_as_available = Boolean(b.countsAsAvailable);
+    if (b.requiresStatementConfirmation !== undefined) {
+      campos.requires_statement_confirmation = Boolean(b.requiresStatementConfirmation);
+    }
 
     // Só uma conta padrão por vez.
     if (b.isDefault === true) {
