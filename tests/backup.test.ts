@@ -22,6 +22,10 @@ import { join } from "node:path";
 const FORA_DE_PROPOSITO = new Set([
   "api_logs", "wa_webhook_log", "notifications",
   "dashboard_silences", "dashboard_visits",
+  // cash_forecast_snapshots — fotografia mensal da projeção, base da coluna
+  // "comparar com o previsto". Restaurar uma foto antiga diria que o sistema
+  // previu algo que ele não previu, e o job do dia 1 refaz a próxima.
+  "cash_forecast_snapshots",
 ]);
 
 function tabelasDasMigracoes(): Set<string> {
