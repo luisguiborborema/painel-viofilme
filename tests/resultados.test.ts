@@ -8,9 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  IMPACT_TYPES, churnDeMrr, concentracao, custoPorVaga, explicarVariacao,
-  feeParaMargem, margemComFee, montarDre, paraCadaCem, ponteFechaComCaixa,
-  rentabilidadeFechaComDre, saudeDaMargem, tomDoDelta,
+  IMPACT_TYPES, churnDeMrr, concentracao, custoPorVaga, deslocarPeriodo, explicarVariacao,
+  feeParaMargem, margemComFee, montarDre, paraCadaCem, periodoDe, periodoPadrao,
+  ponteFechaComCaixa, ratearItemPorParcelas, rentabilidadeFechaComDre, saudeDaMargem,
+  seloDoPeriodo, tomDoDelta,
 } from "../src/lib/data/resultados.ts";
 
 const R$ = (reais: number) => Math.round(reais * 100);
@@ -238,4 +239,87 @@ test("pausa não é churn", () => {
 
 test("sem MRR inicial não inventa percentual", () => {
   assert.equal(churnDeMrr(R$(900), 0).pct, null);
+});
+
+/* ── Competência do item (§4 do documento-mãe) ─────────────────────────── */
+
+test("o item é distribuído entre as competências das parcelas", () => {
+  // Projeto de R$ 9.000 em três parcelas mensais: cada mês fica com a sua
+  // fatia. Jogar tudo na primeira competência faria o mês parecer ótimo e os
+  // dois seguintes, vazios.
+  const fatias = ratearItemPorParcelas(R$(9000), [
+    { competenciaMes: "2026-07-01", valorCent: R$(3000), liquidadoCent: R$(3000) },
+    { competenciaMes: "2026-08-01", valorCent: R$(3000), liquidadoCent: 0 },
+    { competenciaMes: "2026-09-01", valorCent: R$(3000), liquidadoCent: 0 },
+  ]);
+  assert.equal(fatias.length, 3);
+  assert.deepEqual(fatias.map((f) => f.valorCent), [R$(3000), R$(3000), R$(3000)]);
+  // Só a primeira foi recebida: só ela é realizada.
+  assert.deepEqual(fatias.map((f) => f.realizadoCent), [R$(3000), 0, 0]);
+});
+
+test("as fatias somam exatamente o item, mesmo sem divisão exata", () => {
+  const fatias = ratearItemPorParcelas(1000, [
+    { competenciaMes: "2026-07-01", valorCent: 333, liquidadoCent: 0 },
+    { competenciaMes: "2026-08-01", valorCent: 333, liquidadoCent: 0 },
+    { competenciaMes: "2026-09-01", valorCent: 334, liquidadoCent: 0 },
+  ]);
+  assert.equal(fatias.reduce((s, f) => s + f.valorCent, 0), 1000);
+});
+
+test("parcela parcialmente recebida realiza a fatia na mesma proporção", () => {
+  const [f] = ratearItemPorParcelas(R$(1000), [
+    { competenciaMes: "2026-08-01", valorCent: R$(1000), liquidadoCent: R$(400) },
+  ]);
+  assert.equal(f.realizadoCent, R$(400));
+});
+
+test("parcela cancelada não leva competência nenhuma", () => {
+  const fatias = ratearItemPorParcelas(R$(1000), [
+    { competenciaMes: "2026-08-01", valorCent: R$(500), liquidadoCent: 0 },
+    { competenciaMes: "2026-09-01", valorCent: R$(500), liquidadoCent: 0, encerrada: true },
+  ]);
+  assert.equal(fatias.length, 1);
+  assert.equal(fatias[0].valorCent, R$(1000), "o item inteiro fica na parcela viva");
+});
+
+test("duas parcelas na mesma competência viram uma fatia só", () => {
+  const fatias = ratearItemPorParcelas(R$(1000), [
+    { competenciaMes: "2026-08-01", valorCent: R$(500), liquidadoCent: R$(500) },
+    { competenciaMes: "2026-08-01", valorCent: R$(500), liquidadoCent: 0 },
+  ]);
+  assert.equal(fatias.length, 1);
+  assert.equal(fatias[0].valorCent, R$(1000));
+  assert.equal(fatias[0].realizadoCent, R$(500));
+});
+
+/* ── Período (§3.1) e selo (§3.3) ──────────────────────────────────────── */
+
+test("o trimestre cobre os três meses certos", () => {
+  const p = periodoDe("tri", "2026-08-01");
+  assert.deepEqual(p.meses, ["2026-07-01", "2026-08-01", "2026-09-01"]);
+  assert.equal(p.fim, "2026-09-30");
+  assert.equal(p.label, "3º trimestre de 2026");
+});
+
+test("deslocar o período anda de mês em mês ou de trimestre em trimestre", () => {
+  assert.equal(deslocarPeriodo(periodoDe("mes", "2026-01-01"), -1).label, "dezembro de 2025");
+  assert.equal(deslocarPeriodo(periodoDe("tri", "2026-08-01"), -1).label, "2º trimestre de 2026");
+});
+
+test("a página abre no último mês fechado, não no corrente", () => {
+  // O mês corrente está incompleto: metade da receita lançada pareceria queda.
+  assert.equal(periodoPadrao("2026-09-21", "2026-08-31"), "2026-08-01");
+  // Sem fechamento, resta o corrente — e o selo avisa que está aberto.
+  assert.equal(periodoPadrao("2026-09-21", null), "2026-09-01");
+});
+
+test("o selo separa fechado, fechado com ajustes e aberto", () => {
+  const base = { fim: "2026-08-31", receitaCent: R$(1000), receitaRealizadaCent: R$(580), ajustes: 0 };
+  assert.equal(seloDoPeriodo({ ...base, fechadoAte: "2026-08-31" }).texto, "Fechado");
+  assert.equal(
+    seloDoPeriodo({ ...base, fechadoAte: "2026-08-31", ajustes: 2 }).texto,
+    "Fechado, 2 ajustes após o fechamento",
+  );
+  assert.equal(seloDoPeriodo({ ...base, fechadoAte: null }).texto, "Em aberto, 58% realizado");
 });

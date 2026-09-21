@@ -364,3 +364,175 @@ export function churnDeMrr(perdidoPorChurnCent: number, mrrInicialCent: number):
   const pct = Math.round((Math.abs(cent(perdidoPorChurnCent)) / ini) * 1000) / 10;
   return { pct, alerta: pct > LIMITE_CHURN_PCT };
 }
+
+/* ── Competência do item (§4 do documento-mãe) ─────────────────────────── */
+
+export type ParcelaDoTitulo = {
+  competenciaMes: string;
+  valorCent: number;
+  /** Quanto dela já foi baixado — é o que separa realizado de previsto. */
+  liquidadoCent: number;
+  /** Cancelada ou renegociada não conta em lugar nenhum. */
+  encerrada?: boolean;
+};
+
+export type FatiaDeCompetencia = { mes: string; valorCent: number; realizadoCent: number };
+
+/**
+ * Distribui um item do título entre as competências das parcelas.
+ *
+ * "Os itens do título são distribuídos proporcionalmente entre as parcelas
+ * para fins de competência" (documento-mãe, §4). Um projeto de R$ 9.000 em
+ * três parcelas mensais não é receita de um mês só: cada mês recebe a fatia
+ * proporcional à sua parcela.
+ *
+ * O realizado vem na mesma proporção: se metade da parcela foi recebida,
+ * metade da fatia daquele mês é realizada. Sem isso, "realizado x previsto"
+ * de um mês aberto só existiria para parcela inteira.
+ */
+export function ratearItemPorParcelas(
+  itemCent: number,
+  parcelas: ParcelaDoTitulo[],
+): FatiaDeCompetencia[] {
+  const vivas = (parcelas ?? []).filter((p) => !p.encerrada);
+  if (!vivas.length) return [];
+
+  const total = vivas.reduce((s, p) => s + cent(p.valorCent), 0);
+  // Parcelas zeradas (ou título sem valor) dividem por igual: é melhor que
+  // dividir por zero e melhor que jogar tudo na primeira competência.
+  const pesos = total > 0
+    ? vivas.map((p) => cent(p.valorCent) / total)
+    : vivas.map(() => 1 / vivas.length);
+
+  const fatias = vivas.map((p, i) => {
+    const valor = Math.round(cent(itemCent) * pesos[i]);
+    const propLiquidada = cent(p.valorCent) > 0
+      ? Math.min(1, cent(p.liquidadoCent) / cent(p.valorCent))
+      : 0;
+    return { mes: p.competenciaMes, valorCent: valor, realizadoCent: Math.round(valor * propLiquidada) };
+  });
+
+  // A sobra de centavos vai para a maior fatia: somadas, as fatias têm de dar
+  // exatamente o item, senão a DRE não fecha com o título (invariante §23.3).
+  const somado = fatias.reduce((s, f) => s + f.valorCent, 0);
+  const resto = cent(itemCent) - somado;
+  if (resto !== 0 && fatias.length) {
+    const maior = fatias.reduce((a, b) => (Math.abs(b.valorCent) > Math.abs(a.valorCent) ? b : a));
+    maior.valorCent += resto;
+  }
+
+  // Duas parcelas podem cair na mesma competência: o mês recebe as duas.
+  const porMes = new Map<string, FatiaDeCompetencia>();
+  for (const f of fatias) {
+    const atual = porMes.get(f.mes);
+    if (atual) {
+      atual.valorCent += f.valorCent;
+      atual.realizadoCent += f.realizadoCent;
+    } else porMes.set(f.mes, { ...f });
+  }
+  return [...porMes.values()];
+}
+
+/* ── Período (§3.1) ────────────────────────────────────────────────────── */
+
+export type Granularidade = "mes" | "tri";
+
+export type Periodo = {
+  gran: Granularidade;
+  /** Meses do período, "AAAA-MM-01". */
+  meses: string[];
+  inicio: string;
+  fim: string;
+  label: string;
+};
+
+const MESES_NOME = [
+  "", "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+const mesIso = (ano: number, mes: number) =>
+  `${ano}-${String(mes).padStart(2, "0")}-01`;
+
+const ultimoDia = (ano: number, mes: number) =>
+  new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
+
+/** O período que contém a âncora, na granularidade pedida. */
+export function periodoDe(gran: Granularidade, ancoraIso: string): Periodo {
+  const ano = Number(ancoraIso.slice(0, 4));
+  const mes = Number(ancoraIso.slice(5, 7));
+  if (gran === "tri") {
+    const primeiro = Math.floor((mes - 1) / 3) * 3 + 1;
+    const meses = [0, 1, 2].map((i) => mesIso(ano, primeiro + i));
+    return {
+      gran, meses, inicio: meses[0], fim: ultimoDia(ano, primeiro + 2),
+      label: `${Math.floor((mes - 1) / 3) + 1}º trimestre de ${ano}`,
+    };
+  }
+  return {
+    gran, meses: [mesIso(ano, mes)], inicio: mesIso(ano, mes), fim: ultimoDia(ano, mes),
+    label: `${MESES_NOME[mes]} de ${ano}`,
+  };
+}
+
+/** Desloca o período em N unidades (meses ou trimestres). */
+export function deslocarPeriodo(p: Periodo, passos: number): Periodo {
+  const ano = Number(p.inicio.slice(0, 4));
+  const mes = Number(p.inicio.slice(5, 7));
+  const delta = p.gran === "tri" ? passos * 3 : passos;
+  const d = new Date(Date.UTC(ano, mes - 1 + delta, 1));
+  return periodoDe(p.gran, d.toISOString().slice(0, 10));
+}
+
+/**
+ * O período que a página abre: o último mês FECHADO.
+ *
+ * O mês corrente está incompleto e induz a conclusão errada — metade da
+ * receita lançada parece queda de 50% (§3.1). Sem período fechado, resta o
+ * mês corrente, e aí o selo avisa que ele está aberto.
+ */
+export function periodoPadrao(hojeIso: string, fechadoAteIso: string | null): string {
+  if (fechadoAteIso && /^\d{4}-\d{2}/.test(fechadoAteIso)) {
+    return `${fechadoAteIso.slice(0, 7)}-01`;
+  }
+  return `${hojeIso.slice(0, 7)}-01`;
+}
+
+/* ── Selo do período (§3.3) ────────────────────────────────────────────── */
+
+export type Selo = {
+  estado: "fechado" | "fechado_com_ajustes" | "aberto";
+  texto: string;
+  tom: "ok" | "atencao";
+};
+
+/**
+ * O selo diz em que pé está o número que a página mostra.
+ *
+ * "X% realizado" é a receita já liquidada sobre a receita da competência: é o
+ * aviso de que o resto ainda pode mudar. Um mês fechado com ajustes posteriores
+ * não volta a ser "aberto" — ele é fechado com ressalva, e a diferença importa
+ * para quem comparou o número antes e depois.
+ */
+export function seloDoPeriodo(input: {
+  fim: string;
+  fechadoAte: string | null;
+  receitaCent: number;
+  receitaRealizadaCent: number;
+  ajustes: number;
+}): Selo {
+  const fechado = Boolean(input.fechadoAte && input.fechadoAte >= input.fim);
+  if (fechado && input.ajustes > 0) {
+    return {
+      estado: "fechado_com_ajustes",
+      texto: `Fechado, ${input.ajustes} ${input.ajustes === 1 ? "ajuste" : "ajustes"} após o fechamento`,
+      tom: "atencao",
+    };
+  }
+  if (fechado) return { estado: "fechado", texto: "Fechado", tom: "ok" };
+
+  const pct = input.receitaCent > 0
+    ? Math.round((input.receitaRealizadaCent / input.receitaCent) * 100)
+    : 0;
+  return { estado: "aberto", texto: `Em aberto, ${pct}% realizado`, tom: "atencao" };
+}
