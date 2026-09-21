@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { brlCent, brlCurto, type Farol } from "@/lib/data/planejamento";
 import type { PlanejamentoView } from "@/lib/data/planejamento-server";
+import type { PlanejamentoFuturoView } from "@/lib/data/planejamento-futuro-server";
+import { AbaCenarios, AbaProjecao } from "./planejamento-futuro";
 
 type Aba = "orcamento" | "projecao" | "cenarios";
 
@@ -29,7 +31,13 @@ const TEXTO_FAROL: Record<Farol, string> = {
   cinza: "Sem orçamento para comparar",
 };
 
-export function PlanejamentoTabs({ dados, acumulado }: { dados: PlanejamentoView; acumulado: boolean }) {
+export function PlanejamentoTabs({
+  dados, futuro, acumulado,
+}: {
+  dados: PlanejamentoView;
+  futuro: PlanejamentoFuturoView;
+  acumulado: boolean;
+}) {
   const [aba, setAba] = useState<Aba>("orcamento");
   const router = useRouter();
   const params = useSearchParams();
@@ -67,8 +75,8 @@ export function PlanejamentoTabs({ dados, acumulado }: { dados: PlanejamentoView
       </div>
 
       {aba === "orcamento" && <AbaOrcamento d={dados} acumulado={acumulado} irPara={irPara} />}
-      {aba === "projecao" && <EmConstrucao titulo="Projeção" />}
-      {aba === "cenarios" && <EmConstrucao titulo="Cenários" />}
+      {aba === "projecao" && <AbaProjecao d={futuro} />}
+      {aba === "cenarios" && <AbaCenarios d={futuro} />}
     </div>
   );
 }
@@ -259,16 +267,3 @@ function Legenda({ cor, texto }: { cor: string; texto: string }) {
  * Dizer isso é melhor que montar a tela com número inventado: um gráfico de
  * projeção com dado falso é indistinguível de um com dado real.
  */
-function EmConstrucao({ titulo }: { titulo: string }) {
-  return (
-    <Card className="p-8 text-center">
-      <p className="text-sm font-semibold text-ink">{titulo} precisa de dados que ainda não existem</p>
-      <p className="mx-auto mt-2 max-w-lg text-sm text-muted">
-        O motor de simulação já está implementado e testado (churn, capacidade, contratação, caixa).
-        O que falta é a origem do estado inicial: recorrências de receita, folha e alocação de equipe —
-        as specs de Recebimentos e Pagamentos. Montar esta aba com número fictício seria pior que não
-        montá-la: um gráfico de projeção com dado falso é igual a um com dado real.
-      </p>
-    </Card>
-  );
-}

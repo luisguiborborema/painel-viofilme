@@ -1,5 +1,6 @@
 import { CalendarClock } from "lucide-react";
 import { getPlanejamento } from "@/lib/data/planejamento-server";
+import { getPlanejamentoFuturo } from "@/lib/data/planejamento-futuro-server";
 import { PlanejamentoTabs } from "@/components/gerencial/planejamento-tabs";
 
 export const metadata = { title: "Planejamento" };
@@ -13,7 +14,12 @@ export default async function PlanejamentoPage({
   const sp = await searchParams;
   const acumulado = sp.per === "acum";
   const mes = Number(sp.mes) || undefined;
-  const d = await getPlanejamento({ mes, acumulado });
+  // As duas leituras são independentes: Orçamento olha o passado contra o
+  // plano, Projeção e Cenários olham para frente pelo motor de simulação.
+  const [d, futuro] = await Promise.all([
+    getPlanejamento({ mes, acumulado }),
+    getPlanejamentoFuturo(),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -66,7 +72,7 @@ export default async function PlanejamentoPage({
             </span>
           </div>
 
-          <PlanejamentoTabs dados={d} acumulado={acumulado} />
+          <PlanejamentoTabs dados={d} futuro={futuro} acumulado={acumulado} />
         </>
       )}
     </div>

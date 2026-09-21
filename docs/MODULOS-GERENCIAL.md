@@ -116,6 +116,18 @@ Camadas: [`dashboard-financeiro.ts`](../src/lib/data/dashboard-financeiro.ts) e 
 ### Financeiro — [/gerencial/financeiro](../src/app/gerencial/financeiro/)
 Fluxo de caixa (previsão), faturas pendentes com opção de cobrança, e DRE da agência. Integra pagamentos do **Asaas** (webhook [/api/webhooks/asaas](../src/app/api/webhooks/asaas/route.ts)). Dados via `getGerFinance()`.
 
+### Planejamento — [/gerencial/financeiro/planejamento](../src/app/gerencial/financeiro/planejamento/)
+
+A página do futuro, em três abas: **Orçamento** (o plano do ano contra o realizado, com farol de desvio), **Projeção** (onde o ano termina se nada mudar) e **Cenários** (e se…?).
+
+**As três leem o mesmo motor.** A projeção é o cenário Base — não uma conta paralela. Fosse cada uma com a sua, "se continuar assim" discordaria de "onde o ano termina" estando as duas na mesma tela. O motor é [`simulacao.ts`](../src/lib/data/simulacao.ts), a biblioteca única de §10, testada em [`tests/simulacao.test.ts`](../tests/simulacao.test.ts).
+
+As **quatro perguntas rápidas** de §9.1 (contratar, perder cliente, quanto vender, distribuir lucros) rodam no cliente porque são exploração: esperar o servidor a cada campo mataria a conversa que elas existem para ter. Nenhuma altera dado real.
+
+**A projeção declara o que lhe falta.** Uma faixa lista as lacunas — sem colaboradores a folha entra zero, sem recorrências os fixos entram zero, sem alocação o aviso de capacidade fica desligado. E quando não há lado de custo nenhum, **resultado, margem e caixa aparecem como "—"**, não como número: com receita e sem custo a margem dá 100%, o que é correto pela conta e falso pelo negócio.
+
+**Ainda não implementado desta spec:** o assistente "Montar o orçamento" (§7, 6 passos), a revisão do mês (§6, 3 passos), o gráfico de caixa por cenário (§9.2), a edição de alavancas inline e a criação de eventos previstos pela tela (§8.5 — a lista já lê de `forecast_events`).
+
 ### RH & Cultura — [/gerencial/rh](../src/app/gerencial/rh/)
 Gestão de pessoas: **Time** (carga semanal), **Banco de Horas**, **PDIs**, **Avaliações** (ciclo semestral), **Mural** e **Documentos**. Dados via `getEmployees()`, `getHourBank()`, `getPdiCycle()`, `getReviewCycle()`.
 
