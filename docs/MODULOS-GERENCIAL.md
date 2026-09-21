@@ -205,8 +205,15 @@ Camadas: [`dashboard-financeiro.ts`](../src/lib/data/dashboard-financeiro.ts) e 
 - **não há status "cancelada"** em parcela, então a ficha não tem "Cancelar parcela": o que existe no banco é `delete`, e apagar não é cancelar;
 - **não há realtime** (§15 pede atualização ao vivo pelos webhooks do Asaas). O painel inteiro ainda não usa Supabase Realtime: a página carrega ao abrir e é revalidada após cada ação, que é o padrão do resto do projeto.
 
-### Financeiro — [/gerencial/financeiro](../src/app/gerencial/financeiro/)
-Fluxo de caixa (previsão), faturas pendentes com opção de cobrança, e DRE da agência. Integra pagamentos do **Asaas** (webhook [/api/webhooks/asaas](../src/app/api/webhooks/asaas/route.ts)). Dados via `getGerFinance()`.
+### Configurações financeiras — [/gerencial/financeiro/configuracoes](../src/app/gerencial/financeiro/configuracoes/)
+
+O lugar único dos parâmetros do módulo. Todas as specs apontam para cá, e nenhuma delas define os valores: quem define é a empresa. Cada campo diz **o que ele afeta** e qual é o padrão — a dúvida "isso está configurado ou é valor de fábrica?" é a que trava quem chega depois.
+
+Quatro grupos de parâmetros (caixa e cobrança, encargos e impostos, rentabilidade e carteira, fechamento e orçamento), mais as **contas financeiras**, as **categorias**, a **régua de cobrança** e o **fechamento do período**.
+
+Dois campos merecem destaque porque mudam o comportamento de páginas inteiras: o **tipo de impacto** da categoria decide sozinho onde ela aparece na DRE e em que bloco cai no fluxo de caixa; e **"compõe o disponível"** decide se uma conta entra no saldo — uma reserva marcada como disponível apareceria como dinheiro em caixa e inflaria o fôlego da agência.
+
+A escrita vai pelos endpoints que já existiam (`finance-settings`, `accounts`, `expense-categories`, `finance-reports`), estendidos com os campos que as páginas novas liam mas ninguém conseguia editar. Eles já têm validação, alçada e auditoria; um caminho novo herdaria nada disso.
 
 ### Planejamento — [/gerencial/financeiro/planejamento](../src/app/gerencial/financeiro/planejamento/)
 

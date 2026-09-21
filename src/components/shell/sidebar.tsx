@@ -46,10 +46,10 @@ export function Sidebar({
     `vio-nav-groups-${role}`,
     {},
   );
-  // Item ativo é o de rota MAIS ESPECÍFICA que casa com a URL. Sem isso,
-  // "Financeiro antigo" (/gerencial/financeiro) acendia junto com Caixa e
-  // Pagamentos, que moram debaixo dele — dois itens acesos, e nenhum dos dois
-  // dizendo onde a pessoa está.
+  // Item ativo é o de rota MAIS ESPECÍFICA que casa com a URL: um item que
+  // seja prefixo de outro (como /gerencial e /gerencial/clientes) acenderia
+  // junto com ele — dois itens acesos, e nenhum dos dois dizendo onde a
+  // pessoa está.
   const isActive = (href: string) => {
     if (href === pathname) return true;
     if (href === home || !pathname.startsWith(`${href}/`)) return false;

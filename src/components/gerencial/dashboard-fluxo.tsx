@@ -217,7 +217,7 @@ function PainelRecebimentosCard({ painel }: { painel: PainelRecebimentos }) {
     <Card className="flex flex-col gap-5 p-5">
       <Cabecalho
         titulo="Recebimentos"
-        href="/gerencial/financeiro?aba=receber"
+        href="/gerencial/financeiro/recebimentos"
         label="Abrir recebimentos"
       />
       <Progresso painel={painel} verbo="entrou" corBaixado="bg-emerald-500" />
@@ -331,7 +331,7 @@ function PainelPagamentosCard({ painel }: { painel: PainelPagamentos }) {
 
   return (
     <Card className="flex flex-col gap-5 p-5">
-      <Cabecalho titulo="Pagamentos" href="/gerencial/financeiro?aba=pagar" label="Abrir pagamentos" />
+      <Cabecalho titulo="Pagamentos" href="/gerencial/financeiro/pagamentos" label="Abrir pagamentos" />
       <Progresso painel={painel} verbo="foi pago" corBaixado="bg-sky-500" />
       <Numeros painel={painel} />
       <BotaoComposicao

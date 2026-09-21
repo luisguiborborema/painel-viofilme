@@ -81,7 +81,7 @@ export default async function PainelExecutivo() {
   // Alertas consolidados.
   const alertas: { label: string; href: string; tone: "red" | "amber" }[] = [];
   if (overdue > 0) alertas.push({ label: `${overdue} tarefa(s) atrasada(s)`, href: "/gerencial/entregas", tone: "red" });
-  if (vencido > 0) alertas.push({ label: `${formatBRL(vencido)} em faturas vencidas`, href: "/gerencial/financeiro", tone: "red" });
+  if (vencido > 0) alertas.push({ label: `${formatBRL(vencido)} em faturas vencidas`, href: "/gerencial/financeiro/recebimentos?visao=vencidas", tone: "red" });
   if (emRisco > 0) alertas.push({ label: `${emRisco} cliente(s) em risco de churn`, href: "/gerencial/clientes", tone: "amber" });
   if (approval > 0) alertas.push({ label: `${approval} entrega(s) aguardando aprovação`, href: "/gerencial/entregas", tone: "amber" });
 

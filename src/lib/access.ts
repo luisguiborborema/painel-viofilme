@@ -30,7 +30,7 @@ export const SECTIONS: { key: SectionKey; label: string; href: string }[] = [
   { key: "resultados", label: "Resultados", href: "/gerencial/resultados" },
   { key: "relatorios", label: "Relatórios", href: "/gerencial/relatorios" },
   { key: "rh", label: "RH & cultura", href: "/gerencial/rh" },
-  { key: "financeiro", label: "Financeiro", href: "/gerencial/financeiro" },
+  { key: "financeiro", label: "Financeiro", href: "/gerencial/financeiro/dashboard" },
   { key: "integracoes", label: "Integrações", href: "/gerencial/integracoes" },
 ];
 

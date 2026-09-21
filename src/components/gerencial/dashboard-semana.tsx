@@ -137,7 +137,7 @@ export function DashboardSemana({
             Sai <span className="font-semibold text-ink">{brlCheio(sai)}</span>
           </span>
           <Link
-            href="/gerencial/financeiro?aba=fluxo"
+            href="/gerencial/financeiro/caixa"
             className="text-xs font-medium text-brand-600 hover:underline"
           >
             Abrir no fluxo de caixa

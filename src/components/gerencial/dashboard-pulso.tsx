@@ -172,7 +172,7 @@ function CardSaldo({ dados }: { dados: DashboardFinanceiro }) {
             </>
           )}
           <Link
-            href="/gerencial/financeiro?aba=contas"
+            href="/gerencial/financeiro/configuracoes"
             className="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline"
           >
             Ver contas no Caixa
@@ -205,7 +205,7 @@ function LinhaConta({ conta }: { conta: ContaNoPopover }) {
 function CardCaixa30({ dados }: { dados: DashboardFinanceiro }) {
   const { caixa30 } = dados;
   return (
-    <Casca titulo="Caixa em 30 dias" dica={DICIONARIO.caixa30} href="/gerencial/financeiro?aba=fluxo">
+    <Casca titulo="Caixa em 30 dias" dica={DICIONARIO.caixa30} href="/gerencial/financeiro/caixa">
       <span className={NUMERO}>{brlCheio(caixa30.saldoCent)}</span>
       <span className="text-xs text-muted">
         {caixa30.menorCent == null ? (

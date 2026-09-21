@@ -176,7 +176,7 @@ function Cabecalho({ dados, podeAgir }: { dados: DashboardFinanceiro; podeAgir: 
       <div className="flex items-center gap-2">
         {dados.podeImportarExtrato && (
           <Link
-            href="/gerencial/financeiro?aba=conciliacao"
+            href="/gerencial/financeiro/caixa?aba=conciliacao"
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink transition-colors hover:border-brand-300"
           >
             <ArrowDownToLine className="h-4 w-4" />
@@ -189,19 +189,22 @@ function Cabecalho({ dados, podeAgir }: { dados: DashboardFinanceiro; podeAgir: 
   );
 }
 
+// Cada atalho leva à página DONA daquela criação. Enquanto o formulário não
+// existir lá, é a própria página que diz isso — melhor do que o Dashboard
+// prometer um drawer que ninguém escreveu ainda.
 const NOVO = [
   {
-    href: "/gerencial/financeiro?aba=receber&novo=1",
+    href: "/gerencial/financeiro/recebimentos",
     titulo: "Receita",
     desc: "Conta a receber ou cobrança",
   },
   {
-    href: "/gerencial/financeiro?aba=pagar&novo=1",
+    href: "/gerencial/financeiro/pagamentos",
     titulo: "Despesa",
     desc: "Conta a pagar, única ou parcelada",
   },
   {
-    href: "/gerencial/financeiro?aba=contas",
+    href: "/gerencial/financeiro/caixa",
     titulo: "Transferência",
     desc: "Entre contas da agência",
   },

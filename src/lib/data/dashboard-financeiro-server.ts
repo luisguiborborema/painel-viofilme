@@ -266,26 +266,26 @@ function mesPorExtenso(iso: string): string {
 const R = "/gerencial/financeiro";
 
 /**
- * Cada destino já leva o filtro (§2). As chaves `aba` e `status` são as que as
- * telas de destino leem da URL — sem elas o clique abriria a página certa na
- * aba errada, que é o mesmo que não levar a lugar nenhum.
+ * Cada destino já leva o filtro (§2). As chaves de URL são as que a tela de
+ * destino lê — sem elas o clique abriria a página certa na aba errada, que é
+ * o mesmo que não levar a lugar nenhum.
  */
 const DESTINO = {
-  recebimentos: `${R}?aba=receber`,
-  recebimentosVencidos: `${R}?aba=receber&status=vencida`,
-  recebimentosSemCobranca: `${R}?aba=receber&status=avencer`,
-  pagamentos: `${R}?aba=pagar`,
-  pagamentosVencidos: `${R}?aba=pagar`,
-  pagamentosDoDia: `${R}?aba=pagar`,
-  aprovacoes: `${R}?aba=pagar`,
-  caixa: `${R}?aba=extrato`,
-  conciliacao: `${R}?aba=conciliacao`,
-  fluxo: `${R}?aba=fluxo`,
-  extrato: `${R}?aba=extrato`,
+  recebimentos: `${R}/recebimentos`,
+  recebimentosVencidos: `${R}/recebimentos?visao=vencidas`,
+  recebimentosSemCobranca: `${R}/recebimentos?chip=sem-cobranca`,
+  pagamentos: `${R}/pagamentos`,
+  pagamentosVencidos: `${R}/pagamentos?visao=vencidas`,
+  pagamentosDoDia: `${R}/pagamentos`,
+  aprovacoes: `${R}/pagamentos?visao=aprovar`,
+  caixa: `${R}/caixa?aba=extrato`,
+  conciliacao: `${R}/caixa?aba=conciliacao`,
+  fluxo: `${R}/caixa`,
+  extrato: `${R}/caixa?aba=extrato`,
   dre: `${R}/resultados`,
   receita: `${R}/resultados?aba=receita`,
   orcamento: `${R}/planejamento`,
-  fechamento: `${R}?aba=config`,
+  fechamento: `${R}/configuracoes`,
 };
 
 /* ── Leitura ───────────────────────────────────────────────────────────── */
@@ -1243,12 +1243,12 @@ async function montarPrimeiroUso(
     {
       n: 1, titulo: "Cadastrar contas financeiras e saldo inicial",
       detalhe: "Base de todo saldo e de toda projeção",
-      feito: contas.length > 0 && comSaldo, href: `${R}?aba=contas`,
+      feito: contas.length > 0 && comSaldo, href: `${R}/configuracoes`,
     },
     {
       n: 2, titulo: "Revisar o plano de categorias",
       detalhe: "Já vem com o padrão de agência carregado",
-      feito: categorias > 0, href: `${R}?aba=contas`,
+      feito: categorias > 0, href: `${R}/configuracoes`,
     },
     {
       n: 3, titulo: "Cadastrar clientes e fornecedores",
@@ -1263,7 +1263,7 @@ async function montarPrimeiroUso(
     {
       n: 5, titulo: "Criar as recorrências de despesa",
       detalhe: "Folha, aluguel, softwares e o que mais se repete",
-      feito: recorrentesOut > 0, href: `${R}?aba=pagar`,
+      feito: recorrentesOut > 0, href: `${R}/pagamentos?aba=recorrencias`,
     },
   ];
 

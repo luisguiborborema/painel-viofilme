@@ -139,7 +139,7 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
 
 function Cabecalho() {
   const aindaNao = (o: string) =>
-    toast(`${o} ainda não existe nesta página: por enquanto, use o Financeiro antigo.`, "error");
+    toast(`${o} ainda não existe: vem com o drawer de nova receita da spec §7.`, "error");
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -388,7 +388,7 @@ function LinhaConta({
     if (c.acao === "registrar") return onAbrir({ id: c.id, receber: true });
     toast(
       c.acao === "enviar_cobranca"
-        ? "A emissão de cobrança no Asaas sai desta página em breve: por enquanto, emita no Financeiro antigo."
+        ? "A emissão de cobrança no Asaas ainda não existe: ela depende da Edge Function da spec §12."
         : "O comprovante ainda não está anexado a esta baixa.",
       "error",
     );
