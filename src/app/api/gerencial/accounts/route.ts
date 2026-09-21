@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  if (!isSupabaseConfigured()) return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: false }));
   const supabase = await createClient();
   const action = b.action ?? "create";
   await logFromUser(user, { action, area: "Financeiro · contas", target: b.name ?? b.id ?? null });
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       // Lançamentos ligados perdem o vínculo (FK on delete set null), não somem.
       const { error } = await supabase.from("financial_accounts").delete().eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     const nome = clean(b.name);
@@ -79,12 +80,12 @@ export async function POST(req: Request) {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
       const { error } = await supabase.from("financial_accounts").update(campos).eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     const { data, error } = await supabase.from("financial_accounts").insert(campos).select("id").single();
     if (error) throw error;
-    return NextResponse.json({ ok: true, id: data.id });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, id: data.id }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/financial_accounts.*does not exist|42P01/i.test(msg)) {

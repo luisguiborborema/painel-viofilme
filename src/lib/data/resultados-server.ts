@@ -2,6 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { unstable_cache } from "next/cache";
 import { buscarTudo } from "@/lib/data/paginate-server";
 import { hojeSP } from "@/lib/data/dashboard-financeiro";
 import {
@@ -291,21 +294,40 @@ const semTabela = (e: unknown) => {
 
 /* ── Leitura ───────────────────────────────────────────────────────────── */
 
+const getResultadosCached = unstable_cache(
+  async (token: string, filtrosStr: string, hoje: string) => {
+    const filtros = JSON.parse(filtrosStr) as FiltrosResultados;
+    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    try {
+      return await montar(db, filtros, hoje);
+    } catch (e) {
+      if (semTabela(e)) {
+        return vazio(hoje, false, true,
+          "Resultados lê o núcleo transacional (0149) e o tipo de impacto das categorias (0147).");
+      }
+      throw e;
+    }
+  },
+  ["resultados-dados"],
+  { tags: ["financeiro"] }
+);
+
 export async function getResultados(
   filtros: FiltrosResultados = {},
   agora: Date = new Date(),
 ): Promise<ResultadosView> {
   const hoje = hojeSP(agora);
   if (!isSupabaseConfigured()) return vazio(hoje, true);
-  try {
-    return await montar(await createClient(), filtros, hoje);
-  } catch (e) {
-    if (semTabela(e)) {
-      return vazio(hoje, false, true,
-        "Resultados lê o núcleo transacional (0149) e o tipo de impacto das categorias (0147).");
-    }
-    throw e;
-  }
+  
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return vazio(hoje, true);
+
+  return getResultadosCached(token, JSON.stringify(filtros), hoje);
 }
 
 /** Uma fatia de item já resolvida por competência, pronta para somar. */

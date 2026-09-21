@@ -3,7 +3,7 @@ import { PagamentosView } from "@/components/gerencial/pagamentos";
 
 export const metadata = { title: "Pagamentos" };
 // A página está sempre no presente e é revalidada após cada ação.
-export const dynamic = "force-dynamic";
+
 
 export default async function PagamentosPage({
   searchParams,

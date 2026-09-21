@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  if (!isSupabaseConfigured()) return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: false }));
   const supabase = await createClient();
   const action = b.action ?? "create";
   await logFromUser(user, { action, area: "Financeiro · categorias", target: b.label ?? b.id ?? null });
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
       for (let i = 0; i < ids.length; i++) {
         await supabase.from("expense_categories").update({ position: i }).eq("id", ids[i]);
       }
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     if (action === "delete") {
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
       }
       const { error } = await supabase.from("expense_categories").delete().eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     const label = clean(b.label);
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
       // A chave nunca muda: é o que liga os lançamentos já gravados.
       const { error } = await supabase.from("expense_categories").update(campos).eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     if (!label) return NextResponse.json({ error: "Informe o nome da categoria." }, { status: 400 });
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
       .select("id, key")
       .single();
     if (error) throw error;
-    return NextResponse.json({ ok: true, id: data.id, key: data.key });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, id: data.id, key: data.key }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/expense_categories.*does not exist|42P01/i.test(msg)) {

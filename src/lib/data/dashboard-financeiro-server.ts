@@ -2,6 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { unstable_cache } from "next/cache";
 import { buscarTudo } from "@/lib/data/paginate-server";
 import { lerNucleoComoLegado } from "@/lib/data/nucleo-adaptador";
 import { STATUS_IGNORAR } from "@/lib/data/dre";
@@ -371,6 +374,24 @@ async function lerContas(db: SupabaseClient) {
   }));
 }
 
+const getDashboardFinanceiroCached = unstable_cache(
+  async (token: string, userIdStr: string, hoje: string) => {
+    const userId = userIdStr === "null" ? null : userIdStr;
+    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    try {
+      return await montar(db, userId, hoje, new Date());
+    } catch (e) {
+      if (semMigracao(e)) return { ...vazio(hoje, false), pendente: true };
+      throw e;
+    }
+  },
+  ["dashboard-financeiro-dados"],
+  { tags: ["financeiro"] }
+);
+
 export async function getDashboardFinanceiro(
   userId?: string | null,
   agora: Date = new Date(),
@@ -378,14 +399,12 @@ export async function getDashboardFinanceiro(
   const hoje = hojeSP(agora);
   if (!isSupabaseConfigured()) return vazio(hoje, true);
 
-  try {
-    return await montar(await createClient(), userId ?? null, hoje, agora);
-  } catch (e) {
-    // Tabela que falta é caso conhecido; o resto sobe, porque esconder erro de
-    // consulta aqui viraria um dashboard silenciosamente errado.
-    if (semMigracao(e)) return { ...vazio(hoje, false), pendente: true };
-    throw e;
-  }
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { ...vazio(hoje, true), pendente: true };
+
+  return getDashboardFinanceiroCached(token, userId ?? "null", hoje);
 }
 
 async function montar(

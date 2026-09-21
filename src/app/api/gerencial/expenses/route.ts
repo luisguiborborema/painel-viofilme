@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  if (!isSupabaseConfigured()) return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: false }));
   const supabase = await createClient();
   const CATS = await chavesValidas(supabase);
   const action = b.action ?? "create";
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString(),
       }).eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true, approvalStatus: status });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, approvalStatus: status }));
     }
 
     // ── Excluir (uma parcela ou esta e as futuras) ──────────────────────────
@@ -133,12 +134,12 @@ export async function POST(req: Request) {
             .gte("due_date", venc)
             .eq("status", "pending");
           if (error) throw error;
-          return NextResponse.json({ ok: true, persisted: true, removidas: count ?? 0 });
+          return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, removidas: count ?? 0 }));
         }
       }
       const { error } = await supabase.from("expenses").delete().eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true, persisted: true, removidas: 1 });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, removidas: 1 }));
     }
 
     // ── Baixar / estornar ──────────────────────────────────────────────────
@@ -159,7 +160,7 @@ export async function POST(req: Request) {
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true, persisted: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true }));
     }
 
     // ── Editar (uma parcela ou esta e as futuras) ──────────────────────────
@@ -201,7 +202,7 @@ export async function POST(req: Request) {
             .gte("due_date", venc)
             .eq("status", "pending");
           if (error) throw error;
-          return NextResponse.json({ ok: true, persisted: true, atualizadas: count ?? 0 });
+          return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, atualizadas: count ?? 0 }));
         }
       }
       // Só nesta parcela o vencimento pode mudar.
@@ -212,7 +213,7 @@ export async function POST(req: Request) {
         up = await supabase.from("expenses").update(patch).eq("id", b.id);
       }
       if (up.error) throw up.error;
-      return NextResponse.json({ ok: true, persisted: true, atualizadas: 1 });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, atualizadas: 1 }));
     }
 
     // ── Criar (avulsa ou série de parcelas) ────────────────────────────────
@@ -251,7 +252,7 @@ export async function POST(req: Request) {
         r = await supabase.from("expenses").insert(semColunas0138([linha])[0]).select("id").single();
       }
       if (r.error) throw r.error;
-      return NextResponse.json({ ok: true, persisted: true, id: r.data.id, parcelas: 1, approvalStatus });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, id: r.data.id, parcelas: 1, approvalStatus }));
     }
 
     // Com recorrência: gera as parcelas de verdade, agrupadas por series_id.
@@ -281,7 +282,7 @@ export async function POST(req: Request) {
     let ins = await supabase.from("expenses").insert(linhas);
     if (ins.error && colunaFaltando(ins.error.message)) ins = await supabase.from("expenses").insert(semColunas0138(linhas));
     if (ins.error) throw ins.error;
-    return NextResponse.json({ ok: true, persisted: true, seriesId: serieId, parcelas: linhas.length, approvalStatus });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: true, seriesId: serieId, parcelas: linhas.length, approvalStatus }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/client_id|attachment_url/i.test(msg)) {

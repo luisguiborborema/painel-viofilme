@@ -6,7 +6,7 @@ import { DashboardFinanceiroView } from "@/components/gerencial/dashboard-financ
 export const metadata = { title: "Dashboard financeiro" };
 // Sempre no presente (spec §2): a página não tem filtro de período e recalcula
 // a cada abertura. Cache aqui seria um "hoje" de ontem.
-export const dynamic = "force-dynamic";
+
 
 export default async function DashboardFinanceiroPage() {
   // O acesso por seção já é barrado no layout gerencial (§14): o CS não chega

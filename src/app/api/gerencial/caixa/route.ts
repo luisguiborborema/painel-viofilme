@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -500,7 +501,7 @@ async function ignorar(
     reconciliation_status: "ignored",
   }).eq("id", movId);
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true, mensagem: "Movimentação ignorada. Ela sai do saldo." });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, mensagem: "Movimentação ignorada. Ela sai do saldo." }));
 }
 
 async function reativar(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) {
@@ -511,7 +512,7 @@ async function reativar(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) 
     reconciliation_status: "unreconciled",
   }).eq("id", movId);
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true, mensagem: "Movimentação reativada e de volta à fila." });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, mensagem: "Movimentação reativada e de volta à fila." }));
 }
 
 async function desfazer(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) {

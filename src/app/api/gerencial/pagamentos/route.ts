@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -239,7 +240,7 @@ async function informarValor(
 
   // O título tem de continuar fechando com as parcelas (§23.3).
   await ressincronizarTitulo(db, String(p.document_id));
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }
 
 /**
@@ -293,7 +294,7 @@ async function decidirAprovacao(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }
 
 /* ── Programar (spec §17) ──────────────────────────────────────────────── */
@@ -312,7 +313,7 @@ async function programar(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }
 
 /* ── Cancelar (spec §17) ───────────────────────────────────────────────── */
@@ -335,5 +336,5 @@ async function cancelar(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }

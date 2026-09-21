@@ -3,7 +3,7 @@ import { ResultadosView } from "@/components/gerencial/resultados";
 
 export const metadata = { title: "Resultados" };
 // A página é sempre do período pedido e revalidada a cada ação.
-export const dynamic = "force-dynamic";
+
 
 export default async function ResultadosPage({
   searchParams,

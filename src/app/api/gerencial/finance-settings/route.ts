@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -94,7 +95,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  if (!isSupabaseConfigured()) return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: false }));
 
   const patch: Record<string, unknown> = { id: 1, updated_at: new Date().toISOString() };
   if (b.metaMargin !== undefined) {
@@ -167,5 +168,5 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }

@@ -2,6 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { unstable_cache } from "next/cache";
 import { buscarTudo } from "@/lib/data/paginate-server";
 import {
   brlCheio, ddmm, diasEntre, folegoEmMeses, hojeSP, somarDias,
@@ -245,22 +248,41 @@ const semTabela = (e: unknown) => {
 
 /* ── Leitura ───────────────────────────────────────────────────────────── */
 
+const getCaixaCached = unstable_cache(
+  async (token: string, filtrosStr: string, hoje: string) => {
+    const filtros = JSON.parse(filtrosStr) as FiltrosCaixa;
+    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    try {
+      return await montar(db, filtros, hoje);
+    } catch (e) {
+      if (semTabela(e)) {
+        return vazio(hoje, false, true,
+          "Caixa precisa de 0151_caixa.sql, que traz a conferência de saldo, as importações de " +
+          "extrato e o bloco de fluxo das categorias. Rode no Supabase e recarregue.");
+      }
+      throw e;
+    }
+  },
+  ["caixa-dados"],
+  { tags: ["financeiro"] }
+);
+
 export async function getCaixa(
   filtros: FiltrosCaixa = {},
   agora: Date = new Date(),
 ): Promise<CaixaView> {
   const hoje = hojeSP(agora);
   if (!isSupabaseConfigured()) return vazio(hoje, true);
-  try {
-    return await montar(await createClient(), filtros, hoje);
-  } catch (e) {
-    if (semTabela(e)) {
-      return vazio(hoje, false, true,
-        "Caixa precisa de 0151_caixa.sql, que traz a conferência de saldo, as importações de " +
-        "extrato e o bloco de fluxo das categorias. Rode no Supabase e recarregue.");
-    }
-    throw e;
-  }
+  
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return vazio(hoje, true);
+
+  return getCaixaCached(token, JSON.stringify(filtros), hoje);
 }
 
 async function montar(

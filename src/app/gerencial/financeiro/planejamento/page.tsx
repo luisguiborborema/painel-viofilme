@@ -4,7 +4,7 @@ import { getPlanejamentoFuturo } from "@/lib/data/planejamento-futuro-server";
 import { PlanejamentoTabs } from "@/components/gerencial/planejamento-tabs";
 
 export const metadata = { title: "Planejamento" };
-export const dynamic = "force-dynamic";
+
 
 export default async function PlanejamentoPage({
   searchParams,

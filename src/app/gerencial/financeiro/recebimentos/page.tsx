@@ -3,7 +3,7 @@ import { RecebimentosView } from "@/components/gerencial/recebimentos";
 
 export const metadata = { title: "Recebimentos" };
 // A página está sempre no presente e é revalidada após cada ação.
-export const dynamic = "force-dynamic";
+
 
 export default async function RecebimentosPage({
   searchParams,

@@ -2,6 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { unstable_cache } from "next/cache";
 import { buscarTudo } from "@/lib/data/paginate-server";
 import {
   brlCheio, ddmm, diasEntre, hojeSP, limitesDoMes, serieProjecao, somarDias,
@@ -233,18 +236,37 @@ const semTabela = (e: unknown) => {
 
 /* ── Leitura ───────────────────────────────────────────────────────────── */
 
+const getPagamentosCached = unstable_cache(
+  async (token: string, filtrosStr: string, hoje: string) => {
+    const filtros = JSON.parse(filtrosStr) as FiltrosPagamentos;
+    const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    try {
+      return await montar(db, filtros, hoje);
+    } catch (e) {
+      if (semTabela(e)) return { ...vazio(hoje, false), pendente: true };
+      throw e;
+    }
+  },
+  ["pagamentos-dados"],
+  { tags: ["financeiro"] }
+);
+
 export async function getPagamentos(
   filtros: FiltrosPagamentos = {},
   agora: Date = new Date(),
 ): Promise<PagamentosView> {
   const hoje = hojeSP(agora);
   if (!isSupabaseConfigured()) return vazio(hoje, true);
-  try {
-    return await montar(await createClient(), filtros, hoje);
-  } catch (e) {
-    if (semTabela(e)) return { ...vazio(hoje, false), pendente: true };
-    throw e;
-  }
+  
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { ...vazio(hoje, true), pendente: true };
+
+  return getPagamentosCached(token, JSON.stringify(filtros), hoje);
 }
 
 async function montar(

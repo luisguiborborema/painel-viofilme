@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, persisted: false });
+  if (!isSupabaseConfigured()) return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, persisted: false }));
   const supabase = await createClient();
   const action = b.action ?? "create";
   await logFromUser(user, { action, area: "Financeiro · recebíveis", target: b.description ?? b.id ?? null });
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
         }
         throw error;
       }
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     if (action === "delete" || action === "update" || action === "receive" || action === "unreceive") {
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
     if (action === "delete") {
       const { error } = await supabase.from("payments").delete().eq("id", b.id!);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     if (action === "receive" || action === "unreceive") {
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
           : { status: "PENDING", payment_date: null };
       const { error } = await supabase.from("payments").update(patch).eq("id", b.id!);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     if (action === "update") {
@@ -142,7 +143,7 @@ export async function POST(req: Request) {
       if (b.note !== undefined) patch.note = clean(b.note);
       const { error } = await supabase.from("payments").update(patch).eq("id", b.id!);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     // ── criar (avulso ou parcelado) ───────────────────────────────────────
@@ -175,7 +176,7 @@ export async function POST(req: Request) {
 
     const { error } = await supabase.from("payments").insert(linhas);
     if (error) throw error;
-    return NextResponse.json({ ok: true, parcelas: linhas.length });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, parcelas: linhas.length }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/source|account_id|note|42703/i.test(msg) || /null value in column "asaas_payment_id"/i.test(msg)) {

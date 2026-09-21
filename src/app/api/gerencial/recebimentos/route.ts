@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -267,7 +268,7 @@ async function registrarEvento(
     created_by: user.name || user.email,
   });
   if (error) return erro(error.message, 500);
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }
 
 /* ── Promessa de pagamento (§9.6) ──────────────────────────────────────── */
@@ -311,5 +312,5 @@ async function registrarPromessa(
     created_by: user.name || user.email,
   });
 
-  return NextResponse.json({ ok: true, id: promessa ? String((promessa as Linha).id) : null });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, id: promessa ? String((promessa as Linha).id) : null }));
 }
