@@ -13,6 +13,7 @@ import { brlCheio } from "@/lib/data/dashboard-financeiro";
 import type {
   ContaAPagar, FornecedorLinha, PagamentosView as Dados, RecorrenciaLinha,
 } from "@/lib/data/pagamentos-server";
+import { PagamentosFicha } from "./pagamentos-ficha";
 
 /**
  * Pagamentos (spec da página 3) — o lugar de todo dinheiro que sai.
@@ -51,8 +52,10 @@ const ABAS = [
 export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [, navegando] = useTransition();
-  void navegando;
+  const [, revalidar] = useTransition();
+  // A ficha é overlay da PÁGINA, não da tabela: qualquer aba pode abri-la.
+  const [ficha, setFicha] = useState<string | null>(null);
+  const recarregar = () => revalidar(() => router.refresh());
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
   function irPara(patch: Record<string, string | null>) {
@@ -105,10 +108,19 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
             ))}
           </div>
 
-          {aba === "contas" && <AbaContas dados={dados} irPara={irPara} />}
+          {aba === "contas" && <AbaContas dados={dados} irPara={irPara} onAbrirFicha={setFicha} />}
           {aba === "folha" && <AbaFolha dados={dados} />}
           {aba === "recorrencias" && <AbaRecorrencias dados={dados} />}
           {aba === "fornecedores" && <AbaFornecedores dados={dados} />}
+
+          {ficha && (
+            <PagamentosFicha
+              key={ficha}
+              id={ficha}
+              onFechar={() => setFicha(null)}
+              onMudou={recarregar}
+            />
+          )}
         </>
       )}
     </div>
@@ -207,7 +219,13 @@ function Indicadores({ dados, irPara }: { dados: Dados; irPara: (p: Record<strin
 
 /* ── Aba Contas a pagar (§5) ───────────────────────────────────────────── */
 
-function AbaContas({ dados, irPara }: { dados: Dados; irPara: (p: Record<string, string | null>) => void }) {
+function AbaContas({
+  dados, irPara, onAbrirFicha,
+}: {
+  dados: Dados;
+  irPara: (p: Record<string, string | null>) => void;
+  onAbrirFicha: (id: string) => void;
+}) {
   const params = useSearchParams();
   const visao = params.get("visao") ?? "aberto";
   const chip = params.get("chip");
@@ -316,7 +334,7 @@ function AbaContas({ dados, irPara }: { dados: Dados; irPara: (p: Record<string,
               </div>
             )}
             <ul className="m-0 list-none p-0">
-              {g.contas.map((c) => <LinhaConta key={c.id} c={c} />)}
+              {g.contas.map((c) => <LinhaConta key={c.id} c={c} onAbrir={onAbrirFicha} />)}
             </ul>
           </div>
         ))}
@@ -342,7 +360,7 @@ function AbaContas({ dados, irPara }: { dados: Dados; irPara: (p: Record<string,
   );
 }
 
-function LinhaConta({ c }: { c: ContaAPagar }) {
+function LinhaConta({ c, onAbrir }: { c: ContaAPagar; onAbrir: (id: string) => void }) {
   function copiar() {
     if (!c.copiavel) return;
     navigator.clipboard?.writeText(c.copiavel);
@@ -363,7 +381,11 @@ function LinhaConta({ c }: { c: ContaAPagar }) {
 
       <span className="truncate text-sm font-semibold text-ink">{c.fornecedor}</span>
 
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => onAbrir(c.id)}
+        className="flex min-w-0 flex-col items-start gap-0.5 text-left"
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm text-ink">{c.descricao}</span>
           {c.recorrente && <Repeat className="h-3 w-3 shrink-0 text-muted" aria-label="Recorrência" />}
@@ -381,7 +403,7 @@ function LinhaConta({ c }: { c: ContaAPagar }) {
             </span>
           )}
         </span>
-      </span>
+      </button>
 
       <span className="flex flex-col items-start gap-1">
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", TOM_SITUACAO[c.situacaoTom])}>
@@ -411,12 +433,13 @@ function LinhaConta({ c }: { c: ContaAPagar }) {
             <Copy className="h-3.5 w-3.5" />
           </button>
         )}
-        <Link
-          href={`/gerencial/financeiro?aba=pagar`}
+        <button
+          type="button"
+          onClick={() => onAbrir(c.id)}
           className="inline-flex h-8 items-center rounded-lg border border-line px-3 text-xs font-medium text-ink transition-colors hover:bg-subtle-strong"
         >
           {c.acaoLabel}
-        </Link>
+        </button>
       </span>
     </li>
   );

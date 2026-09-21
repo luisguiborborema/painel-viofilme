@@ -78,7 +78,11 @@ A faixa de indicadores traz A pagar no mês, Pago, Vencido e Próximos 7 dias �
 
 As regras vivem em [`pagamentos.ts`](../src/lib/data/pagamentos.ts), puras e testadas em [`tests/pagamentos.test.ts`](../tests/pagamentos.test.ts): ordem de prioridade do chip de situação, linha de pagamento, ação contextual, estimativa de valor, repartição do pagamento entre principal e encargos, fatura do cartão e separação do lote.
 
-**Ainda não implementado desta spec**, e a tela não finge: leitura de boleto/NF por IA (§10.1), modo fatura do cartão (§6), drawer de nova despesa com prévia viva (§10), ficha da conta (§7), modais de pagamento e de informar valor real (§8, §9), ações em lote (§5.8) e o ciclo completo da folha (§11).
+A **ficha da conta** (§7) abre pelo nome ou pela ação da linha, e traz os dois modais que operam sobre ela: **registrar pagamento** (§8) e **informar valor real** (§9). A escrita atravessa o núcleo inteiro — a baixa entra em `settlements`, o dinheiro que saiu vira `transactions` (`pending_confirmation` em conta com extrato, §13.3) e os dois são ligados por `reconciliation_links`. **O saldo e o status da parcela não são escritos pela rota**: o gatilho do banco recalcula.
+
+**A regra do desconto merece destaque**, porque é contraintuitiva e foi onde apareceu um bug real: ao quitar pagando menos, o **principal é o saldo cheio** e o desconto vem ao lado como receita financeira. Se o principal fosse o dinheiro que saiu, o orçamento da categoria encolheria por causa de uma negociação — e, pior, a parcela não fecharia, já que só o principal abate o saldo. O caixa não se perde: a movimentação registra `principal − desconto + juros + multa`.
+
+**Ainda não implementado desta spec**, e a tela não finge: leitura de boleto/NF por IA (§10.1), modo fatura do cartão (§6), drawer de nova despesa com prévia viva (§10), ações em lote (§5.8), anexo de documentos pela ficha e o ciclo completo da folha (§11).
 
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.

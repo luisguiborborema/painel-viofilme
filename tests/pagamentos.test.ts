@@ -237,11 +237,30 @@ test("tudo positivo é coberto, e a janela para em 7 dias", () => {
 
 /* ── Repartir o pagamento (§8, §17) ────────────────────────────────────── */
 
-test("pagou menos e quitou: a diferença é desconto, e a categoria fica cheia", () => {
+test("pagou menos e quitou: a categoria fica CHEIA e a diferença é desconto", () => {
   const r = repartirPagamento({ saldoCent: R$(1000), valorPagoCent: R$(950), quitar: true });
-  assert.equal(r.principalCent, R$(950));
+  // O principal é o saldo inteiro, não o dinheiro que saiu. Duas razões:
+  // o orçamento da categoria não pode encolher por causa de uma negociação,
+  // e só o principal abate o saldo — com R$ 950 a parcela não fecharia.
+  assert.equal(r.principalCent, R$(1000));
   assert.equal(r.descontoCent, R$(50));
   assert.equal(r.saldoRestanteCent, 0);
+});
+
+test("quitar com desconto fecha a parcela de verdade", () => {
+  const saldo = R$(1500);
+  const r = repartirPagamento({
+    saldoCent: saldo, valorPagoCent: R$(1500), quitar: true,
+    jurosInformadoCent: R$(30), multaInformadaCent: R$(20),
+  });
+  // O gatilho do banco abate o saldo só pelo principal: se ele viesse menor
+  // que o saldo, a parcela continuaria "parcial" com a tela dizendo "quitada".
+  assert.equal(r.principalCent, saldo, "o principal precisa cobrir o saldo inteiro");
+  assert.equal(saldo - r.principalCent, 0);
+  assert.equal(r.descontoCent, R$(50));
+  // E o caixa continua batendo com o que a pessoa digitou.
+  const saiuDoCaixa = r.principalCent - r.descontoCent + r.jurosCent + r.multaCent;
+  assert.equal(saiuDoCaixa, R$(1500));
 });
 
 test("pagou menos e não quitou: vira baixa parcial", () => {

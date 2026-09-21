@@ -413,8 +413,18 @@ export function repartirPagamento(input: {
     };
   }
   if (quitar) {
+    // O principal é o saldo CHEIO, e o desconto vem ao lado.
+    //
+    // É contraintuitivo e é o ponto todo: "a categoria original fica com o
+    // valor cheio" (§8). Se o principal fosse o dinheiro que saiu, o
+    // orçamento da categoria encolheria por causa de uma negociação, e —
+    // pior — a parcela não fecharia, porque só o principal abate o saldo
+    // (§5.2 do documento-mãe). O desconto vira receita financeira.
+    //
+    // O caixa não se perde: o dinheiro que sai é
+    // principal − desconto + juros + multa, que é o valor informado.
     return {
-      principalCent: paraPrincipal,
+      principalCent: saldoCent,
       jurosCent: juros,
       multaCent: multa,
       descontoCent: saldoCent - paraPrincipal,
