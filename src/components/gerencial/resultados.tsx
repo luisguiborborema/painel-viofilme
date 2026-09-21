@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { brlCheio } from "@/lib/data/dashboard-financeiro";
 import type {
-  LinhaDre, ResultadosView as Dados,
+  LinhaDre, LinhaRentabilidade, ResultadosView as Dados,
 } from "@/lib/data/resultados-server";
 
 /**
@@ -81,8 +81,8 @@ export function ResultadosView({ dados, aba }: { dados: Dados; aba: string }) {
           </div>
 
           {aba === "dre" && <AbaDre dados={dados} irPara={irPara} />}
-          {aba === "rentabilidade" && <EmConstrucao titulo="Rentabilidade" />}
-          {aba === "receita" && <EmConstrucao titulo="Receita" />}
+          {aba === "rentabilidade" && <AbaRentabilidade dados={dados} irPara={irPara} />}
+          {aba === "receita" && <AbaReceita dados={dados} />}
         </>
       )}
     </div>
@@ -541,28 +541,32 @@ function PonteDoCaixa({ dados }: { dados: Dados }) {
       </div>
 
       {p.barras.length > 1 ? (
-        <div className="flex h-52 gap-2">
+        <div className="flex h-56 gap-2">
           {p.barras.map((b, n) => (
             <div key={`${b.label}-${n}`} className="relative flex-1">
-              <span
-                className={cn(
-                  "absolute left-[12%] right-[12%] rounded-sm",
-                  b.tipo === "delta"
-                    ? b.valorCent >= 0 ? "bg-emerald-500" : "bg-rose-500"
-                    : b.valorCent >= 0 ? "bg-brand-500" : "bg-rose-500",
-                )}
-                style={{ top: `${b.topoPct}%`, height: `${b.alturaPct}%` }}
-              />
-              <span
-                className={cn(
-                  "absolute inset-x-0 text-center text-[11px] font-semibold",
-                  b.tipo === "delta"
-                    ? b.valorCent >= 0 ? "text-emerald-600" : "text-rose-600"
-                    : "text-ink",
-                )}
-                style={{ top: `calc(${b.topoPct}% - 18px)` }}
-              >
-                {b.tipo === "delta" && b.valorCent >= 0 ? "+" : ""}{brlCheio(b.valorCent)}
+              {/* A área da barra para 28px acima do fim: sem isso, uma barra
+                  alta cobre o próprio rótulo e o gráfico fica ilegível. */}
+              <span className="absolute inset-x-0 top-5 bottom-7">
+                <span
+                  className={cn(
+                    "absolute left-[12%] right-[12%] rounded-sm",
+                    b.tipo === "delta"
+                      ? b.valorCent >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                      : b.valorCent >= 0 ? "bg-brand-500" : "bg-rose-500",
+                  )}
+                  style={{ top: `${b.topoPct}%`, height: `${b.alturaPct}%` }}
+                />
+                <span
+                  className={cn(
+                    "absolute inset-x-0 text-center text-[11px] font-semibold",
+                    b.tipo === "delta"
+                      ? b.valorCent >= 0 ? "text-emerald-600" : "text-rose-600"
+                      : "text-ink",
+                  )}
+                  style={{ top: `calc(${b.topoPct}% - 17px)` }}
+                >
+                  {b.tipo === "delta" && b.valorCent >= 0 ? "+" : ""}{brlCheio(b.valorCent)}
+                </span>
               </span>
               <span className="absolute inset-x-0 bottom-0 text-center text-[11px] leading-tight text-muted">
                 {b.label}
@@ -581,23 +585,460 @@ function PonteDoCaixa({ dados }: { dados: Dados }) {
 
 /* ── Peças ─────────────────────────────────────────────────────────────── */
 
-function EmConstrucao({ titulo }: { titulo: string }) {
-  return (
-    <Card className="p-8 text-center">
-      <p className="text-sm font-semibold text-ink">{titulo} ainda não foi migrada</p>
-      <p className="mx-auto mt-2 max-w-xl text-sm text-muted">
-        A aba está sendo construída sobre o núcleo transacional. Enquanto isso, a DRE já lê os
-        itens dos títulos por competência.
-      </p>
-    </Card>
-  );
-}
-
 function Aviso({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <Card className="flex flex-col gap-1 p-5">
       <p className="text-sm font-semibold text-ink">{titulo}</p>
       <p className="text-xs text-muted">{texto}</p>
     </Card>
+  );
+}
+
+/* ── Aba Rentabilidade (§6) ────────────────────────────────────────────── */
+
+const TOM_SAUDE: Record<string, string> = {
+  saudavel: "bg-emerald-500/15 text-emerald-600",
+  atencao: "bg-amber-500/15 text-amber-600",
+  critica: "bg-rose-500/15 text-rose-600",
+  "sem-dados": "bg-subtle text-muted",
+};
+
+const DIMENSOES = [
+  { key: "clientes", label: "Clientes" },
+  { key: "servicos", label: "Serviços" },
+  { key: "projetos", label: "Projetos" },
+  { key: "squads", label: "Squads" },
+];
+
+function AbaRentabilidade({
+  dados, irPara,
+}: { dados: Dados; irPara: (p: Record<string, string | null>) => void }) {
+  const r = dados.rentabilidade;
+  const [como, setComo] = useState(false);
+
+  return (
+    <section aria-label="Rentabilidade" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-0.5 rounded-xl border border-line bg-subtle p-1">
+          {DIMENSOES.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              onClick={() => irPara({ dim: d.key })}
+              aria-pressed={r.dimensao === d.key}
+              className={cn(
+                "h-8 rounded-lg px-3.5 text-xs font-medium transition-colors",
+                r.dimensao === d.key ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+              )}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={() => setComo((v) => !v)}
+          className="text-xs font-medium text-brand-600 hover:underline">
+          Como é calculado
+        </button>
+      </div>
+
+      {como && (
+        <Card className="p-4 text-xs leading-relaxed text-muted">
+          Margem de contribuição = receita − deduções proporcionais (alíquota efetiva do período)
+          − equipe alocada − custos diretos vinculados. A equipe entra por vagas: o custo do
+          colaborador dividido pela capacidade dele (ou pelo número real de vagas, se passar da
+          capacidade). Vagas livres viram capacidade ociosa e não são distribuídas. A estrutura
+          — pró-labore, administrativo, softwares — também não é distribuída: ratear estrutura
+          por critério arbitrário produz número que leva a cortar o cliente que ajudava a pagá-la.
+        </Card>
+      )}
+
+      <Prova prova={r.prova} />
+
+      {r.alertas.map((a, n) => (
+        <Card key={n} className="flex flex-wrap items-center gap-3 border-amber-500/40 bg-amber-500/5 px-4 py-3">
+          <span className="flex-1 text-xs text-ink">{a.texto}</span>
+          <span className="text-xs text-muted">{a.cta}</span>
+        </Card>
+      ))}
+
+      {r.lacunas.length > 0 && (
+        <Card className="space-y-1 border-amber-500/40 bg-amber-500/5 p-4">
+          <p className="text-xs font-semibold text-amber-600">
+            O que falta para esta aba responder de verdade
+          </p>
+          {r.lacunas.map((l, n) => (
+            <p key={n} className="text-xs text-muted">{l}</p>
+          ))}
+        </Card>
+      )}
+
+      {r.matriz.pontos.length > 0 && <Matriz dados={dados} />}
+
+      <Card className="overflow-hidden">
+        <div className="hidden grid-cols-[minmax(0,1fr)_110px_100px_110px_120px_120px_90px_70px_110px] gap-3 border-b border-line bg-subtle px-5 py-2.5 text-[11px] text-muted lg:grid">
+          <span>{DIMENSOES.find((d) => d.key === r.dimensao)?.label.replace(/s$/, "") ?? "Cliente"}</span>
+          <span className="text-right">Receita</span><span className="text-right">Deduções</span>
+          <span className="text-right">Equipe</span><span className="text-right">Custos diretos</span>
+          <span className="text-right">Margem</span><span className="text-right">Margem %</span>
+          <span className="text-right">Vagas</span><span>Saúde</span>
+        </div>
+        <ul className="m-0 list-none p-0">
+          {r.linhas.map((l) => <LinhaRent key={l.id} l={l} />)}
+        </ul>
+
+        {!r.linhas.length && (
+          <div className="flex flex-col items-center gap-1.5 px-5 py-11 text-center">
+            <p className="text-sm font-medium text-ink">Nada para medir neste período</p>
+            <p className="max-w-lg text-xs text-muted">
+              A margem por {r.dimensao === "clientes" ? "cliente" : r.dimensao.replace(/s$/, "")} precisa
+              de receita com essa dimensão no item. Sem isso, a página não tem o que dividir.
+            </p>
+          </div>
+        )}
+
+        {r.linhas.length > 0 && (
+          <div className="space-y-1 border-t border-line bg-subtle px-5 py-3 text-xs">
+            <p className="flex justify-between font-semibold text-ink">
+              <span>Carteira</span>
+              <span>{brlCheio(r.rodape.carteira.margemCent)}
+                {r.rodape.carteira.margemPct !== null && ` · ${r.rodape.carteira.margemPct}%`}</span>
+            </p>
+            <p className="flex justify-between text-muted">
+              <span>Operação geral <span className="text-[11px]">(custo direto sem cliente)</span></span>
+              <span>−{brlCheio(r.rodape.operacaoGeralCent)}</span>
+            </p>
+            <p className="flex justify-between text-amber-600">
+              <span>Capacidade ociosa <span className="text-[11px]">(vagas livres)</span></span>
+              <span>−{brlCheio(r.rodape.ociosidadeCent)}</span>
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {r.ocupacao.length > 0 && (
+        <Card className="space-y-3 p-5">
+          <h2 className="text-sm font-semibold text-ink">Ocupação por função</h2>
+          <p className="text-xs text-muted">
+            Onde está o gargalo antes de contratar, e onde há espaço para vender.
+          </p>
+          {r.ocupacao.map((o) => (
+            <div key={o.funcao} className="grid items-center gap-3 lg:grid-cols-[170px_minmax(0,1fr)_150px_170px]">
+              <span className="text-xs font-medium text-ink">{o.funcao}</span>
+              <span className="h-2.5 overflow-hidden rounded-full bg-subtle-strong">
+                <span
+                  className={cn("block h-full",
+                    o.pct > 100 ? "bg-rose-500" : o.pct >= 90 ? "bg-amber-500" : "bg-emerald-500")}
+                  style={{ width: `${Math.min(100, o.pct)}%` }}
+                />
+              </span>
+              <span className={cn("text-xs font-semibold",
+                o.pct > 100 ? "text-rose-600" : o.pct >= 90 ? "text-amber-600" : "text-emerald-600")}>
+                {o.usadas} de {o.capacidade} vagas ({o.pct}%)
+              </span>
+              <span className="text-xs text-muted">{o.estado}</span>
+            </div>
+          ))}
+        </Card>
+      )}
+    </section>
+  );
+}
+
+function Prova({ prova }: { prova: Dados["rentabilidade"]["prova"] }) {
+  const parte = (label: string, valor: number, op: string) => (
+    <span key={label} className="flex items-center gap-3">
+      <span className="flex flex-col">
+        <span className="text-[11px] text-muted">{label}</span>
+        <span className="text-base font-semibold text-ink">{brlCheio(valor)}</span>
+      </span>
+      <span className="text-base text-muted">{op}</span>
+    </span>
+  );
+
+  return (
+    <Card className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5">
+      {parte("Margem de contribuição", prova.margemClientesCent, "−")}
+      {parte("Capacidade ociosa", prova.ociosidadeCent, "−")}
+      {parte("Operação geral", prova.operacaoGeralCent, "−")}
+      {parte("Estrutura", prova.estruturaCent, prova.financeiroCent >= 0 ? "+" : "−")}
+      {parte("Financeiro", Math.abs(prova.financeiroCent), "=")}
+      <span className="flex flex-col">
+        <span className="text-[11px] text-muted">Resultado líquido</span>
+        <span className="text-base font-semibold text-brand-600">{brlCheio(prova.resultadoCent)}</span>
+      </span>
+      <span className="flex-1" />
+      {/* A prova é o motivo de a aba existir junto da DRE: divergência é bug. */}
+      <span className={cn(
+        "rounded-full px-3 py-1 text-xs font-medium",
+        prova.confere ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600",
+      )}>
+        {prova.confere
+          ? "✓ Confere com a DRE"
+          : `⚠ Diferença de ${brlCheio(Math.abs(prova.diferencaCent))} com a DRE`}
+      </span>
+      {!prova.confere && prova.causas.length > 0 && (
+        <span className="w-full text-xs text-muted">
+          Causas prováveis: {prova.causas.join("; ")}.
+        </span>
+      )}
+    </Card>
+  );
+}
+
+function LinhaRent({ l }: { l: LinhaRentabilidade }) {
+  return (
+    <li className="grid items-center gap-3 border-b border-line px-5 py-3 lg:grid-cols-[minmax(0,1fr)_110px_100px_110px_120px_120px_90px_70px_110px]">
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-semibold text-ink">{l.nome}</span>
+        <span className="truncate text-[11px] text-muted">
+          {l.aviso ? <span className="text-amber-600">{l.aviso}</span> : l.detalhe}
+        </span>
+      </span>
+      <span className="text-right text-sm text-ink">{brlCheio(l.receitaCent)}</span>
+      <span className="text-right text-sm text-muted">−{brlCheio(l.deducoesCent)}</span>
+      <span className="text-right text-sm text-muted">−{brlCheio(l.equipeCent)}</span>
+      <span className="text-right text-sm text-muted">−{brlCheio(l.custosDiretosCent)}</span>
+      <span className={cn("text-right text-sm font-semibold",
+        l.margemCent >= 0 ? "text-ink" : "text-rose-600")}>
+        {brlCheio(l.margemCent)}
+      </span>
+      <span className="text-right text-sm font-semibold text-ink">
+        {l.margemPct === null ? "—" : `${l.margemPct}%`}
+      </span>
+      <span className="text-right text-xs text-muted">{l.vagas || "—"}</span>
+      <span>
+        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", TOM_SAUDE[l.saude])}>
+          {l.saudeLabel}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function Matriz({ dados }: { dados: Dados }) {
+  const m = dados.rentabilidade.matriz;
+  const cor: Record<string, string> = {
+    saudavel: "border-emerald-500 bg-emerald-500/20",
+    atencao: "border-amber-500 bg-amber-500/20",
+    critica: "border-rose-500 bg-rose-500/20",
+    "sem-dados": "border-line bg-subtle",
+  };
+
+  return (
+    <Card className="space-y-3 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink">Matriz de rentabilidade</h2>
+        <span className="text-xs text-muted">
+          Receita no período × margem. Tamanho do ponto: vagas de equipe consumidas.
+        </span>
+      </div>
+
+      <div className="relative h-80 rounded-xl border border-line bg-subtle">
+        <span className="absolute left-2 top-2 text-[10px] font-semibold text-emerald-600">EFICIENTES</span>
+        <span className="absolute right-2 top-2 text-[10px] font-semibold text-emerald-600">PILARES</span>
+        <span className="absolute left-2 bottom-2 text-[10px] font-semibold text-rose-600">ATENÇÃO</span>
+        <span className="absolute right-2 bottom-2 text-[10px] font-semibold text-amber-600">
+          REVER ESCOPO OU PREÇO
+        </span>
+
+        <span className="absolute inset-y-0 border-l border-dashed border-line"
+          style={{ left: `${m.mediaReceitaX}%` }} />
+        <span className="absolute inset-x-0 border-t border-dashed border-line"
+          style={{ top: `${m.mediaMargemY}%` }} />
+        <span className="absolute inset-x-0 border-t border-rose-500/40"
+          style={{ top: `${m.zeroY}%` }} />
+
+        {m.pontos.map((p) => (
+          <span key={p.id} className="absolute" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+            <span
+              title={`${p.nome}: ${brlCheio(p.receitaCent)}, margem ${p.margemPct}%`}
+              className={cn("block rounded-full border-2", cor[p.saude])}
+              style={{ width: p.tamanho, height: p.tamanho, marginLeft: -p.tamanho / 2, marginTop: -p.tamanho / 2 }}
+            />
+            {p.comRotulo && (
+              <span className="absolute left-4 top-[-8px] whitespace-nowrap text-[10px] text-muted">
+                {p.nome}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/* ── Aba Receita (§7) ──────────────────────────────────────────────────── */
+
+function AbaReceita({ dados }: { dados: Dados }) {
+  const r = dados.receita;
+  return (
+    <section aria-label="Receita" className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {r.indicadores.map((i) => (
+          <Card key={i.key} className="flex flex-col gap-1 p-4">
+            <span className="text-[11px] text-muted">{i.label}</span>
+            <span className={cn("text-lg font-semibold tracking-tight",
+              i.deltaTom === "ruim" && i.key === "churn" ? "text-rose-600" : "text-ink")}>
+              {i.valor}
+            </span>
+            <span className="text-[11px] text-muted">{i.contexto}</span>
+          </Card>
+        ))}
+      </div>
+
+      {r.lacunas.length > 0 && (
+        <Card className="space-y-1 border-amber-500/40 bg-amber-500/5 p-4">
+          <p className="text-xs font-semibold text-amber-600">O que ainda não existe nesta aba</p>
+          {r.lacunas.map((l, n) => <p key={n} className="text-xs text-muted">{l}</p>)}
+        </Card>
+      )}
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Card className="space-y-3 p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Ponte do MRR</h2>
+            <p className="text-xs text-muted">{r.ponteMrrSub}</p>
+          </div>
+          {r.ponteMrr.length > 2 ? (
+            <div className="flex h-56 gap-2">
+              {r.ponteMrr.map((b, n) => (
+                <div key={`${b.label}-${n}`} className="relative flex-1">
+                  <span className="absolute inset-x-0 top-5 bottom-7">
+                    <span
+                      className={cn("absolute left-[12%] right-[12%] rounded-sm",
+                        b.tipo === "delta"
+                          ? b.label === "Pausas" ? "bg-slate-400"
+                            : b.valorCent >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                          : "bg-brand-500")}
+                      style={{ top: `${b.topoPct}%`, height: `${b.alturaPct}%` }}
+                    />
+                    <span className="absolute inset-x-0 text-center text-[11px] font-semibold text-ink"
+                      style={{ top: `calc(${b.topoPct}% - 17px)` }}>
+                      {b.tipo === "delta" && b.valorCent >= 0 ? "+" : ""}{brlCheio(b.valorCent)}
+                    </span>
+                  </span>
+                  <span className="absolute inset-x-0 bottom-0 text-center text-[11px] text-muted">
+                    {b.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted">
+              Sem recorrências ativas e sem movimentos no período, a ponte não tem de onde sair.
+            </p>
+          )}
+        </Card>
+
+        <Card className="space-y-2 p-5">
+          <h2 className="text-sm font-semibold text-ink">Movimentos do período</h2>
+          {r.movimentos.length ? (
+            r.movimentos.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2">
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  m.tom === "bom" ? "bg-emerald-500/15 text-emerald-600"
+                    : m.tom === "ruim" ? "bg-rose-500/15 text-rose-600" : "bg-subtle text-muted")}>
+                  {m.tipoLabel}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium text-ink">{m.cliente}</span>
+                  <span className="block truncate text-[11px] text-muted">{m.motivo}</span>
+                </span>
+                <span className={cn("text-xs font-semibold",
+                  m.valorCent >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                  {m.valorCent >= 0 ? "+" : "−"}{brlCheio(Math.abs(m.valorCent))}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-muted">
+              Nenhum movimento de MRR registrado no período.
+            </p>
+          )}
+        </Card>
+      </div>
+
+      <Card className="space-y-3 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">Evolução em 12 meses</h2>
+          <p className="text-xs text-muted">Barras: receita do mês, separando recorrente de pontual.</p>
+        </div>
+        <div className="flex h-52 items-end gap-2">
+          {dados.receita.evolucao.map((m) => (
+            // `h-full` não é decoração: altura em % só resolve contra um pai
+            // com altura definida, e sem ela as barras somem.
+            <div key={m.mes} className={cn("flex h-full flex-1 flex-col justify-end gap-px",
+              m.noPeriodo && "rounded-t bg-brand-500/5")}
+              title={`${m.label}: ${brlCheio(m.recorrenteCent + m.pontualCent)}`}>
+              <span className="bg-sky-400" style={{ height: `${m.alturaPon}%` }} />
+              <span className="bg-brand-500" style={{ height: `${m.alturaRec}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {dados.receita.evolucao.map((m) => (
+            <span key={m.mes} className={cn("flex-1 text-center text-[10px]",
+              m.noPeriodo ? "font-semibold text-ink" : "text-muted")}>
+              {m.label}
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-4 text-[11px] text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-brand-500" />Recorrente
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />Pontual
+          </span>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="space-y-3 p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Concentração</h2>
+            <p className={cn("text-xs", r.concentracao.alerta ? "text-amber-600" : "text-muted")}>
+              {r.concentracao.nota}
+            </p>
+          </div>
+          {r.concentracao.linhas.map((c) => (
+            <div key={c.nome} className="grid items-center gap-3 lg:grid-cols-[minmax(0,1fr)_120px_60px_60px]">
+              <span className="truncate text-xs text-ink">{c.nome}</span>
+              <span className="h-2 overflow-hidden rounded-full bg-subtle-strong">
+                <span className={cn("block h-full", c.acima ? "bg-rose-500" : "bg-brand-500")}
+                  style={{ width: `${Math.min(100, c.pct)}%` }} />
+              </span>
+              <span className="text-right text-xs font-semibold text-ink">{c.pct}%</span>
+              <span className="text-right text-[11px] text-muted">{c.acumuladoPct}%</span>
+            </div>
+          ))}
+        </Card>
+
+        <Card className="overflow-hidden">
+          <div className="px-5 py-4">
+            <h2 className="text-sm font-semibold text-ink">Receita por serviço</h2>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_100px_100px_100px_60px] gap-2 border-y border-line bg-subtle px-5 py-2 text-[11px] text-muted">
+            <span>Serviço</span><span className="text-right">Recorrente</span>
+            <span className="text-right">Pontual</span><span className="text-right">Total</span>
+            <span className="text-right">%</span>
+          </div>
+          {r.porServico.map((s) => (
+            <div key={s.nome} className="grid grid-cols-[minmax(0,1fr)_100px_100px_100px_60px] gap-2 border-b border-line px-5 py-2.5 text-xs">
+              <span className="truncate font-medium text-ink">{s.nome}</span>
+              <span className="text-right text-muted">{brlCheio(s.recorrenteCent)}</span>
+              <span className="text-right text-muted">{brlCheio(s.pontualCent)}</span>
+              <span className="text-right font-semibold text-ink">{brlCheio(s.totalCent)}</span>
+              <span className="text-right text-muted">{s.pct}%</span>
+            </div>
+          ))}
+          {!r.porServico.length && (
+            <p className="px-5 py-8 text-center text-xs text-muted">
+              Nenhum item de receita no período.
+            </p>
+          )}
+        </Card>
+      </div>
+    </section>
   );
 }

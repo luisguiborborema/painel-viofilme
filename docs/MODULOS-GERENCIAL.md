@@ -118,6 +118,30 @@ Na Inadimplência, **registrar contato, registrar promessa e marcar a etapa manu
 
 **Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), lembrete, renegociação, pausa manual da régua, acionar CS e registrar perda (§9.4), e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
 
+### Resultados — [/gerencial/financeiro/resultados](../src/app/gerencial/financeiro/resultados/)
+
+Onde a agência ganha ou perde dinheiro, **sempre por competência**: receita é o que foi vendido no período, custo é o que foi consumido nele. Três abas: **DRE**, **Rentabilidade** e **Receita**.
+
+A fonte é `document_items`, e a competência sai de uma regra do documento-mãe (§4) que vale a pena conhecer: **o item é distribuído proporcionalmente entre as parcelas do título**, e a competência de cada parcela decide o mês. Um projeto de R$ 9.000 em três parcelas não é receita de um mês só. `ratearItemPorParcelas` faz a divisão, garante que as fatias somem exatamente o item e leva junto a proporção já baixada — que é o que separa **realizado** de **previsto** num mês aberto.
+
+Onde cada categoria aparece na DRE é decidido pelo **`impact_type`** dela (§10 do documento-mãe), nunca pelo nome. São sete tipos, e dois deles (`investment` e `equity_financing`) ficam **fora** da DRE, no cartão "Fora da DRE": uma câmera de R$ 18.900 não é prejuízo operacional.
+
+**A página abre no último mês fechado**, não no corrente (§3.1). O mês corrente está incompleto e induz a conclusão errada — metade da receita lançada parece queda de 50%. O selo do período diz em que pé está o número: fechado, fechado com ajustes posteriores, ou "em aberto, X% realizado".
+
+**As duas provas de fechamento são o coração da página.** "Do resultado ao caixa" mostra onde competência e dinheiro se separam e confere contra a variação do disponível; a aba Rentabilidade prova que Σ margem de contribuição − ociosidade − operação geral − estrutura ± financeiro = resultado líquido da DRE. A spec é explícita: divergência é bug, não arredondamento — por isso a tolerância é R$ 1 e a tela **lista as causas prováveis** quando não fecha, em vez de esconder a diferença.
+
+Na rentabilidade, **a equipe entra por vagas**: custo do colaborador ÷ max(capacidade, vagas usadas). Dividir pelos clientes atuais faria um cliente parecer menos rentável só porque a agência perdeu outro. Vagas livres viram **capacidade ociosa**, linha própria que nunca é distribuída — e a estrutura também não, porque ratear aluguel por cliente produz número que leva a cortar quem ajudava a pagá-lo.
+
+As regras vivem em [`resultados.ts`](../src/lib/data/resultados.ts), puras e testadas em [`tests/resultados.test.ts`](../tests/resultados.test.ts).
+
+**O que a página declara em vez de fingir:**
+- **a comparação com o orçado fica desligada e diz por quê** — o orçamento do Planejamento é guardado como premissas, não como linhas mensais por categoria; ligá-la antes de converter uma coisa na outra compararia a DRE com zero e chamaria isso de "desvio do orçado";
+- variação acima de 999% vira o valor absoluto: comparar R$ 15.000 com R$ 15 dá "+99.900%", que lido de relance parece defeito;
+- a Rentabilidade lista as lacunas do período (sem colaborador, sem alocação, receita sem cliente no item) e explica que, sem elas, "margem" seria receita menos custo direto — que é outra coisa;
+- a Receita explica que **MRR é contratual, não faturado**: sem recorrência cadastrada ele é zero, e estimá-lo pela receita do mês confundiria um cliente que atrasou com um que saiu.
+
+**Ainda não implementado desta spec**: drawer de lançamentos por categoria (§8.1), ficha de rentabilidade do cliente com o simulador de preço (§8.2), relatório em PDF (§3.4), esforço vs. contrato (depende de Operação) e o congelamento da rentabilidade no fechamento (§11).
+
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.
 
@@ -128,7 +152,7 @@ Cinco blocos:
 4. **Esta semana** — o que vence de hoje a +7 dias, em quadro de altura fixa com rolagem interna. Abre a **ficha universal** pelo nome e a **baixa rápida** pela ação. Vencidos ficam de fora: já estão no bloco 1.
 5. **Panorama** — carrossel de 4 visões (caixa em 30 dias, composição da receita, resultado em 6 meses, para onde vai o dinheiro). Cada uma traz a **conclusão escrita**, gerada por regra no servidor, sem IA.
 
-Todo número linka para o destino **já filtrado** (`?aba=` e `?status=`, lidos por `FinanceTabs` e `ResultadosTabs`). Nenhum cálculo acontece no front.
+Todo número linka para o destino **já filtrado** (`?aba=` e `?status=`, lidos pelas páginas de destino). Nenhum cálculo acontece no front.
 
 **As ações escrevem pelos endpoints das páginas de origem** (`/api/gerencial/expenses` e `/api/gerencial/receivables`), nunca por um caminho próprio. É o que faz a baixa feita aqui passar pela alçada de aprovação, pela trava de período fechado e pela auditoria — não existe atalho sem registro.
 
