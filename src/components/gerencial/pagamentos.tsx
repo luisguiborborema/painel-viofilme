@@ -14,6 +14,7 @@ import type {
   ContaAPagar, FornecedorLinha, PagamentosView as Dados, RecorrenciaLinha,
 } from "@/lib/data/pagamentos-server";
 import { PagamentosFicha } from "./pagamentos-ficha";
+import { NovoLancamento } from "./novo-lancamento";
 
 /**
  * Pagamentos (spec da página 3) — o lugar de todo dinheiro que sai.
@@ -55,6 +56,7 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
   const [, revalidar] = useTransition();
   // A ficha é overlay da PÁGINA, não da tabela: qualquer aba pode abri-la.
   const [ficha, setFicha] = useState<string | null>(null);
+  const [novo, setNovo] = useState(false);
   const recarregar = () => revalidar(() => router.refresh());
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
@@ -69,7 +71,7 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
 
   return (
     <div className="space-y-6">
-      <Cabecalho />
+      <Cabecalho onNovo={() => setNovo(true)} />
 
       {dados.pendente ? (
         <Aviso
@@ -113,6 +115,17 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
           {aba === "recorrencias" && <AbaRecorrencias dados={dados} />}
           {aba === "fornecedores" && <AbaFornecedores dados={dados} />}
 
+          {novo && (
+            <NovoLancamento
+              direcao="out"
+              contrapartes={dados.opcoes.fornecedores}
+              categorias={dados.opcoes.categorias}
+              contas={dados.opcoes.contas}
+              onFechar={() => setNovo(false)}
+              onPronto={() => { setNovo(false); recarregar(); }}
+            />
+          )}
+
           {ficha && (
             <PagamentosFicha
               key={ficha}
@@ -129,7 +142,7 @@ export function PagamentosView({ dados, aba }: { dados: Dados; aba: string }) {
 
 /* ── Cabeçalho (§3) ────────────────────────────────────────────────────── */
 
-function Cabecalho() {
+function Cabecalho({ onNovo }: { onNovo: () => void }) {
   const aviso = () =>
     toast("A leitura de boleto e NF por IA ainda não existe: lance a despesa manualmente.", "error");
   return (
@@ -152,8 +165,7 @@ function Cabecalho() {
         </button>
         <button
           type="button"
-          onClick={() =>
-            toast("O cadastro de nova despesa ainda não existe: ele vem com o drawer da spec §10.", "error")}
+          onClick={onNovo}
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
         >
           <Plus className="h-4 w-4" />

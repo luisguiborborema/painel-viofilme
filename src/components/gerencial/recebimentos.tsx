@@ -15,6 +15,7 @@ import type {
   RecorrenciaReceita,
 } from "@/lib/data/recebimentos-server";
 import { acaoRecebimento, RecebimentosFicha } from "./recebimentos-ficha";
+import { NovoLancamento } from "./novo-lancamento";
 
 /**
  * Recebimentos (spec da página 2) — o lugar de todo dinheiro que precisa entrar.
@@ -58,6 +59,7 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
   const [, revalidar] = useTransition();
   // A ficha é overlay da PÁGINA, não da tabela: qualquer aba pode abri-la.
   const [ficha, setFicha] = useState<{ id: string; receber: boolean } | null>(null);
+  const [novo, setNovo] = useState(false);
   const recarregar = () => revalidar(() => router.refresh());
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
@@ -72,7 +74,7 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
 
   return (
     <div className="space-y-6">
-      <Cabecalho />
+      <Cabecalho onNovo={() => setNovo(true)} />
 
       {dados.pendente ? (
         <Aviso
@@ -120,6 +122,17 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
           )}
           {aba === "clientes" && <AbaClientes dados={dados} irPara={irPara} />}
 
+          {novo && (
+            <NovoLancamento
+              direcao="in"
+              contrapartes={dados.opcoes.clientes}
+              categorias={dados.opcoes.categorias}
+              contas={dados.opcoes.contas}
+              onFechar={() => setNovo(false)}
+              onPronto={() => { setNovo(false); recarregar(); }}
+            />
+          )}
+
           {ficha && (
             <RecebimentosFicha
               key={ficha.id}
@@ -137,7 +150,7 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
 
 /* ── Cabeçalho (§2) ────────────────────────────────────────────────────── */
 
-function Cabecalho() {
+function Cabecalho({ onNovo }: { onNovo: () => void }) {
   const aindaNao = (o: string) =>
     toast(`${o} ainda não existe: vem com o drawer de nova receita da spec §7.`, "error");
   return (
@@ -160,7 +173,7 @@ function Cabecalho() {
         </button>
         <button
           type="button"
-          onClick={() => aindaNao("O cadastro de nova receita")}
+          onClick={onNovo}
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
         >
           <Plus className="h-4 w-4" />

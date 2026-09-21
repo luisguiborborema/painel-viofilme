@@ -116,7 +116,11 @@ A escrita atravessa o núcleo inteiro: a baixa entra em `settlements`, o dinheir
 
 Na Inadimplência, **registrar contato, registrar promessa e marcar a etapa manual como enviada gravam de verdade** (§9.4 e §9.6). São as três ações que alimentam `collection_events` e `payment_promises` — e, como o estado da régua é derivado delas, registrar uma promessa muda o que a tela diz no mesmo instante: a etapa vira "Régua pausada", o cliente sai da contagem das etapas e a pendência manual some, porque alguém decidiu não cobrar agora.
 
-**Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), lembrete, renegociação, pausa manual da régua, acionar CS e registrar perda (§9.4), e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
+**Nova receita e nova despesa são o mesmo drawer**, parametrizado pela direção: as duas specs descrevem o mesmo esqueleto (formulário à esquerda, prévia viva à direita), e duplicá-lo criaria duas versões para divergirem. A prévia não é enfeite — é ela que torna seguro um formulário que cria seis parcelas de uma vez, e usa as **mesmas funções** que a rota usa para gravar, senão poderia mostrar um carnê diferente do que seria salvo.
+
+A divisão das parcelas muda com a direção: em Recebimentos a **última** absorve o arredondamento (o cliente recebe o carnê inteiro e compara as parcelas entre si), em Pagamentos a **primeira**. Verificado: R$ 1.000 em 3× sai 333,33 · 333,33 · 333,34, e a soma das parcelas fecha com o título.
+
+**Ainda não implementado desta spec**: importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), lembrete, renegociação, pausa manual da régua, acionar CS e registrar perda (§9.4), e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
 
 ### Caixa — [/gerencial/financeiro/caixa](../src/app/gerencial/financeiro/caixa/)
 

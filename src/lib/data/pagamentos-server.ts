@@ -153,6 +153,12 @@ export type ColaboradorFolha = {
 
 export type PagamentosView = {
   semDados: boolean;
+  /** Opções do drawer de nova despesa (§10). */
+  opcoes: {
+    fornecedores: { id: string; nome: string }[];
+    categorias: { key: string; label: string }[];
+    contas: { id: string; nome: string }[];
+  };
   /** Falta a migração 0149 — sem o núcleo, a página não tem o que ler. */
   pendente: boolean;
   hojeIso: string;
@@ -208,6 +214,7 @@ function vazio(hojeIso: string, semDados: boolean, pendente = false): Pagamentos
     recorrencias: [], custoFixoCent: 0,
     folha: { grupos: [], totalCent: 0, notasRecebidas: "0 de 0", pagos: "0 de 0", semEquipe: true },
     notasPendentes: 0,
+    opcoes: { fornecedores: [], categorias: [], contas: [] },
   };
 }
 
@@ -673,6 +680,11 @@ async function montar(
       semEquipe: equipe.length === 0,
     },
     notasPendentes: todas.filter((c) => !c.paga && c.exigeNota && !c.temNota).length,
+    opcoes: {
+      fornecedores: fornecedores.map((f) => ({ id: f.id, nome: f.nome })),
+      categorias: [...categoriaDe.entries()].map(([key, c]) => ({ key, label: c.label })),
+      contas: contasLinhas.map((c) => ({ id: String(c.id), nome: String(c.name ?? "Conta") })),
+    },
   };
 }
 

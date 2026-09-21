@@ -211,6 +211,12 @@ export type ClienteFinanceiro = {
 
 export type RecebimentosView = {
   semDados: boolean;
+  /** Opções do drawer de nova receita (§7). */
+  opcoes: {
+    clientes: { id: string; nome: string }[];
+    categorias: { key: string; label: string }[];
+    contas: { id: string; nome: string }[];
+  };
   /** Falta rodar a migração: sem o núcleo (0149) ou sem a régua (0150). */
   pendente: boolean;
   hojeIso: string;
@@ -338,6 +344,7 @@ function vazio(hojeIso: string, semDados: boolean, pendente = false): Recebiment
     },
     regua: [], reguaAtiva: false, inadimplentes: [],
     clientes: [], clientesIncompletos: 0, badgeInadimplencia: 0,
+    opcoes: { clientes: [], categorias: [], contas: [] },
   };
 }
 
@@ -410,7 +417,7 @@ async function montar(
   const ids = parcelas.map((p) => String(p.id));
   const docIds = [...new Set(parcelas.map((p) => String(p.document_id)))];
 
-  const [baixasRes, cobrancasRes, itensRes, contasRes, partiesRes, clientesRes,
+  const [baixasRes, cobrancasRes, itensRes, contasRes, catsRes, partiesRes, clientesRes,
     servicosRes, etapasRes, eventosRes, promessasRes, recorrenciasRes] = await Promise.all([
     ids.length
       ? db.from("settlements").select(
@@ -427,6 +434,7 @@ async function montar(
         .in("document_id", docIds.slice(0, 500))
       : Promise.resolve({ data: [] as Linha[], error: null }),
     db.from("financial_accounts").select("id, name, requires_statement_confirmation").eq("active", true),
+    db.from("expense_categories").select("key, label, impact_type, active").order("position"),
     db.from("parties").select(
       "id, name, client_id, document, address, roles, status, billing_emails, billing_whatsapp, " +
       "billing_contact_name, default_billing_method, default_due_day, default_send_days_before, " +
@@ -450,6 +458,7 @@ async function montar(
   const cobrancas = exigirDado<Linha[]>(cobrancasRes, "cobranças");
   const itens = exigirDado<Linha[]>(itensRes, "itens do título");
   const contas = exigirDado<Linha[]>(contasRes, "contas financeiras");
+  const cats = exigirDado<Linha[]>(catsRes, "categorias");
   const parties = exigirDado<Linha[]>(partiesRes, "clientes (cadastro financeiro)");
   const clientes = exigirDado<Linha[]>(clientesRes, "clientes");
   const servicosContratados = exigirDado<Linha[]>(servicosRes, "serviços contratados");
@@ -1017,6 +1026,13 @@ async function montar(
     clientes: clientesFinanceiros,
     clientesIncompletos: clientesFinanceiros.filter((c) => c.pendencias.length).length,
     badgeInadimplencia: inadimplentes.length,
+    opcoes: {
+      clientes: clientesFinanceiros.map((c) => ({ id: c.partyId, nome: c.nome })),
+      categorias: cats
+        .filter((c) => c.active !== false)
+        .map((c) => ({ key: String(c.key), label: String(c.label ?? c.key) })),
+      contas: contas.map((c) => ({ id: String(c.id), nome: String(c.name ?? "Conta") })),
+    },
   };
 }
 
