@@ -80,6 +80,47 @@ export function brlCheio(cent: number): string {
   });
 }
 
+/**
+ * Centavos a partir do que a pessoa digitou num campo de valor.
+ *
+ * O campo aceita as duas escritas que aparecem de verdade: a brasileira
+ * ("1.234,56") e a que o próprio código produz com `toFixed` ("1234.56").
+ * Tratar todo ponto como separador de milhar multiplicava o valor por cem —
+ * "10.47" virava R$ 1.047 — e o erro passava despercebido porque a baixa
+ * limita o principal ao saldo: a parcela fechava certo, e só um recebimento
+ * PARCIAL revelaria que o número digitado não foi o usado.
+ *
+ * A regra: com os dois separadores, o ponto é milhar. Só com vírgula, ela é
+ * decimal. Só com ponto, é milhar quando há mais de um ou quando sobram três
+ * dígitos depois dele ("2.000"); nos demais casos é decimal ("10.47").
+ */
+export function centavosDoTexto(valor: string): number {
+  const limpo = String(valor ?? "").replace(/[^\d.,-]/g, "").trim();
+  if (!limpo) return 0;
+
+  const temVirgula = limpo.includes(",");
+  const pontos = (limpo.match(/\./g) ?? []).length;
+
+  let normal = limpo;
+  if (temVirgula) {
+    normal = limpo.replace(/\./g, "").replace(",", ".");
+  } else if (pontos > 1) {
+    normal = limpo.replace(/\./g, "");
+  } else if (pontos === 1) {
+    const depois = limpo.length - limpo.indexOf(".") - 1;
+    normal = depois === 3 ? limpo.replace(".", "") : limpo;
+  }
+  const n = Number(normal);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** O valor como o campo deve mostrá-lo: "1.234,56", sem o símbolo. */
+export function valorEditavel(cent: number): string {
+  return (Math.round(cent) / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+}
+
 /** Com sinal explícito, para deltas: "+ R$ 4.500" / "− R$ 1.200". */
 export function brlComSinal(cent: number): string {
   const sinal = cent < 0 ? "−" : "+";

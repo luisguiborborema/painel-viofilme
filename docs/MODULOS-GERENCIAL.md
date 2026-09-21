@@ -82,6 +82,8 @@ As regras vivem em [`pagamentos.ts`](../src/lib/data/pagamentos.ts), puras e tes
 
 A **ficha da conta** (§7) abre pelo nome ou pela ação da linha, e traz os dois modais que operam sobre ela: **registrar pagamento** (§8) e **informar valor real** (§9). A escrita atravessa o núcleo inteiro — a baixa entra em `settlements`, o dinheiro que saiu vira `transactions` (`pending_confirmation` em conta com extrato, §13.3) e os dois são ligados por `reconciliation_links`. **O saldo e o status da parcela não são escritos pela rota**: o gatilho do banco recalcula.
 
+**O campo de valor aceita as duas escritas** — "1.234,56" e "1234.56" — desde que `centavosDoTexto` passou a interpretá-lo. Antes, todo ponto era separador de milhar: o valor que o próprio código preenchia com `toFixed` virava cem vezes maior. O erro não aparecia porque a baixa limita o principal ao saldo, e a parcela fechava certo; só um pagamento PARCIAL revelaria que o número digitado não foi o usado.
+
 **A regra do desconto merece destaque**, porque é contraintuitiva e foi onde apareceu um bug real: ao quitar pagando menos, o **principal é o saldo cheio** e o desconto vem ao lado como receita financeira. Se o principal fosse o dinheiro que saiu, o orçamento da categoria encolheria por causa de uma negociação — e, pior, a parcela não fecharia, já que só o principal abate o saldo. O caixa não se perde: a movimentação registra `principal − desconto + juros + multa`.
 
 **Ainda não implementado desta spec**, e a tela não finge: leitura de boleto/NF por IA (§10.1), modo fatura do cartão (§6), drawer de nova despesa com prévia viva (§10), ações em lote (§5.8), anexo de documentos pela ficha e o ciclo completo da folha (§11).
@@ -108,7 +110,11 @@ As regras vivem em [`recebimentos.ts`](../src/lib/data/recebimentos.ts), puras e
 - **MRR é o das recorrências do Financeiro.** Sem recorrência, o fee do cadastro comercial aparece como linha auxiliar — somar os dois prometeria receita que não tem parcela;
 - os parâmetros de §15 (multa 2%, juros 1% ao mês, meta de inadimplência 3%) ainda não têm coluna em `finance_settings`: ficam com o padrão da spec em um lugar só, e o cliente já sobrescreve multa e juros por `parties.custom_*`.
 
-**Ainda não implementado desta spec**: ficha da conta a receber (§5), modal de registrar recebimento (§6), drawer de nova receita (§7), importação por CSV, ações em lote (§4.7), ações da Inadimplência (§9.4: lembrete, contato, promessa, renegociação, pausa, acionar CS, perda) e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
+A **ficha da conta a receber** (§5) abre pela descrição da linha ou pela parcela na Inadimplência, e a ação "Registrar" abre a ficha já com o **modal de recebimento** (§6). O modal sugere o valor com os encargos por atraso, permite **dispensar os encargos com motivo** (`fee_waived`, `fee_waiver_reason`, `waived_amount_cents`) e, quando o valor é menor que o saldo, exige a escolha entre **parcial** e **desconto com quitação** — a mesma regra de Pagamentos, com o principal cheio e o desconto ao lado.
+
+A escrita atravessa o núcleo inteiro: a baixa entra em `settlements`, o dinheiro que entrou vira `transactions` (positivo; `pending_confirmation` em conta com extrato) e os dois são ligados por `reconciliation_links`. **O saldo e o status da parcela não são escritos pela rota**: o gatilho recalcula.
+
+**Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), as ações da Inadimplência na tela (§9.4 — a rota já aceita contato e promessa) e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
 
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.

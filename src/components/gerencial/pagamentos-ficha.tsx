@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Loader2, TriangleAlert, X } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { brlCheio, hojeSP } from "@/lib/data/dashboard-financeiro";
+import { brlCheio, centavosDoTexto, hojeSP, valorEditavel } from "@/lib/data/dashboard-financeiro";
 import { diferencaDoEstimado, repartirPagamento } from "@/lib/data/pagamentos";
 import type { FichaPagamento } from "@/app/api/gerencial/pagamentos/ficha/route";
 
@@ -341,7 +341,7 @@ function ModalPagar({
 }: { f: FichaPagamento; onFechar: () => void; onPronto: () => void }) {
   const hoje = hojeSP();
   const [data, setData] = useState(hoje);
-  const [valor, setValor] = useState(String((f.saldoCent / 100).toFixed(2)));
+  const [valor, setValor] = useState(valorEditavel(f.saldoCent));
   const [conta, setConta] = useState(f.contas[0]?.id ?? "");
   const [juros, setJuros] = useState("");
   const [multa, setMulta] = useState("");
@@ -349,7 +349,7 @@ function ModalPagar({
   const [justificativa, setJustificativa] = useState("");
   const [ocupado, setOcupado] = useState(false);
 
-  const emCent = (v: string) => Math.round((Number(v.replace(/\./g, "").replace(",", ".")) || 0) * 100);
+  const emCent = centavosDoTexto;
   const pagoCent = emCent(valor);
   const previa = repartirPagamento({
     saldoCent: f.saldoCent, valorPagoCent: pagoCent, quitar,
@@ -457,7 +457,7 @@ function ModalValorReal({
   const [barcode, setBarcode] = useState("");
   const [ocupado, setOcupado] = useState(false);
 
-  const emCent = (v: string) => Math.round((Number(v.replace(/\./g, "").replace(",", ".")) || 0) * 100);
+  const emCent = centavosDoTexto;
   const novoCent = emCent(valor);
   const estimadoCent = f.estimadoOriginalCent ?? f.valorCent;
   const dif = novoCent > 0 ? diferencaDoEstimado(estimadoCent, novoCent) : null;

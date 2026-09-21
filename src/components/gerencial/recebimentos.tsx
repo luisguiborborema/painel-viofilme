@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Plus, Repeat, Search,
   TriangleAlert, Upload,
@@ -14,6 +14,7 @@ import type {
   ClienteFinanceiro, ClienteInadimplente, ContaAReceber, RecebimentosView as Dados,
   RecorrenciaReceita,
 } from "@/lib/data/recebimentos-server";
+import { RecebimentosFicha } from "./recebimentos-ficha";
 
 /**
  * Recebimentos (spec da página 2) — o lugar de todo dinheiro que precisa entrar.
@@ -54,6 +55,10 @@ const ABAS = [
 export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [, revalidar] = useTransition();
+  // A ficha é overlay da PÁGINA, não da tabela: qualquer aba pode abri-la.
+  const [ficha, setFicha] = useState<{ id: string; receber: boolean } | null>(null);
+  const recarregar = () => revalidar(() => router.refresh());
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
   function irPara(patch: Record<string, string | null>) {
@@ -106,10 +111,22 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
             ))}
           </div>
 
-          {aba === "contas" && <AbaContas dados={dados} irPara={irPara} />}
+          {aba === "contas" && <AbaContas dados={dados} irPara={irPara} onAbrirFicha={setFicha} />}
           {aba === "recorrencias" && <AbaRecorrencias dados={dados} />}
-          {aba === "inadimplencia" && <AbaInadimplencia dados={dados} irPara={irPara} />}
+          {aba === "inadimplencia" && (
+            <AbaInadimplencia dados={dados} irPara={irPara} onAbrirFicha={setFicha} />
+          )}
           {aba === "clientes" && <AbaClientes dados={dados} irPara={irPara} />}
+
+          {ficha && (
+            <RecebimentosFicha
+              key={ficha.id}
+              id={ficha.id}
+              autoReceber={ficha.receber}
+              onFechar={() => setFicha(null)}
+              onMudou={recarregar}
+            />
+          )}
         </>
       )}
     </div>
@@ -203,8 +220,12 @@ function Indicadores({
 /* ── Aba Contas a receber (§4) ─────────────────────────────────────────── */
 
 function AbaContas({
-  dados, irPara,
-}: { dados: Dados; irPara: (p: Record<string, string | null>) => void }) {
+  dados, irPara, onAbrirFicha,
+}: {
+  dados: Dados;
+  irPara: (p: Record<string, string | null>) => void;
+  onAbrirFicha: (f: { id: string; receber: boolean }) => void;
+}) {
   const params = useSearchParams();
   const visao = params.get("visao") ?? "aberto";
   const chip = params.get("chip");
@@ -325,7 +346,7 @@ function AbaContas({
         </div>
 
         <ul className="m-0 list-none p-0">
-          {dados.contas.map((c) => <LinhaConta key={c.id} c={c} />)}
+          {dados.contas.map((c) => <LinhaConta key={c.id} c={c} onAbrir={onAbrirFicha} />)}
         </ul>
 
         {!dados.totalNoFiltro && (
@@ -356,16 +377,20 @@ function AbaContas({
   );
 }
 
-function LinhaConta({ c }: { c: ContaAReceber }) {
-  const aindaNao = () =>
+function LinhaConta({
+  c, onAbrir,
+}: { c: ContaAReceber; onAbrir: (f: { id: string; receber: boolean }) => void }) {
+  // "Registrar" abre a ficha já com o modal (§4.6); as outras ações ainda não
+  // existem, e a linha diz isso em vez de fingir efeito.
+  const agir = () => {
+    if (c.acao === "registrar") return onAbrir({ id: c.id, receber: true });
     toast(
       c.acao === "enviar_cobranca"
         ? "A emissão de cobrança no Asaas sai desta página em breve: por enquanto, emita no Financeiro antigo."
-        : c.acao === "registrar"
-          ? "O registro de recebimento sai desta página em breve."
-          : "O comprovante ainda não está anexado a esta baixa.",
+        : "O comprovante ainda não está anexado a esta baixa.",
       "error",
     );
+  };
 
   return (
     <li
@@ -384,7 +409,11 @@ function LinhaConta({ c }: { c: ContaAReceber }) {
         <span className="truncate text-[11px] text-muted">{c.origem}</span>
       </span>
 
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => onAbrir({ id: c.id, receber: false })}
+        className="flex min-w-0 flex-col items-start gap-0.5 text-left"
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm text-ink">{c.descricao}</span>
           {c.recorrente && <Repeat className="h-3 w-3 shrink-0 text-muted" aria-label="Recorrência" />}
@@ -397,7 +426,7 @@ function LinhaConta({ c }: { c: ContaAReceber }) {
         <span className="truncate text-[11px] text-muted">
           {[c.competenciaLabel, ...c.servicos].join(" · ")}
         </span>
-      </span>
+      </button>
 
       <span className="flex flex-col items-start gap-1">
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", TOM_CHIP[c.situacaoTom])}>
@@ -423,7 +452,7 @@ function LinhaConta({ c }: { c: ContaAReceber }) {
       <span className="flex justify-end">
         <button
           type="button"
-          onClick={aindaNao}
+          onClick={agir}
           className="h-8 rounded-lg border border-line bg-surface px-3 text-xs font-medium text-ink transition-colors hover:border-brand-300"
         >
           {c.acaoLabel}
@@ -504,8 +533,12 @@ function LinhaRecorrencia({ r }: { r: RecorrenciaReceita }) {
 /* ── Aba Inadimplência (§9) ────────────────────────────────────────────── */
 
 function AbaInadimplencia({
-  dados, irPara,
-}: { dados: Dados; irPara: (p: Record<string, string | null>) => void }) {
+  dados, irPara, onAbrirFicha,
+}: {
+  dados: Dados;
+  irPara: (p: Record<string, string | null>) => void;
+  onAbrirFicha: (f: { id: string; receber: boolean }) => void;
+}) {
   const params = useSearchParams();
   const faixa = params.get("faixa");
   const [aberta, setAberta] = useState<string | null>(null);
@@ -608,6 +641,7 @@ function AbaInadimplencia({
               c={c}
               aberta={aberta === c.key}
               onToggle={() => setAberta(aberta === c.key ? null : c.key)}
+              onAbrirFicha={onAbrirFicha}
             />
           ))}
         </ul>
@@ -627,8 +661,13 @@ function AbaInadimplencia({
 }
 
 function LinhaInadimplente({
-  c, aberta, onToggle,
-}: { c: ClienteInadimplente; aberta: boolean; onToggle: () => void }) {
+  c, aberta, onToggle, onAbrirFicha,
+}: {
+  c: ClienteInadimplente;
+  aberta: boolean;
+  onToggle: () => void;
+  onAbrirFicha: (f: { id: string; receber: boolean }) => void;
+}) {
   const aindaNao = (o: string) => toast(`${o} sai desta página em breve.`, "error");
 
   return (
@@ -672,7 +711,13 @@ function LinhaInadimplente({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Parcelas vencidas</p>
               {c.parcelas.map((p) => (
                 <div key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2">
-                  <span className="text-sm text-ink">{p.descricao}</span>
+                  <button
+                    type="button"
+                    onClick={() => onAbrirFicha({ id: p.id, receber: false })}
+                    className="text-sm text-ink hover:text-brand-600"
+                  >
+                    {p.descricao}
+                  </button>
                   <span className="text-[11px] text-muted">Venceu {p.vencimentoLabel}</span>
                   <span className="text-sm font-semibold text-ink">{brlCheio(p.saldoCent)}</span>
                   {p.atualizadoLabel && (

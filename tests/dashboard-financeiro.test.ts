@@ -8,12 +8,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  aging, atrasoMedio, barraDiaADia, brlCheio, chaveDeExcecao, DIAS_DE_SILENCIO,
+  aging, atrasoMedio, barraDiaADia, brlCheio, centavosDoTexto, chaveDeExcecao, DIAS_DE_SILENCIO,
   diasEntre, emQuantoTempo, estaSilenciada, FAIXAS_ATRASO, folegoEmMeses, gravidadeCaixaMinimo,
   gravidadeConciliacao, gravidadeRecebimentosVencidos, janelaDesdeOntem, limitesDoMes,
   menorSaldo, ordenarExcecoes, pagosEmDia, PARAMETROS_PADRAO, podeSilenciar, progressoDoMes,
   rotuloDeDia, rotuloDePessoas, saldoProjetadoEm, separarExcecoes, serieProjecao,
-  silencioAte, situacaoDoQueFaltaPagar, somarDias,
+  silencioAte, situacaoDoQueFaltaPagar, somarDias, valorEditavel,
   type Excecao, type Gravidade,
 } from "../src/lib/data/dashboard-financeiro.ts";
 
@@ -344,4 +344,30 @@ test("a janela é ontem, e vira a última visita para quem ficou dias fora", () 
   assert.deepEqual(janelaDesdeOntem(HOJE, "2026-09-11"), {
     desdeIso: "2026-09-11", label: "Desde a sua última visita",
   }, "quem sumiu por cinco dias não pode perder o que aconteceu neles");
+});
+
+/* ── Campo de valor (centavos a partir do texto) ───────────────────────── */
+
+test("o campo de valor entende tanto '10,47' quanto '10.47'", () => {
+  // O bug real: todo ponto era separador de milhar, e o valor que o próprio
+  // código preenchia com toFixed virava cem vezes maior. Passava despercebido
+  // porque a baixa limita o principal ao saldo — só um recebimento parcial
+  // mostraria que o número digitado não foi o usado.
+  assert.equal(centavosDoTexto("10,47"), 1047);
+  assert.equal(centavosDoTexto("10.47"), 1047);
+  assert.equal(centavosDoTexto("2000.00"), 200000);
+  assert.equal(centavosDoTexto("1.234,56"), 123456);
+  // Ponto com três dígitos depois é milhar, como se escreve em português.
+  assert.equal(centavosDoTexto("2.000"), 200000);
+  assert.equal(centavosDoTexto("1.234.567"), 123456700);
+  assert.equal(centavosDoTexto("R$ 1.500,00"), 150000);
+  assert.equal(centavosDoTexto(""), 0);
+  assert.equal(centavosDoTexto("abc"), 0);
+});
+
+test("o valor volta para o campo na escrita brasileira", () => {
+  assert.equal(valorEditavel(1047), "10,47");
+  assert.equal(valorEditavel(150000), "1.500,00");
+  // O que sai do campo tem de voltar igual ao que entrou.
+  assert.equal(centavosDoTexto(valorEditavel(123456)), 123456);
 });
