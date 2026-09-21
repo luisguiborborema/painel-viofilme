@@ -10,7 +10,7 @@ import { brlCheio } from "@/lib/data/dashboard-financeiro";
 import type {
   CaixaView as Dados, CartaoConta, ItemDaFila, LinhaDaTabela,
 } from "@/lib/data/caixa-server";
-import { AcoesDaFila, ModalMovimentacao, ModalTransferencia } from "./caixa-acoes";
+import { AcoesDaFila, ModalImportar, ModalMovimentacao, ModalTransferencia } from "./caixa-acoes";
 
 /**
  * Caixa (spec da página 4) — o dinheiro que se moveu e o que vai se mover.
@@ -51,7 +51,7 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [, revalidar] = useTransition();
-  const [modal, setModal] = useState<"movimentacao" | "transferencia" | null>(null);
+  const [modal, setModal] = useState<"movimentacao" | "transferencia" | "importar" | null>(null);
   const recarregar = () => revalidar(() => router.refresh());
 
   function irPara(patch: Record<string, string | null>) {
@@ -76,6 +76,13 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
       )}
       {modal === "transferencia" && (
         <ModalTransferencia
+          contas={dados.contas}
+          onFechar={() => setModal(null)}
+          onPronto={() => { setModal(null); recarregar(); }}
+        />
+      )}
+      {modal === "importar" && (
+        <ModalImportar
           contas={dados.contas}
           onFechar={() => setModal(null)}
           onPronto={() => { setModal(null); recarregar(); }}
@@ -139,7 +146,7 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
 
 function Cabecalho({
   onAbrir,
-}: { onAbrir: (m: "movimentacao" | "transferencia") => void }) {
+}: { onAbrir: (m: "movimentacao" | "transferencia" | "importar") => void }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -155,8 +162,7 @@ function Cabecalho({
           <ArrowLeftRight className="h-4 w-4" />
           Nova transferência
         </button>
-        <button type="button"
-          onClick={() => toast("A importação de OFX e CSV ainda não existe: ela vem com a spec §7.", "error")}
+        <button type="button" onClick={() => onAbrir("importar")}
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-brand-300">
           <Upload className="h-4 w-4" />
           Importar extrato

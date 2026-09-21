@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { centavosDoTexto, hojeSP, valorEditavel } from "@/lib/data/dashboard-financeiro";
+import { brlCheio, centavosDoTexto, hojeSP, valorEditavel } from "@/lib/data/dashboard-financeiro";
 import type { CartaoConta, ItemDaFila } from "@/lib/data/caixa-server";
 
 /**
@@ -286,7 +286,10 @@ export function AcoesDaFila({
             <button type="button" disabled={ocupado || !categoria}
               onClick={() => executar({ action: "classificar", categoriaKey: categoria, contraparte, lembrar })}
               className="h-9 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50">
-              Classificar e conciliar
+              {/* O botão de cima já diz "Classificar e conciliar" e só abre este
+                  formulário. Repetir o rótulo aqui deixa dois botões iguais na
+                  mesma linha, e o que age não é o que parece. */}
+              Confirmar classificação
             </button>
           </span>
         </div>
@@ -375,3 +378,174 @@ function Botoes({
 
 export const CLASSE_INPUT = input;
 export const formatarValor = valorEditavel;
+
+/* ── Importar extrato (§7) ─────────────────────────────────────────────── */
+
+type Previa = {
+  arquivo: string;
+  periodoInicio: string | null;
+  periodoFim: string | null;
+  total: number;
+  novas: number;
+  existentes: number;
+  confirmam: number;
+  conta: string;
+  conferencia: { confere: boolean; texto: string } | null;
+  linhas: { dataIso: string; valorCent: number; descricaoRaw: string; situacao: string }[];
+};
+
+/**
+ * Três passos, e a regra que os justifica: **nada é gravado sem a pessoa ver
+ * antes o que vai acontecer**. A prévia diz quantas linhas são novas, quantas
+ * já existem e quantas apenas confirmam uma baixa — importar às cegas é como
+ * a mesma semana entra duas vezes e o saldo dobra sem erro nenhum na tela.
+ */
+export function ModalImportar({
+  contas, onFechar, onPronto,
+}: { contas: CartaoConta[]; onFechar: () => void; onPronto: () => void }) {
+  const comExtrato = contas.filter((c) => c.usaExtrato);
+  const [conta, setConta] = useState(comExtrato[0]?.id ?? contas[0]?.id ?? "");
+  const [arquivo, setArquivo] = useState<{ nome: string; conteudo: string; formato: "ofx" | "csv" } | null>(null);
+  const [previa, setPrevia] = useState<Previa | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const passo = previa ? 2 : 1;
+
+  async function escolher(f: File) {
+    const conteudo = await f.text();
+    setArquivo({
+      nome: f.name,
+      conteudo,
+      formato: /\.ofx$/i.test(f.name) || /<STMTTRN>/i.test(conteudo) ? "ofx" : "csv",
+    });
+    setPrevia(null);
+  }
+
+  async function analisar() {
+    if (!arquivo) return;
+    setOcupado(true);
+    const res = await fetch("/api/gerencial/caixa/importar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        etapa: "previa", contaId: conta, nomeArquivo: arquivo.nome,
+        conteudo: arquivo.conteudo, formato: arquivo.formato,
+      }),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setOcupado(false);
+    if (!res?.ok) { toast(j?.error ?? "Não foi possível ler o arquivo."); return; }
+    setPrevia(j.previa as Previa);
+  }
+
+  async function importar() {
+    if (!arquivo) return;
+    setOcupado(true);
+    const res = await fetch("/api/gerencial/caixa/importar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        etapa: "confirmar", contaId: conta, nomeArquivo: arquivo.nome,
+        conteudo: arquivo.conteudo, formato: arquivo.formato,
+      }),
+    }).catch(() => null);
+    const j = await res?.json().catch(() => null);
+    setOcupado(false);
+    if (!res?.ok) { toast(j?.error ?? "Não foi possível importar."); return; }
+    toast(String(j?.mensagem ?? "Extrato importado."), "success");
+    onPronto();
+  }
+
+  return (
+    <Modal titulo="Importar extrato" subtitulo={`Passo ${passo} de 2`} onFechar={onFechar}>
+      {passo === 1 ? (
+        <>
+          <Campo rotulo="Conta">
+            <select value={conta} onChange={(e) => setConta(e.target.value)} className={input}>
+              {contas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}{c.usaExtrato ? "" : " (não usa extrato)"}
+                </option>
+              ))}
+            </select>
+          </Campo>
+
+          <label className={cn(
+            "flex h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center",
+            arquivo ? "border-brand-500 bg-brand-500/5" : "border-line hover:border-brand-300",
+          )}>
+            <input type="file" accept=".ofx,.csv,.txt" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) escolher(f); }} />
+            <span className="text-sm font-semibold text-ink">
+              {arquivo ? `Arquivo: ${arquivo.nome}` : "Escolher o arquivo do banco"}
+            </span>
+            <span className="text-[11px] text-muted">
+              OFX ou CSV. Nada é gravado antes de você ver a prévia.
+            </span>
+          </label>
+
+          <Botoes onFechar={onFechar} onConfirmar={analisar} ocupado={ocupado}
+            desabilitado={!arquivo || !conta} label="Ler arquivo" />
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-muted">
+            {previa!.arquivo}
+            {previa!.periodoInicio && `, de ${br(previa!.periodoInicio)} a ${br(previa!.periodoFim!)}`}
+          </p>
+
+          <div className="grid grid-cols-4 gap-2">
+            <Numero label="No arquivo" valor={previa!.total} />
+            <Numero label="Novas" valor={previa!.novas} tom="ok" />
+            <Numero label="Já existentes" valor={previa!.existentes} />
+            <Numero label="Confirmam baixas" valor={previa!.confirmam} />
+          </div>
+
+          {previa!.conferencia && (
+            <p className={cn("rounded-xl border p-3 text-xs leading-relaxed",
+              previa!.conferencia.confere
+                ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-600"
+                : "border-rose-500/40 bg-rose-500/5 text-rose-600")}>
+              {previa!.conferencia.texto}
+            </p>
+          )}
+
+          <div className="max-h-48 space-y-1 overflow-y-auto">
+            {previa!.linhas.map((l, n) => (
+              <div key={n} className={cn(
+                "grid grid-cols-[52px_minmax(0,1fr)_90px_90px] gap-2 rounded-lg bg-subtle px-2.5 py-1.5 text-[11px]",
+                l.situacao === "existente" && "opacity-50",
+              )}>
+                <span className="text-muted">{l.dataIso.slice(8, 10)}/{l.dataIso.slice(5, 7)}</span>
+                <span className="truncate font-mono text-[10px]">{l.descricaoRaw}</span>
+                <span className="text-right font-semibold">{brlCheio(l.valorCent)}</span>
+                <span className={cn(
+                  l.situacao === "nova" ? "text-emerald-600"
+                    : l.situacao === "confirma" ? "text-sky-600" : "text-muted",
+                )}>
+                  {l.situacao === "nova" ? "nova" : l.situacao === "confirma" ? "confirma baixa" : "já existe"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Botoes onFechar={() => setPrevia(null)} onConfirmar={importar} ocupado={ocupado}
+            desabilitado={previa!.novas === 0 && previa!.confirmam === 0}
+            label={`Importar ${previa!.novas} ${previa!.novas === 1 ? "movimentação" : "movimentações"}`} />
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function Numero({ label, valor, tom }: { label: string; valor: number; tom?: "ok" }) {
+  return (
+    <span className="flex flex-col gap-0.5 rounded-xl bg-subtle p-3">
+      <span className="text-[11px] text-muted">{label}</span>
+      <span className={cn("text-lg font-semibold", tom === "ok" ? "text-emerald-600" : "text-ink")}>
+        {valor}
+      </span>
+    </span>
+  );
+}
+
+const br = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
