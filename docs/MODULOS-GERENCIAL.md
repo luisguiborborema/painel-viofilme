@@ -144,7 +144,9 @@ As regras vivem em [`caixa.ts`](../src/lib/data/caixa.ts), puras e testadas em [
 
 A linha de estado de cada conta é a de **maior prioridade** entre as que se aplicam: saldo divergente ganha de tudo. Conta nunca conferida diz isso, em vez de dizer "confere".
 
-Precisa da migração `0151_caixa.sql`; sem ela a página explica o que falta.
+**O "Menor saldo" é o menor saldo DIÁRIO do horizonte, e a varredura começa em hoje** — pagamento vencido entra como saída de hoje, e começar amanhã pulava justamente o maior aperto, que é a pergunta que o cartão existe para responder. Ele fica vermelho abaixo da reserva mínima **ou** abaixo de zero: ficar no vermelho não deixa de ser problema porque ninguém configurou o piso.
+
+Precisa das migrações `0151_caixa.sql` e `0152_caixa_linhas_do_fluxo.sql` (a segunda tira a folha de dentro de "Estrutura e softwares" no fluxo); sem elas a página explica o que falta.
 
 **Ainda não implementado desta spec**: importação de OFX/CSV (§7), as ações da fila (§8.5 e §8.6), nova movimentação e nova transferência (§11), ficha da movimentação (§9) e ficha da conta (§10), e o snapshot mensal da projeção que alimenta "comparar com o previsto" (§5.4).
 
