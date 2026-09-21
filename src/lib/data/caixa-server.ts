@@ -185,6 +185,8 @@ export type ConciliacaoView = {
 
 export type CaixaView = {
   semDados: boolean;
+  /** Para os modais de lançamento e para a classificação na conciliação. */
+  categorias: { key: string; label: string }[];
   pendente: boolean;
   pendenteMotivo: string | null;
   hojeIso: string;
@@ -216,7 +218,7 @@ const TIPO_LABEL: Record<string, string> = {
 
 function vazio(hoje: string, semDados: boolean, pendente = false, motivo: string | null = null): CaixaView {
   return {
-    semDados, pendente, pendenteMotivo: motivo, hojeIso: hoje,
+    semDados, pendente, pendenteMotivo: motivo, hojeIso: hoje, categorias: [],
     disponivelCent: 0, folegoTexto: "sem saídas para medir o fôlego",
     contas: [], contaFiltrada: null, badgeConciliacao: 0,
     fluxo: {
@@ -283,7 +285,8 @@ async function montar(
     db.from("finance_settings")
       .select("min_cash_reserve, stale_statement_days, unconfirmed_days, closed_until")
       .eq("id", 1).maybeSingle(),
-    db.from("expense_categories").select("key, label, impact_type, cash_flow_group, cash_flow_line"),
+    db.from("expense_categories")
+      .select("key, label, impact_type, cash_flow_group, cash_flow_line, active").order("position"),
     buscarTudo<Linha>((a, b) => db.from("transactions")
       .select("id, financial_account_id, date, amount_cents, description_raw, description_clean, " +
         "counterparty_name, counterparty_document, origin, confirmation_status, " +
@@ -575,6 +578,9 @@ async function montar(
 
   return {
     semDados: false, pendente: false, pendenteMotivo: null, hojeIso: hoje,
+    categorias: cats
+      .filter((c) => c.active !== false)
+      .map((c) => ({ key: String(c.key), label: String(c.label ?? c.key) })),
     disponivelCent,
     folegoTexto: folego === null
       ? "sem saídas para medir o fôlego"

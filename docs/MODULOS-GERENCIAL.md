@@ -148,7 +148,13 @@ A linha de estado de cada conta é a de **maior prioridade** entre as que se apl
 
 Precisa das migrações `0151_caixa.sql` e `0152_caixa_linhas_do_fluxo.sql` (a segunda tira a folha de dentro de "Estrutura e softwares" no fluxo); sem elas a página explica o que falta.
 
-**Ainda não implementado desta spec**: importação de OFX/CSV (§7), as ações da fila (§8.5 e §8.6), nova movimentação e nova transferência (§11), ficha da movimentação (§9) e ficha da conta (§10), e o snapshot mensal da projeção que alimenta "comparar com o previsto" (§5.4).
+**Nova movimentação, transferência e as ações da fila escrevem de verdade.** A regra que organiza todas elas é do documento-mãe (§13.4): **a DRE lê de itens de título, nunca de movimentação solta**. Por isso uma tarifa lançada no Caixa cria nos bastidores título + item + parcela + baixa já liquidados — sem isso o dinheiro apareceria no caixa e sumiria do resultado. A outra regra é a anti-duplicidade (§13.3): em conta que confirma por extrato a movimentação nasce `pending_confirmation`, e é a linha do banco que a confirma depois.
+
+A transferência cria o par: uma saída numa conta e uma entrada na outra, ligadas por `transfers`. Sem o par, ela viraria despesa numa conta e receita na outra para quem olhasse só um lado. A tarifa do banco, quando há, é movimentação própria na origem — embutida na transferência, sumiria da DRE.
+
+Na fila, **conciliar** reparte o valor entre as parcelas escolhidas na ordem do vencimento (como qualquer credor imputa um pagamento), **classificar** cria o título liquidado e, com "lembrar", uma regra de categorização, e **ignorar** exige motivo: movimentação ignorada sai do saldo, e sem o porquê ninguém audita depois um saldo que não bate.
+
+**Ainda não implementado desta spec**: importação de OFX/CSV (§7), ficha da movimentação (§9) e ficha da conta (§10), as ações das baixas sem confirmação (§8.7) e o snapshot mensal da projeção que alimenta "comparar com o previsto" (§5.4).
 
 ### Resultados — [/gerencial/financeiro/resultados](../src/app/gerencial/financeiro/resultados/)
 

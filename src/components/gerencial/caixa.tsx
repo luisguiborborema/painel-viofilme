@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ArrowLeftRight, Check, Plus, Search, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
@@ -10,6 +10,7 @@ import { brlCheio } from "@/lib/data/dashboard-financeiro";
 import type {
   CaixaView as Dados, CartaoConta, ItemDaFila, LinhaDaTabela,
 } from "@/lib/data/caixa-server";
+import { AcoesDaFila, ModalMovimentacao, ModalTransferencia } from "./caixa-acoes";
 
 /**
  * Caixa (spec da página 4) — o dinheiro que se moveu e o que vai se mover.
@@ -49,6 +50,9 @@ const ABAS = [
 export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [, revalidar] = useTransition();
+  const [modal, setModal] = useState<"movimentacao" | "transferencia" | null>(null);
+  const recarregar = () => revalidar(() => router.refresh());
 
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());
@@ -61,7 +65,22 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
 
   return (
     <div className="space-y-6">
-      <Cabecalho />
+      <Cabecalho onAbrir={setModal} />
+
+      {modal === "movimentacao" && (
+        <ModalMovimentacao
+          contas={dados.contas} categorias={dados.categorias}
+          onFechar={() => setModal(null)}
+          onPronto={() => { setModal(null); recarregar(); }}
+        />
+      )}
+      {modal === "transferencia" && (
+        <ModalTransferencia
+          contas={dados.contas}
+          onFechar={() => setModal(null)}
+          onPronto={() => { setModal(null); recarregar(); }}
+        />
+      )}
 
       {dados.pendente ? (
         <Aviso titulo="Falta rodar a migração." texto={dados.pendenteMotivo ?? ""} />
@@ -109,7 +128,7 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
 
           {aba === "fluxo" && <AbaFluxo dados={dados} irPara={irPara} />}
           {aba === "extrato" && <AbaExtrato dados={dados} irPara={irPara} />}
-          {aba === "conciliacao" && <AbaConciliacao dados={dados} />}
+          {aba === "conciliacao" && <AbaConciliacao dados={dados} onMudou={recarregar} />}
         </>
       )}
     </div>
@@ -118,8 +137,9 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
 
 /* ── Cabeçalho (§3) ────────────────────────────────────────────────────── */
 
-function Cabecalho() {
-  const aindaNao = (o: string) => toast(`${o} ainda não existe nesta página.`, "error");
+function Cabecalho({
+  onAbrir,
+}: { onAbrir: (m: "movimentacao" | "transferencia") => void }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -130,17 +150,18 @@ function Cabecalho() {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => aindaNao("A nova transferência")}
+        <button type="button" onClick={() => onAbrir("transferencia")}
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-brand-300">
           <ArrowLeftRight className="h-4 w-4" />
           Nova transferência
         </button>
-        <button type="button" onClick={() => aindaNao("A importação de extrato")}
+        <button type="button"
+          onClick={() => toast("A importação de OFX e CSV ainda não existe: ela vem com a spec §7.", "error")}
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-brand-300">
           <Upload className="h-4 w-4" />
           Importar extrato
         </button>
-        <button type="button" onClick={() => aindaNao("A nova movimentação")}
+        <button type="button" onClick={() => onAbrir("movimentacao")}
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
           <Plus className="h-4 w-4" />
           Movimentação
@@ -597,7 +618,7 @@ function AbaExtrato({
 
 /* ── Aba Conciliação (§8) ──────────────────────────────────────────────── */
 
-function AbaConciliacao({ dados }: { dados: Dados }) {
+function AbaConciliacao({ dados, onMudou }: { dados: Dados; onMudou: () => void }) {
   const c = dados.conciliacao;
   const aindaNao = (o: string) => toast(`${o} sai desta página em breve.`, "error");
 
@@ -647,7 +668,9 @@ function AbaConciliacao({ dados }: { dados: Dados }) {
 
       {c.fila.length ? (
         <div className="space-y-2.5">
-          {c.fila.map((it) => <CartaoDaFila key={it.id} it={it} onAcao={aindaNao} />)}
+          {c.fila.map((it) => (
+            <CartaoDaFila key={it.id} it={it} dados={dados} onMudou={onMudou} />
+          ))}
         </div>
       ) : (
         <Card className="flex items-center gap-4 p-8">
@@ -701,7 +724,9 @@ function AbaConciliacao({ dados }: { dados: Dados }) {
   );
 }
 
-function CartaoDaFila({ it, onAcao }: { it: ItemDaFila; onAcao: (o: string) => void }) {
+function CartaoDaFila({
+  it, dados, onMudou,
+}: { it: ItemDaFila; dados: Dados; onMudou: () => void }) {
   return (
     <Card className={cn("overflow-hidden", it.exata && "border-emerald-500/40")}>
       <div className="grid lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -724,16 +749,7 @@ function CartaoDaFila({ it, onAcao }: { it: ItemDaFila; onAcao: (o: string) => v
           </span>
           <p className="text-sm font-semibold text-ink">{it.titulo}</p>
           <p className="text-xs text-muted">{it.detalhe}</p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" onClick={() => onAcao(it.acao)}
-              className="h-9 rounded-lg bg-brand-500 px-3.5 text-xs font-semibold text-white hover:bg-brand-600">
-              {it.acao}
-            </button>
-            <button type="button" onClick={() => onAcao("Outras opções")}
-              className="h-9 rounded-lg border border-line bg-surface px-3 text-xs text-ink hover:border-brand-300">
-              Outras opções
-            </button>
-          </div>
+          <AcoesDaFila item={it} categorias={dados.categorias} onPronto={onMudou} />
         </div>
       </div>
     </Card>
