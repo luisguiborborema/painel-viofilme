@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { buscarTudo } from "@/lib/data/paginate-server";
+import { lerNucleoComoLegado } from "@/lib/data/nucleo-adaptador";
 import { STATUS_IGNORAR } from "@/lib/data/dre";
 import { montarDre, type ImpactType, type TotaisPorImpacto } from "@/lib/data/resultados";
 import {
@@ -290,12 +291,6 @@ const DESTINO = {
 /* ── Leitura ───────────────────────────────────────────────────────────── */
 
 type Linha = Record<string, unknown>;
-
-/** Sem contas cadastradas não há o que consultar — e `.in()` com lista vazia
- *  em PostgREST devolve erro, não zero linhas. */
-const vaziaPaginada = () =>
-  Promise.resolve({ linhas: [] as Linha[], truncado: false, erro: null });
-
 /** Os parâmetros de §13, tolerantes à ausência da 0148. */
 async function lerParametros(db: SupabaseClient): Promise<{
   parametros: ParametrosDashboard;
@@ -411,51 +406,24 @@ async function montar(
   const contas = await lerContas(db);
   const idsContas = contas.map((c) => c.id);
 
-  const [
-    saldoEntradas, saldoSaidas,
-    recLiquidados, recAbertos, recMes, recVencidos90,
-    despLiquidadas, despAbertas, despMes,
-    transferencias, categorias, orcamentos, clientes, movimentosMrr,
-  ] = await Promise.all([
-    // Saldo da conta é acumulado desde o saldo inicial: precisa de TODO o
-    // histórico liquidado, não da janela de 90 dias. Recortar aqui daria um
-    // saldo menor a cada mês que passa, sem nada indicando o erro.
-    idsContas.length
-      ? buscarTudo<Linha>((a, b) => db.from("payments")
-          .select("value, status, account_id").in("account_id", idsContas).range(a, b))
-      : vaziaPaginada(),
-    idsContas.length
-      ? buscarTudo<Linha>((a, b) => db.from("expenses")
-          .select("amount, status, account_id").in("account_id", idsContas).range(a, b))
-      : vaziaPaginada(),
+  // A fonte é o NÚCLEO (§23.1 do documento-mãe), não mais `payments` e
+  // `expenses`. O adaptador devolve as linhas no formato antigo para a lógica
+  // já verificada abaixo continuar valendo — ver nucleo-adaptador.ts.
+  const nucleo = await lerNucleoComoLegado(db, {
+    hoje, mesIni, mesFim, menos90, mais30, idsContas,
+  });
+  const comoPaginado = (linhas: Linha[]) => ({ linhas, truncado: false, erro: null });
+  const saldoEntradas = comoPaginado(nucleo.saldoEntradas);
+  const saldoSaidas = comoPaginado(nucleo.saldoSaidas);
+  const recLiquidados = comoPaginado(nucleo.recLiquidados);
+  const recAbertos = comoPaginado(nucleo.recAbertos);
+  const recMes = comoPaginado(nucleo.recMes);
+  const recVencidos90 = comoPaginado(nucleo.recVencidos90);
+  const despLiquidadas = comoPaginado(nucleo.despLiquidadas);
+  const despAbertas = comoPaginado(nucleo.despAbertas);
+  const despMes = comoPaginado(nucleo.despMes);
 
-    // Baixas de entrada dos últimos 90 dias — base "Caixa" de §12.
-    buscarTudo<Linha>((a, b) => db.from("payments")
-      .select("id, value, due_date, payment_date, status, client_id, description, reconciled_at")
-      .gte("payment_date", menos90).range(a, b)),
-    // Tudo que ainda não entrou, inclusive o atrasado: é o backlog real.
-    buscarTudo<Linha>((a, b) => db.from("payments")
-      .select("id, value, due_date, status, client_id, description, invoice_url, source, account_id")
-      .lte("due_date", mais30).range(a, b)),
-    // Competência do mês, para "% do mês" e para a DRE do Pulso.
-    buscarTudo<Linha>((a, b) => db.from("payments")
-      .select("value, due_date, status, raw, description, client_id")
-      .gte("due_date", mesIni).lte("due_date", mesFim).range(a, b)),
-    // Inadimplência 90d é sobre o que VENCEU na janela, e não sobre o que foi
-    // pago nela: um título que venceu há 80 dias e nunca entrou tem que pesar.
-    buscarTudo<Linha>((a, b) => db.from("payments")
-      .select("value, status").gte("due_date", menos90).lt("due_date", hoje).range(a, b)),
-
-    buscarTudo<Linha>((a, b) => db.from("expenses")
-      .select("id, amount, due_date, paid_date, status, vendor, description, account_id, reconciled_at")
-      .gte("paid_date", menos90).range(a, b)),
-    buscarTudo<Linha>((a, b) => db.from("expenses")
-      .select("id, amount, due_date, status, vendor, description, account_id, approval_status")
-      .lte("due_date", mais30).range(a, b)),
-    buscarTudo<Linha>((a, b) => db.from("expenses")
-      .select("amount, due_date, status, category")
-      .gte("due_date", mesIni).lte("due_date", mesFim).range(a, b)),
-
+  const [transferencias, categorias, orcamentos, clientes, movimentosMrr] = await Promise.all([
     idsContas.length
       ? buscarTudo<Linha>((a, b) => db.from("account_transfers")
           .select("amount, from_account, to_account").range(a, b))

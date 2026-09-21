@@ -68,7 +68,9 @@ parties ──▶ documents ──▶ document_items   (categoria, cliente, cent
 
 O **saldo da parcela é recalculado por gatilho no banco** (`recalcular_parcela`), não em código: a invariante "saldo = valor − Σ principal das baixas, nunca negativo" precisa valer para qualquer porta de escrita — rota, job, importação ou SQL no editor.
 
-`expenses` e `payments` continuam existindo com os dados originais ("nada some", §23.7) e ainda alimentam o Dashboard e a página Financeiro antiga. Repontá-los para o núcleo é o próximo passo.
+`expenses` e `payments` continuam existindo com os dados originais ("nada some", §23.7) e ainda alimentam a página Financeiro antiga.
+
+**O Dashboard já lê o núcleo.** A troca foi feita por [`nucleo-adaptador.ts`](../src/lib/data/nucleo-adaptador.ts): as consultas leem `installments`, `settlements` e `charges` e devolvem linhas com as mesmas chaves de antes, para a lógica já verificada do Dashboard continuar valendo sem reescrita. É transitório — quando `expenses` e `payments` saírem, o Dashboard deve ler o núcleo direto e esse arquivo some. O sinal de que a hora chegou é o adaptador precisar de um campo novo: traduzir shape é aceitável, inventar shape não.
 
 ### Pagamentos — [/gerencial/financeiro/pagamentos](../src/app/gerencial/financeiro/pagamentos/)
 

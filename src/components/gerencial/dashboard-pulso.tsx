@@ -114,9 +114,14 @@ function CardSaldo({ dados }: { dados: DashboardFinanceiro }) {
   const folego =
     saldo.folegoMeses == null
       ? "Sem saídas suficientes para calcular o fôlego"
-      : `Cerca de ${saldo.folegoMeses.toLocaleString("pt-BR", {
-          minimumFractionDigits: 1, maximumFractionDigits: 1,
-        })} ${saldo.folegoMeses < 2 ? "mês" : "meses"} de fôlego`;
+      // Saldo negativo não tem fôlego "negativo": não tem fôlego nenhum. A
+      // conta devolve −2,2 meses, que é aritmética correta e frase sem
+      // sentido — e a leitura errada aqui é tranquilizadora.
+      : saldo.totalCent <= 0
+        ? "Sem fôlego: o disponível está zerado ou negativo"
+        : `Cerca de ${saldo.folegoMeses.toLocaleString("pt-BR", {
+            minimumFractionDigits: 1, maximumFractionDigits: 1,
+          })} ${saldo.folegoMeses < 2 ? "mês" : "meses"} de fôlego`;
 
   return (
     <div ref={caixa} className="relative">
