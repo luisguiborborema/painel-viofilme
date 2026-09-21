@@ -57,6 +57,12 @@ export const TABELAS_BACKUP = [
   "diagnostic_templates", "diagnostics", "editorial_lines", "editorial_posts", "expense_categories", "expenses",
   "forecast_events",
   "finance_settings", "financial_accounts", "google_connections",
+  // Núcleo transacional do Financeiro (migração 0149). É o dado mais caro de
+  // perder do painel inteiro: título, item, parcela, baixa e movimentação são
+  // o que reconstrói caixa, DRE e rentabilidade.
+  "parties", "cost_centers", "recurrences", "recurrence_versions",
+  "documents", "document_items", "installments", "charges", "settlements",
+  "transactions", "reconciliation_links", "attachments", "categorization_rules",
   "hour_entries", "inspiration_quotes", "knowledge_attachments", "knowledge_categories", "knowledge_pages", "mediaday_items",
   "mediaday_sessions", "meeting_requests", "meeting_survey_config", "meeting_surveys", "meetings", "meta_connections",
   "notification_preferences", "nps_config", "nps_surveys", "package_items", "packages", "payments",
