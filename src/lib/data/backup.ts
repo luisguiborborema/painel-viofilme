@@ -63,6 +63,9 @@ export const TABELAS_BACKUP = [
   "parties", "cost_centers", "recurrences", "recurrence_versions",
   "documents", "document_items", "installments", "charges", "settlements",
   "transactions", "reconciliation_links", "attachments", "categorization_rules",
+  // Cobrança (0150): a régua, a linha do tempo e as promessas. Perder isto é
+  // perder o que já foi feito sobre cada atraso.
+  "dunning_profiles", "dunning_steps", "collection_events", "payment_promises",
   "hour_entries", "inspiration_quotes", "knowledge_attachments", "knowledge_categories", "knowledge_pages", "mediaday_items",
   "mediaday_sessions", "meeting_requests", "meeting_survey_config", "meeting_surveys", "meetings", "meta_connections",
   "notification_preferences", "nps_config", "nps_surveys", "package_items", "packages", "payments",
