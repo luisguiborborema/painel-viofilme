@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Plus, Repeat, Search,
   TriangleAlert, Upload,
@@ -60,16 +60,34 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
   // A ficha é overlay da PÁGINA, não da tabela: qualquer aba pode abri-la.
   const [ficha, setFicha] = useState<{ id: string; receber: boolean } | null>(null);
   const [novo, setNovo] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState(aba);
   const recarregar = () => revalidar(() => router.refresh());
+
+  useEffect(() => { setAbaAtiva(aba); }, [aba]);
 
   /** Um só caminho para mexer na URL: filtro é estado compartilhável. */
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());
+    let needsServer = false;
     for (const [k, v] of Object.entries(patch)) {
-      if (v === null || v === "") p.delete(k);
-      else p.set(k, v);
+      const novo = v === null || v === "" ? null : v;
+      if (k !== "aba" && p.get(k) !== novo) {
+        needsServer = true;
+      }
+      if (novo === null) p.delete(k);
+      else p.set(k, novo);
     }
-    router.push(`?${p.toString()}`);
+
+    if ("aba" in patch && patch.aba !== null) {
+      setAbaAtiva(patch.aba);
+    }
+
+    const url = p.toString() ? `?${p.toString()}` : "?";
+    if (needsServer) {
+      router.push(url);
+    } else {
+      window.history.replaceState(null, "", url);
+    }
   }
 
   return (
@@ -98,7 +116,7 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
                 onClick={() => irPara({ aba: a.key, faixa: null })}
                 className={cn(
                   "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
-                  aba === a.key
+                  abaAtiva === a.key
                     ? "border-brand-500 font-semibold text-ink"
                     : "border-transparent text-muted hover:text-ink",
                 )}
@@ -113,14 +131,14 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
             ))}
           </div>
 
-          {aba === "contas" && <AbaContas dados={dados} irPara={irPara} onAbrirFicha={setFicha} />}
-          {aba === "recorrencias" && <AbaRecorrencias dados={dados} />}
-          {aba === "inadimplencia" && (
+          {abaAtiva === "contas" && <AbaContas dados={dados} irPara={irPara} onAbrirFicha={setFicha} />}
+          {abaAtiva === "recorrencias" && <AbaRecorrencias dados={dados} />}
+          {abaAtiva === "inadimplencia" && (
             <AbaInadimplencia
               dados={dados} irPara={irPara} onAbrirFicha={setFicha} onMudou={recarregar}
             />
           )}
-          {aba === "clientes" && <AbaClientes dados={dados} irPara={irPara} />}
+          {abaAtiva === "clientes" && <AbaClientes dados={dados} irPara={irPara} />}
 
           {novo && (
             <NovoLancamento

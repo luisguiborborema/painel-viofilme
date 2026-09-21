@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ArrowLeftRight, Check, Plus, Search, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
@@ -52,15 +52,33 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
   const params = useSearchParams();
   const [, revalidar] = useTransition();
   const [modal, setModal] = useState<"movimentacao" | "transferencia" | "importar" | null>(null);
+  const [abaAtiva, setAbaAtiva] = useState(aba);
   const recarregar = () => revalidar(() => router.refresh());
+
+  useEffect(() => { setAbaAtiva(aba); }, [aba]);
 
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());
+    let needsServer = false;
     for (const [k, v] of Object.entries(patch)) {
-      if (v === null || v === "") p.delete(k);
-      else p.set(k, v);
+      const novo = v === null || v === "" ? null : v;
+      if (k !== "aba" && p.get(k) !== novo) {
+        needsServer = true;
+      }
+      if (novo === null) p.delete(k);
+      else p.set(k, novo);
     }
-    router.push(`?${p.toString()}`);
+
+    if ("aba" in patch && patch.aba !== null) {
+      setAbaAtiva(patch.aba);
+    }
+
+    const url = p.toString() ? `?${p.toString()}` : "?";
+    if (needsServer) {
+      router.push(url);
+    } else {
+      window.history.replaceState(null, "", url);
+    }
   }
 
   return (
@@ -108,7 +126,7 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
                 onClick={() => irPara({ aba: a.key })}
                 className={cn(
                   "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors",
-                  aba === a.key
+                  abaAtiva === a.key
                     ? "border-brand-500 font-semibold text-ink"
                     : "border-transparent text-muted hover:text-ink",
                 )}
@@ -133,9 +151,9 @@ export function CaixaView({ dados, aba }: { dados: Dados; aba: string }) {
             )}
           </div>
 
-          {aba === "fluxo" && <AbaFluxo dados={dados} irPara={irPara} />}
-          {aba === "extrato" && <AbaExtrato dados={dados} irPara={irPara} />}
-          {aba === "conciliacao" && <AbaConciliacao dados={dados} onMudou={recarregar} />}
+          {abaAtiva === "fluxo" && <AbaFluxo dados={dados} irPara={irPara} />}
+          {abaAtiva === "extrato" && <AbaExtrato dados={dados} irPara={irPara} />}
+          {abaAtiva === "conciliacao" && <AbaConciliacao dados={dados} onMudou={recarregar} />}
         </>
       )}
     </div>

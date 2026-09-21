@@ -36,14 +36,32 @@ const ABAS = [
 export function ResultadosView({ dados, aba }: { dados: Dados; aba: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [abaAtiva, setAbaAtiva] = useState(aba);
+
+  useEffect(() => { setAbaAtiva(aba); }, [aba]);
 
   function irPara(patch: Record<string, string | null>) {
     const p = new URLSearchParams(params.toString());
+    let needsServer = false;
     for (const [k, v] of Object.entries(patch)) {
-      if (v === null || v === "") p.delete(k);
-      else p.set(k, v);
+      const novo = v === null || v === "" ? null : v;
+      if (k !== "aba" && p.get(k) !== novo) {
+        needsServer = true;
+      }
+      if (novo === null) p.delete(k);
+      else p.set(k, novo);
     }
-    router.push(`?${p.toString()}`);
+
+    if ("aba" in patch && patch.aba !== null) {
+      setAbaAtiva(patch.aba);
+    }
+
+    const url = p.toString() ? `?${p.toString()}` : "?";
+    if (needsServer) {
+      router.push(url);
+    } else {
+      window.history.replaceState(null, "", url);
+    }
   }
 
   return (
@@ -70,7 +88,7 @@ export function ResultadosView({ dados, aba }: { dados: Dados; aba: string }) {
                 onClick={() => irPara({ aba: a.key })}
                 className={cn(
                   "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
-                  aba === a.key
+                  abaAtiva === a.key
                     ? "border-brand-500 font-semibold text-ink"
                     : "border-transparent text-muted hover:text-ink",
                 )}
@@ -80,9 +98,9 @@ export function ResultadosView({ dados, aba }: { dados: Dados; aba: string }) {
             ))}
           </div>
 
-          {aba === "dre" && <AbaDre dados={dados} irPara={irPara} />}
-          {aba === "rentabilidade" && <AbaRentabilidade dados={dados} irPara={irPara} />}
-          {aba === "receita" && <AbaReceita dados={dados} />}
+          {abaAtiva === "dre" && <AbaDre dados={dados} irPara={irPara} />}
+          {abaAtiva === "rentabilidade" && <AbaRentabilidade dados={dados} irPara={irPara} />}
+          {abaAtiva === "receita" && <AbaReceita dados={dados} />}
         </>
       )}
     </div>
