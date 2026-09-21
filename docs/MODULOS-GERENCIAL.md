@@ -118,6 +118,36 @@ Na Inadimplência, **registrar contato, registrar promessa e marcar a etapa manu
 
 **Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), lembrete, renegociação, pausa manual da régua, acionar CS e registrar perda (§9.4), e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
 
+### Caixa — [/gerencial/financeiro/caixa](../src/app/gerencial/financeiro/caixa/)
+
+O dinheiro que se moveu e o que vai se mover. Recebimentos e Pagamentos trabalham com **compromissos** (parcelas); aqui a fonte é `transactions`, e o previsto vem das parcelas abertas.
+
+A página tem duas naturezas, e as duas importam: a **gerencial** ("vou ter dinheiro? quando aperta?") e a **de controle** ("o que está no sistema bate com o banco?"). A segunda sustenta a primeira — com saldo divergente, nenhum número das outras páginas é confiável.
+
+Três abas: **Fluxo de caixa** (resumo de 6 números, gráfico de saldo e de entradas/saídas, e a tabela por mês em blocos), **Extrato** (por dia, com saldo corrido e pontos de conferência quando há uma conta filtrada) e **Conciliação** (a fila, com a melhor explicação para cada movimentação pendente).
+
+**Todo movimento cai num bloco** derivado do mesmo `impact_type` que decide a DRE: operacional, investimentos, sócios e financiamento, entre contas. "O caixa caiu R$ 60 mil" tem significados opostos se foi operação, compra de câmera ou distribuição aos sócios — e as duas páginas nunca discordam sobre o que é investimento.
+
+**A conciliação e a conferência são controles diferentes.** A conciliação garante que cada movimentação foi explicada; a conferência (`balance_checkpoints`) garante que nenhuma ficou de fora e nenhuma foi contada duas vezes. Dá para ter a fila zerada e o saldo errado. A conferência guarda o **sinal** da diferença: sistema acima do banco é lançamento duplicado, abaixo é movimentação não importada, e procurar a coisa errada custa a tarde de alguém.
+
+As regras vivem em [`caixa.ts`](../src/lib/data/caixa.ts), puras e testadas em [`tests/caixa.test.ts`](../tests/caixa.test.ts). A mais importante é **a ordem das sugestões de conciliação**, que vale mais que cada regra isolada:
+
+1. **baixa manual aguardando extrato** ganha de qualquer parcela — a baixa já existe, e conciliar com outra criaria uma segunda baixa para o mesmo dinheiro;
+2. **transferência** (mesmo valor, sinal oposto, conta própria, ± 1 dia);
+3. **exata** exige valor **e** documento da contraparte;
+4. **encargos**, só quando a diferença cabe num teto de 10% — acima disso é outro pagamento, e chamar de juros esconderia isso;
+5. **multi** (soma exata de até 3 parcelas), **parcial**, **regra aprendida**;
+6. **média** quando falta o documento — e média **nunca** entra no botão de conciliar em lote;
+7. **classificar**, quando nada explica.
+
+**Nada concilia sozinho** por padrão (§13): as correspondências exatas ficam prontas para o botão em lote, e é o usuário que decide.
+
+A linha de estado de cada conta é a de **maior prioridade** entre as que se aplicam: saldo divergente ganha de tudo. Conta nunca conferida diz isso, em vez de dizer "confere".
+
+Precisa da migração `0151_caixa.sql`; sem ela a página explica o que falta.
+
+**Ainda não implementado desta spec**: importação de OFX/CSV (§7), as ações da fila (§8.5 e §8.6), nova movimentação e nova transferência (§11), ficha da movimentação (§9) e ficha da conta (§10), e o snapshot mensal da projeção que alimenta "comparar com o previsto" (§5.4).
+
 ### Resultados — [/gerencial/financeiro/resultados](../src/app/gerencial/financeiro/resultados/)
 
 Onde a agência ganha ou perde dinheiro, **sempre por competência**: receita é o que foi vendido no período, custo é o que foi consumido nele. Três abas: **DRE**, **Rentabilidade** e **Receita**.
