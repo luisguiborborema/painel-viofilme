@@ -747,7 +747,11 @@ async function montar(
 
     // Etapa manual já atingida e sem evento correspondente: é a pendência que
     // a régua não resolve sozinha e que alguém precisa executar (§9.4).
-    const manualPendente = etapasRegua
+    //
+    // Com a régua pausada não há pendência: alguém decidiu não cobrar agora, e
+    // pedir "envie o WhatsApp" ao lado de "régua pausada" seria mandar
+    // atropelar a promessa que o próprio sistema registrou.
+    const manualPendente = estado.pausada ? undefined : etapasRegua
       .filter((e) => e.modo === "manual" && diasAtraso >= e.offsetDias)
       .find((e) => !meusEventos.some((ev) => String(ev.channel ?? "") === (e.canal ?? "")));
 
@@ -1106,9 +1110,9 @@ function mensagemDeCobranca(
   quantas: number,
 ): string {
   const parcelas = quantas === 1
-    ? `a parcela de ${maisAntiga.vencimentoLabel}`
-    : `${quantas} parcelas, a mais antiga de ${maisAntiga.vencimentoLabel}`;
-  return `Olá, ${cliente}! Passando para lembrar de ${parcelas}, ` +
+    ? `da parcela de ${maisAntiga.vencimentoLabel}`
+    : `de ${quantas} parcelas, a mais antiga de ${maisAntiga.vencimentoLabel}`;
+  return `Olá, ${cliente}! Passando para lembrar ${parcelas}, ` +
     `no valor atualizado de ${brlExato(atualizadoCent)}. ` +
     (maisAntiga.linkPagamento ? `O link para pagamento é ${maisAntiga.linkPagamento}. ` : "") +
     "Se já foi pago, é só avisar que damos baixa por aqui.";

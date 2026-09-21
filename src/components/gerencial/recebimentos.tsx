@@ -9,12 +9,12 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { brlCheio } from "@/lib/data/dashboard-financeiro";
+import { brlCheio, hojeSP } from "@/lib/data/dashboard-financeiro";
 import type {
   ClienteFinanceiro, ClienteInadimplente, ContaAReceber, RecebimentosView as Dados,
   RecorrenciaReceita,
 } from "@/lib/data/recebimentos-server";
-import { RecebimentosFicha } from "./recebimentos-ficha";
+import { acaoRecebimento, RecebimentosFicha } from "./recebimentos-ficha";
 
 /**
  * Recebimentos (spec da página 2) — o lugar de todo dinheiro que precisa entrar.
@@ -114,7 +114,9 @@ export function RecebimentosView({ dados, aba }: { dados: Dados; aba: string }) 
           {aba === "contas" && <AbaContas dados={dados} irPara={irPara} onAbrirFicha={setFicha} />}
           {aba === "recorrencias" && <AbaRecorrencias dados={dados} />}
           {aba === "inadimplencia" && (
-            <AbaInadimplencia dados={dados} irPara={irPara} onAbrirFicha={setFicha} />
+            <AbaInadimplencia
+              dados={dados} irPara={irPara} onAbrirFicha={setFicha} onMudou={recarregar}
+            />
           )}
           {aba === "clientes" && <AbaClientes dados={dados} irPara={irPara} />}
 
@@ -533,11 +535,12 @@ function LinhaRecorrencia({ r }: { r: RecorrenciaReceita }) {
 /* ── Aba Inadimplência (§9) ────────────────────────────────────────────── */
 
 function AbaInadimplencia({
-  dados, irPara, onAbrirFicha,
+  dados, irPara, onAbrirFicha, onMudou,
 }: {
   dados: Dados;
   irPara: (p: Record<string, string | null>) => void;
   onAbrirFicha: (f: { id: string; receber: boolean }) => void;
+  onMudou: () => void;
 }) {
   const params = useSearchParams();
   const faixa = params.get("faixa");
@@ -642,6 +645,7 @@ function AbaInadimplencia({
               aberta={aberta === c.key}
               onToggle={() => setAberta(aberta === c.key ? null : c.key)}
               onAbrirFicha={onAbrirFicha}
+              onMudou={onMudou}
             />
           ))}
         </ul>
@@ -661,14 +665,16 @@ function AbaInadimplencia({
 }
 
 function LinhaInadimplente({
-  c, aberta, onToggle, onAbrirFicha,
+  c, aberta, onToggle, onAbrirFicha, onMudou,
 }: {
   c: ClienteInadimplente;
   aberta: boolean;
   onToggle: () => void;
   onAbrirFicha: (f: { id: string; receber: boolean }) => void;
+  onMudou: () => void;
 }) {
   const aindaNao = (o: string) => toast(`${o} sai desta página em breve.`, "error");
+  const [form, setForm] = useState<"contato" | "promessa" | null>(null);
 
   return (
     <li className="border-b border-line">
@@ -751,9 +757,21 @@ function LinhaInadimplente({
                   {c.pendenciaManual.aviso && (
                     <span className="text-[11px] text-amber-600">{c.pendenciaManual.aviso}</span>
                   )}
-                  {c.pendenciaManual.mensagem && (
-                    <button type="button" onClick={() => aindaNao("Marcar como enviado")}
-                      className="h-8 rounded-lg border border-line bg-surface px-3 text-xs font-medium text-ink hover:border-brand-300">
+                  {c.pendenciaManual.mensagem && c.partyId && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const { erro } = await acaoRecebimento({
+                          action: "marcar-etapa", partyId: c.partyId, tipo: "whatsapp",
+                          canal: "whatsapp", installmentId: c.parcelas[0]?.id,
+                          nota: `Etapa ${c.pendenciaManual?.etapa} enviada manualmente`,
+                        });
+                        if (erro) { toast(erro); return; }
+                        toast("Etapa registrada na linha do tempo.", "success");
+                        onMudou();
+                      }}
+                      className="h-8 rounded-lg border border-line bg-surface px-3 text-xs font-medium text-ink hover:border-brand-300"
+                    >
                       Marcar como enviado
                     </button>
                   )}
@@ -785,19 +803,44 @@ function LinhaInadimplente({
 
           <div className="flex flex-col gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Ações</p>
-            {[
-              "Enviar lembrete agora", "Registrar contato", "Registrar promessa de pagamento",
-              "Renegociar", "Pausar régua", "Acionar CS", "Registrar como perda",
-            ].map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => aindaNao(a)}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-left text-xs font-medium text-ink transition-colors hover:border-brand-300"
-              >
-                {a}
-              </button>
+
+            {/* Contato e promessa gravam de verdade: são o que alimenta a
+                linha do tempo e o que pausa a régua. O resto ainda não
+                existe, e cada botão diz isso em vez de fingir efeito. */}
+            <BotaoAcao
+              label="Registrar contato"
+              onClick={() => setForm(form === "contato" ? null : "contato")}
+              ativo={form === "contato"}
+              impedido={!c.partyId}
+            />
+            {form === "contato" && c.partyId && (
+              <FormContato partyId={c.partyId} parcelaId={c.parcelas[0]?.id}
+                onPronto={() => { setForm(null); onMudou(); }} />
+            )}
+
+            <BotaoAcao
+              label="Registrar promessa de pagamento"
+              onClick={() => setForm(form === "promessa" ? null : "promessa")}
+              ativo={form === "promessa"}
+              impedido={!c.partyId}
+            />
+            {form === "promessa" && c.partyId && (
+              <FormPromessa
+                partyId={c.partyId} parcelaId={c.parcelas[0]?.id} valorCent={c.atualizadoCent}
+                onPronto={() => { setForm(null); onMudou(); }}
+              />
+            )}
+
+            {["Enviar lembrete agora", "Renegociar", "Pausar régua", "Acionar CS",
+              "Registrar como perda"].map((a) => (
+              <BotaoAcao key={a} label={a} onClick={() => aindaNao(a)} />
             ))}
+
+            {!c.partyId && (
+              <p className="text-[11px] text-amber-600">
+                Contato e promessa dependem de um cliente no cadastro: estas parcelas não têm vínculo.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -914,6 +957,114 @@ function LinhaCliente({ c }: { c: ClienteFinanceiro }) {
     </li>
   );
 }
+
+/* ── Ações da Inadimplência (§9.4) ─────────────────────────────────────── */
+
+function BotaoAcao({
+  label, onClick, ativo = false, impedido = false,
+}: { label: string; onClick: () => void; ativo?: boolean; impedido?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={impedido}
+      className={cn(
+        "h-9 rounded-lg border bg-surface px-3 text-left text-xs font-medium text-ink transition-colors",
+        ativo ? "border-brand-500" : "border-line hover:border-brand-300",
+        impedido && "opacity-50",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+const RESULTADOS = [
+  { key: "nao_atendeu", label: "Não atendeu" },
+  { key: "vai_pagar", label: "Vai pagar" },
+  { key: "pediu_prazo", label: "Pediu prazo" },
+  { key: "contestou", label: "Contestou" },
+];
+
+function FormContato({
+  partyId, parcelaId, onPronto,
+}: { partyId: string; parcelaId?: string; onPronto: () => void }) {
+  const [nota, setNota] = useState("");
+  const [resultado, setResultado] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+
+  async function salvar() {
+    setOcupado(true);
+    const { erro } = await acaoRecebimento({
+      action: "registrar-contato", partyId, installmentId: parcelaId,
+      nota: nota.trim() || undefined, resultado: resultado || undefined,
+    });
+    setOcupado(false);
+    if (erro) { toast(erro); return; }
+    toast("Contato registrado.", "success");
+    onPronto();
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-line bg-surface p-3">
+      <select value={resultado} onChange={(e) => setResultado(e.target.value)} className={campo}>
+        <option value="">Resultado do contato</option>
+        {RESULTADOS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+      </select>
+      <input
+        type="text" value={nota} onChange={(e) => setNota(e.target.value)}
+        placeholder="O que foi dito" className={campo}
+      />
+      <button
+        type="button" onClick={salvar} disabled={ocupado || (!nota.trim() && !resultado)}
+        className="h-8 w-full rounded-lg bg-brand-500 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+      >
+        Salvar contato
+      </button>
+    </div>
+  );
+}
+
+function FormPromessa({
+  partyId, parcelaId, valorCent, onPronto,
+}: { partyId: string; parcelaId?: string; valorCent: number; onPronto: () => void }) {
+  const hoje = hojeSP();
+  const [data, setData] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+
+  async function salvar() {
+    setOcupado(true);
+    const { erro } = await acaoRecebimento({
+      action: "registrar-promessa", partyId, installmentId: parcelaId,
+      promessaData: data, valorCent,
+    });
+    setOcupado(false);
+    if (erro) { toast(erro); return; }
+    toast(`Promessa registrada. A régua fica pausada até ${data.split("-").reverse().join("/")}.`, "success");
+    onPronto();
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-line bg-surface p-3">
+      <input type="date" value={data} min={hoje} onChange={(e) => setData(e.target.value)} className={campo} />
+      <input type="text" value={brlCheio(valorCent)} readOnly className={cn(campo, "text-muted")} />
+      {/* A promessa é uma decisão humana de não cobrar agora: a régua
+          obedece até a data, e a quebra volta a contar como risco. */}
+      <p className="text-[11px] text-muted">
+        A régua fica pausada até a data. Sem pagamento, a promessa vira quebrada e a cobrança retoma.
+      </p>
+      <button
+        type="button" onClick={salvar} disabled={ocupado || !data}
+        className="h-8 w-full rounded-lg bg-brand-500 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+      >
+        Salvar promessa
+      </button>
+    </div>
+  );
+}
+
+const campo =
+  "h-9 w-full rounded-lg border border-line bg-canvas px-2 text-xs text-ink outline-none focus:border-brand-400";
 
 /* ── Peças pequenas ────────────────────────────────────────────────────── */
 

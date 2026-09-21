@@ -114,7 +114,9 @@ A **ficha da conta a receber** (§5) abre pela descrição da linha ou pela parc
 
 A escrita atravessa o núcleo inteiro: a baixa entra em `settlements`, o dinheiro que entrou vira `transactions` (positivo; `pending_confirmation` em conta com extrato) e os dois são ligados por `reconciliation_links`. **O saldo e o status da parcela não são escritos pela rota**: o gatilho recalcula.
 
-**Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), as ações da Inadimplência na tela (§9.4 — a rota já aceita contato e promessa) e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
+Na Inadimplência, **registrar contato, registrar promessa e marcar a etapa manual como enviada gravam de verdade** (§9.4 e §9.6). São as três ações que alimentam `collection_events` e `payment_promises` — e, como o estado da régua é derivado delas, registrar uma promessa muda o que a tela diz no mesmo instante: a etapa vira "Régua pausada", o cliente sai da contagem das etapas e a pendência manual some, porque alguém decidiu não cobrar agora.
+
+**Ainda não implementado desta spec**: drawer de nova receita (§7), importação por CSV, emissão e reemissão de cobrança no Asaas, ações em lote (§4.7), lembrete, renegociação, pausa manual da régua, acionar CS e registrar perda (§9.4), e a ficha do cliente (§10.2). Todo botão dessas ações diz que ainda não existe, em vez de fingir efeito.
 
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.
