@@ -54,6 +54,32 @@ Biblioteca de processos e padrões da agência, organizada por **setor**, com do
 ### Visão geral — [/gerencial](../src/app/gerencial/)
 Dashboard executivo (C-Level): KPIs da agência (receita, lead score, pipeline), alertas operacionais por prioridade, histórico de MRR com meta de escala, saúde de contas, carga do time, DRE e funil comercial. Dados via `getCLevel()`.
 
+### Núcleo transacional do Financeiro
+
+Desde a migração `0149_nucleo_transacional.sql`, o módulo tem o modelo do documento-mãe (§5.2):
+
+```
+parties ──▶ documents ──▶ document_items   (categoria, cliente, centro de custo)
+                 └─────▶ installments ──▶ settlements ──▶ transactions
+                               └───────▶ charges
+```
+
+**A fonte de cada página é fixa** (§4 e invariante §23.1): Pagamentos e Recebimentos leem `installments`; Resultados lê `document_items` por competência; Caixa lê `transactions`. Valores em **centavos (`bigint`)**, nunca reais em `numeric`.
+
+O **saldo da parcela é recalculado por gatilho no banco** (`recalcular_parcela`), não em código: a invariante "saldo = valor − Σ principal das baixas, nunca negativo" precisa valer para qualquer porta de escrita — rota, job, importação ou SQL no editor.
+
+`expenses` e `payments` continuam existindo com os dados originais ("nada some", §23.7) e ainda alimentam o Dashboard e a página Financeiro antiga. Repontá-los para o núcleo é o próximo passo.
+
+### Pagamentos — [/gerencial/financeiro/pagamentos](../src/app/gerencial/financeiro/pagamentos/)
+
+O lugar de todo dinheiro que sai. Quatro abas: **Contas a pagar** (visões, chips, agrupamento por categoria ou forma, busca), **Folha**, **Recorrências** e **Fornecedores**.
+
+A faixa de indicadores traz A pagar no mês, Pago, Vencido e Próximos 7 dias — este último com a **cobertura**: compara o saldo projetado dia a dia com o que há para pagar, porque o total sozinho não responde "dá para pagar?".
+
+As regras vivem em [`pagamentos.ts`](../src/lib/data/pagamentos.ts), puras e testadas em [`tests/pagamentos.test.ts`](../tests/pagamentos.test.ts): ordem de prioridade do chip de situação, linha de pagamento, ação contextual, estimativa de valor, repartição do pagamento entre principal e encargos, fatura do cartão e separação do lote.
+
+**Ainda não implementado desta spec**, e a tela não finge: leitura de boleto/NF por IA (§10.1), modo fatura do cartão (§6), drawer de nova despesa com prévia viva (§10), ficha da conta (§7), modais de pagamento e de informar valor real (§8, §9), ações em lote (§5.8) e o ciclo completo da folha (§11).
+
 ### Dashboard financeiro — [/gerencial/financeiro/dashboard](../src/app/gerencial/financeiro/dashboard/)
 A janela para o macro do Financeiro. Responde, nesta ordem: "tem algum problema para resolver hoje?" e "a empresa está saudável agora?". Página única para todos os perfis do módulo, sempre no presente — **sem filtro de período ou de conta**.
 
