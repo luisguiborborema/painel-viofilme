@@ -636,26 +636,69 @@ async function montar(
 
   const equipe = (colaboradores.data ?? []) as Linha[];
   const porCentro = new Map<string, ColaboradorFolha[]>();
+
+  let notasPjRecebidas = 0;
+  let pjsCadastrados = 0;
+  let pessoasPagas = 0;
+
   for (const c of equipe) {
+    const isPj = String(c.contract_type ?? "clt") === "pj";
+    const nomeColab = String(c.name ?? "").toLowerCase();
+    
+    const contasDoColab = todas.filter(
+      (conta) => conta.fornecedor.toLowerCase() === nomeColab
+    );
+
     const contratoCent = Math.round((Number(c.salary) || 0) * 100);
     const centro = String(c.squad ?? "") || "Sem centro de custo";
+
+    let totalCent = contratoCent;
+    let ajustesCent = 0;
+    let ajustesDescricao = "—";
+    let temNota = !isPj;
+    let pago = false;
+    let pagamentoLabel = "Não programado";
+
+    if (contasDoColab.length > 0) {
+      totalCent = contasDoColab.reduce((s, conta) => s + conta.valorCent, 0);
+      ajustesCent = totalCent - contratoCent;
+      ajustesDescricao = ajustesCent !== 0 ? (ajustesCent > 0 ? "+" : "") + brlCheio(ajustesCent) : "—";
+      
+      if (isPj) {
+        temNota = contasDoColab.some((conta) => conta.temNota);
+      }
+      pago = contasDoColab.every((conta) => conta.paga);
+      const aPagar = contasDoColab.filter(conta => !conta.paga);
+      if (pago) {
+         pagamentoLabel = contasDoColab.length > 1 ? "Pago (múltiplas)" : contasDoColab[0].relativo;
+      } else {
+         pagamentoLabel = aPagar.length > 0 ? aPagar[0].relativo : "Pendente";
+      }
+    }
+
+    if (isPj) {
+      pjsCadastrados++;
+      if (temNota) notasPjRecebidas++;
+    }
+    if (pago) pessoasPagas++;
+
     const linha: ColaboradorFolha = {
       id: String(c.id),
       nome: String(c.name ?? ""),
       subtitulo: [c.role, c.squad].filter(Boolean).join(", "),
       centroDeCusto: centro,
       contratoCent,
-      ajustesCent: 0,
-      ajustesDescricao: "—",
-      totalCent: contratoCent,
-      // A NF só se aplica a PJ; sócio e CLT não emitem.
-      temNota: String(c.contract_type ?? "clt") !== "pj",
-      notaLabel: String(c.contract_type ?? "clt") === "pj" ? "Pendente" : "Não se aplica",
-      pagamentoLabel: "Não programado",
-      pago: false,
+      ajustesCent,
+      ajustesDescricao,
+      totalCent,
+      temNota,
+      notaLabel: isPj ? (temNota ? "Recebida" : "Pendente") : "Não se aplica",
+      pagamentoLabel,
+      pago,
     };
     porCentro.set(centro, [...(porCentro.get(centro) ?? []), linha]);
   }
+
   const gruposFolha = [...porCentro.entries()].map(([nome, pessoas]) => ({
     nome,
     subtitulo: `${pessoas.length} ${pessoas.length === 1 ? "pessoa" : "pessoas"} · ${
@@ -663,7 +706,6 @@ async function montar(
     pessoas,
   }));
   const totalFolha = equipe.reduce((s, c) => s + Math.round((Number(c.salary) || 0) * 100), 0);
-  const pjs = equipe.filter((c) => String(c.contract_type ?? "clt") === "pj").length;
 
   const custoFixoCent = recorrencias
     .filter((r) => r.status === "active")
@@ -697,8 +739,8 @@ async function montar(
     folha: {
       grupos: gruposFolha,
       totalCent: totalFolha,
-      notasRecebidas: `0 de ${pjs}`,
-      pagos: `0 de ${equipe.length}`,
+      notasRecebidas: `${notasPjRecebidas} de ${pjsCadastrados}`,
+      pagos: `${pessoasPagas} de ${equipe.length}`,
       semEquipe: equipe.length === 0,
     },
     notasPendentes: todas.filter((c) => !c.paga && c.exigeNota && !c.temNota).length,
