@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +39,15 @@ type Body = {
  * não corresponde a lançamento nenhum (tarifa, rendimento, estorno).
  */
 export async function POST(req: Request) {
+  // Toda ação desta rota grava bank_entries, lido pelas telas do financeiro.
+  // Invalidar no envelope — e não em cada uma das seis saídas — é o que impede
+  // a próxima ação de nascer esquecida.
+  const resposta = await conciliar(req);
+  if (resposta.ok) revalidateTag("financeiro", { expire: 0 });
+  return resposta;
+}
+
+async function conciliar(req: Request) {
   const user = await getSession();
   if (user?.readOnly) return NextResponse.json({ error: "acesso somente leitura" }, { status: 403 });
   if (!user || user.role !== "gerencial") return NextResponse.json({ error: "não autorizado" }, { status: 401 });

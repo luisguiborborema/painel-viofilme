@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
       if (error) throw error;
       total += count ?? 0;
     }
-    return NextResponse.json({ ok: true, atualizados: total });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, atualizados: total }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/reconciled_at|42703/i.test(msg)) {

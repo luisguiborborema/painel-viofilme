@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -46,5 +47,5 @@ export async function POST(req: Request) {
   if (error) {
     return NextResponse.json({ error: "não foi possível silenciar o aviso" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
 }

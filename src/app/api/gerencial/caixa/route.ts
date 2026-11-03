@@ -76,16 +76,25 @@ export async function POST(req: Request) {
     target: b.transactionId ?? b.contaId ?? null,
   });
 
-  switch (acao) {
-    case "movimentacao": return novaMovimentacao(db, user, b, hoje);
-    case "transferencia": return novaTransferencia(db, user, b, hoje);
-    case "conciliar": return conciliar(db, user, b);
-    case "classificar": return classificar(db, user, b);
-    case "ignorar": return ignorar(db, user, b);
-    case "reativar": return reativar(db, b);
-    case "desfazer": return desfazer(db, b);
-    default: return erro("ação desconhecida");
-  }
+  const resposta = await (async () => {
+    switch (acao) {
+      case "movimentacao": return novaMovimentacao(db, user, b, hoje);
+      case "transferencia": return novaTransferencia(db, user, b, hoje);
+      case "conciliar": return conciliar(db, user, b);
+      case "classificar": return classificar(db, user, b);
+      case "ignorar": return ignorar(db, user, b);
+      case "reativar": return reativar(db, b);
+      case "desfazer": return desfazer(db, b);
+      default: return erro("ação desconhecida");
+    }
+  })();
+
+  // Toda ação daqui escreve, e a leitura do financeiro é cacheada sem janela de
+  // expiração: sem invalidar, a tela mostra o estado anterior para sempre.
+  // Invalidar no despacho — e não em cada saída — é o que impede a próxima ação
+  // de nascer esquecida. Foi assim que cinco das sete ficaram para trás.
+  if (resposta.ok) revalidateTag("financeiro", { expire: 0 });
+  return resposta;
 }
 
 /* ── Título liquidado nos bastidores (§13.4) ───────────────────────────── */
@@ -501,7 +510,7 @@ async function ignorar(
     reconciliation_status: "ignored",
   }).eq("id", movId);
   if (error) return erro(error.message, 500);
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, mensagem: "Movimentação ignorada. Ela sai do saldo." }));
+  return NextResponse.json({ ok: true, mensagem: "Movimentação ignorada. Ela sai do saldo." });
 }
 
 async function reativar(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) {
@@ -512,7 +521,7 @@ async function reativar(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) 
     reconciliation_status: "unreconciled",
   }).eq("id", movId);
   if (error) return erro(error.message, 500);
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, mensagem: "Movimentação reativada e de volta à fila." }));
+  return NextResponse.json({ ok: true, mensagem: "Movimentação reativada e de volta à fila." });
 }
 
 async function desfazer(db: Awaited<ReturnType<typeof createClient>>, b: Corpo) {

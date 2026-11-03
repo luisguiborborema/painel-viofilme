@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
         { onConflict: "id" },
       );
       if (error) throw error;
-      return NextResponse.json({ ok: true, closedUntil: ate });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, closedUntil: ate }));
     }
 
     // Lança a guia do mês como despesa a pagar — deixa de ser estimativa.
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
         }
         throw error;
       }
-      return NextResponse.json({ ok: true, valor });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, valor }));
     }
 
     // Orçamento de uma categoria no mês.
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
       { onConflict: "month,category_key" },
     );
     if (error) throw error;
-    return NextResponse.json({ ok: true });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/budgets.*does not exist|closed_until|42P01|42703/i.test(msg)) {

@@ -227,6 +227,10 @@ export async function POST(req: Request) {
       : `Ainda há ${brl(Math.abs(r.diferencaCent))} de diferença com o banco.`;
   }
 
+  // As movimentações importadas precisam aparecer na fila de conciliação e no
+  // saldo da conta — nada disso acontece sem invalidar o cache do financeiro.
+  revalidateTag("financeiro", { expire: 0 });
+
   return NextResponse.json({
     ok: true,
     importadas: novas.length,

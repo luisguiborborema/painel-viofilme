@@ -178,6 +178,10 @@ export async function POST(req: Request) {
   );
   if (eParcelas) return erro(eParcelas.message, 500);
 
+  // O título nasce aqui; sem invalidar, ele não aparece em nenhuma tela do
+  // financeiro, porque a leitura é cacheada sem janela de expiração.
+  revalidateTag("financeiro", { expire: 0 });
+
   return NextResponse.json({
     ok: true,
     documentId: docId,

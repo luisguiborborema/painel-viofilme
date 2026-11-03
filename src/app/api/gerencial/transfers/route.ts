@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
       if (!b.id) return NextResponse.json({ error: "id ausente" }, { status: 400 });
       const { error } = await supabase.from("account_transfers").delete().eq("id", b.id);
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
     }
 
     const de = clean(b.fromAccount);
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
       .select("id")
       .single();
     if (error) throw error;
-    return NextResponse.json({ ok: true, id: data.id });
+    return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true, id: data.id }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "erro";
     if (/account_transfers.*does not exist|42P01/i.test(msg)) {
