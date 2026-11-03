@@ -90,8 +90,16 @@ export function NovoLancamento({
     }));
   })();
 
+  // Contraparte OU descrição, nunca as duas obrigatórias. Exigir o fornecedor
+  // travava o lançamento por completo: `parties` nasce vazia e nada no sistema
+  // insere nela, então o seletor ficava só com "Escolha" e o botão nunca
+  // habilitava. O banco sempre aceitou despesa sem fornecedor — as contas a
+  // pagar que já existem não têm nenhum. O que não pode é ficar sem os dois:
+  // a rota nomeia o título de "Despesa" ou "Receita" quando a descrição vem
+  // vazia, e um título com esse nome é impossível de achar na lista depois.
+  const semIdentificacao = !contraparte && !descricao.trim();
   const pendencias = [
-    !contraparte && (receita ? "o cliente" : "o fornecedor"),
+    semIdentificacao && (receita ? "o cliente ou uma descrição" : "o fornecedor ou uma descrição"),
     totalCent <= 0 && "ao menos um item com valor",
     tipo !== "recorrente" && !vencimento && "o vencimento",
   ].filter(Boolean) as string[];
@@ -162,9 +170,14 @@ export function NovoLancamento({
               ))}
             </div>
 
-            <Campo rotulo={receita ? "Cliente" : "Fornecedor"}>
+            <Campo rotulo={receita ? "Cliente (opcional)" : "Fornecedor (opcional)"}>
               <select value={contraparte} onChange={(e) => setContraparte(e.target.value)} className={input}>
-                <option value="">Escolha</option>
+                {/* Lista vazia sem explicação parece erro de carregamento. */}
+                <option value="">
+                  {contrapartes.length
+                    ? "Sem vínculo"
+                    : receita ? "Nenhum cliente cadastrado" : "Nenhum fornecedor cadastrado"}
+                </option>
                 {contrapartes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
