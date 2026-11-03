@@ -370,8 +370,15 @@ function AbaContas({
       {dados.semClienteVinculado > 0 && (
         <Aviso
           tom="atencao"
+          // O card "Vencido" conta só as vencidas sem cliente. Sem dizer a
+          // relação, a tela mostrava "3 parcelas sem cliente vinculado" ali e
+          // "4 parcelas não têm cliente vinculado" aqui — dois números para o
+          // que se lê como a mesma frase.
           titulo={`${dados.semClienteVinculado} ${dados.semClienteVinculado === 1
-            ? "parcela não tem cliente vinculado" : "parcelas não têm cliente vinculado"}.`}
+            ? "parcela não tem cliente vinculado" : "parcelas não têm cliente vinculado"}${
+            dados.semClienteVencidas > 0
+              ? `, ${dados.semClienteVencidas} ${dados.semClienteVencidas === 1 ? "dela vencida" : "delas vencidas"}`
+              : ""}.`}
           texto="Vieram do Asaas ou de lançamento manual sem cliente. Sem o vínculo, elas não entram no perfil pagador nem na régua de cobrança do cliente."
         />
       )}

@@ -274,8 +274,15 @@ function CardReceita({ dados }: { dados: DashboardFinanceiro }) {
     >
       <span className="flex w-full items-end justify-between gap-3">
         <span className="flex min-w-0 flex-col gap-0.5">
+          {/* Recorrente FATURADO no mês, e não o MRR contratado: o título
+              promete novembro, a barra já é desenhada sobre o faturado, e
+              `mrrCent` é a soma do monthly_fee dos clientes ativos — um número
+              de outra natureza. Mostrá-lo aqui dizia "Recorrente R$ 34.050" num
+              mês em que nada recorrente foi faturado, e o total abaixo não
+              fechava com nenhuma das duas parcelas. O MRR contratado continua
+              na linha de baixo, nomeado. */}
           <span className="text-[24px] font-semibold leading-none tracking-tight text-ink">
-            {brlCheio(receita.mrrCent)}
+            {brlCheio(receita.recorrenteFaturadoCent)}
           </span>
           <span className={cn("text-[11px] font-semibold", TEXTO_RECORRENTE)}>Recorrente</span>
         </span>
@@ -299,6 +306,7 @@ function CardReceita({ dados }: { dados: DashboardFinanceiro }) {
           {receita.totalCent > 0
             ? `Total de ${brlCheio(receita.totalCent)} faturados`
             : "Nada faturado neste mês ainda"}
+          {receita.mrrCent > 0 && `. MRR contratado de ${brlCheio(receita.mrrCent)}`}
           {receita.deltaMrr30Cent != null && receita.deltaMrr30Cent !== 0 && (
             <>
               . MRR{" "}

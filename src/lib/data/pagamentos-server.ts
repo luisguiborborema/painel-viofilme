@@ -528,14 +528,21 @@ async function montar(
 
   /* ── Visões, chips e filtros (§5.1, §5.2) ─────────────────────────────── */
 
-  const emAberto = todas.filter((c) => !c.paga);
+  // As abas são do MÊS exibido, como em Recebimentos e como o seletor de mês
+  // logo abaixo promete. Com `todas` no lugar de `doMes`, "Em aberto" contava
+  // conta de qualquer mês: o cabeçalho dizia "A pagar em novembro: 1 conta" e a
+  // aba ao lado dizia 3, e "Em aberto 3 + Vencidas 2" não fechava com "Todas 3".
+  const emAberto = doMes.filter((c) => !c.paga);
   const aAprovar = todas.filter((c) => c.aprovacao === "pending");
 
   const visao = filtros.visao ?? "aberto";
+  // "Todas" inclui o atraso de outro mês: sem isso, a soma das abas não bate
+  // com o total e a tela parece quebrada por causa de um recorte.
+  const todasDaVisao = [...doMes, ...vencidas.filter((c) => !doMes.includes(c))];
   const porVisao = (v: string) =>
     v === "vencidas" ? vencidas
-    : v === "pagas" ? todas.filter((c) => c.paga)
-    : v === "todas" ? todas
+    : v === "pagas" ? pagasMes
+    : v === "todas" ? todasDaVisao
     : v === "aprovar" ? aAprovar
     : emAberto;
 

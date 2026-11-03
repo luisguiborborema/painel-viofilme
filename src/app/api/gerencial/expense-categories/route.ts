@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache";
+import { LINHAS_GERENCIAIS } from "@/lib/data/planejamento";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -18,6 +19,11 @@ const IMPACTOS = new Set([
   "operating_expense", "financial_result", "investment", "equity_financing",
 ]);
 const BLOCOS = new Set(["operating", "investing", "financing", "internal"]);
+// As linhas gerenciais do orçamento. A lista é a do Planejamento, importada e
+// não repetida: `budget_line` fora dela deixa a categoria fora do orçado ×
+// realizado, que foi como a tabela nasceu permanentemente vazia.
+const LINHAS_ORCAMENTO = new Set(LINHAS_GERENCIAIS.map((l) => l.key));
+
 const LINHAS = new Set([
   "recebimentos", "outras", "equipe", "diretos", "estrutura",
   "impostos", "cartao", "financeiro", "equipamentos", "socios", "reserva",
@@ -34,6 +40,7 @@ type Body = {
   impactType?: string;
   cashFlowGroup?: string;
   cashFlowLine?: string;
+  budgetLine?: string;
   requiresInvoice?: boolean;
   requiresReceipt?: boolean;
   ordem?: string[]; // ids na nova ordem
@@ -108,6 +115,11 @@ export async function POST(req: Request) {
     }
     if (b.cashFlowLine !== undefined && LINHAS.has(String(b.cashFlowLine))) {
       campos.cash_flow_line = b.cashFlowLine;
+    }
+    // Vazio limpa: é o único jeito de desfazer uma classificação errada.
+    if (b.budgetLine !== undefined) {
+      campos.budget_line =
+        b.budgetLine && LINHAS_ORCAMENTO.has(String(b.budgetLine)) ? b.budgetLine : null;
     }
     if (b.requiresInvoice !== undefined) campos.requires_invoice = Boolean(b.requiresInvoice);
     if (b.requiresReceipt !== undefined) campos.requires_receipt = Boolean(b.requiresReceipt);

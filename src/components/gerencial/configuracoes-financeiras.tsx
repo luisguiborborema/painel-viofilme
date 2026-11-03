@@ -281,9 +281,9 @@ function Categorias({ dados, onSalvou }: { dados: Dados; onSalvou: () => void })
         </p>
       )}
 
-      <div className="hidden grid-cols-[minmax(0,1fr)_200px_180px_100px] gap-3 border-y border-line bg-subtle px-5 py-2.5 text-[11px] text-muted lg:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_190px_170px_170px_90px] gap-3 border-y border-line bg-subtle px-5 py-2.5 text-[11px] text-muted lg:grid">
         <span>Categoria</span><span>Tipo de impacto</span><span>Linha do fluxo de caixa</span>
-        <span>Exige NF</span>
+        <span>Linha do orçamento</span><span>Exige NF</span>
       </div>
 
       {dados.categorias.map((c) => (
@@ -307,7 +307,7 @@ function LinhaDaCategoria({
   }
 
   return (
-    <div className="grid items-center gap-3 border-b border-line px-5 py-3 lg:grid-cols-[minmax(0,1fr)_200px_180px_100px]">
+    <div className="grid items-center gap-3 border-b border-line px-5 py-3 lg:grid-cols-[minmax(0,1fr)_190px_170px_170px_90px]">
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-medium text-ink">{c.label}</span>
         <span className="truncate font-mono text-[10px] text-muted">{c.key}</span>
@@ -336,6 +336,23 @@ function LinhaDaCategoria({
       >
         <option value="">Derivado do tipo de impacto</option>
         {dados.opcoes.linhas.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+      </select>
+
+      {/* Sem esta linha a categoria fica fora do orçado × realizado do
+          Planejamento, que mandava "defina o grupo em Configurações" sem que o
+          campo existisse em lugar nenhum. A borda âmbar é a mesma do tipo de
+          impacto: avisa sem bloquear, porque a classificação é decisão de quem
+          monta o orçamento — "Equipe e pró-labore" no fluxo pode ser entrega,
+          administrativa ou pró-labore aqui, e só o Gui sabe qual. */}
+      <select
+        value={c.linhaOrcamento ?? ""}
+        onChange={(e) => alterar({ budgetLine: e.target.value })}
+        className={cn(input, !c.linhaOrcamento && "border-amber-500/50")}
+      >
+        <option value="">Fora do orçamento</option>
+        {dados.opcoes.linhasOrcamento.map((l) => (
+          <option key={l.key} value={l.key}>{l.label}</option>
+        ))}
       </select>
 
       <Chave ligado={c.exigeNota} onMudar={(v) => alterar({ requiresInvoice: v })} />

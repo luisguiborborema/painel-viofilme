@@ -236,6 +236,8 @@ export type RecebimentosView = {
   vencidasForaDoMes: number;
   /** Parcelas de entrada sem cliente vinculado — o aviso que a tabela mostra. */
   semClienteVinculado: number;
+  /** Quantas dessas já venceram — o card "Vencido" conta só essas. */
+  semClienteVencidas: number;
   recorrencias: RecorrenciaReceita[];
   recorrenciasResumo: {
     mrrCent: number;
@@ -335,6 +337,7 @@ function vazio(hojeIso: string, semDados: boolean, pendente = false): Recebiment
     contas: [], totalNoFiltro: 0,
     rodape: { totalCent: 0, abertoCent: 0, recebidoCent: 0, vencidoCent: 0 },
     visoes: [], semCobranca: 0, vencidasForaDoMes: 0, semClienteVinculado: 0,
+    semClienteVencidas: 0,
     recorrencias: [],
     recorrenciasResumo: {
       mrrCent: 0, ativas: 0, pausadas: 0, reajustes30: 0, encerrando60: 0,
@@ -1016,6 +1019,7 @@ async function montar(
     semCobranca: semCobranca.length,
     vencidasForaDoMes: vencidas.filter((c) => !doMes.includes(c)).length,
     semClienteVinculado: todas.filter((c) => !c.partyId && !c.clienteId).length,
+    semClienteVencidas: vencidas.filter((c) => !c.partyId && !c.clienteId).length,
     recorrencias: recorrenciasLinhas,
     recorrenciasResumo: {
       mrrCent: recorrenciasLinhas.filter((r) => r.status === "active")

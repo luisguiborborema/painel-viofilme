@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { IMPACT_TYPES, type ImpactType } from "@/lib/data/resultados";
 import { BLOCOS, LINHAS_FLUXO } from "@/lib/data/caixa";
+import { LINHAS_GERENCIAIS } from "@/lib/data/planejamento";
 
 /**
  * Configurações Financeiras — o lugar único dos parâmetros do módulo.
@@ -55,6 +56,9 @@ export type CategoriaConfig = {
   impacto: ImpactType | null;
   blocoFluxo: string | null;
   linhaFluxo: string | null;
+  /** Linha do orçamento gerencial. Sem ela a categoria fica fora do orçado ×
+   *  realizado do Planejamento — e era o único campo que nenhuma tela gravava. */
+  linhaOrcamento: string | null;
   exigeNota: boolean;
   exigeComprovante: boolean;
   ativa: boolean;
@@ -83,6 +87,7 @@ export type ConfiguracoesView = {
     blocos: { key: string; label: string }[];
     linhas: { key: string; label: string; bloco: string }[];
     tipos: { key: string; label: string }[];
+    linhasOrcamento: { key: string; label: string }[];
   };
 };
 
@@ -102,6 +107,7 @@ const vazio = (pendente: boolean, motivo: string | null): ConfiguracoesView => (
     blocos: BLOCOS.map((b) => ({ key: b.key, label: b.label })),
     linhas: LINHAS_FLUXO.map((l) => ({ key: l.key, label: l.label, bloco: l.bloco })),
     tipos: TIPOS_DE_CONTA,
+    linhasOrcamento: LINHAS_GERENCIAIS.map((l) => ({ key: l.key, label: l.label })),
   },
 });
 
@@ -116,7 +122,7 @@ export async function getConfiguracoesFinanceiras(): Promise<ConfiguracoesView> 
         "counts_as_available, requires_statement_confirmation")
       .order("position").order("name"),
     db.from("expense_categories")
-      .select("id, key, label, impact_type, cash_flow_group, cash_flow_line, " +
+      .select("id, key, label, impact_type, cash_flow_group, cash_flow_line, budget_line, " +
         "requires_invoice, requires_receipt, active")
       .order("position"),
     db.from("dunning_steps")
@@ -227,6 +233,7 @@ export async function getConfiguracoesFinanceiras(): Promise<ConfiguracoesView> 
     impacto: (c.impact_type ? String(c.impact_type) : null) as ImpactType | null,
     blocoFluxo: c.cash_flow_group ? String(c.cash_flow_group) : null,
     linhaFluxo: c.cash_flow_line ? String(c.cash_flow_line) : null,
+    linhaOrcamento: c.budget_line ? String(c.budget_line) : null,
     exigeNota: Boolean(c.requires_invoice),
     exigeComprovante: Boolean(c.requires_receipt),
     ativa: c.active !== false,
