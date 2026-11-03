@@ -86,21 +86,29 @@ export async function POST(req: Request) {
     target: id,
   });
 
-  switch (acao) {
-    case "pagar":
-      return pagar(db, user, p, b, hoje);
-    case "informar-valor":
-      return informarValor(db, p, b);
-    case "aprovar":
-    case "rejeitar":
-      return decidirAprovacao(db, user, p, acao, b);
-    case "programar":
-      return programar(db, p, b);
-    case "cancelar":
-      return cancelar(db, p, b);
-    default:
-      return erro("ação desconhecida");
-  }
+  const resposta = await (async () => {
+    switch (acao) {
+      case "pagar":
+        return pagar(db, user, p, b, hoje);
+      case "informar-valor":
+        return informarValor(db, p, b);
+      case "aprovar":
+      case "rejeitar":
+        return decidirAprovacao(db, user, p, acao, b);
+      case "programar":
+        return programar(db, p, b);
+      case "cancelar":
+        return cancelar(db, p, b);
+      default:
+        return erro("ação desconhecida");
+    }
+  })();
+
+  // Invalidar no despacho, e não em cada saída: era "pagar" — a ação mais
+  // importante da página — a única das seis que não invalidava, e o efeito era
+  // a conta continuar em aberto na tela depois de paga.
+  if (resposta.ok) revalidateTag("financeiro", { expire: 0 });
+  return resposta;
 }
 
 /* ── Registrar pagamento (spec §8) ─────────────────────────────────────── */
@@ -240,7 +248,7 @@ async function informarValor(
 
   // O título tem de continuar fechando com as parcelas (§23.3).
   await ressincronizarTitulo(db, String(p.document_id));
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
+  return NextResponse.json({ ok: true });
 }
 
 /**
@@ -294,7 +302,7 @@ async function decidirAprovacao(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
+  return NextResponse.json({ ok: true });
 }
 
 /* ── Programar (spec §17) ──────────────────────────────────────────────── */
@@ -313,7 +321,7 @@ async function programar(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
+  return NextResponse.json({ ok: true });
 }
 
 /* ── Cancelar (spec §17) ───────────────────────────────────────────────── */
@@ -336,5 +344,5 @@ async function cancelar(
     })
     .eq("id", String(p.id));
   if (error) return erro(error.message, 500);
-  return (revalidateTag("financeiro", { expire: 0 }), NextResponse.json({ ok: true }));
+  return NextResponse.json({ ok: true });
 }

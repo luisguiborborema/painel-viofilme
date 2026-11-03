@@ -61,6 +61,15 @@ const PERIFERIA = new Set([
   "dashboard_visits",
 ]);
 
+/**
+ * Saídas de sucesso que não gravam nada e por isso não invalidam. A prévia da
+ * importação de extrato lê o arquivo, conta as linhas e devolve o que
+ * aconteceria — a gravação só vem no segundo passo, que invalida.
+ */
+const SAIDAS_DE_LEITURA: Record<string, string> = {
+  "caixa/importar/route.ts": "a prévia (etapa !== confirmar) só lê e conta; quem grava é o segundo passo.",
+};
+
 const arquivo = (p: string) => readFileSync(join(RAIZ, p), "utf8");
 
 function rotasDe(dir: string): string[] {
@@ -118,6 +127,47 @@ test("toda rota que grava tabela do financeiro invalida a tag", () => {
     "estas rotas gravam tabela lida pelo financeiro e não invalidam o cache — " +
     "a tela vai mostrar o estado anterior. Chame revalidateTag(\"financeiro\", { expire: 0 }) " +
     "no sucesso, ou declare o motivo em SO_LEEM:",
+  );
+});
+
+/**
+ * Uma invalidação por arquivo não basta. A rota de Pagamentos tinha quatro e
+ * mesmo assim "pagar" — a ação mais importante da página — saía sem invalidar:
+ * o teste anterior via as quatro e dava por satisfeito. O mesmo em Recebimentos
+ * com "receber".
+ *
+ * A regra que pega isso: numa rota que invalida, **nenhuma** saída de sucesso
+ * pode ser um `NextResponse.json({ ok: true` solto. Ou cada saída invalida na
+ * própria linha, ou a rota usa o envelope no despacho — que é a forma de não
+ * precisar lembrar a cada ação nova.
+ */
+test("nenhuma saída de sucesso escapa da invalidação", () => {
+  const escapando: string[] = [];
+  for (const rota of rotasDe("src/app/api/gerencial")) {
+    const s = arquivo(rota);
+    if (!s.includes('revalidateTag("financeiro"')) continue;
+    // Envelope: uma invalidação no despacho cobre todas as saídas.
+    if (/if \(resposta\.ok\) revalidateTag\("financeiro"/.test(s)) continue;
+
+    const chave = rota.replace("src/app/api/gerencial/", "");
+    const linhas = s.split("\n");
+    linhas.forEach((linha, i) => {
+      if (!/(return|=>)\s*NextResponse\.json\(\{?\s*$|ok: true/.test(linha)) return;
+      if (!/ok: true/.test(linha) && !/ok: true/.test(linhas[i + 1] ?? "")) return;
+      // Caminho sem banco: não há nada gravado para invalidar.
+      if (/persisted: false/.test(linha)) return;
+      if (SAIDAS_DE_LEITURA[chave]) return;
+      // Na própria linha ou nas três anteriores — invalidar antes do return é
+      // tão válido quanto o operador vírgula, e mais legível em objeto grande.
+      const janela = linhas.slice(Math.max(0, i - 3), i + 1).join("\n");
+      if (!janela.includes('revalidateTag("financeiro"')) escapando.push(`${chave}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(
+    escapando, [],
+    "estas saídas de sucesso gravam e não invalidam — a ação escapa e a tela " +
+    "não muda. Use o envelope no despacho (`if (resposta.ok) revalidateTag(...)`) " +
+    "em vez de repetir por saída:",
   );
 });
 

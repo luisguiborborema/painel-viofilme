@@ -99,8 +99,14 @@ export async function POST(req: Request) {
     action: acao, area: "Financeiro · recebimentos", target: id,
   });
 
-  if (acao === "receber") return receber(db, user, p, b, hoje);
-  return erro("ação desconhecida");
+  if (acao !== "receber") return erro("ação desconhecida");
+
+  // "receber" era a única ação da rota sem invalidação: a baixa entrava no
+  // banco e a parcela seguia em aberto na tela, porque a leitura do financeiro
+  // é cacheada sem janela de expiração.
+  const resposta = await receber(db, user, p, b, hoje);
+  if (resposta.ok) revalidateTag("financeiro", { expire: 0 });
+  return resposta;
 }
 
 /* ── Registrar recebimento (spec §6) ───────────────────────────────────── */

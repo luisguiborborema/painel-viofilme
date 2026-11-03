@@ -85,6 +85,7 @@ export async function POST(req: Request) {
         if ((count ?? 0) > 0) {
           const { error } = await supabase.from("expense_categories").update({ active: false }).eq("id", b.id);
           if (error) throw error;
+          revalidateTag("financeiro", { expire: 0 });
           return NextResponse.json({
             ok: true,
             desativada: true,
