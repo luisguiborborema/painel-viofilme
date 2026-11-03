@@ -129,12 +129,32 @@ async function criarTituloLiquidado(
   if (eDoc || !doc) return { erro: eDoc?.message ?? "não foi possível criar o título" };
 
   const docId = String((doc as Linha).id);
-  await db.from("document_items").insert({
+
+  /**
+   * Desfaz o que já foi gravado. Não há transação aqui — são quatro inserts
+   * em sequência pelo cliente do Supabase —, e sem isto uma falha no meio
+   * deixava título e item órfãos. Como a DRE lê de itens de título (§13.4),
+   * esse item passava a contar como receita ou despesa para sempre, sem
+   * parcela e sem nada na tela que o explicasse.
+   */
+  const desfazer = async (motivo: string) => {
+    const { data: ps } = await db.from("installments").select("id").eq("document_id", docId);
+    for (const pl of (ps ?? []) as Linha[]) {
+      await db.from("settlements").delete().eq("installment_id", String(pl.id));
+    }
+    await db.from("installments").delete().eq("document_id", docId);
+    await db.from("document_items").delete().eq("document_id", docId);
+    await db.from("documents").delete().eq("id", docId);
+    return { erro: motivo };
+  };
+
+  const { error: eItem } = await db.from("document_items").insert({
     document_id: docId,
     amount_cents: input.valorCent,
     category_key: input.categoriaKey,
     description: input.descricao,
   });
+  if (eItem) return desfazer(eItem.message);
 
   const { data: parcela, error: eParcela } = await db.from("installments").insert({
     document_id: docId,
@@ -148,7 +168,7 @@ async function criarTituloLiquidado(
     status: "open",
     expected_account_id: input.contaId,
   }).select("id").maybeSingle();
-  if (eParcela || !parcela) return { erro: eParcela?.message ?? "não foi possível criar a parcela" };
+  if (eParcela || !parcela) return desfazer(eParcela?.message ?? "não foi possível criar a parcela");
 
   const parcelaId = String((parcela as Linha).id);
   const { data: baixa, error: eBaixa } = await db.from("settlements").insert({
@@ -159,7 +179,7 @@ async function criarTituloLiquidado(
     origin: "manual",
     created_by: user.name || user.email,
   }).select("id").maybeSingle();
-  if (eBaixa || !baixa) return { erro: eBaixa?.message ?? "não foi possível criar a baixa" };
+  if (eBaixa || !baixa) return desfazer(eBaixa?.message ?? "não foi possível criar a baixa");
 
   return { baixaId: String((baixa as Linha).id), parcelaId };
 }
