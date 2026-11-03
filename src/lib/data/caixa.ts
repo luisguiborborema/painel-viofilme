@@ -38,7 +38,7 @@ export const BLOCOS: { key: BlocoFluxo; label: string }[] = [
 export type LinhaFluxo =
   | "recebimentos" | "outras" | "equipe" | "diretos" | "estrutura"
   | "impostos" | "cartao" | "financeiro"
-  | "equipamentos" | "socios" | "reserva";
+  | "equipamentos" | "socios" | "reserva" | "transferencia";
 
 export const LINHAS_FLUXO: { key: LinhaFluxo; label: string; bloco: BlocoFluxo }[] = [
   { key: "recebimentos", label: "Recebimentos de clientes", bloco: "operating" },
@@ -52,6 +52,9 @@ export const LINHAS_FLUXO: { key: LinhaFluxo; label: string; bloco: BlocoFluxo }
   { key: "equipamentos", label: "Equipamentos", bloco: "investing" },
   { key: "socios", label: "Distribuição e aportes", bloco: "financing" },
   { key: "reserva", label: "Aplicações na reserva", bloco: "internal" },
+  // A perna de uma transferência precisava de linha própria: a única linha
+  // interna era "Aplicações na reserva", que mentiria sobre um BTG → Asaas.
+  { key: "transferencia", label: "Transferência entre contas", bloco: "internal" },
 ];
 
 /**

@@ -298,7 +298,7 @@ async function montar(
   const inicioJanela = somarDias(hoje, -janela.passadoDias);
   const fimJanela = somarDias(hoje, janela.horizonte);
 
-  const [contasRes, cfgRes, catsRes, movsRes, parcelasRes, checkRes, importsRes] = await Promise.all([
+  const [contasRes, cfgRes, catsRes, movsRes, parcelasRes, checkRes, importsRes, transfRes] = await Promise.all([
     db.from("financial_accounts")
       .select("id, name, kind, opening_balance, active, is_default, position, " +
         "counts_as_available, requires_statement_confirmation, archived_at, " +
@@ -327,6 +327,11 @@ async function montar(
     db.from("statement_imports")
       .select("account_id, period_end, imported_at, status")
       .eq("status", "active").order("imported_at", { ascending: false }),
+    // As duas pernas de cada transferência. Sem elas, a movimentação de
+    // transferência não tem título nem categoria e cai no bloco operacional
+    // por omissão — o que fazia R$ 100 trocando de conta virar R$ 33 de
+    // "saída operacional por mês" e inventar um fôlego que não existe.
+    db.from("transfers").select("from_transaction_id, to_transaction_id, fee_transaction_id"),
   ]);
 
   const contas = exigirDado<Linha[]>(contasRes, "contas financeiras");
@@ -427,16 +432,28 @@ async function montar(
   const linhaDaMovimentacao = await montarLinhaDaMovimentacao(db, movimentos, catDe);
 
   const eventos: EventoDoCaixa[] = [];
+  // A tarifa do banco é despesa de verdade e fica de fora: só as duas pernas
+  // do par são dinheiro que apenas mudou de lugar.
+  const pernasDeTransferencia = new Set<string>();
+  for (const t of ((transfRes.data ?? []) as Linha[])) {
+    for (const k of ["from_transaction_id", "to_transaction_id"]) {
+      if (t[k]) pernasDeTransferencia.add(String(t[k]));
+    }
+  }
+
   for (const m of movimentos) {
     if (m.ignored_reason) continue;
     const contaId = String(m.financial_account_id);
     if (contaFiltrada && contaId !== contaFiltrada.id) continue;
     const info = linhaDaMovimentacao.get(String(m.id));
+    const ehTransferencia = pernasDeTransferencia.has(String(m.id));
     eventos.push({
       dataIso: String(m.date),
       valorCent: cent(m.amount_cents),
-      bloco: info?.bloco ?? "operating",
-      linha: info?.linha ?? (cent(m.amount_cents) > 0 ? "outras" : "estrutura"),
+      bloco: ehTransferencia ? "internal" : info?.bloco ?? "operating",
+      linha: ehTransferencia
+        ? "transferencia"
+        : info?.linha ?? (cent(m.amount_cents) > 0 ? "outras" : "estrutura"),
       descricao: String(m.description_clean ?? m.description_raw ?? "Movimentação"),
       tipo: "realizado",
       contaId,
@@ -475,7 +492,7 @@ async function montar(
     eventos.push({
       dataIso: data,
       valorCent: entrada ? saldo : -saldo,
-      bloco: entrada ? "operating" : "operating",
+      bloco: "operating",
       linha: entrada ? "recebimentos" : "estrutura",
       descricao: String(doc?.description ?? (entrada ? "Recebimento previsto" : "Pagamento previsto")),
       tipo: "previsto",
@@ -484,6 +501,19 @@ async function montar(
   }
 
   /* ── Períodos do gráfico ──────────────────────────────────────────────── */
+
+  // No consolidado, transferência entre contas não é entrada nem saída: as duas
+  // pernas se anulam no saldo, mas somavam nos totais BRUTOS — "Saídas
+  // previstas" subia R$ 100 porque R$ 100 mudaram de conta. É o que o modal já
+  // promete: "no fluxo consolidado ela não aparece, só no da conta".
+  //
+  // Com uma conta filtrada só uma das pernas está aqui, e aí ela é saída de
+  // verdade daquela conta — por isso o recorte depende do filtro.
+  if (!contaFiltrada) {
+    for (let i = eventos.length - 1; i >= 0; i--) {
+      if (eventos[i].bloco === "internal") eventos.splice(i, 1);
+    }
+  }
 
   const saldoBase = contaFiltrada ? contaFiltrada.saldoCent : disponivelCent;
   const periodosBrutos = periodosDaJanela(hoje, janela);

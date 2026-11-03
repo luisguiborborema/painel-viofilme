@@ -27,6 +27,7 @@ const LINHAS_ORCAMENTO = new Set(LINHAS_GERENCIAIS.map((l) => l.key));
 const LINHAS = new Set([
   "recebimentos", "outras", "equipe", "diretos", "estrutura",
   "impostos", "cartao", "financeiro", "equipamentos", "socios", "reserva",
+  "transferencia",
 ]);
 const clean = (v?: string) => (v && v.trim() ? v.trim() : null);
 
