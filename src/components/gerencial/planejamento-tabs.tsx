@@ -38,9 +38,25 @@ export function PlanejamentoTabs({
   futuro: PlanejamentoFuturoView;
   acumulado: boolean;
 }) {
-  const [aba, setAba] = useState<Aba>("orcamento");
   const router = useRouter();
   const params = useSearchParams();
+
+  // A aba vem da URL, como nas outras telas do Financeiro. Sem isso, link para
+  // "?aba=projecao" caía no Orçamento, recarregar perdia a aba e o voltar do
+  // navegador não voltava — esta era a única página do módulo assim.
+  const daUrl = params.get("aba");
+  const [aba, setAba] = useState<Aba>(
+    daUrl === "projecao" || daUrl === "cenarios" ? daUrl : "orcamento",
+  );
+
+  function trocarAba(nova: Aba) {
+    setAba(nova);
+    // replaceState e não router.push: a troca de aba é client-side, e um push
+    // faria o servidor refazer a página inteira a cada clique.
+    const p = new URLSearchParams(params.toString());
+    p.set("aba", nova);
+    window.history.replaceState(null, "", `?${p.toString()}`);
+  }
 
   function irPara(patch: Record<string, string>) {
     const p = new URLSearchParams(params.toString());
@@ -61,7 +77,7 @@ export function PlanejamentoTabs({
           <button
             key={a.key}
             type="button"
-            onClick={() => setAba(a.key)}
+            onClick={() => trocarAba(a.key)}
             className={cn(
               "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors",
               aba === a.key
